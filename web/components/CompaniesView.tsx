@@ -355,7 +355,7 @@ export default function CompaniesView() {
                     <RateGroup title="🔊 소리펜" items={SOUND_ITEMS} />
                     <RateGroup title="✍ 필기펜" items={PEN_ITEMS} />
                     <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6, lineHeight: 1.6 }}>
-                      편집 프로젝트의 청구액이 이 단가로 계산됩니다(항목 수량 × 단가). 교재별 할인은 <b>편집 프로젝트 &gt; 교재 수정</b>에서.
+                      편집 프로젝트의 청구액이 이 단가로 계산됩니다(항목 수량 × 단가). 단가를 바꾸면 <b>이후 등록되는 교재(책)부터 적용</b>되고, <b>기존 교재는 등록 당시 단가가 그대로 유지</b>됩니다. 교재별 할인은 <b>편집 프로젝트 &gt; 교재 수정</b>에서.
                     </div>
                   </>
                 );

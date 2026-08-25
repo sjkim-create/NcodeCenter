@@ -14,7 +14,7 @@ import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers
 import { setBookOverride } from "@/lib/editOverrides";
 import { logActivity } from "@/lib/activityStore";
 import { EDIT_CUSTOMERS } from "@/lib/editingData";
-import { BASE_RATE, rateMapOf, settleBook, bookHasDiscount, hasCustomRates, SOUND_QTY, PEN_QTY, type RateMap } from "@/lib/pricing";
+import { BASE_RATE, RATE_ITEMS, rateMapOf, settleBook, bookHasDiscount, hasCustomRates, SOUND_QTY, PEN_QTY, type RateMap } from "@/lib/pricing";
 
 const KIND_BG: Record<string, string> = { 요청: "#fef3c7", 처리: "#dcfce7", 메모: "#eef2f7" };
 const KIND_FG: Record<string, string> = { 요청: "#92400e", 처리: "#166534", 메모: "#475569" };
@@ -28,6 +28,9 @@ type BR = {
   det?: Att; out?: Att; app?: Att; pmdl?: string; logs?: BookLog[];
   // 프로젝트(교재)별 단가·할인 — 미지정이면 고객사 단가·할인 0
   pu?: number; su?: number; dcRate?: number; dcAmt?: number; dcNote?: string;
+  // 등록 시점의 고객사 단가 스냅샷 — 이후 고객사 단가가 바뀌어도 이 교재는 이 단가로 정산한다.
+  //   rs = 항목별 단가맵 · rsAt = 적용 시점(YYYY-MM-DD). 없는(구) 교재는 현재 고객사 단가로 계산.
+  rs?: RateMap; rsAt?: string;
   cu?: string;   // 사용 고객사 — 공유 OWNER(레퍼런스 코드)일 때만 사용
   nhist?: { date: string; movedAt: string; by: string }[];   // 완료→진행중 전환 시 보관하는 ncp2 최종수정 이력
 };
@@ -148,8 +151,10 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   };
 
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3000); };
-  // 교재 1건 정산 (고객사 단가 → 프로젝트 단가·할인 적용)
-  const bill = (r: BR) => settleBook({ ty: r.ty, pg: r.pg, sm: r.sm, pm: r.pm, dcRate: r.dcRate, dcAmt: r.dcAmt }, rateMap);
+  // 교재에 적용할 단가 — 등록 시 스냅샷(rs)이 있으면 그것, 없으면 현재 고객사 단가
+  const rateOf = (r: BR): RateMap => r.rs ?? rateMap;
+  // 교재 1건 정산 (교재 단가 스냅샷 → 교재별 할인 적용)
+  const bill = (r: BR) => settleBook({ ty: r.ty, pg: r.pg, sm: r.sm, pm: r.pm, dcRate: r.dcRate, dcAmt: r.dcAmt }, rateOf(r));
   const cost = (r: BR) => bill(r).total;                 // 청구액
   const discounted = (r: BR) => bookHasDiscount(r);
 
@@ -287,7 +292,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     if (isSharedRow(editing.row) && !(editing.row.cu ?? "").trim()) {
       alert(`S${editing.row.s}/O${editing.row.o} 는 공유 코드입니다. 사용 고객사를 입력하세요.`); return;
     }
-    const r = editing.row;
+    // 단가 스냅샷 — 신규 교재는 현재 고객사 단가로 고정한다.
+    // 스냅샷이 없는 구 교재도 저장 시점에 현재 적용 단가로 고정해, 이후 단가 변경의 영향을 받지 않게 한다.
+    const r: BR = editing.row.rs ? editing.row : { ...editing.row, rs: { ...rateMap }, rsAt: today() };
     const next = editing.idx === -1 ? [r, ...rows] : rows.map((x, i) => (i === editing.idx ? r : x));
     commit(next);
     // 공유(커먼) 코드면 SOBP 맵에 사용 고객사·상태(편집)를 반영 (편집 프로젝트 등록 = 편집 관리 → ea=1)
@@ -339,8 +346,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
 
       <div style={{ ...S.card, padding: "10px 12px", marginBottom: 10, fontSize: 12.5, color: "#374151", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ ...S.tag, background: customRates ? "#fef3c7" : "#f3f4f6", color: customRates ? "#92400e" : "#6b7280", fontWeight: 700 }}
-          title={customRates ? "고객사 관리에서 지정한 전용 단가(항목별)" : "고객사 전용 단가가 없어 전사 기본 단가로 계산합니다."}>
-          {customRates ? "고객사 단가" : "기본 단가"} : 적용 - {applyUnit.toLocaleString()}원/페이지 · 편집(기본) - {editUnit.toLocaleString()}원/심볼
+          title={(customRates ? "고객사 관리에서 지정한 전용 단가(항목별)" : "고객사 전용 단가가 없어 전사 기본 단가로 계산합니다.") + " · 신규 교재에 적용되는 단가입니다. 기존 교재는 등록 시점 단가로 정산됩니다."}>
+          {customRates ? "고객사 단가" : "기본 단가"} (신규 교재 기준) : 적용 - {applyUnit.toLocaleString()}원/페이지 · 편집(기본) - {editUnit.toLocaleString()}원/심볼
         </span>
         {customRates && (
           <span style={{ fontSize: 11, color: "#9ca3af" }}>항목별 단가는 고객사 관리 참조</span>
@@ -759,7 +766,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               <span style={{ fontSize: 13 }}>심볼 합계 <b style={{ color: "#2563eb", fontSize: 16 }}>{tSum(editing.row).toLocaleString()}</b></span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", marginTop: 8, paddingTop: 8, borderTop: "1px dashed #bfdbfe" }}>
-              <span style={{ fontSize: 12.5, color: "#374151" }}>적용비 <b>{won(eb.pageAmt)}</b><span style={{ color: "#9ca3af", fontSize: 11 }}> ({(editing.row.pg || 0).toLocaleString()}p × {(rateMap[editing.row.ty !== "소리펜" ? "w_page" : "s_page"]).toLocaleString()})</span></span>
+              <span style={{ fontSize: 12.5, color: "#374151" }}>적용비 <b>{won(eb.pageAmt)}</b><span style={{ color: "#9ca3af", fontSize: 11 }}> ({(editing.row.pg || 0).toLocaleString()}p × {(rateOf(editing.row)[editing.row.ty !== "소리펜" ? "w_page" : "s_page"]).toLocaleString()})</span></span>
               <span style={{ fontSize: 12.5, color: "#374151" }}>편집·기능비 <b>{won(eb.symAmt)}</b><span style={{ color: "#9ca3af", fontSize: 11 }}> (항목별 단가 합)</span></span>
               <span style={{ marginLeft: "auto", fontSize: 14 }}>청구액 <b style={{ color: "#2563eb", fontSize: 18 }}>{won(eb.total)}</b></span>
             </div>
@@ -776,16 +783,34 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               <div style={{ ...rowBox, borderColor: dcOn ? "#fecaca" : "#eef0f4", background: dcOn ? "#fffafa" : "#fff" }}>
                 <div style={{ ...rowHead, display: "flex", alignItems: "center", gap: 8 }}>
                   편집 단가 · 할인 정산
-                  <span style={{ ...S.tag, background: customRates ? "#fef3c7" : "#f3f4f6", color: customRates ? "#92400e" : "#6b7280" }}
-                    title={myCompany ? "고객사 관리에서 지정한 항목별 단가로 계산" : "고객사 관리에 미등록 — 기본 단가"}>
-                    {customRates ? "고객사 단가" : "기본 단가"} · 적용 {rateMap.s_page.toLocaleString()} / 편집 {rateMap.s_edit.toLocaleString()}
-                  </span>
+                  {(() => {
+                    const rr = rateOf(row);
+                    const frozen = !!row.rs;
+                    // 스냅샷과 현재 고객사 단가가 다른가 (= 고객사 단가가 그 뒤로 바뀜)
+                    const changed = frozen && RATE_ITEMS.some((it) => (rr[it.key] ?? it.base) !== (rateMap[it.key] ?? it.base));
+                    return (
+                      <>
+                        <span style={{ ...S.tag, background: frozen ? "#eef6ff" : (customRates ? "#fef3c7" : "#f3f4f6"), color: frozen ? "#2563eb" : (customRates ? "#92400e" : "#6b7280") }}
+                          title={frozen
+                            ? `등록 시점(${row.rsAt ?? "-"})의 고객사 단가로 정산합니다. 이후 고객사 단가가 바뀌어도 이 교재는 바뀌지 않습니다.`
+                            : (myCompany ? "고객사 관리에서 지정한 현재 항목별 단가로 계산 (저장하면 이 단가로 고정됩니다)" : "고객사 관리에 미등록 — 기본 단가")}>
+                          {frozen ? `등록 시 단가 (${row.rsAt ?? "-"})` : (customRates ? "고객사 단가" : "기본 단가")} · 적용 {rr.s_page.toLocaleString()} / 편집 {rr.s_edit.toLocaleString()}
+                        </span>
+                        {changed && (
+                          <button onClick={() => { if (confirm("이 교재를 현재 고객사 단가로 다시 계산할까요? (등록 시 단가가 대체됩니다)")) setEditing((ed) => (ed ? { ...ed, row: { ...ed.row, rs: { ...rateMap }, rsAt: today() } } : ed)); }}
+                            style={{ ...S.smallBtn, color: "#b45309" }} title={`현재 고객사 단가: 적용 ${rateMap.s_page.toLocaleString()} / 편집 ${rateMap.s_edit.toLocaleString()}`}>
+                            ⚠ 고객사 단가 변경됨 — 현재 단가로 갱신
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
                   {dcOn && <span style={{ ...S.tag, background: "#fee2e2", color: "#b91c1c", fontWeight: 700 }}>할인 적용</span>}
                   <button onClick={() => setEditing((ed) => (ed ? { ...ed, row: { ...ed.row, dcRate: undefined, dcAmt: undefined, dcNote: undefined } } : ed))}
                     style={{ ...S.smallBtn, marginLeft: "auto" }} title="할인 없음으로 되돌리기">할인 초기화</button>
                 </div>
 
-                <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 8 }}>단가는 <b>고객사 관리</b>에서 항목별로 지정합니다. 여기서는 이 교재의 할인만 입력합니다.</div>
+                <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 8 }}>단가는 <b>고객사 관리</b>에서 항목별로 지정합니다. 교재는 <b>등록 시점의 단가로 고정</b>되며, 이후 고객사 단가가 바뀌어도 기존 교재의 청구액은 그대로 유지됩니다. 여기서는 이 교재의 할인만 입력합니다.</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
                   <Field label="할인율 (%)">
                     <input type="number" min={0} max={100} step={0.5} style={S.input} value={row.dcRate ?? 0}
@@ -804,7 +829,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                 <div style={{ marginTop: 12, border: "1px solid #eef0f4", borderRadius: 9, overflow: "hidden" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
                     <tbody>
-                      <Line label="적용비 (페이지)" detail={`${row.pg.toLocaleString()}p × ${(rateMap[row.ty !== "소리펜" ? "w_page" : "s_page"]).toLocaleString()}`} value={won(b.pageAmt)} />
+                      <Line label="적용비 (페이지)" detail={`${row.pg.toLocaleString()}p × ${(rateOf(row)[row.ty !== "소리펜" ? "w_page" : "s_page"]).toLocaleString()}`} value={won(b.pageAmt)} />
                       <Line label="편집·기능비" detail={`심볼·기능 ${tSum(row).toLocaleString()} (항목별 단가 합)`} value={`＋ ${won(b.symAmt)}`} />
                       <Line label="합계 (할인 전)" detail="적용비 + 편집·기능비" value={won(b.gross)} />
                       {b.rateDc > 0 && <Line label={`할인율 ${row.dcRate}%`} detail="합계 기준" value={`− ${won(b.rateDc)}`} minus />}
