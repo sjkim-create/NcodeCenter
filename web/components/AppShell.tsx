@@ -15,6 +15,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profile, setProfile] = useState<{ name: string; password: string } | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  // 하위 메뉴가 있는 그룹(예: CasterN 서비스 관리)의 접힘 상태 — 라벨 기준
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const toggleGroup = (label: string) => setCollapsed((c) => ({ ...c, [label]: !c[label] }));
   const authState = useAuth();
   const me = currentUser(authState);
   const isAdmin = me?.role === "ADMIN";   // 활동 로그 등 admin 전용 메뉴 노출 기준
@@ -77,7 +80,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             return (
               <div key={gi} style={{ marginBottom: 10 }}>
                 {grp.group && <div style={S.groupLabel}>{grp.group}</div>}
-                {renderItems(items, best)}
+                {renderItems(items, best, collapsed, toggleGroup)}
               </div>
             );
           })}
@@ -145,8 +148,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-// 헤더(그룹) + 하위메뉴 렌더 — 하위는 해당 그룹 경로에 있을 때만 펼침
-function renderItems(items: MenuItem[], best: string) {
+// 헤더(그룹) + 하위메뉴 렌더 — 헤더를 누르면 하위 메뉴가 접혔다 펼쳐진다.
+// 기본은 펼침이며, 하위 화면에 있는 동안에는 접어도 강제로 펼친다(현재 위치를 잃지 않도록).
+function renderItems(items: MenuItem[], best: string, collapsed: Record<string, boolean>, toggleGroup: (label: string) => void) {
   const out: React.ReactNode[] = [];
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
@@ -154,13 +158,16 @@ function renderItems(items: MenuItem[], best: string) {
       const children: MenuItem[] = [];
       let j = i + 1;
       while (j < items.length && items[j].child) { children.push(items[j]); j++; }
-      const expanded = true;   // 하위 그룹(프로젝트 관리)은 기본 펼침
+      const hasActive = children.some((c) => c.path === best);
+      const expanded = hasActive || !collapsed[it.label];
       out.push(
-        <Link key={it.label} href={it.path || "#"} style={{ ...S.item, fontWeight: 600, color: "#374151" }}>
+        <button key={it.label} onClick={() => toggleGroup(it.label)}
+          title={expanded ? "하위 메뉴 접기" : "하위 메뉴 펼치기"}
+          style={{ ...S.item, ...S.headerBtn, ...(hasActive ? { color: "#111827" } : {}) }}>
           <span style={S.itemIcon}>{it.icon}</span>
-          <span style={{ flex: 1 }}>{it.label}</span>
+          <span style={{ flex: 1, textAlign: "left" }}>{it.label}</span>
           <span style={{ fontSize: 10, color: "#c0c6d0" }}>{expanded ? "▾" : "▸"}</span>
-        </Link>
+        </button>
       );
       if (expanded) {
         for (const c of children) {
@@ -211,6 +218,10 @@ const S: Record<string, React.CSSProperties> = {
   item: {
     display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", margin: "1px 0",
     borderRadius: 9, color: "#4b5563", textDecoration: "none", fontSize: 13.5,
+  },
+  headerBtn: {
+    width: "100%", border: 0, background: "none", cursor: "pointer",
+    fontWeight: 600, color: "#374151", fontSize: 13.5, fontFamily: "inherit",
   },
   parentHead: { display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", margin: "1px 0", fontSize: 13.5, color: "#374151", fontWeight: 600 },
   itemChild: { marginLeft: 26, paddingLeft: 12, fontSize: 13, color: "#6b7280", borderLeft: "1.5px solid #eef0f4" },

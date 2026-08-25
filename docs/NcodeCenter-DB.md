@@ -100,11 +100,13 @@ CREATE TABLE customers (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 계정(App Key) 부여 고객 사용자
+-- 계정(App Key) 부여 고객 사용자 = 서비스 계정
 CREATE TABLE customer_users (
   id           SERIAL PRIMARY KEY,
   customer_id  INT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-  user_ref     TEXT NOT NULL,                        -- 계정 식별(App Key 연동)
+  user_ref     TEXT NOT NULL,                        -- 계정 식별(email · App Key 연동)
+  service      TEXT NOT NULL                         -- 사용처(연동 서비스) — 이 서비스에서만 로그인 허용
+                 CHECK (service IN ('CASTERN','FORMSOLUTION','SDK')),
   UNIQUE (customer_id, user_ref)
 );
 

@@ -1,12 +1,24 @@
 "use client";
 
-// Caster U(웹 편집툴) 계정 + App Key 서비스 DB (목업 · localStorage)
-// - 계정: 온라인 편집툴 로그인용 (회사정보·ID(email)·PWD·NAME·ADDR·HOMEPAGE)
+// 서비스 계정 + App Key 서비스 DB (목업 · localStorage)
+// - 계정: 서비스 로그인용 (회사정보·ID(email)·PWD·NAME·ADDR·HOMEPAGE)
 // - App Key: 관리자가 발급 → 이 스토어(서비스 DB)에 등록 + 계정과 연동. 계정 로그인 시 연동된 SOBP로 작업
+// - service(사용처): 이 계정이 연동되는 서비스. 각 서비스는 자기 계정만 로그인시킨다.
+//   (CasterN = Caster U 웹 편집툴 / FORMSOLUTION = 폼솔루션 / SDK = 직접 연동)
 import { useSyncExternalStore } from "react";
+
+// 사용처(연동 서비스) — 계정 로그인 허용 범위를 가르는 값
+export type AccountService = "CASTERN" | "FORMSOLUTION" | "SDK";
+export const ACCOUNT_SERVICES: { v: AccountService; label: string; desc: string }[] = [
+  { v: "CASTERN", label: "CasterN", desc: "Caster U 웹 편집툴 · 계정 로그인" },
+  { v: "FORMSOLUTION", label: "폼솔루션", desc: "폼솔루션 서비스 · 계정 로그인" },
+  { v: "SDK", label: "SDK 연동", desc: "id/pwd + SOBP 직접 사용" },
+];
+export const accountServiceLabel = (v?: string) => ACCOUNT_SERVICES.find((s) => s.v === v)?.label ?? "미지정";
 
 export type CasterAccount = {
   id: string;          // = 로그인 ID(email)
+  service: AccountService;   // 사용처 — 이 계정이 연동되는 서비스
   pwd: string;
   name: string;
   companyId: number;
@@ -19,6 +31,7 @@ export type AppKey = {
   id: number;
   key: string;         // 발급 App Key (ncc_live_...)
   accountId: string;   // 연동 계정(email)
+  service: AccountService;   // 사용처 — 계정과 동일한 서비스
   company: string;
   pt: string; section: number; owner: number; bookStart: number; bookEnd: number;
   pageStart: number; pageEnd: number;
@@ -62,6 +75,15 @@ export const caster = {
     return rec;
   },
   removeAppKey(id: number) { commit({ ...state, appKeys: state.appKeys.filter((k) => k.id !== id) }); },
+
+  // 서비스별 계정 목록 — 각 서비스는 자기 계정만 로그인 대상으로 본다.
+  accountsOfService(service: AccountService) { return state.accounts.filter((a) => a.service === service); },
+  // 서비스 로그인 허용 판정 — 계정이 그 서비스에 연동돼 있고 유효한 App Key가 있어야 한다.
+  canLogin(service: AccountService, accountId: string) {
+    const acc = state.accounts.find((a) => a.id.toLowerCase() === accountId.toLowerCase());
+    if (!acc || acc.service !== service) return false;
+    return state.appKeys.some((k) => k.accountId === acc.id && k.service === service);
+  },
 };
 const EMPTY: State = { accounts: [], appKeys: [] };
 

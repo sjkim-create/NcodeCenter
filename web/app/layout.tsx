@@ -19,7 +19,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body>
+      {/* suppressHydrationWarning — 브라우저 확장(ColorZilla 등)이 <body>에 속성을 주입해
+          서버/클라이언트 HTML이 달라지는 것을 무시한다. 앱 코드와 무관한 경고. */}
+      <body suppressHydrationWarning>
         <StyledRegistry>
           <AuthProvider>
             <AppShell>{children}</AppShell>

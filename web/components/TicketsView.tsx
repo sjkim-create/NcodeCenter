@@ -8,7 +8,7 @@ import { logActivity } from "@/lib/activityStore";
 import { makeZip } from "@/lib/zip";
 import { codesOfCompany } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
-import { caster, useCaster } from "@/lib/accountStore";
+import { caster, useCaster, ACCOUNT_SERVICES, accountServiceLabel, type AccountService } from "@/lib/accountStore";
 import {
   addTicket, allTickets, deleteTicket, hydrateTickets, setBilling, useTickets,
   BILLINGS, BILLINGS_FILTER, BILL_COLOR, daysLeft, plusMonth, type Billing, type Ticket,
@@ -653,7 +653,7 @@ function AppKeyForm({ companies, projects, me, companyId, setCompanyId }: { comp
   const [addr, setAddr] = useState("");
   const [homepage, setHomepage] = useState("");
   // 발급 조건
-  const [usage, setUsage] = useState<"casteru" | "sdk">("casteru");
+  const [usage, setUsage] = useState<AccountService>("CASTERN");   // 사용처 = 연동 서비스
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [until, setUntil] = useState("");
   const [unlimited, setUnlimited] = useState(true);
@@ -704,23 +704,23 @@ function AppKeyForm({ companies, projects, me, companyId, setCompanyId }: { comp
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(id.trim())) { setToast({ ok: false, text: "계정 ID는 이메일 형식이어야 합니다." }); return; }
       if (!pwd.trim()) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
       if (!range) { setToast({ ok: false, text: "할당된 SOBP 범위를 선택하세요." }); return; }
-      const r = caster.addAccount({ id: id.trim(), pwd: pwd.trim(), name: name.trim(), companyId: company.id, company: company.name, addr: addr.trim(), homepage: homepage.trim() });
+      const r = caster.addAccount({ id: id.trim(), pwd: pwd.trim(), name: name.trim(), service: usage, companyId: company.id, company: company.name, addr: addr.trim(), homepage: homepage.trim() });
       if (!r.ok) { setToast({ ok: false, text: r.msg }); return; }
-      acc = { id: id.trim(), pwd: pwd.trim(), name: name.trim(), companyId: company.id, company: company.name, addr: addr.trim(), homepage: homepage.trim(), createdAt: "" };
+      acc = { id: id.trim(), pwd: pwd.trim(), name: name.trim(), service: usage, companyId: company.id, company: company.name, addr: addr.trim(), homepage: homepage.trim(), createdAt: "" };
     }
     if (!acc) { setToast({ ok: false, text: "계정을 선택하세요." }); return; }
     if (!range) { setToast({ ok: false, text: "할당된 SOBP 범위를 선택하세요." }); return; }
 
     const key = genKeyStr();
     const untilVal = unlimited ? "무제한" : (until || "무제한");
-    caster.addAppKey({ key, accountId: acc.id, company: acc.company, pt: range.pt,
+    caster.addAppKey({ key, accountId: acc.id, service: usage, company: acc.company, pt: range.pt,
       section: range.section, owner: range.owner, bookStart: range.bookStart, bookEnd: range.bookEnd,
       pageStart: range.pageStart, pageEnd: range.pageEnd, until: untilVal });
     setIssued({ key, account: acc.id, pwd: acc.pwd });
-    const summary = `계정 ${acc.id} · ${usage === "sdk" ? "SDK" : "Caster U"} · ${range.pt} S${range.section}/O${range.owner}/B${range.bookStart}~${range.bookEnd} · ${untilVal}`;
+    const summary = `계정 ${acc.id} · ${accountServiceLabel(usage)} · ${range.pt} S${range.section}/O${range.owner}/B${range.bookStart}~${range.bookEnd} · ${untilVal}`;
     addTicket({ kind: "APP", companyId: acc.companyId, company: acc.company, by: me?.name ?? "", summary,
       params: {
-        CompanyName: acc.company, AccountId: acc.id, Usage: usage === "sdk" ? "SDK" : "Caster U",
+        CompanyName: acc.company, AccountId: acc.id, Service: accountServiceLabel(usage), Usage: accountServiceLabel(usage),
         AppKey: key, PatternType: range.pt === "PDS3" ? "Ncode_PDS3" : "Ncode_PDS2",
         Section: range.section, Owner: range.owner,
         BookStart: range.bookStart, BookEnd: range.bookEnd,
@@ -786,11 +786,13 @@ function AppKeyForm({ companies, projects, me, companyId, setCompanyId }: { comp
       <div style={{ marginTop: 16 }}>
         <StepHead n={3} t="발급 조건" d="사용처 · 만료" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <Field label="사용처">
-            <select style={S.input} value={usage} onChange={(e) => setUsage(e.target.value as "casteru" | "sdk")}>
-              <option value="casteru">웹 편집툴 (계정 로그인)</option>
-              <option value="sdk">SDK 연동 (id/pwd + SOBP 사용)</option>
+          <Field label="사용처 (연동 서비스) *">
+            <select style={S.input} value={usage} onChange={(e) => setUsage(e.target.value as AccountService)}>
+              {ACCOUNT_SERVICES.map((sv) => <option key={sv.v} value={sv.v}>{sv.label} — {sv.desc}</option>)}
             </select>
+            <div style={{ fontSize: 10.5, color: "#9ca3af", marginTop: 4, lineHeight: 1.5 }}>
+              계정은 <b>선택한 서비스에서만 로그인</b>됩니다. 서비스는 자기 계정만 관리·인증합니다.
+            </div>
           </Field>
           <Field label="만료일 (기간)">
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -839,6 +841,8 @@ function AppKeyForm({ companies, projects, me, companyId, setCompanyId }: { comp
                     <b>{a.company}</b>
                     <code style={{ fontFamily: "ui-monospace,monospace", color: "#374151" }}>{a.id}</code>
                     {a.name && <span style={{ color: "#6b7280" }}>{a.name}</span>}
+                    <span style={{ ...S.tag, background: a.service ? "#ecfdf5" : "#fef2f2", color: a.service ? "#047857" : "#b91c1c", fontWeight: 700 }}
+                      title="이 계정이 로그인할 수 있는 서비스">{accountServiceLabel(a.service)}</span>
                     <span style={{ ...S.tag, background: keys.length ? "#eef6ff" : "#f3f4f6", color: keys.length ? "#2563eb" : "#9ca3af" }}>App Key {keys.length}</span>
                     <span style={{ flex: 1 }} />
                     <button onClick={() => { if (confirm("이 계정과 연동 App Key를 삭제할까요?")) caster.removeAccount(a.id); }} style={{ ...S.linkBtn, color: "#dc2626" }}>삭제</button>
@@ -847,6 +851,7 @@ function AppKeyForm({ companies, projects, me, companyId, setCompanyId }: { comp
                     <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, paddingLeft: 10, fontSize: 11.5, color: "#6b7280", flexWrap: "wrap" }}>
                       <code style={{ fontFamily: "ui-monospace,monospace" }}>{k.key.slice(0, 18)}…</code>
                       <span style={{ ...S.tag, background: k.pt === "PDS3" ? "#eef6ff" : "#fef3c7", color: k.pt === "PDS3" ? "#2563eb" : "#92400e" }}>{k.pt} S{k.section}/O{k.owner}/B{k.bookStart}~{k.bookEnd}</span>
+                      <span>{accountServiceLabel(k.service)}</span>
                       <span>유효 {k.until}</span>
                       <span style={{ flex: 1 }} />
                       <span style={{ fontFamily: "ui-monospace,monospace" }}>{k.createdAt}</span>

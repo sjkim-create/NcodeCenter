@@ -29,14 +29,14 @@ const PDS_FILTERS = [
   { v: "N", label: "PDS3(Ncode)" },
 ] as const;
 // 고객사 카드 부제용 짧은 사용 서비스명
-const SHORT_SVC: Record<string, string> = { CASTERN: "casterN", AIGLE: "아이글", FORMSOLUTION: "폼솔루션", NEONOTE: "NeoStudio2", NCODEPRINTER: "Ncode 프린터", NONE: "서비스 없음" };
+const SHORT_SVC: Record<string, string> = { CASTERN: "casterN", FORMSOLUTION: "폼솔루션", NONE: "서비스 없음" };
 const shortSvc = (v: string) => SHORT_SVC[v] ?? serviceLabel(v as ServiceType);
 
 export default function ProjectsView() {
   const { companies, projects } = useStore();
   useEffect(() => { hydrateMembers(); }, []);
   useCommonMembers();   // 공통코드 사용 고객사(하위) 변경 시 재렌더
-  const emptyDraft = (): Draft => ({ name: "", companyId: companies[0]?.id ?? 0, service: "NEONOTE", grade: "", issued: [] });
+  const emptyDraft = (): Draft => ({ name: "", companyId: companies[0]?.id ?? 0, service: "NONE", grade: "", issued: [] });
 
   const [editing, setEditing] = useState<Project | null>(null);
   const [form, setForm] = useState<Draft>(emptyDraft);

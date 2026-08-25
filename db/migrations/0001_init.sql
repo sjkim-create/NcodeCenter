@@ -52,7 +52,10 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE TABLE IF NOT EXISTS customer_users (
   id           SERIAL PRIMARY KEY,
   customer_id  INT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-  user_ref     TEXT NOT NULL,
+  user_ref     TEXT NOT NULL,                       -- 계정 ID(email) · App Key 연동
+  -- 사용처(연동 서비스): 계정은 이 서비스에서만 로그인된다. 서비스가 자기 계정만 인증·관리.
+  service      TEXT NOT NULL DEFAULT 'CASTERN'
+                 CHECK (service IN ('CASTERN','FORMSOLUTION','SDK')),
   UNIQUE (customer_id, user_ref)
 );
 

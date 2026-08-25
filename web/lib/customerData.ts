@@ -5,13 +5,10 @@
 // "서비스 없음" = 서비스는 안 쓰고 코드만 발급받는 프로젝트
 // casterN 서비스 코드는 [편집 프로젝트] 메뉴에서 관리한다.
 export type ServiceType =
-  | "CASTERN" | "AIGLE" | "FORMSOLUTION" | "NEONOTE" | "NCODEPRINTER" | "NONE";
+  | "CASTERN" | "FORMSOLUTION" | "NONE";
 export const SERVICE: { v: ServiceType; label: string }[] = [
   { v: "CASTERN", label: "casterN (편집툴)" },
-  { v: "AIGLE", label: "아이글" },
   { v: "FORMSOLUTION", label: "폼솔루션" },
-  { v: "NEONOTE", label: "NeoStudio2" },
-  { v: "NCODEPRINTER", label: "Ncode 프린터 (드라이버)" },
   { v: "NONE", label: "서비스 없음 (코드만 발급)" },
 ];
 export const serviceLabel = (v: ServiceType) => SERVICE.find((s) => s.v === v)?.label ?? v;
@@ -107,7 +104,7 @@ export const SEED_COMPANIES: Company[] = [
 
 export const SEED_PROJECTS: Project[] = [
   {
-    id: 1, name: "네오노트 수학 콘텐츠", companyId: 1, service: "NEONOTE", grade: "",
+    id: 1, name: "네오노트 수학 콘텐츠", companyId: 1, service: "NONE", grade: "",
     issued: [{ id: 1, date: "2026-05-10", codes: 140, section: 5, owner: 100, bookStart: 1, bookEnd: 5, pageStart: 1, pageEnd: 140 },
              { id: 2, date: "2026-06-05", codes: 122, section: 5, owner: 100, bookStart: 6, bookEnd: 9, pageStart: 1, pageEnd: 140 }],
   },
@@ -124,7 +121,7 @@ export const SEED_PROJECTS: Project[] = [
     issued: [],
   },
   {
-    id: 5, name: "에듀플랫폼(수능)", companyId: 3, service: "AIGLE", grade: "",
+    id: 5, name: "에듀플랫폼(수능)", companyId: 3, service: "NONE", grade: "",
     issued: [{ id: 1, date: "2026-07-02", codes: 40, section: 10, owner: 0, bookStart: 1, bookEnd: 40, pageStart: 0, pageEnd: 1023 }],
   },
 ];

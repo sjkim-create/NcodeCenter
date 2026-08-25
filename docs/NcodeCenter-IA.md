@@ -17,6 +17,7 @@
 | `SOB` | SOBP 맵 | `INF` | Ncode 정보 |
 | `PRJ` | 프로젝트 | `BRD` | 브랜드(CI) |
 | `PUI` | PUI 코드 | `DBS` | DB 구조 |
+| `SVC` | 서비스 관리(예정) | | |
 | `CMN` | 공통(로그인·계정) | | |
 
 ---
@@ -31,13 +32,15 @@ NcodeCenter
 │   │   ├─ N Key (물리 키)          TKT-01-1
 │   │   ├─ 계정 + App Key           TKT-01-2
 │   │   └─ 발급 목록·정산           TKT-01-3
-│   └─ SOBP 맵                      SOB-01   (/ownership)
-├─ [프로젝트 관리]
-│   ├─ 코드 프로젝트                PRJ-01   (/projects)
-│   │   └─ 프로젝트 상세(우측)      PRJ-01-1
-│   ├─ 편집 프로젝트                PRJ-02   (/projects/editing)
-│   │   └─ 편집 프로젝트 상세       PRJ-03   (/projects/editing/[owner])
-│   └─ PUI 코드 (피지컬)            PUI-01   (/pui)
+│   ├─ SOBP 맵                      SOB-01   (/ownership)
+│   └─ 코드 프로젝트                PRJ-01   (/projects)   ← 전 서비스 공통
+│       └─ 프로젝트 상세(우측)      PRJ-01-1
+├─ [서비스 관리]                            ← 사내 Ncode 사용 서비스별 (확장 축)
+│   ├─ CasterN 서비스 관리
+│   │   ├─ 편집 프로젝트            PRJ-02   (/projects/editing)
+│   │   │   └─ 편집 프로젝트 상세   PRJ-03   (우측 상세 패널)
+│   │   └─ PUI 코드 (피지컬)        PUI-01   (/pui)
+│   └─ 폼솔루션 서비스 관리  예정    SVC-01   (/services/formsolution)
 ├─ [멤버 관리]
 │   ├─ 고객사 관리                  CLI-01   (/companies)
 │   │   └─ 고객사 수정(모달)        CLI-01-1
@@ -64,18 +67,20 @@ NcodeCenter
 | 화면 ID | 메뉴명 | Depth | 경로(Path) | 컴포넌트 | 권한 | 기능 설명 |
 |---------|--------|:---:|------------|----------|------|-----------|
 | **DSH-01** | 대시보드 | 2 | `/` | `DashboardView` | Staff/Admin | 할당 코드 레코드·업체·Book·섹션 KPI, 코드 사용 현황 요약 (코드 상태 = 할당됨/미발급) |
-| — | **코드** (그룹) | 1 | — | — | — | 코드 발급·소유권 지도 영역 |
+| — | **코드** (그룹) | 1 | — | — | — | 코드 발급·소유권 지도·코드 프로젝트(전 서비스 공통) 영역 |
 | **TKT-01** | 티켓 발급 | 2 | `/tickets` | `TicketsView` | Staff/Admin | 코드 티켓 발급 및 발급 이력·정산 관리 |
 | TKT-01-1 | └ N Key (물리 키) | 3 | `/tickets` (탭) | `NKeyForm` | Staff/Admin | 물리 N Key(HLP) 발급 폼 — 고객사·프로젝트 선택 후 발급 |
 | TKT-01-2 | └ 계정 + App Key | 3 | `/tickets` (탭) | `AppKeyForm` | Staff/Admin | 계정 기반 App Key 발급 폼 |
 | TKT-01-3 | └ 발급 목록·정산 | 3 | `/tickets` (탭) | `TicketListView` | Staff/Admin | 발급 티켓 목록·정산, 대장(HLP 발급대장)/신규 발급 필터 |
 | **SOB-01** | SOBP 맵 | 2 | `/ownership` | `OwnershipMap` | Staff/Admin | Section·Owner·Book·Page 소유권 지도, 상태(발급/미발급/편집/공유/사용가능)·제품·고객사 필터 드릴다운. 직접 코드 할당 시 **사용 서비스** 지정(Ncode 프린터 포함) |
-| — | **프로젝트 관리** (그룹) | 1 | — | — | — | 코드·편집·피지컬 프로젝트 관리 영역 |
+| — | **서비스 관리** (그룹) | 1 | — | — | — | 사내에서 Ncode를 쓰는 **서비스별 프로젝트 현황(집계·상태)** 관리 영역. 서비스 추가 = `menu.ts` `SERVICE_MENUS` 1건 추가 |
+| — | └ **CasterN 서비스 관리** (헤더) | 1 | — | — | — | casterN 편집툴 고유 관리 — 편집 프로젝트·PUI 코드 |
 | **PRJ-01** | 코드 프로젝트 | 2 | `/projects` | `ProjectsView` | Staff/Admin | 고객사별 코드 프로젝트 목록(마스터), 공유(커먼) 코드 표시·검색 |
 | PRJ-01-1 | └ 프로젝트 상세 | 3 | `/projects` (우측 패널) | `ProjectsView` | Staff/Admin | 선택 프로젝트의 코드종류·Section/Owner·발급 상세 |
 | **PRJ-02** | 편집 프로젝트 | 2 | `/projects/editing` | `EditingProjectsView` | Staff/Admin | 편집 고객사 목록, 발급규모(페이지)·편집원가(심볼) 단가 기준 집계·검색·고객사 추가 |
 | **PRJ-03** | 편집 프로젝트 상세 | 2 | `/projects/editing/[owner]` | `EditingDetailView` | Staff/Admin | 오너별 Book·편집 가능 범위·할당 SO·공유 정보 상세 |
 | **PUI-01** | PUI 코드 (피지컬) | 2 | `/pui` | `PuiView` | Staff/Admin | 피지컬 UI 기능표 — 카테고리·기능별 Book/Page·파라미터 참조 |
+| **SVC-01** | 폼솔루션 서비스 관리 | 2 | `/services/formsolution` | `MenuPlaceholder` | Staff/Admin | ⬜ 예정 — 등급별 SO 풀 현황·end-user 자동 배정 내역 |
 | — | **멤버 관리** (그룹) | 1 | — | — | — | 고객사·감사 로그 영역 |
 | **CLI-01** | 고객사 관리 | 2 | `/companies` | `CompaniesView` | Admin | 고객사 CRUD, 서비스유형·등급·전용 owner·커먼 코드 보유 필터·가나다 정렬 |
 | CLI-01-1 | └ 고객사 수정 | 3 | `/companies` (모달) | `CompaniesView` | Admin | 고객사 정보 수정 폼(단가 지정 포함) |
@@ -109,7 +114,7 @@ NcodeCenter
 
 ## 4. 요약
 
-- **최상위 그룹 6개**: 대시보드(단독) · 코드 · 프로젝트 관리 · 멤버 관리 · 정보 · 공통
-- **주요 화면(Depth 2) 13개** + **하위 탭/상세/모달(Depth 3) 다수**
+- **최상위 그룹 6개**: 대시보드(단독) · 코드 · **서비스 관리** · 멤버 관리 · 정보 · 공통
+- **주요 화면(Depth 2) 13개**(+ 서비스 관리 예정 1개) + **하위 탭/상세/모달(Depth 3) 다수**
 - **Admin 전용**: 활동 로그(LOG-01), 고객사 관리(CLI-01)
 - **정본 소스**: 메뉴 = `web/lib/menu.ts` · 라우트 = `web/app/**/page.tsx`

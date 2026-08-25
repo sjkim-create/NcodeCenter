@@ -81,52 +81,42 @@ Ncode 코드는 계층 주소다: **Section → Owner → Book → Page**.
 
 ## 4. 메뉴 구조도
 
-> **메뉴 1개 = 상세 MD 1개**(`docs/menus/NN-name.md`). 이 트리가 전체 지도이며, **새 메뉴/MD는 반드시 여기에 추가·연결**한다.
-> 상태 표기: `MD ✅/⬜` (상세 문서 유무) · 구현 노트.
+> **정본**: 메뉴 = `web/lib/menu.ts` · 라우트 = `web/app/**`. 화면 목록·코드는 [IA](NcodeCenter-IA.md), 화면별 명세는 [PRD](prd/README.md).
+> **확장 규칙**: NcodeCenter는 사내에서 **Ncode를 쓰는 모든 서비스**의 프로젝트 현황(집계·상태)을 관리한다.
+> 서비스가 늘어나면 `menu.ts`의 **`SERVICE_MENUS` 배열에 1건만 추가**한다 — 화면이 있으면 하위 메뉴로 펼쳐지고, 없으면 `/services/{key}` 안내(예정) 메뉴가 된다.
 
 ```
 NcodeCenter
-├─ 1  대시보드 (Dashboard)          MD ✅  · 소유권맵 구현 / 나머지 위젯 예정
-├─ 2  업체/프로젝트 등록 (Registration)  MD ⬜  · 내부 직원이 직접 등록
-├─ 3  코드 요청/할당 (Requests) ★   MD ✅  · 엔진 구현 / 화면 예정
-├─ 4  티켓 발급 (Tickets)           MD ⬜  · 프로토타입 있음
-├─ 5  Ncode 예약 (Reservations)     MD ⬜
-├─ 6  Ncode 할당 (Allocations)      MD ⬜  · 엔진 web/lib/allocationEngine.ts
-├─ 7  고객사 관리 (Companies)       MD ⬜
-├─ 8  사용자·권한 (Users)           MD ⬜
-├─ 9  활동 로그 (Activity Log)      MD ⬜
-├─ 10 Ncode 정보 (Ncode Info)       MD ⬜  · 기존/프로토타입
-└─ 11 설정 (Settings)               MD ⬜
+├─ 대시보드                                  DSH-01   (/)
+├─ [코드]
+│   ├─ 티켓 발급                             TKT-01   (/tickets)
+│   ├─ SOBP 맵                               SOB-01   (/ownership)
+│   └─ 코드 프로젝트                          PRJ-01   (/projects)  ← 전 서비스 공통 조회
+├─ [서비스 관리]                              ← 사내 Ncode 사용 서비스별 관리 (확장 축)
+│   ├─ CasterN 서비스 관리                    (구현)
+│   │   ├─ 편집 프로젝트                      PRJ-02   (/projects/editing)
+│   │   └─ PUI 코드 (피지컬)                  PRJ-06   (/pui)
+│   └─ 폼솔루션 서비스 관리        예정        (/services/formsolution)
+├─ [멤버 관리]
+│   ├─ 고객사 관리                            MEM-01   (/companies)
+│   └─ 활동 로그          ★Admin              LOG-01   (/activity)
+└─ [정보]
+    ├─ Ncode 정보                             INF-01   (/info)
+    ├─ 브랜드 (CI)                            (PRD 없음)
+    └─ DB 구조                                (PRD 없음)
 ```
 
-### 메뉴 인덱스 (역할·상세 MD)
+### 서비스 ↔ 관리 메뉴 매핑
 
-| # | 메뉴 | 역할 | 신규/기존 | 상세 MD |
-|--:|------|------|-----------|---------|
-| 1 | **대시보드** (Dashboard) | Staff/Admin | 신규 | [menus/01-dashboard.md](menus/01-dashboard.md) |
-| 2 | **업체/프로젝트 등록** (Registration) | Staff/Admin | 신규 | (예정) |
-| 3 | **코드 요청/할당** (Requests) ★ | 전 역할 | 신규 | [menus/03-requests-allocation.md](menus/03-requests-allocation.md) |
-| 4 | **티켓 발급** (Tickets) | Staff/Admin | 기존확장 | (예정) |
-| 5 | **Ncode 예약** (Reservations) | Staff/Admin | 기존 | (예정) |
-| 6 | **Ncode 할당** (Allocations) | Staff/Admin | 기존+엔진 | (예정) |
-| 7 | **고객사 관리** (Companies) | Admin | 기존확장 | (예정) |
-| 8 | **사용자·권한** (Users) | Admin | 기존 | (예정) |
-| 9 | **활동 로그** (Activity Log) | Admin | 신규 | (예정) |
-| 10 | **Ncode 정보** (Ncode Info) | 전 역할 | 기존 | (예정) |
-| 11 | **설정** (Settings) | Admin | 신규 | (예정) |
+| 사용 서비스(`SOB-02`에서 지정) | 관리 메뉴 | 상태 |
+|---|---|---|
+| `CASTERN` casterN(편집툴) | CasterN 서비스 관리 (편집 프로젝트 · PUI 코드) | ✅ 구현 |
+| `FORMSOLUTION` 폼솔루션 | 폼솔루션 서비스 관리 (등급별 풀 현황) | ⬜ 예정 |
+| `NONE` 서비스 없음 | (관리 메뉴 없음 — 코드만 발급, 사용량 모니터링 불가) | — |
 
-### 메뉴 요지(1줄)
-1. **대시보드** — Section·Owner·Book·Page 사용현황(연계 드릴다운) + 소유권 맵(**예약/사용중** 상태) + 고객별 점유 + 할당현황(오늘/이달/1년).
-2. **업체/프로젝트 등록** — 내부 직원이 업체/프로젝트를 직접 등록 + 서비스유형·(폼솔루션)등급·전용 owner 지정.
-3. **코드 요청/할당** ★ — 직원이 등록된 업체/프로젝트에 할당(편집툴·아이글=직접 / 폼솔루션=풀 미리할당→end-user 등급별 자동배정), 연속 할당 미리보기→발급.
-4. **티켓 발급** — 현재상태 + 등록 2방법(①페이지수 자동추천 ②SOBP 직접), 기간+페이지 limit(무제한).
-5. **Ncode 예약** — 코드 범위 사전 확보(주로 casterN, 자동과 무관).
-6. **Ncode 할당** — 자동 연속 엔진 + 수동, 예약/owner별 목록.
-7. **고객사 관리** — 업체 CRUD + 서비스유형·등급·전용 owner.
-8. **사용자·권한** — 내부 직원 계정/역할, 외부 고객 권한.
-9. **활동 로그** — 내부 직원 audit(업체등록/할당/발급/삭제…).
-10. **Ncode 정보** — 섹션표·2.3m·PDS2(Gcode)/PDS3(Ncode) 참조.
-11. **설정** — 등급 상한·대량 임계치·자동/승인 규칙·전용 owner 규칙·섹션 자동선택.
+> **사용 서비스는 3종**(casterN · 폼솔루션 · 서비스없음)이다. 아이글·NeoStudio2·Ncode 프린터는 항목에서 폐지했다(PC-026) — 해당 코드는 **서비스 없음(코드만 발급)** 으로 관리한다.
+
+> **코드 프로젝트(PRJ-01)** 는 **사용 서비스 필터로 전 서비스 코드를 조회**하므로 특정 서비스 그룹이 아닌 **[코드] 그룹**에 둔다. 서비스별 화면은 그 서비스 고유의 관리 기능만 담는다.
 
 ---
 

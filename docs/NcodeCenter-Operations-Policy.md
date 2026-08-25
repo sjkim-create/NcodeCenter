@@ -37,6 +37,10 @@
 | PC-020 | 2026-08-25 | SOBP 실시간 발급(NDP 연동) | 규정 없음 → **§7 신설**: 서버(NDP) 중심 할당 · Book 내 Page 1..N 연속 배정 · **배경 등록 전 인쇄 금지** · **재사용 금지 기본** · 오프라인 사전 확보 블록도 원장은 '할당됨' | 프린터 드라이버 SOBP 할당 설계 문서 수령(2026-08) | §7, [SOBP 할당 참조](NcodeCenter-SOBP-Allocation.md) | 🟡 API 스펙 대기 |
 | PC-021 | 2026-08-25 | SOBP 할당(NDP) 앱 화면 | `Ncode 정보 ▸ SOBP 할당(NDP)` 탭 신설 → **미구현(탭 제거)**. 정책 §7 + 참조 문서로만 관리 | 화면까지 둘 필요 없다는 결정 — 정본이 문서에 있음 | `InfoView` 탭 4개 복원, IA `INF-01-4` 삭제 | ✅ |
 | PC-022 | 2026-08-25 | 화면 기획 문서 체계 | 메뉴별 MD(`docs/menus/`) → **화면코드 단위 PRD**(`docs/prd/{화면code}_{화면명}.md`) 17개. 기준 IA = `NcodeCenter_001_IA_001` v2.0 | 개발 전달용 화면 명세 필요. 사내 PRD 관례(1화면=1파일)와 정합 | `docs/prd/`, 구조MD §8, IA | ✅ |
+| PC-023 | 2026-08-25 | 메뉴 구조 — 서비스 축 도입 | 그룹 **"프로젝트 관리"**(코드/편집/PUI) → **"서비스 관리 ▸ CasterN 서비스 관리"**. 사내 Ncode 사용 **서비스별 관리 메뉴** 체계로 전환, 미구현 서비스는 `/services/{key}` 예정 화면. **코드 프로젝트(전 서비스 공통 조회)는 [코드] 그룹으로 이동** | NcodeCenter의 범위 = casterN 한정이 아니라 **Ncode를 쓰는 모든 사내 서비스의 프로젝트 현황(집계·상태) 관리** | `menu.ts` `SERVICE_MENUS`·`/services/[key]`·구조MD §4·IA·PRD | ✅ |
+| PC-024 | 2026-08-25 | 서비스 관리 메뉴 범위 | 서비스 5종 메뉴(예정 포함) → **아이글·NeoStudio2·Ncode 프린터 관리 메뉴 삭제**. 남는 메뉴 = **CasterN(구현) · 폼솔루션(예정)** | 세 서비스는 별도 관리 화면이 필요 없음 — 코드는 `코드 프로젝트`의 사용 서비스 필터로 조회(Ncode 프린터의 실시간 발급 규칙은 §7 문서로 관리) | `menu.ts` `SERVICE_MENUS`·구조MD §4·IA(SVC 재번호)·PRD-00·prd/README | ✅ |
+| PC-025 | 2026-08-25 | App Key 계정 — 사용처(연동 서비스) | 사용처 = `웹 편집툴 / SDK` (표기용) → **연동 서비스 값**(`CASTERN` · `FORMSOLUTION` · `SDK`)으로 확정. 계정·App Key에 저장하고 **해당 서비스에서만 로그인** | 서비스별로 자기 계정만 인증·관리해야 함 | `accountStore`(service·`canLogin`)·`TicketsView` App Key 폼/목록·`customer_users.service`(DB.md·migration·dbSchema) | ✅ |
+| PC-026 | 2026-08-25 | 사용 서비스 항목 | casterN·아이글·폼솔루션·NeoStudio2·**Ncode 프린터**·서비스없음(6종) → **casterN · 폼솔루션 · 서비스없음(코드만 발급) 3종**. 아이글·NeoStudio2·Ncode 프린터 **폐지**(PC-010·PC-019 대체) | 실제 관리 대상 서비스만 남긴다 — 나머지는 코드만 발급으로 처리 | `customerData.ts` `SERVICE`·`SOB-02` 할당 모달·`ProjectsView` 필터·`dbSchema`·정책정의서 P-13 | ✅ |
 
 > **PC-004·005 확정 결과 = 단일 할당 상태**: 코드는 **'할당됨(발급)' / '미발급(빈 코드)'** 두 가지로만 본다. `예약(RESERVED) vs 사용중(IN_USE)` 2분 구분은 폐기.
 > **정리 완료(2026-08-03)**: 데이터 `ownership-data.json` status 제거(479건) · 파이프라인(`build_all_sources.py`·`build_ownership_data.py`) 태깅 제거 · `DashboardView` 예약 KPI·도넛 제거(→할당 규모) · `codeUsage`/`OwnershipMap`/`BrandGuide` 문구 정리 · 문서 배너/문구 정리.
@@ -153,7 +157,7 @@
 - 사용 고객사(cu)는 별도 회사가 없더라도 빌드가 **최소 정보 회사 레코드를 생성**해 계층에 편입(정식 고객사화).
 
 ### 6.3 사용 서비스 (PC-010~012)
-- 항목 = **casterN(편집툴) · 아이글 · 폼솔루션 · NeoStudio2 · 서비스없음(코드만 발급)**. (구 "네오노트" → **NeoStudio2** 리네임.)
+- 항목 = **casterN(편집툴) · 폼솔루션 · 서비스없음(코드만 발급)** 3종. (아이글·NeoStudio2·Ncode 프린터는 **폐지** — PC-026)
 - **서비스 지정은 SOBP 맵의 [직접 코드 할당]에서만** 한다(발급 지점에서 용도 지정 = 중앙집중).
 - **편집 데이터로 만들어진 코드 = casterN**(자동). **[편집 프로젝트] 메뉴 = casterN 서비스 관리** 화면.
 - **[코드 프로젝트]는 조회·검색 전용**(업체·서비스별). 프로젝트 등록 기능 없음.

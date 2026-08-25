@@ -486,9 +486,7 @@ export default function OwnershipMap() {
                     ? "코드만 발급 — 자체 서비스 미사용(사용량 모니터링 불가)."
                     : alloc.service === "CASTERN"
                       ? "casterN 편집툴 — [편집 프로젝트]에서 관리·모니터링."
-                      : alloc.service === "NCODEPRINTER"
-                        ? "Ncode 프린터 — 인쇄 시점에 NDP가 이 블록에서 SOBP를 실시간 발급(운영정책 §7)."
-                        : "자체 서비스 — 코드 사용량이 모니터링됩니다."}
+                      : "자체 서비스 — 코드 사용량이 모니터링됩니다."}
                 </div>
               </div>
             </div>

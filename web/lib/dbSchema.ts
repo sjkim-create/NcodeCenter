@@ -55,11 +55,12 @@ export const TABLES: Table[] = [
     ],
   },
   {
-    name: "customer_users", label: "고객 사용자", group: "업체·정책",
+    name: "customer_users", label: "고객 사용자 (서비스 계정)", group: "업체·정책",
     columns: [
       { name: "id", type: "serial", key: "PK" },
       { name: "customer_id", type: "int", key: "FK", note: "→ customers" },
-      { name: "user_ref", type: "text" },
+      { name: "user_ref", type: "text", note: "계정 ID(email) · App Key 연동" },
+      { name: "service", type: "text", note: "사용처 — CASTERN / FORMSOLUTION / SDK. 해당 서비스에서만 로그인 허용" },
     ],
   },
   {
@@ -133,7 +134,7 @@ export const TABLES: Table[] = [
       { name: "id", type: "serial", key: "PK" },
       { name: "customer_id", type: "int", key: "FK", note: "→ customers(고객사)" },
       { name: "name", type: "text", note: "프로젝트명" },
-      { name: "service", type: "text", note: "CASTERN/AIGLE/FORMSOLUTION/NEONOTE(=NeoStudio2)/NCODEPRINTER(Ncode 프린터 드라이버)/NONE — SOBP 할당서 지정" },
+      { name: "service", type: "text", note: "CASTERN / FORMSOLUTION / NONE(코드만 발급) — SOBP 할당에서 지정" },
       { name: "grade", type: "text", note: "폼솔루션 등급(a/b/c)" },
       { name: "editing_owner", type: "bigint", note: "★ 편집(editing_books.owner) 연결" },
       { name: "symbols", type: "int", note: "편집 심볼 총합(진행 표시)" },
