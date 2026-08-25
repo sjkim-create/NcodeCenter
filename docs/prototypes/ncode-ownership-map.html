@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NcodeCenter — Ncode 소유권 맵 (대시보드)</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --line:#e2e5ea; --ink:#1c2230; --muted:#6b7280;
+    --remain:#eceff3; --remain-bd:#dde1e7; --grid-bd:#eef1f5;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,'Malgun Gothic',sans-serif;background:var(--bg);color:var(--ink);}
+  header{padding:18px 22px;background:var(--card);border-bottom:1px solid var(--line);}
+  header h1{margin:0;font-size:18px;}
+  header p{margin:6px 0 0;color:var(--muted);font-size:13px;}
+  .toolbar{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;padding:14px 22px;background:var(--card);border-bottom:1px solid var(--line);}
+  .field{display:flex;flex-direction:column;gap:4px;}
+  .field label{font-size:11px;color:var(--muted);}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .seg button{border:0;background:var(--card);padding:7px 14px;font-size:13px;cursor:pointer;}
+  .seg button.on{background:#2563eb;color:#fff;}
+  select{padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;min-width:180px;background:var(--card);}
+  .wrap{padding:18px 22px;display:grid;grid-template-columns:1fr 300px;gap:18px;align-items:start;}
+  @media (max-width:900px){.wrap{grid-template-columns:1fr;}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;}
+  .card h2{margin:0 0 12px;font-size:14px;}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:2px 0 14px;}
+  .sw{display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid var(--line);vertical-align:-1px;margin-right:5px;}
+  .secrow{margin-bottom:14px;}
+  .sechead{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;}
+  .sechead .lbl{font-weight:600;}
+  .sechead .meta{color:var(--muted);}
+  .cells{display:flex;gap:1px;height:26px;background:var(--grid-bd);border:1px solid var(--grid-bd);border-radius:5px;overflow:hidden;}
+  .cell{flex:1 1 0;min-width:0;transition:opacity .12s;}
+  .cell.dim{opacity:.12;}
+  .util{height:7px;border-radius:99px;background:var(--remain);overflow:hidden;margin-top:5px;}
+  .util > span{display:block;height:100%;background:#2563eb;}
+  table.sum{width:100%;border-collapse:collapse;font-size:12px;}
+  table.sum th,table.sum td{border-bottom:1px solid var(--line);padding:6px 6px;text-align:right;}
+  table.sum th:first-child,table.sum td:first-child{text-align:left;}
+  table.sum thead th{color:var(--muted);font-weight:500;}
+  #tip{position:fixed;pointer-events:none;background:#111827;color:#fff;font-size:12px;padding:6px 9px;border-radius:6px;opacity:0;transition:opacity .1s;white-space:nowrap;z-index:9;}
+  .note{font-size:11px;color:var(--muted);margin-top:10px;}
+  .kpi{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
+  .kpi .box{flex:1;min-width:90px;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 10px;}
+  .kpi .box b{display:block;font-size:18px;}
+  .kpi .box span{font-size:11px;color:var(--muted);}
+  .share{display:flex;flex-direction:column;gap:8px;}
+  .share .item{cursor:pointer;}
+  .share .item.na{cursor:default;}
+  .share .top{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;gap:8px;}
+  .share .top .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .share .top .val{color:var(--muted);flex:none;}
+  .share .bar{height:13px;border-radius:4px;background:var(--remain);border:1px solid var(--remain-bd);overflow:hidden;}
+  .share .bar>span{display:block;height:100%;}
+  .share .item.sel .top .nm{font-weight:700;}
+  .share .item.sel .bar{outline:2px solid #2563eb;outline-offset:1px;}
+  .rightcol{display:flex;flex-direction:column;gap:18px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Ncode 소유권 맵 — 할당 현황 대시보드</h1>
+  <p>N코드 정보표의 <b>소유자(owner) 숫자 영역</b>으로 소유권을 표시합니다. 부분(section)별 owner 축을 히트맵 격자로 나눠 <b>어느 고객이 소유</b>했는지와 <b>남은 영역</b>을 보여줍니다. · 로컬 자체완결(데모 데이터)</p>
+</header>
+
+<div class="toolbar">
+  <div class="field">
+    <label>제품</label>
+    <div class="seg" id="prodSeg">
+      <button data-p="PDS3" class="on">PDS3 (Ncode)</button>
+      <button data-p="PDS2">PDS2 (Gcode)</button>
+    </div>
+  </div>
+  <div class="field">
+    <label>고객 필터</label>
+    <select id="custSel"><option value="__ALL__">전체 고객</option></select>
+  </div>
+  <div class="field">
+    <label>보기</label>
+    <div class="seg" id="viewSeg">
+      <button data-v="owner" class="on">소유권(고객)</button>
+      <button data-v="util">사용률(잔여)</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <h2>부분(section) × 소유자(owner) 맵</h2>
+    <div class="legend" id="legend"></div>
+    <div id="map"></div>
+    <div class="note">셀에 마우스를 올리면 owner 범위와 소유 고객을 볼 수 있습니다. · '사용률' 보기는 셀 내 할당 밀도를 진하기로 표시합니다.</div>
+  </div>
+
+  <div class="rightcol">
+    <div class="card">
+      <h2>고객별 점유 분석</h2>
+      <div class="note" style="margin:0 0 11px">필터와 무관하게 항상 표시 · 막대 클릭 시 해당 고객으로 필터/해제</div>
+      <div class="share" id="custShare"></div>
+    </div>
+    <div class="card">
+      <h2>잔여/사용 요약</h2>
+      <div class="kpi" id="kpi"></div>
+      <table class="sum" id="sumTable">
+        <thead><tr><th>부분</th><th>소유자수</th><th>사용</th><th>잔여</th><th>사용률</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="note" id="filterNote"></div>
+    </div>
+  </div>
+</div>
+<div id="tip"></div>
+
+<script>
+// ============================================================
+//  N코드 정보표 — 부분별 소유자(owner) 최대범위 (첨부 이미지 기준)
+// ============================================================
+const OWNER_MAX = {
+  PDS3: {0:1023, 3:1023, 5:255, 10:1023, 11:1023, 14:1023, 15:32767},
+  PDS2: {0:524287, 3:4095, 14:4095}, // 5·10·11·15 는 PDS2 미지원(—)
+};
+const PRODUCT_LABEL = { PDS3:'Ncode', PDS2:'Gcode' };
+
+// ============================================================
+//  데모 할당 데이터 — 실제로는 reserved/issued-codes 를 owner·company로 집계
+//  { product, section, ownerStart, ownerEnd, customer }
+// ============================================================
+const ALLOCATIONS = [
+  // PDS3 (Ncode)
+  {product:'PDS3', section:0,  ownerStart:0,     ownerEnd:399,   customer:'폼솔루션-A'},
+  {product:'PDS3', section:0,  ownerStart:400,   ownerEnd:767,   customer:'casterN-B'},
+  {product:'PDS3', section:0,  ownerStart:900,   ownerEnd:1000,  customer:'폼솔루션-C'},
+  {product:'PDS3', section:3,  ownerStart:0,     ownerEnd:511,   customer:'casterN-B'},
+  {product:'PDS3', section:5,  ownerStart:0,     ownerEnd:63,    customer:'폼솔루션-A'},
+  {product:'PDS3', section:5,  ownerStart:128,   ownerEnd:200,   customer:'고객-D'},
+  {product:'PDS3', section:10, ownerStart:0,     ownerEnd:255,   customer:'폼솔루션-C'},
+  {product:'PDS3', section:11, ownerStart:512,   ownerEnd:1023,  customer:'고객-D'},
+  {product:'PDS3', section:14, ownerStart:0,     ownerEnd:127,   customer:'casterN-B'},
+  {product:'PDS3', section:15, ownerStart:0,     ownerEnd:8191,  customer:'폼솔루션-A'},
+  {product:'PDS3', section:15, ownerStart:16384, ownerEnd:20000, customer:'폼솔루션-C'},
+  // PDS2 (Gcode)
+  {product:'PDS2', section:0,  ownerStart:0,     ownerEnd:100000,customer:'casterN-B'},
+  {product:'PDS2', section:3,  ownerStart:0,     ownerEnd:1023,  customer:'폼솔루션-A'},
+  {product:'PDS2', section:14, ownerStart:2048,  ownerEnd:4095,  customer:'고객-D'},
+];
+
+const PALETTE = ['#4e79a7','#f28e2b','#59a14f','#e15759','#b07aa1','#76b7b2','#ff9da7','#9c755f'];
+const COLS = 64; // 히트맵 열 수
+
+let state = { product:'PDS3', customer:'__ALL__', view:'owner' };
+
+const customers = [...new Set(ALLOCATIONS.map(a=>a.customer))].sort();
+const colorOf = c => PALETTE[customers.indexOf(c) % PALETTE.length];
+
+// 셀 [cs,ce] 를 덮는 할당 중 겹침이 가장 큰 것(소유권) + 셀 내 할당된 owner 수(사용률)
+function cellInfo(allocs, cs, ce){
+  let best=null, bestOv=0, filled=0;
+  for(const a of allocs){
+    const s=Math.max(cs,a.ownerStart), e=Math.min(ce,a.ownerEnd);
+    if(s>e) continue;
+    const ov=e-s+1; filled+=ov;
+    if(ov>bestOv){bestOv=ov;best=a;}
+  }
+  return { owner: best, fillRatio: filled/(ce-cs+1) };
+}
+
+function sectionsFor(product){
+  return Object.keys(OWNER_MAX[product]).map(Number).sort((a,b)=>a-b);
+}
+
+function render(){
+  const p = state.product;
+  const secs = sectionsFor(p);
+  const map = document.getElementById('map');
+  map.innerHTML='';
+
+  const sumRows=[];
+  let totOwners=0, totUsed=0;
+
+  for(const sec of secs){
+    const max = OWNER_MAX[p][sec];
+    const count = max+1;
+    const allocs = ALLOCATIONS.filter(a=>a.product===p && a.section===sec);
+    const used = allocs.reduce((s,a)=>s+(a.ownerEnd-a.ownerStart+1),0);
+    totOwners+=count; totUsed+=used;
+
+    // 필터 대상 고객이 이 섹션에 소유가 없으면 흐리게
+    const custUsed = state.customer==='__ALL__' ? used
+      : allocs.filter(a=>a.customer===state.customer).reduce((s,a)=>s+(a.ownerEnd-a.ownerStart+1),0);
+    sumRows.push({sec, count, used, custUsed});
+
+    const row=document.createElement('div'); row.className='secrow';
+    row.innerHTML=`<div class="sechead"><span class="lbl">부분 ${sec}</span>`+
+      `<span class="meta">owner 0~${max.toLocaleString()} · 잔여 ${(count-used).toLocaleString()}</span></div>`;
+
+    const cells=document.createElement('div'); cells.className='cells';
+    const cols = Math.min(COLS, count);
+    for(let i=0;i<cols;i++){
+      const cs = Math.floor(i*count/cols);
+      const ce = Math.floor((i+1)*count/cols)-1;
+      const info = cellInfo(allocs, cs, ce);
+      const cell=document.createElement('div'); cell.className='cell';
+      let bg = 'var(--remain)';
+      if(info.owner){
+        if(state.view==='util'){
+          bg = `rgba(37,99,235,${0.15+0.85*info.fillRatio})`;
+        } else {
+          bg = colorOf(info.owner.customer);
+        }
+        // 고객 필터: 선택 고객이 아니면 흐리게
+        if(state.customer!=='__ALL__' && info.owner.customer!==state.customer) cell.classList.add('dim');
+      }
+      cell.style.background=bg;
+      cell.dataset.tip = info.owner
+        ? `부분 ${sec} · owner ${cs.toLocaleString()}~${ce.toLocaleString()}\n소유: ${info.owner.customer}`
+        : `부분 ${sec} · owner ${cs.toLocaleString()}~${ce.toLocaleString()}\n미할당(잔여)`;
+      cells.appendChild(cell);
+    }
+    row.appendChild(cells);
+    map.appendChild(row);
+  }
+
+  // 요약 테이블
+  const tb = document.querySelector('#sumTable tbody');
+  tb.innerHTML = sumRows.map(r=>{
+    const shown = state.customer==='__ALL__' ? r.used : r.custUsed;
+    const pct = r.count? Math.round(shown/r.count*100):0;
+    return `<tr><td>부분 ${r.sec}</td><td>${r.count.toLocaleString()}</td>`+
+      `<td>${shown.toLocaleString()}</td><td>${(r.count-shown).toLocaleString()}</td>`+
+      `<td>${pct}%<div class="util"><span style="width:${pct}%"></span></div></td></tr>`;
+  }).join('');
+
+  // KPI
+  const shownUsed = state.customer==='__ALL__' ? totUsed
+    : ALLOCATIONS.filter(a=>a.product===p && a.customer===state.customer)
+        .reduce((s,a)=>s+(a.ownerEnd-a.ownerStart+1),0);
+  const pct = totOwners? Math.round(shownUsed/totOwners*100):0;
+  document.getElementById('kpi').innerHTML =
+    `<div class="box"><b>${totOwners.toLocaleString()}</b><span>총 소유자(${PRODUCT_LABEL[p]})</span></div>`+
+    `<div class="box"><b>${shownUsed.toLocaleString()}</b><span>${state.customer==='__ALL__'?'사용':'선택 고객 사용'}</span></div>`+
+    `<div class="box"><b>${(totOwners-shownUsed).toLocaleString()}</b><span>잔여</span></div>`+
+    `<div class="box"><b>${pct}%</b><span>사용률</span></div>`;
+
+  // 범례
+  const legend=document.getElementById('legend');
+  legend.innerHTML = customers.map(c=>`<span><span class="sw" style="background:${colorOf(c)}"></span>${c}</span>`).join('')
+    + `<span><span class="sw" style="background:var(--remain)"></span>남은 영역(잔여)</span>`;
+
+  document.getElementById('filterNote').textContent =
+    state.customer==='__ALL__' ? '전체 고객 기준. 고객을 선택하면 해당 소유 영역만 강조됩니다.'
+    : `‘${state.customer}’ 소유 영역만 강조 표시 중.`;
+
+  renderCustomerShare(p, totOwners);
+}
+
+// 고객별 점유 분석 (필터와 무관하게 항상 표시)
+function renderCustomerShare(p, totOwners){
+  const perCust={};
+  for(const a of ALLOCATIONS.filter(a=>a.product===p))
+    perCust[a.customer]=(perCust[a.customer]||0)+(a.ownerEnd-a.ownerStart+1);
+  const rows = Object.keys(perCust).map(c=>({c,n:perCust[c]})).sort((a,b)=>b.n-a.n);
+  const used = rows.reduce((s,r)=>s+r.n,0);
+  const remain = totOwners-used;
+
+  const bar = (nm,n,color,cls,sel)=>{
+    const pct = totOwners? (n/totOwners*100):0;
+    const pctTxt = pct<0.01 && n>0 ? '<0.01' : pct.toFixed(pct<1?2:1);
+    return `<div class="item ${cls} ${sel?'sel':''}" data-c="${nm==='남은 영역'?'':nm}">
+      <div class="top"><span class="nm">${nm}</span><span class="val">${n.toLocaleString()} · ${pctTxt}%</span></div>
+      <div class="bar"><span style="width:${Math.max(pct,n>0?0.6:0)}%;background:${color}"></span></div></div>`;
+  };
+  const el=document.getElementById('custShare');
+  el.innerHTML = rows.map(r=>bar(r.c, r.n, colorOf(r.c), '', state.customer===r.c)).join('')
+     + bar('남은 영역', remain, 'var(--remain-bd)', 'na', false);
+
+  el.querySelectorAll('.item[data-c]:not(.na)').forEach(it=>{
+    it.addEventListener('click', ()=>{
+      const c=it.dataset.c;
+      state.customer = (state.customer===c) ? '__ALL__' : c;
+      document.getElementById('custSel').value = state.customer;
+      render();
+    });
+  });
+}
+
+// 툴팁
+const tip=document.getElementById('tip');
+document.addEventListener('mousemove', e=>{
+  const t=e.target;
+  if(t.classList && t.classList.contains('cell') && t.dataset.tip){
+    tip.textContent=t.dataset.tip; tip.style.opacity=1;
+    tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY+12)+'px';
+    tip.style.whiteSpace='pre';
+  } else tip.style.opacity=0;
+});
+
+// 컨트롤
+document.getElementById('prodSeg').addEventListener('click', e=>{
+  if(e.target.dataset.p){ state.product=e.target.dataset.p;
+    [...e.currentTarget.children].forEach(b=>b.classList.toggle('on', b===e.target)); render(); }});
+document.getElementById('viewSeg').addEventListener('click', e=>{
+  if(e.target.dataset.v){ state.view=e.target.dataset.v;
+    [...e.currentTarget.children].forEach(b=>b.classList.toggle('on', b===e.target)); render(); }});
+document.getElementById('custSel').addEventListener('change', e=>{ state.customer=e.target.value; render(); });
+
+// 고객 셀렉트 채우기
+const sel=document.getElementById('custSel');
+customers.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+
+render();
+</script>
+</body>
+</html>

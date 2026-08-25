@@ -1,0 +1,12 @@
+/node_modules
+/.next
+/out
+*.tsbuildinfo
+next-env.d.ts
+.env*.local
+.vercel
+
+.vercel
+
+# 비공개 패키지 인증 토큰 (NEO UI 등) — 커밋 금지
+.npmrc

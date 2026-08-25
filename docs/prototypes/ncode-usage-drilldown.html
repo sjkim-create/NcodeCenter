@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NcodeCenter — Section·Owner·Book·Page 사용 현황</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--line:#e2e5ea;--ink:#1c2230;--muted:#6b7280;
+        --remain:#eef1f5;--remain-bd:#e2e6ec;--used:#2563eb;--grid:#f1f3f7;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,'Malgun Gothic',sans-serif;background:var(--bg);color:var(--ink);}
+  header{padding:18px 22px;background:var(--card);border-bottom:1px solid var(--line);}
+  header h1{margin:0;font-size:18px;}
+  header p{margin:6px 0 0;color:var(--muted);font-size:13px;}
+  .toolbar{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;padding:12px 22px;background:var(--card);border-bottom:1px solid var(--line);}
+  .field{display:flex;flex-direction:column;gap:4px;}
+  .field label{font-size:11px;color:var(--muted);}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .seg button{border:0;background:var(--card);padding:7px 14px;font-size:13px;cursor:pointer;}
+  .seg button.on{background:var(--used);color:#fff;}
+  select{padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;min-width:170px;background:var(--card);}
+  .crumb{padding:10px 22px;font-size:13px;color:var(--muted);background:var(--card);border-bottom:1px solid var(--line);}
+  .crumb b{color:var(--ink);}
+  .crumb a{color:var(--used);cursor:pointer;text-decoration:none;}
+  .wrap{padding:18px 22px;display:flex;flex-direction:column;gap:14px;}
+  .lvl{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;}
+  .lvl.disabled{opacity:.5;}
+  .lvlhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px;}
+  .lvlhead .name{font-size:15px;font-weight:700;}
+  .lvlhead .name small{font-weight:500;color:var(--muted);font-size:12px;margin-left:6px;}
+  .lvlhead .stat{font-size:12px;color:var(--muted);}
+  .lvlhead .stat b{color:var(--ink);}
+  .lvlhead .stat .u{color:var(--used);} .lvlhead .stat .a{color:#0f766e;}
+  .capbar{height:9px;border-radius:99px;background:var(--remain);border:1px solid var(--remain-bd);overflow:hidden;margin-bottom:10px;}
+  .capbar>span{display:block;height:100%;background:var(--used);}
+  .sections{display:flex;gap:8px;flex-wrap:wrap;}
+  .secblk{flex:1;min-width:104px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;cursor:pointer;background:#fbfcfe;}
+  .secblk.sel{border-color:var(--used);box-shadow:0 0 0 2px rgba(37,99,235,.15);}
+  .secblk .t{font-size:13px;font-weight:600;}
+  .secblk .s{font-size:11px;color:var(--muted);margin:3px 0 6px;}
+  .secblk .mini{height:6px;border-radius:99px;background:var(--remain);overflow:hidden;}
+  .secblk .mini>span{display:block;height:100%;background:var(--used);}
+  .strip{display:flex;gap:1px;height:22px;background:var(--grid);border:1px solid var(--grid);border-radius:5px;overflow:hidden;}
+  .strip .c{flex:1 1 0;min-width:0;background:var(--remain);}
+  .strip .c.dim{opacity:.18;}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;}
+  .chip{font-size:12px;border:1px solid var(--line);border-radius:99px;padding:3px 10px;cursor:pointer;background:#fbfcfe;}
+  .chip.sel{background:var(--used);color:#fff;border-color:var(--used);}
+  .chip .cu{opacity:.7;font-size:11px;margin-left:4px;}
+  .empty{font-size:12px;color:var(--muted);}
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:2px;}
+  .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px;border:1px solid var(--line);}
+  #tip{position:fixed;pointer-events:none;background:#111827;color:#fff;font-size:12px;padding:5px 8px;border-radius:6px;opacity:0;white-space:pre;z-index:9;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Section · Owner · Book · Page 사용 현황</h1>
+  <p>연계 단위(Section ▸ Owner ▸ Book ▸ Page)를 위에서 아래로 드릴다운합니다. 각 레벨에서 <b>사용(used) / 전체(total) / 가용(available)</b>을 숫자와 막대로 확인하고, 상위 선택이 하위 사용량으로 이어집니다. · 로컬 자체완결(데모 데이터)</p>
+</header>
+
+<div class="toolbar">
+  <div class="field"><label>제품</label>
+    <div class="seg" id="prodSeg"><button data-p="PDS3" class="on">PDS3 (Ncode)</button><button data-p="PDS2">PDS2 (Gcode)</button></div></div>
+  <div class="field"><label>고객 필터(강조)</label>
+    <select id="custSel"><option value="__ALL__">전체 고객</option></select></div>
+  <div class="field"><label>&nbsp;</label>
+    <div class="legend"><span><span class="sw" style="background:var(--used)"></span>사용</span><span><span class="sw" style="background:var(--remain)"></span>가용(남은 영역)</span></div></div>
+</div>
+
+<div class="crumb" id="crumb"></div>
+
+<div class="wrap">
+  <div class="lvl" id="lvlSection">
+    <div class="lvlhead"><div class="name">Section <small>부분 단위</small></div><div class="stat" id="statSection"></div></div>
+    <div class="sections" id="secBlocks"></div>
+  </div>
+
+  <div class="lvl" id="lvlOwner">
+    <div class="lvlhead"><div class="name">Owner <small>선택 Section의 소유자 축</small></div><div class="stat" id="statOwner"></div></div>
+    <div class="capbar"><span id="capOwner"></span></div>
+    <div class="strip" id="stripOwner"></div>
+    <div class="chips" id="chipsOwner"></div>
+  </div>
+
+  <div class="lvl" id="lvlBook">
+    <div class="lvlhead"><div class="name">Book <small>선택 Owner의 책 축</small></div><div class="stat" id="statBook"></div></div>
+    <div class="capbar"><span id="capBook"></span></div>
+    <div class="strip" id="stripBook"></div>
+    <div class="chips" id="chipsBook"></div>
+  </div>
+
+  <div class="lvl" id="lvlPage">
+    <div class="lvlhead"><div class="name">Page <small>선택 Book의 페이지 축</small></div><div class="stat" id="statPage"></div></div>
+    <div class="capbar"><span id="capPage"></span></div>
+    <div class="strip" id="stripPage"></div>
+  </div>
+</div>
+<div id="tip"></div>
+
+<script>
+// N코드 정보표: 제품·Section별 Owner/Book/Page 최대값
+const DIM={
+  PDS3:{0:{owner:1023,book:16383,page:4095},3:{owner:1023,book:8191,page:511},5:{owner:255,book:4095,page:4095},
+        10:{owner:1023,book:4095,page:1023},11:{owner:1023,book:8191,page:511},14:{owner:1023,book:8191,page:31},15:{owner:32767,book:4095,page:511}},
+  PDS2:{0:{owner:524287,book:8191,page:1023},3:{owner:4095,book:4095,page:4095},14:{owner:4095,book:4095,page:1023}},
+};
+// 데모 할당: (product,section,owner) 안에서 book/page 범위를 고객이 점유
+const AL=[
+ {product:'PDS3',section:0,owner:5,   bookStart:0,  bookEnd:99,  pageStart:0,pageEnd:199, customer:'폼솔루션-A'},
+ {product:'PDS3',section:0,owner:5,   bookStart:100,bookEnd:149, pageStart:0,pageEnd:99,  customer:'폼솔루션-A'},
+ {product:'PDS3',section:0,owner:300, bookStart:0,  bookEnd:49,  pageStart:0,pageEnd:4095,customer:'casterN-B'},
+ {product:'PDS3',section:0,owner:800, bookStart:0,  bookEnd:9,   pageStart:0,pageEnd:100, customer:'폼솔루션-C'},
+ {product:'PDS3',section:3,owner:1,   bookStart:0,  bookEnd:8191,pageStart:0,pageEnd:255, customer:'casterN-B'},
+ {product:'PDS3',section:5,owner:10,  bookStart:0,  bookEnd:2000,pageStart:0,pageEnd:4095,customer:'폼솔루션-A'},
+ {product:'PDS3',section:11,owner:512,bookStart:0,  bookEnd:4000,pageStart:0,pageEnd:255, customer:'고객-D'},
+ {product:'PDS3',section:15,owner:10000,bookStart:0,bookEnd:1000,pageStart:0,pageEnd:255, customer:'폼솔루션-A'},
+ {product:'PDS3',section:15,owner:20000,bookStart:0,bookEnd:500, pageStart:0,pageEnd:255, customer:'폼솔루션-C'},
+ {product:'PDS2',section:0,owner:100, bookStart:0,  bookEnd:200, pageStart:0,pageEnd:1023,customer:'casterN-B'},
+ {product:'PDS2',section:3,owner:10,  bookStart:0,  bookEnd:1000,pageStart:0,pageEnd:255, customer:'폼솔루션-A'},
+];
+const PALETTE=['#4e79a7','#f28e2b','#59a14f','#e15759','#b07aa1','#76b7b2'];
+const customers=[...new Set(AL.map(a=>a.customer))].sort();
+const colorOf=c=>PALETTE[customers.indexOf(c)%PALETTE.length];
+const COLS=80;
+
+let S={product:'PDS3',customer:'__ALL__',section:null,owner:null,book:null};
+
+const merge=rs=>{const r=[...rs].sort((a,b)=>a[0]-b[0]);const o=[];for(const[s,e]of r){if(o.length&&s<=o[o.length-1][1]+1)o[o.length-1][1]=Math.max(o[o.length-1][1],e);else o.push([s,e]);}return o;};
+const sumLen=rs=>rs.reduce((a,[s,e])=>a+(e-s+1),0);
+const fmt=n=>n.toLocaleString();
+const secList=p=>Object.keys(DIM[p]).map(Number).sort((a,b)=>a-b);
+
+const allocsSec=(p,sec)=>AL.filter(a=>a.product===p&&a.section===sec);
+const ownersOf=(p,sec)=>{const m={};allocsSec(p,sec).forEach(a=>{(m[a.owner]=m[a.owner]||{owner:a.owner,customer:a.customer});});return Object.values(m).sort((a,b)=>a.owner-b.owner);};
+const bookRangesOf=(p,sec,own)=>AL.filter(a=>a.product===p&&a.section===sec&&a.owner===own);
+const pageRangesOf=(p,sec,own,book)=>AL.filter(a=>a.product===p&&a.section===sec&&a.owner===own&&a.bookStart<=book&&book<=a.bookEnd);
+
+function statHTML(used,total){const av=total-used;const pct=total?Math.round(used/total*100):0;
+  return `<b>${pct}%</b> · used <span class="u">${fmt(used)}</span> / total ${fmt(total)} · avail <span class="a">${fmt(av)}</span>`;}
+
+// 숫자 축 strip: usedRanges(병합됨)를 COLS 버킷으로, 셀 색은 커버 고객
+function renderStrip(el, max, usedRanges, custRanges){
+  const count=max+1, cols=Math.min(COLS,count); el.innerHTML='';
+  for(let i=0;i<cols;i++){
+    const cs=Math.floor(i*count/cols), ce=Math.floor((i+1)*count/cols)-1;
+    const cell=document.createElement('div'); cell.className='c';
+    let cust=null;
+    for(const cr of custRanges){ if(cr.s<=ce&&cr.e>=cs){ cust=cr.customer; break; } }
+    if(cust){ cell.style.background=colorOf(cust);
+      if(S.customer!=='__ALL__'&&cust!==S.customer) cell.classList.add('dim'); }
+    cell.dataset.tip=`${cs.toLocaleString()}~${ce.toLocaleString()}`+(cust?`\n${cust}`:`\n미할당(가용)`);
+    el.appendChild(cell);
+  }
+}
+
+function render(){
+  const p=S.product;
+  // 제품 바뀌면 현재 section이 없을 수 있음
+  if(S.section!==null && !DIM[p][S.section]){ S.section=null; S.owner=null; S.book=null; }
+
+  // ---- Section ----
+  const secs=secList(p);
+  let totOwn=0, usedOwnAll=0;
+  const secBlocks=document.getElementById('secBlocks'); secBlocks.innerHTML='';
+  secs.forEach(sec=>{
+    const max=DIM[p][sec].owner, total=max+1;
+    const used=ownersOf(p,sec).length; totOwn+=total; usedOwnAll+=used;
+    const pct=total?Math.round(used/total*100):0;
+    const b=document.createElement('div'); b.className='secblk'+(S.section===sec?' sel':'');
+    b.innerHTML=`<div class="t">Section ${sec}</div><div class="s">Owner ${used}/${fmt(total)} 사용</div><div class="mini"><span style="width:${Math.max(pct,used?2:0)}%"></span></div>`;
+    b.onclick=()=>{S.section=sec;S.owner=null;S.book=null;render();};
+    secBlocks.appendChild(b);
+  });
+  document.getElementById('statSection').innerHTML=`전체 Owner ${statHTML(usedOwnAll,totOwn)}`;
+
+  // ---- Owner ----
+  toggle('lvlOwner', S.section!==null);
+  if(S.section!==null){
+    const max=DIM[p][S.section].owner, total=max+1;
+    const owners=ownersOf(p,S.section);
+    const used=owners.length;
+    document.getElementById('statOwner').innerHTML=`Section ${S.section} · ${statHTML(used,total)}`;
+    setCap('capOwner',used,total);
+    renderStrip(document.getElementById('stripOwner'), max,
+      owners.map(o=>({s:o.owner,e:o.owner})), owners.map(o=>({s:o.owner,e:o.owner,customer:o.customer})));
+    // owner 칩(정밀 드릴)
+    const chips=document.getElementById('chipsOwner');
+    chips.innerHTML = owners.length? owners.slice(0,60).map(o=>
+      `<span class="chip ${S.owner===o.owner?'sel':''}" data-o="${o.owner}">Owner ${fmt(o.owner)}<span class="cu">${o.customer}</span></span>`).join('')
+      : `<span class="empty">할당된 Owner 없음(전부 가용)</span>`;
+    chips.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{S.owner=Number(c.dataset.o);S.book=null;render();});
+  } else clearLevel('Owner');
+
+  // ---- Book ----
+  toggle('lvlBook', S.owner!==null);
+  if(S.owner!==null){
+    const max=DIM[p][S.section].book, total=max+1;
+    const ranges=bookRangesOf(p,S.section,S.owner);
+    const merged=merge(ranges.map(a=>[a.bookStart,a.bookEnd]));
+    const used=sumLen(merged);
+    document.getElementById('statBook').innerHTML=`Section ${S.section} · Owner ${fmt(S.owner)} · ${statHTML(used,total)}`;
+    setCap('capBook',used,total);
+    renderStrip(document.getElementById('stripBook'), max,
+      merged.map(([s,e])=>({s,e})), ranges.map(a=>({s:a.bookStart,e:a.bookEnd,customer:a.customer})));
+    const chips=document.getElementById('chipsBook');
+    chips.innerHTML = ranges.length? ranges.slice(0,40).map(a=>
+      `<span class="chip ${S.book!==null&&a.bookStart<=S.book&&S.book<=a.bookEnd?'sel':''}" data-b="${a.bookStart}">Book ${fmt(a.bookStart)}~${fmt(a.bookEnd)}<span class="cu">${a.customer}</span></span>`).join('')
+      : `<span class="empty">할당된 Book 없음</span>`;
+    chips.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{S.book=Number(c.dataset.b);render();});
+  } else clearLevel('Book');
+
+  // ---- Page ----
+  toggle('lvlPage', S.book!==null);
+  if(S.book!==null){
+    const max=DIM[p][S.section].page, total=max+1;
+    const ranges=pageRangesOf(p,S.section,S.owner,S.book);
+    const merged=merge(ranges.map(a=>[a.pageStart,a.pageEnd]));
+    const used=sumLen(merged);
+    document.getElementById('statPage').innerHTML=`Section ${S.section} · Owner ${fmt(S.owner)} · Book ${fmt(S.book)} · ${statHTML(used,total)}`;
+    setCap('capPage',used,total);
+    renderStrip(document.getElementById('stripPage'), max,
+      merged.map(([s,e])=>({s,e})), ranges.map(a=>({s:a.pageStart,e:a.pageEnd,customer:a.customer})));
+  } else clearLevel('Page');
+
+  // breadcrumb
+  const c=document.getElementById('crumb'); const parts=[`<a data-lv="root">전체</a>`];
+  if(S.section!==null) parts.push(`<a data-lv="section"><b>Section ${S.section}</b></a>`);
+  if(S.owner!==null) parts.push(`<a data-lv="owner"><b>Owner ${fmt(S.owner)}</b></a>`);
+  if(S.book!==null) parts.push(`<b>Book ${fmt(S.book)}</b>`);
+  c.innerHTML='드릴다운: '+parts.join(' ▸ ');
+  c.querySelectorAll('a').forEach(a=>a.onclick=()=>{const lv=a.dataset.lv;
+    if(lv==='root'){S.section=S.owner=S.book=null;} if(lv==='section'){S.owner=S.book=null;} if(lv==='owner'){S.book=null;} render();});
+}
+function toggle(id,on){document.getElementById(id).classList.toggle('disabled',!on);}
+function setCap(id,used,total){document.getElementById(id).style.width=(total?Math.max(used/total*100,used?0.6:0):0)+'%';}
+function clearLevel(name){
+  document.getElementById('stat'+name).innerHTML='<span class="empty">상위 레벨을 선택하세요</span>';
+  const st=document.getElementById('strip'+name); if(st) st.innerHTML='';
+  const ch=document.getElementById('chips'+name); if(ch) ch.innerHTML='';
+  const cap=document.getElementById('cap'+name); if(cap) cap.style.width='0%';
+}
+
+// 툴팁
+const tip=document.getElementById('tip');
+document.addEventListener('mousemove',e=>{const t=e.target;
+  if(t.classList&&t.classList.contains('c')&&t.dataset.tip){tip.textContent=t.dataset.tip;tip.style.opacity=1;tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY+12)+'px';}
+  else tip.style.opacity=0;});
+
+// 컨트롤
+document.getElementById('prodSeg').addEventListener('click',e=>{if(e.target.dataset.p){S.product=e.target.dataset.p;
+  [...e.currentTarget.children].forEach(b=>b.classList.toggle('on',b===e.target));render();}});
+document.getElementById('custSel').addEventListener('change',e=>{S.customer=e.target.value;render();});
+customers.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;document.getElementById('custSel').appendChild(o);});
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NcodeCenter — 티켓 발급</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--line:#e2e5ea;--ink:#1c2230;--muted:#6b7280;--accent:#2563eb;--ok:#16a34a;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,'Malgun Gothic',sans-serif;background:var(--bg);color:var(--ink);}
+  header{padding:18px 22px;background:var(--card);border-bottom:1px solid var(--line);}
+  header h1{margin:0;font-size:18px;} header p{margin:6px 0 0;color:var(--muted);font-size:13px;}
+  .wrap{padding:18px 22px;display:flex;flex-direction:column;gap:16px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;}
+  .card h2{margin:0 0 12px;font-size:14px;display:flex;justify-content:space-between;align-items:center;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:center;}
+  thead th{color:var(--muted);font-weight:500;background:#fafbfc;}
+  .badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600;}
+  .b-issued{background:#dcfce7;color:#166534;} .b-expire{background:#fee2e2;color:#991b1b;}
+  .b-pending{background:#fef3c7;color:#92400e;} .b-unlim{background:#e0e7ff;color:#3730a3;}
+  .tabs{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-bottom:14px;}
+  .tabs button{border:0;background:var(--card);padding:9px 16px;font-size:13px;cursor:pointer;}
+  .tabs button.on{background:var(--accent);color:#fff;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;}
+  .field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+  .field label{font-size:11px;color:var(--muted);}
+  input,select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--card);}
+  input[type=number]{width:150px;} .field.grow input,.field.grow select{width:220px;}
+  button.primary{background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer;}
+  button.ghost{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer;}
+  .hint{font-size:12px;color:var(--muted);margin:2px 0 12px;}
+  .cands{display:flex;flex-direction:column;gap:10px;margin-top:6px;}
+  .cand{border:1px solid var(--line);border-radius:9px;padding:11px 13px;cursor:pointer;display:flex;justify-content:space-between;gap:12px;align-items:center;}
+  .cand.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.15);}
+  .cand .main{font-size:13px;} .cand .main b{font-size:14px;}
+  .cand .tag{font-size:11px;color:var(--muted);}
+  .pill{display:inline-block;background:#eef2ff;color:#3730a3;border-radius:6px;padding:1px 7px;font-size:11px;margin-left:6px;}
+  .chk{display:flex;align-items:center;gap:7px;font-size:13px;}
+  .note{font-size:12px;color:var(--muted);margin-top:8px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>티켓 발급 (Tickets)</h1>
+  <p>발급된 티켓의 <b>현재 상태</b>를 확인하고, 두 가지 방법으로 등록합니다. 판형은 기본 <b>2.3m 이내</b>이므로 <b>페이지 수만</b> 고려합니다.</p>
+</header>
+
+<div class="wrap">
+  <!-- 현재 상태 -->
+  <div class="card">
+    <h2>현재 상태 <span class="hint" style="margin:0">발급/무제한/만료 상태를 한눈에</span></h2>
+    <table id="statusTable">
+      <thead><tr>
+        <th>ID</th><th>고객</th><th>Section</th><th>Owner</th><th>Book</th><th>Page(양)</th>
+        <th>발급일</th><th>종료일</th><th>상태</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- 등록 -->
+  <div class="card">
+    <h2>티켓 등록</h2>
+    <div class="tabs" id="tabs">
+      <button data-t="auto" class="on">① 페이지 수로 자동 추천</button>
+      <button data-t="manual">② SOBP 직접 지정</button>
+    </div>
+
+    <!-- 방법 1: 자동 추천 -->
+    <div id="paneAuto">
+      <div class="hint">판형 2.3m 이내 기본. 페이지 수만 입력하면 적절한 <b>Section / Owner / Book / Page 양</b>을 추천합니다. 하나를 선택해 발급하세요.</div>
+      <div class="row" style="align-items:flex-end">
+        <div class="field"><label>고객</label><select id="a_cust"></select></div>
+        <div class="field"><label>제품</label><select id="a_prod"><option>PDS3 (Ncode)</option><option>PDS2 (Gcode)</option></select></div>
+        <div class="field"><label>필요 페이지 수</label><input type="number" id="a_pages" value="500" min="1"></div>
+        <button class="ghost" onclick="recommend()">추천 받기</button>
+      </div>
+      <div class="cands" id="cands"></div>
+      <div class="row" style="margin-top:12px;align-items:flex-end">
+        <div class="field"><label>발급일</label><input type="date" id="a_issue"></div>
+        <div class="field"><label>종료일</label><input type="date" id="a_expire"></div>
+        <label class="chk"><input type="checkbox" id="a_unlim"> 무제한</label>
+        <button class="primary" onclick="issueAuto()">선택 항목 발급</button>
+      </div>
+      <div class="note" id="a_msg"></div>
+    </div>
+
+    <!-- 방법 2: 직접 지정 -->
+    <div id="paneManual" style="display:none">
+      <div class="hint">Section·Owner·Book·Page를 직접 지정합니다. (판형 2.3m 이내 기본)</div>
+      <div class="row">
+        <div class="field"><label>고객</label><select id="m_cust"></select></div>
+        <div class="field"><label>제품</label><select id="m_prod"><option>PDS3 (Ncode)</option><option>PDS2 (Gcode)</option></select></div>
+        <div class="field"><label>Section</label><select id="m_section"></select></div>
+        <div class="field"><label>Owner</label><input type="number" id="m_owner" value="0" min="0"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Book 시작</label><input type="number" id="m_book" value="0" min="0"></div>
+        <div class="field"><label>Book 권수</label><input type="number" id="m_bookcnt" value="1" min="1"></div>
+        <div class="field"><label>Page 시작</label><input type="number" id="m_page" value="0" min="0"></div>
+        <div class="field"><label>Page 양</label><input type="number" id="m_pagecnt" value="100" min="1"></div>
+      </div>
+      <div class="row" style="align-items:flex-end">
+        <div class="field"><label>발급일</label><input type="date" id="m_issue"></div>
+        <div class="field"><label>종료일</label><input type="date" id="m_expire"></div>
+        <label class="chk"><input type="checkbox" id="m_unlim"> 무제한</label>
+        <button class="primary" onclick="issueManual()">발급</button>
+      </div>
+      <div class="note" id="m_msg"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// N코드 정보표: Section별 owner/book/page max, length(mm)
+const DIM={
+  PDS3:{0:{owner:1023,book:16383,page:4095,len:600},3:{owner:1023,book:8191,page:511,len:2000},5:{owner:255,book:4095,page:4095,len:1200},
+        10:{owner:1023,book:4095,page:1023,len:2427},11:{owner:1023,book:8191,page:511,len:2000},14:{owner:1023,book:8191,page:31,len:9000},15:{owner:32767,book:4095,page:511,len:608}},
+  PDS2:{0:{owner:524287,book:8191,page:1023,len:600},3:{owner:4095,book:4095,page:4095,len:1500},14:{owner:4095,book:4095,page:1023,len:9000}},
+};
+const prodKey=s=>s.startsWith('PDS2')?'PDS2':'PDS3';
+const customers=['폼솔루션-A','casterN-B','폼솔루션-C','고객-D'];
+let tickets=[
+ {id:1012,cust:'폼솔루션-A',product:'PDS3',section:0,owner:5,book:'0~149',pages:200,issue:'2026-06-01',expire:'2027-06-01',status:'issued'},
+ {id:1013,cust:'casterN-B',product:'PDS3',section:3,owner:1,book:'0~8191',pages:256,issue:'2026-06-10',expire:'',status:'unlim'},
+ {id:1014,cust:'폼솔루션-C',product:'PDS3',section:0,owner:800,book:'0~9',pages:101,issue:'2025-01-05',expire:'2026-01-05',status:'expire'},
+];
+let nextId=1015, selectedCand=null, lastCands=[];
+
+function badge(s){return {issued:['b-issued','발급'],unlim:['b-unlim','무제한'],expire:['b-expire','만료'],pending:['b-pending','대기']}[s];}
+function renderStatus(){
+  document.querySelector('#statusTable tbody').innerHTML = tickets.map(t=>{
+    const[b,l]=badge(t.status);
+    return `<tr><td>${t.id}</td><td>${t.cust}</td><td>${t.section}</td><td>${t.owner}</td><td>${t.book}</td>`+
+      `<td>${t.pages.toLocaleString()}</td><td>${t.issue||'-'}</td><td>${t.expire||'-'}</td><td><span class="badge ${b}">${l}</span></td></tr>`;
+  }).join('');
+}
+
+// 방법1: 페이지 수 → 후보 (Section/Owner/Book/Page 양) 추천
+function recommend(){
+  const p=prodKey(document.getElementById('a_prod').value);
+  const N=Math.max(1,Number(document.getElementById('a_pages').value)||0);
+  const secs=Object.keys(DIM[p]).map(Number);
+  const cands=secs.map(sec=>{
+    const pageCap=DIM[p][sec].page+1;              // 한 book의 page 수용량
+    const books=Math.ceil(N/pageCap);              // 필요한 book 수(2.3m 이내 → page 수만 고려)
+    const lastPages=N-(books-1)*pageCap;
+    return {sec,pageCap,books,lastPages,len:DIM[p][sec].len,
+      owner:'(다음 가용 Owner)', bookStart:'(다음 가용 Book)'};
+  }).sort((a,b)=> a.books-b.books || a.sec-b.sec).slice(0,3);
+  lastCands=cands; selectedCand=null;
+  document.getElementById('cands').innerHTML = cands.map((c,i)=>{
+    const plan = c.books===1
+      ? `Book 1권 · Page 0~${(N-1).toLocaleString()} (연속)`
+      : `Book ${c.books}권으로 분리 · 앞 ${c.books-1}권 각 ${c.pageCap.toLocaleString()}p + 끝권 ${c.lastPages.toLocaleString()}p <span class="pill">book 분리·page 연속</span>`;
+    return `<div class="cand" data-i="${i}" onclick="pickCand(${i})">
+      <div class="main"><b>Section ${c.sec}</b> · Owner ${c.owner} · ${plan}</div>
+      <div class="tag">page 최대 ${c.pageCap.toLocaleString()}/book · 길이 ${c.len}mm</div></div>`;
+  }).join('') + `<div class="note">기본 판형 2.3m 이내 가정 → 페이지 수만으로 산정. 조각(book) 수가 적은 순으로 정렬.</div>`;
+  document.getElementById('a_msg').textContent='';
+}
+function pickCand(i){selectedCand=i;[...document.querySelectorAll('.cand')].forEach((el,j)=>el.classList.toggle('sel',j===i));}
+
+function issueAuto(){
+  if(selectedCand===null){document.getElementById('a_msg').textContent='추천 항목을 먼저 선택하세요.';return;}
+  const c=lastCands[selectedCand];
+  const N=Math.max(1,Number(document.getElementById('a_pages').value)||0);
+  const unlim=document.getElementById('a_unlim').checked;
+  tickets.unshift({id:nextId++,cust:document.getElementById('a_cust').value,product:prodKey(document.getElementById('a_prod').value),
+    section:c.sec,owner:'auto',book:c.books===1?'0~0':`${c.books}권`,pages:N,
+    issue:document.getElementById('a_issue').value||'2026-07-15',
+    expire:unlim?'':(document.getElementById('a_expire').value||'2027-07-15'),status:unlim?'unlim':'issued'});
+  renderStatus();
+  document.getElementById('a_msg').innerHTML=`✅ 발급 완료 — Section ${c.sec}, ${N.toLocaleString()}p (${c.books===1?'연속':'book '+c.books+'권'}).`;
+  selectedCand=null;document.getElementById('cands').innerHTML='';
+}
+
+// 방법2: 직접 지정
+function fillSections(){
+  const p=prodKey(document.getElementById('m_prod').value);
+  document.getElementById('m_section').innerHTML=Object.keys(DIM[p]).map(s=>`<option>${s}</option>`).join('');
+}
+function issueManual(){
+  const p=prodKey(document.getElementById('m_prod').value);
+  const sec=Number(document.getElementById('m_section').value);
+  const owner=Number(document.getElementById('m_owner').value);
+  const book=Number(document.getElementById('m_book').value), bookcnt=Number(document.getElementById('m_bookcnt').value);
+  const page=Number(document.getElementById('m_page').value), pagecnt=Number(document.getElementById('m_pagecnt').value);
+  const d=DIM[p][sec]; const msg=document.getElementById('m_msg');
+  // 범위 검증
+  if(owner>d.owner){msg.innerHTML=`⚠ Owner 범위 초과 (Section ${sec} 최대 ${d.owner.toLocaleString()})`;return;}
+  if(book+bookcnt-1>d.book){msg.innerHTML=`⚠ Book 범위 초과 (최대 ${d.book.toLocaleString()})`;return;}
+  if(page+pagecnt-1>d.page){msg.innerHTML=`⚠ Page 범위 초과 (Section ${sec} book당 최대 ${(d.page+1).toLocaleString()}p) → book 분리 필요`;return;}
+  const unlim=document.getElementById('m_unlim').checked;
+  tickets.unshift({id:nextId++,cust:document.getElementById('m_cust').value,product:p,section:sec,owner,
+    book:bookcnt===1?`${book}`:`${book}~${book+bookcnt-1}`,pages:pagecnt*bookcnt,
+    issue:document.getElementById('m_issue').value||'2026-07-15',
+    expire:unlim?'':(document.getElementById('m_expire').value||'2027-07-15'),status:unlim?'unlim':'issued'});
+  renderStatus();
+  msg.innerHTML=`✅ 발급 완료 — S${sec}/O${owner}/B${book}(${bookcnt}권)/P${page}~${page+pagecnt-1}.`;
+}
+
+// init
+document.getElementById('tabs').addEventListener('click',e=>{if(!e.target.dataset.t)return;
+  [...e.currentTarget.children].forEach(b=>b.classList.toggle('on',b===e.target));
+  document.getElementById('paneAuto').style.display=e.target.dataset.t==='auto'?'':'none';
+  document.getElementById('paneManual').style.display=e.target.dataset.t==='manual'?'':'none';});
+document.getElementById('m_prod').addEventListener('change',fillSections);
+customers.forEach(c=>{['a_cust','m_cust'].forEach(id=>{const o=document.createElement('option');o.textContent=c;document.getElementById(id).appendChild(o);});});
+fillSections(); renderStatus(); recommend();
+</script>
+</body>
+</html>

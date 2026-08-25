@@ -1,0 +1,26 @@
+{
+  "name": "ncodecenter-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "data": "python ../db/import/build_ownership_data.py"
+  },
+  "dependencies": {
+    "@neolab/neoui": "^0.66.3",
+    "next": "^15.1.6",
+    "next-auth": "^5.0.0-beta.32",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "styled-components": "^6.4.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

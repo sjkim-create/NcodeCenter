@@ -1,0 +1,67 @@
+{
+ "pds": "G",
+ "section": 3,
+ "baseOwner": 21,
+ "slots": [
+  {
+   "owner": 21,
+   "slot": 1,
+   "lang": "한국어",
+   "base": true
+  },
+  {
+   "owner": 21,
+   "slot": 2,
+   "lang": "영어",
+   "base": true
+  },
+  {
+   "owner": 21,
+   "slot": 3,
+   "lang": "중국어",
+   "base": true
+  },
+  {
+   "owner": 21,
+   "slot": 4,
+   "lang": "일본어",
+   "base": true
+  },
+  {
+   "owner": 964,
+   "slot": 5,
+   "lang": "베트남어",
+   "base": false
+  },
+  {
+   "owner": 964,
+   "slot": 6,
+   "lang": "러시아어",
+   "base": false
+  },
+  {
+   "owner": 964,
+   "slot": 7,
+   "lang": "몽골어",
+   "base": false
+  },
+  {
+   "owner": 964,
+   "slot": 8,
+   "lang": "캄보디아어(크메르어)",
+   "base": false
+  },
+  {
+   "owner": 965,
+   "slot": 9,
+   "lang": "스리랑카어",
+   "base": false
+  },
+  {
+   "owner": 965,
+   "slot": 10,
+   "lang": "필리핀어(따갈로그어)",
+   "base": false
+  }
+ ]
+}

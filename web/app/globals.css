@@ -1,0 +1,11 @@
+:root {
+  --bg: #f6f7f9; --card: #fff; --line: #e2e5ea; --ink: #1c2230; --muted: #6b7280;
+  --remain: #eef1f5; --remain-bd: #e2e6ec; --grid: #f1f3f7; --accent: #5f8ff0;
+}
+* { box-sizing: border-box; }
+html, body { padding: 0; margin: 0; }
+body {
+  font-family: -apple-system, "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
+  background: var(--bg); color: var(--ink);
+}
+a { color: inherit; }

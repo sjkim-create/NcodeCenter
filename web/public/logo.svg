@@ -1,0 +1,27 @@
+<svg width="228" height="48" viewBox="0 0 228 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="NcodeCenter">
+  <defs>
+    <linearGradient id="ncGrad2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5f8ff0"/>
+      <stop offset="1" stop-color="#7bcdf1"/>
+    </linearGradient>
+    <radialGradient id="ncGlow2" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="26%" stop-color="#eef6ff" stop-opacity="0.92"/>
+      <stop offset="62%" stop-color="#cfe2fc" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#cfe2fc" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="48" height="48" rx="12" fill="url(#ncGrad2)"/>
+  <g fill="#ffffff" opacity="0.22">
+    <circle cx="11" cy="11" r="1.4"/><circle cx="37" cy="11" r="1.4"/>
+    <circle cx="11" cy="37" r="1.4"/><circle cx="37" cy="37" r="1.4"/>
+  </g>
+  <path d="M16 34 V15 L32 33 V14" fill="none" stroke="#ffffff" stroke-width="5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="24" cy="24" r="9.5" fill="url(#ncGlow2)"/>
+  <circle cx="24" cy="24" r="2.4" fill="#ffffff"/>
+  <text x="62" y="31" font-family="Segoe UI, 'Malgun Gothic', Roboto, sans-serif"
+        font-size="22" font-weight="600" letter-spacing="-0.4">
+    <tspan fill="#334155">Ncode</tspan><tspan fill="#5f8ff0">Center</tspan>
+  </text>
+</svg>
