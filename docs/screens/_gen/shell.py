@@ -338,8 +338,13 @@ def board(sid, title, tag, note, frame_html, actions):
             % (sid, sid, title, tg, note, frame_html, acts_table(actions)))
 
 
+# 생성 시 board 원본을 모아둔다 — mkmd.py 가 같은 소스로 MD를 뽑는다
+COLLECTED = {}
+
+
 def page(code, name, prd, intro, boards):
     """boards: [(sid, title, tag, note, frame_html, actions), ...]"""
+    COLLECTED[code] = {'name': name, 'prd': prd, 'intro': intro, 'boards': boards}
     jump = ''.join('<a href="#%s">%s %s</a>' % (b[0], b[0], b[1]) for b in boards)
     body = ''.join(board(*b) for b in boards)
     return """<!doctype html>
