@@ -42,6 +42,7 @@
 | PC-025 | 2026-08-25 | App Key 계정 — 사용처(연동 서비스) | 사용처 = `웹 편집툴 / SDK` (표기용) → **연동 서비스 값**(`CASTERN` · `FORMSOLUTION` · `SDK`)으로 확정. 계정·App Key에 저장하고 **해당 서비스에서만 로그인** | 서비스별로 자기 계정만 인증·관리해야 함 | `accountStore`(service·`canLogin`)·`TicketsView` App Key 폼/목록·`customer_users.service`(DB.md·migration·dbSchema) | ✅ |
 | PC-026 | 2026-08-25 | 사용 서비스 항목 | casterN·아이글·폼솔루션·NeoStudio2·**Ncode 프린터**·서비스없음(6종) → **casterN · 폼솔루션 · 서비스없음(코드만 발급) 3종**. 아이글·NeoStudio2·Ncode 프린터 **폐지**(PC-010·PC-019 대체) | 실제 관리 대상 서비스만 남긴다 — 나머지는 코드만 발급으로 처리 | `customerData.ts` `SERVICE`·`SOB-02` 할당 모달·`ProjectsView` 필터·`dbSchema`·정책정의서 P-13 | ✅ |
 | PC-027 | 2026-08-25 | 편집 단가 적용 시점 | 고객사 단가 변경이 **전체 교재에 소급 적용** → **교재는 등록 시점 단가로 고정**. 변경 단가는 **이후 등록 교재부터** 적용, 기존 교재 청구액 유지(개별 갱신 가능) | 과거 정산 금액이 단가 변경으로 바뀌면 청구·정산 근거가 흔들림 | `EditingDetailView`(교재 단가 스냅샷 `rs`/`rsAt`)·`CompaniesView` 안내·PRD MEM-02·PRJ-03·PRJ-04·P-16 | ✅ |
+| PC-028 | 2026-08-27 | SOBP 자동 추천 | 조건(판형·권당 페이지·권수)으로 PDS·Section·Owner·Book 을 추천하는 **자동 추천 모드** → **폐기**. `SOB-02` 는 모드 토글 없이 항상 **직접 선택**이며, 발급 대상은 `SOB-01` 에서 사람이 고른다 | 실제 진입 경로가 없어 사용되지 않았고, 발급 좌표는 담당자 판단이 필요하다는 결정 | PRD `SOB-02` v1.1·화면정의서 SOB-02(10상태)·`OwnershipMap` 할당 창 | ✅ |
 
 > **PC-004·005 확정 결과 = 단일 할당 상태**: 코드는 **'할당됨(발급)' / '미발급(빈 코드)'** 두 가지로만 본다. `예약(RESERVED) vs 사용중(IN_USE)` 2분 구분은 폐기.
 > **정리 완료(2026-08-03)**: 데이터 `ownership-data.json` status 제거(479건) · 파이프라인(`build_all_sources.py`·`build_ownership_data.py`) 태깅 제거 · `DashboardView` 예약 KPI·도넛 제거(→할당 규모) · `codeUsage`/`OwnershipMap`/`BrandGuide` 문구 정리 · 문서 배너/문구 정리.

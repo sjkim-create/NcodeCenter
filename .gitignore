@@ -25,3 +25,7 @@ Thumbs.db
 # 엑셀 임시 파일
 ~$*.xlsx
 ~$*.xls
+
+# 파이썬 캐시
+__pycache__/
+*.pyc
