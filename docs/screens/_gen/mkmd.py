@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""PRD Sync(Figma 플러그인)용 마크다운 생성 — docs/prd-figma/
+"""PRD Sync(Figma 플러그인)용 마크다운 생성 — docs/figma/prd/
 
 화면 정의서(docs/screens)와 같은 소스(p_*.py board)에서 뽑으므로
 HTML 과 MD 내용이 어긋나지 않는다.
@@ -17,7 +17,8 @@ import io, os, re, sys, importlib, html as _html
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCREENS = os.path.dirname(HERE)
 DOCS = os.path.dirname(SCREENS)
-OUT = os.path.join(DOCS, 'prd-figma')
+# 플러그인 폴더 드롭다운이 '/prd' 로 끝나는 경로만 보여준다 → docs/figma/prd
+OUT = os.path.join(DOCS, 'figma', 'prd')
 
 sys.path.insert(0, HERE)
 import shell                                  # noqa: E402
@@ -68,7 +69,7 @@ def acts_table(actions):
 
 def build_md(code, info):
     name, intro, boards = info['name'], info['intro'], info['boards']
-    prd_link = '../' + info['prd'].split('docs/', 1)[-1] if 'docs/' in info['prd'] else info['prd']
+    prd_link = info['prd']   # 저장소 기준 경로 (플러그인이 링크를 지우므로 문자열로)
 
     out = ['# %s · %s' % (code, name), '',
            '**화면 ID**: %s' % code, '',

@@ -2,7 +2,7 @@
 
 **화면 ID**: PRD-00
 
-> 원본 — 화면 정의서 `docs/screens/` · PRD `../prd/PRD-00_공통.md`
+> 원본 — 화면 정의서 `docs/screens/` · PRD `docs/prd/PRD-00_공통.md`
 > 이 파일은 화면 정의서와 **같은 소스에서 자동 생성**된다. 직접 고치지 말 것.
 
 ---

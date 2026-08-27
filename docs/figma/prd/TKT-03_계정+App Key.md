@@ -2,7 +2,7 @@
 
 **화면 ID**: TKT-03
 
-> 원본 — 화면 정의서 `docs/screens/` · PRD `../prd/TKT-03_계정+App Key.md`
+> 원본 — 화면 정의서 `docs/screens/` · PRD `docs/prd/TKT-03_계정+App Key.md`
 > 이 파일은 화면 정의서와 **같은 소스에서 자동 생성**된다. 직접 고치지 말 것.
 
 ---
