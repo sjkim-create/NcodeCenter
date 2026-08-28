@@ -89,9 +89,13 @@ Ncode 코드는 계층 주소다: **Section → Owner → Book → Page**.
 NcodeCenter
 ├─ 대시보드                                  DSH-01   (/)
 ├─ [코드]
-│   ├─ 티켓 발급                             TKT-01   (/tickets)
 │   ├─ SOBP 맵                               SOB-01   (/ownership)
 │   └─ 코드 프로젝트                          PRJ-01   (/projects)  ← 전 서비스 공통 조회
+├─ [티켓 발급]                                ← 발급 메뉴를 사이드바 그룹으로 분리
+│   ├─ 계정 발급 (목록)                       TKT-03   (/tickets/account)
+│   │   └─ 계정 등록·상세 수정                 TKT-06   (/tickets/account/new · /{email})
+│   ├─ N Key 발급                            TKT-01   (/tickets/nkey)
+│   └─ Key 발급 정산                          TKT-04   (/tickets/list)
 ├─ [서비스 관리]                              ← 사내 Ncode 사용 서비스별 관리 (확장 축)
 │   ├─ CasterN 서비스 관리                    (구현)
 │   │   ├─ 편집 프로젝트                      PRJ-02   (/projects/editing)

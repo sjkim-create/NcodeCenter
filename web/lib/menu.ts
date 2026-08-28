@@ -60,10 +60,18 @@ export const MENU: MenuGroup[] = [
   {
     group: "코드",
     items: [
-      { no: 4, label: "티켓 발급", path: "/tickets", icon: "🧾", ready: true },
       { label: "SOBP 맵", path: "/ownership", icon: "🗺️", ready: true },
       // 코드 프로젝트 = 전 서비스 공통 조회(사용 서비스 필터) → 특정 서비스 그룹에 두지 않는다.
       { label: "코드 프로젝트", path: "/projects", icon: "🎫", ready: true },
+    ],
+  },
+  {
+    // 발급 메뉴(N Key · 계정 발급 · 발급 목록)를 화면 안 좌측 탭이 아니라 사이드바 그룹으로 관리한다.
+    group: "티켓 발급",
+    items: [
+      { no: 4, label: "계정 발급", path: "/tickets/account", icon: "🔑", ready: true },
+      { label: "N Key 발급", path: "/tickets/nkey", icon: "🧾", ready: true },
+      { label: "Key 발급 정산", path: "/tickets/list", icon: "📒", ready: true },
     ],
   },
   { group: "서비스 관리", items: serviceItems() },
@@ -87,6 +95,9 @@ export const MENU: MenuGroup[] = [
 export const ALL_ITEMS: MenuItem[] = MENU.flatMap((g) => g.items);
 // 헤더(그룹)와 실제 화면이 같은 경로를 쓰는 경우 실제 화면 이름을 우선 표시
 export const titleOf = (path: string): string => {
+  // 메뉴에 없는 하위 화면(계정 등록·상세)
+  if (path === "/tickets/account/new") return "계정 등록";
+  if (path.startsWith("/tickets/account/")) return "계정 상세 · 수정";
   if (path.startsWith("/services/")) {
     const key = path.split("/")[2];
     return SERVICE_MENUS.find((s) => s.key === key)?.label ?? "서비스 관리";

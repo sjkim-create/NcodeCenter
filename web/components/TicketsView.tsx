@@ -8,67 +8,39 @@ import { logActivity } from "@/lib/activityStore";
 import { makeZip } from "@/lib/zip";
 import { codesOfCompany } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
-import { caster, useCaster, ACCOUNT_SERVICES, accountServiceLabel, type AccountService } from "@/lib/accountStore";
 import {
   addTicket, allTickets, deleteTicket, hydrateTickets, setBilling, useTickets,
   BILLINGS, BILLINGS_FILTER, BILL_COLOR, daysLeft, plusMonth, type Billing, type Ticket,
 } from "@/lib/ticketStore";
 
-type Tab = "nkey" | "appkey" | "list";
+type Tab = "nkey" | "list";
 
-// 티켓 발급 — N Key(물리·오프라인) / App Key(계정 연동·서비스 DB) / 계정(Caster U 로그인)
-export default function TicketsView() {
+// 발급 화면 사이 고객사 선택값 공유 — 발급 메뉴가 사이드바로 나뉘어 화면이 바뀌어도 유지한다.
+const CO_KEY = "ncc-ticket-company";
+const readCompanyId = () => {
+  if (typeof window === "undefined") return 0;
+  try { return Number(sessionStorage.getItem(CO_KEY)) || 0; } catch { return 0; }
+};
+
+// 티켓 발급 — N Key 발급(물리·오프라인) / Key 발급 정산(발급 목록·과금). 계정 발급은 AccountsView.
+// 발급 메뉴는 사이드바 [티켓 발급] 그룹이며, 각 화면이 이 컴포넌트를 tab 으로 호출한다.
+export default function TicketsView({ tab }: { tab: Tab }) {
   const { companies, projects } = useStore();
   const me = currentUser(useAuth());
   useTickets();
   useEffect(() => { hydrateTickets(); }, []);
 
-  const [tab, setTab] = useState<Tab>("nkey");
-  const [companyId, setCompanyId] = useState(0);          // 회사 선택 → 발급 목록 필터 기준
-  const nTickets = allTickets().length;
-
-  const MENU: { v: Tab; label: string; desc: string; col: string; count?: number }[] = [
-    { v: "nkey", label: "N Key", desc: "물리 키 · 오프라인 편집툴", col: "#14b8a6" },
-    { v: "appkey", label: "계정 + App Key", desc: "온라인 편집툴 · SDK", col: "#2563eb" },
-    { v: "list", label: "발급 목록 · 정산", desc: "발급 내역 · 과금 관리", col: "#7c3aed", count: nTickets },
-  ];
+  const [companyId, setCompanyIdState] = useState(0);     // 회사 선택 → 발급 목록 필터 기준
+  useEffect(() => { setCompanyIdState(readCompanyId()); }, []);   // 화면 이동 후에도 고객사 유지
+  const setCompanyId = (n: number) => {
+    setCompanyIdState(n);
+    try { sessionStorage.setItem(CO_KEY, String(n)); } catch { /* */ }
+  };
 
   return (
     <div style={{ padding: "18px 20px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 14, alignItems: "start" }}>
-        {/* 왼쪽 메뉴 — SOBP 맵 좌측 고객사 배치 느낌 */}
-        <div style={{ ...S.card, padding: 8, position: "sticky", top: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#6b7280", padding: "4px 8px 8px" }}>발급 메뉴</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {MENU.map((m) => {
-              const on = tab === m.v;
-              return (
-                <button key={m.v} onClick={() => setTab(m.v)} style={menuBtn(on, m.col)}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: 3, background: m.col }} />
-                    <span style={{ fontWeight: 700, fontSize: 13, color: on ? m.col : "#111827" }}>{m.label}</span>
-                    {m.count != null && <span style={{ ...S.tag, marginLeft: "auto", fontSize: 10, background: on ? "#fff" : "#f3f4f6", color: "#6b7280" }}>{m.count}</span>}
-                  </div>
-                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 3 }}>{m.desc}</div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* 키 종류 안내 (요약) */}
-          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #eef0f4", fontSize: 11, color: "#9ca3af", lineHeight: 1.7, padding: "10px 8px 4px" }}>
-            <div><b style={{ color: "#14b8a6" }}>N Key</b> 물리 키 · 계정 불필요</div>
-            <div><b style={{ color: "#2563eb" }}>App Key</b> id/pwd + SOBP · 계정 연동</div>
-          </div>
-        </div>
-
-        {/* 오른쪽 내용 — 목록·정산은 full width, 발급 폼은 가독 폭 유지 */}
-        <div style={{ minWidth: 0 }}>
-          {tab === "nkey" && <div style={{ maxWidth: 900 }}><NKeyForm companies={companies} projects={projects} me={me} companyId={companyId} setCompanyId={setCompanyId} /></div>}
-          {tab === "appkey" && <div style={{ maxWidth: 900 }}><AppKeyForm companies={companies} projects={projects} me={me} companyId={companyId} setCompanyId={setCompanyId} /></div>}
-          {tab === "list" && <TicketListView me={me} />}
-        </div>
-      </div>
+      {tab === "nkey" && <div style={{ maxWidth: 900 }}><NKeyForm companies={companies} projects={projects} me={me} companyId={companyId} setCompanyId={setCompanyId} /></div>}
+      {tab === "list" && <TicketListView me={me} />}
     </div>
   );
 }
@@ -211,7 +183,7 @@ function TicketListView({ me }: { me: ReturnType<typeof currentUser> }) {
             })}
             {list.length === 0 && (
               <tr><td colSpan={10} style={{ ...S.td, textAlign: "center", color: "#9ca3af", padding: 30 }}>
-                {rows.length === 0 ? "아직 발급된 티켓이 없습니다. [N Key] 또는 [계정 + App Key] 탭에서 발급하세요." : "필터에 맞는 티켓이 없습니다."}
+                {rows.length === 0 ? "아직 발급된 티켓이 없습니다. 왼쪽 [티켓 발급] 메뉴의 [N Key 발급] 또는 [계정 발급]에서 발급하세요." : "필터에 맞는 티켓이 없습니다."}
               </td></tr>
             )}
           </tbody>
@@ -642,232 +614,6 @@ function KeyInfoModal({ current, onClose }: { current: Record<string, string | n
   );
 }
 
-/* ── App Key: 계정과 한 묶음으로 발급 (Caster U = 계정+AppKey / SDK = AppKey) ── */
-function AppKeyForm({ companies, projects, me, companyId, setCompanyId }: { companies: ReturnType<typeof useStore>["companies"]; projects: ReturnType<typeof useStore>["projects"]; me: ReturnType<typeof currentUser>; companyId: number; setCompanyId: (n: number) => void }) {
-  const cast = useCaster();
-  const [accountId, setAccountId] = useState("__NEW__");   // "__NEW__" = 신규 등록
-  // 신규 계정 입력
-  const [id, setId] = useState("");
-  const [pwd, setPwd] = useState("");
-  const [name, setName] = useState("");
-  const [addr, setAddr] = useState("");
-  const [homepage, setHomepage] = useState("");
-  // 발급 조건
-  const [usage, setUsage] = useState<AccountService>("CASTERN");   // 사용처 = 연동 서비스
-  const [sobpIdx, setSobpIdx] = useState(-1);
-  const [until, setUntil] = useState("");
-  const [unlimited, setUnlimited] = useState(true);
-  const [issued, setIssued] = useState<{ key: string; account: string; pwd: string } | null>(null);
-  const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
-
-  const company = companies.find((c) => c.id === companyId);
-  // 회사 정보로 판단: 이 고객사에 등록된 계정이 있으면 선택, 없으면 자동으로 신규 등록
-  const companyAccounts = useMemo(() => cast.accounts.filter((a) => a.companyId === companyId), [cast.accounts, companyId]);
-  const isNew = companyAccounts.length === 0 || accountId === "__NEW__";
-  const existing = isNew ? undefined : companyAccounts.find((a) => a.id === accountId);
-
-  const ranges = useMemo(() => {
-    if (!company) return [];
-    return projects.filter((p) => p.companyId === company.id).flatMap((p) => p.issued.map((b) => {
-      const pt = (b.kind ?? "N") === "N" ? "PDS3" : "PDS2";
-      return { pt, section: b.section, owner: b.owner, bookStart: b.bookStart, bookEnd: b.bookEnd,
-        pageStart: b.pageStart, pageEnd: b.pageEnd, bookCount: Math.max(1, b.bookEnd - b.bookStart + 1) };
-    }));
-  }, [company, projects]);
-  const range = ranges[sobpIdx];
-
-  const onCompany = (cid: number) => {
-    setCompanyId(cid); setSobpIdx(-1); setIssued(null);
-    const c = companies.find((x) => x.id === cid);
-    if (c) setAddr(c.address || "");            // 고객사 정보 불러오기
-    // 기존 계정이 있으면 첫 계정 선택, 없으면 신규 등록 모드
-    const accs = cast.accounts.filter((a) => a.companyId === cid);
-    setAccountId(accs.length ? accs[0].id : "__NEW__");
-  };
-
-  // 비밀번호를 요청하지 않는 고객사(SDK 목적) → 담당자가 임의 지정
-  const genPwd = () => {
-    const buf = new Uint8Array(9);
-    (globalThis.crypto ?? window.crypto).getRandomValues(buf);
-    setPwd(btoa(String.fromCharCode(...buf)).replace(/[+/=]/g, "").slice(0, 10));
-  };
-  const genKeyStr = () => {
-    const buf = new Uint8Array(24);
-    (globalThis.crypto ?? window.crypto).getRandomValues(buf);
-    return `ncc_live_${Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("")}`;
-  };
-
-  const issue = () => {
-    let acc = existing;
-    if (isNew) {
-      if (!company) { setToast({ ok: false, text: "회사(고객사)를 선택하세요." }); return; }
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(id.trim())) { setToast({ ok: false, text: "계정 ID는 이메일 형식이어야 합니다." }); return; }
-      if (!pwd.trim()) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
-      if (!range) { setToast({ ok: false, text: "할당된 SOBP 범위를 선택하세요." }); return; }
-      const r = caster.addAccount({ id: id.trim(), pwd: pwd.trim(), name: name.trim(), service: usage, companyId: company.id, company: company.name, addr: addr.trim(), homepage: homepage.trim() });
-      if (!r.ok) { setToast({ ok: false, text: r.msg }); return; }
-      acc = { id: id.trim(), pwd: pwd.trim(), name: name.trim(), service: usage, companyId: company.id, company: company.name, addr: addr.trim(), homepage: homepage.trim(), createdAt: "" };
-    }
-    if (!acc) { setToast({ ok: false, text: "계정을 선택하세요." }); return; }
-    if (!range) { setToast({ ok: false, text: "할당된 SOBP 범위를 선택하세요." }); return; }
-
-    const key = genKeyStr();
-    const untilVal = unlimited ? "무제한" : (until || "무제한");
-    caster.addAppKey({ key, accountId: acc.id, service: usage, company: acc.company, pt: range.pt,
-      section: range.section, owner: range.owner, bookStart: range.bookStart, bookEnd: range.bookEnd,
-      pageStart: range.pageStart, pageEnd: range.pageEnd, until: untilVal });
-    setIssued({ key, account: acc.id, pwd: acc.pwd });
-    const summary = `계정 ${acc.id} · ${accountServiceLabel(usage)} · ${range.pt} S${range.section}/O${range.owner}/B${range.bookStart}~${range.bookEnd} · ${untilVal}`;
-    addTicket({ kind: "APP", companyId: acc.companyId, company: acc.company, by: me?.name ?? "", summary,
-      params: {
-        CompanyName: acc.company, AccountId: acc.id, Service: accountServiceLabel(usage), Usage: accountServiceLabel(usage),
-        AppKey: key, PatternType: range.pt === "PDS3" ? "Ncode_PDS3" : "Ncode_PDS2",
-        Section: range.section, Owner: range.owner,
-        BookStart: range.bookStart, BookEnd: range.bookEnd,
-        PageStart: range.pageStart, PageEnd: range.pageEnd,
-        ValidUntil: untilVal, IssuedAt: new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 16).replace("T", " "),
-      } });
-    logActivity("ticket", `App Key · ${acc.company} · ${summary} · ${key.slice(0, 16)}…`, me?.name);
-    setToast({ ok: true, text: "App Key 발급 완료 — 계정과 연동되어 서비스 DB에 등록되었습니다." });
-    if (isNew) { setId(""); setPwd(""); setName(""); setHomepage(""); setAccountId(acc.id); }
-  };
-
-  return (
-    <div style={{ ...S.card, padding: 18 }}>
-      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>App Key 발급 <span style={{ color: "#9ca3af", fontWeight: 400, fontSize: 12 }}>· 계정 + SOBP 를 한 번에 발급</span></div>
-      <div style={{ fontSize: 11.5, color: "#9ca3af", marginBottom: 12 }}>App Key는 <b>계정과 연동되는 키</b>입니다. 계정을 먼저 등록(또는 선택)해야 발급됩니다.</div>
-
-      {/* 1. 계정 — 회사 선택 → 기존 계정 유무로 자동 판단 */}
-      <StepHead n={1} t="계정" d="App Key와 연동될 로그인 계정" />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <Field label="회사정보 (고객사) *">
-          <select style={S.input} value={companyId} onChange={(e) => onCompany(+e.target.value)}>
-            <option value={0}>- 선택 -</option>
-            {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </Field>
-        <Field label="계정">
-          {!company ? (
-            <div style={{ ...S.input, background: "#f7f8fa", color: "#9ca3af" }}>고객사를 먼저 선택</div>
-          ) : companyAccounts.length === 0 ? (
-            <div style={{ ...S.input, background: "#f0fdf4", color: "#166534", borderColor: "#86efac" }}>등록된 계정 없음 → 신규 등록</div>
-          ) : (
-            <select style={S.input} value={accountId} onChange={(e) => { setAccountId(e.target.value); setIssued(null); }}>
-              {companyAccounts.map((a) => <option key={a.id} value={a.id}>{a.id}{a.name ? ` (${a.name})` : ""}</option>)}
-              <option value="__NEW__">＋ 신규 계정 등록</option>
-            </select>
-          )}
-        </Field>
-      </div>
-
-      {/* 신규일 때만 계정 입력 */}
-      {company && isNew && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
-          <Field label="NAME (담당자/사용자명)"><input style={S.input} value={name} onChange={(e) => setName(e.target.value)} /></Field>
-          <Field label="ID (EMAIL) *"><input style={S.input} value={id} onChange={(e) => setId(e.target.value)} placeholder="user@company.com" /></Field>
-          <Field label="PWD *">
-            <div style={{ display: "flex", gap: 6 }}>
-              <input style={S.input} value={pwd} onChange={(e) => setPwd(e.target.value)} placeholder="비밀번호 미요청 시 임의 생성" />
-              <button onClick={genPwd} style={{ ...S.smallBtn, whiteSpace: "nowrap" }} title="비밀번호를 요청하지 않는 고객사(SDK)는 담당자가 임의 지정">임의 생성</button>
-            </div>
-          </Field>
-          <Field label="ADDR (주소)"><input style={S.input} value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="고객사 주소 자동 · 수정 가능" /></Field>
-          <Field label="HOMEPAGE"><input style={S.input} value={homepage} onChange={(e) => setHomepage(e.target.value)} placeholder="https://" /></Field>
-        </div>
-      )}
-
-      {/* 2. SOBP */}
-      <div style={{ marginTop: 16 }}>
-        <StepHead n={2} t="할당된 SOBP 범위" d={company ? company.name : "고객사를 먼저 선택"} />
-        <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={setSobpIdx} />
-      </div>
-
-      {/* 3. 발급 조건 */}
-      <div style={{ marginTop: 16 }}>
-        <StepHead n={3} t="발급 조건" d="사용처 · 만료" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <Field label="사용처 (연동 서비스) *">
-            <select style={S.input} value={usage} onChange={(e) => setUsage(e.target.value as AccountService)}>
-              {ACCOUNT_SERVICES.map((sv) => <option key={sv.v} value={sv.v}>{sv.label} — {sv.desc}</option>)}
-            </select>
-            <div style={{ fontSize: 10.5, color: "#9ca3af", marginTop: 4, lineHeight: 1.5 }}>
-              계정은 <b>선택한 서비스에서만 로그인</b>됩니다. 서비스는 자기 계정만 관리·인증합니다.
-            </div>
-          </Field>
-          <Field label="만료일 (기간)">
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited} onChange={(e) => setUntil(e.target.value)} />
-              <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
-                <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> 무제한
-              </label>
-            </div>
-          </Field>
-        </div>
-      </div>
-
-      {issued && (
-        <div style={{ marginTop: 14, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "12px 14px" }}>
-          <div style={{ fontSize: 12, color: "#92400e", fontWeight: 700, marginBottom: 6 }}>발급 완료 — 계정 + App Key (서비스 DB 등록됨)</div>
-          <div style={{ fontSize: 12.5, color: "#111827", lineHeight: 1.9 }}>
-            <div>계정 ID: <code style={{ fontFamily: "ui-monospace,monospace" }}>{issued.account}</code></div>
-            <div>PWD: <code style={{ fontFamily: "ui-monospace,monospace" }}>{issued.pwd}</code></div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              App Key: <code style={{ flex: 1, fontFamily: "ui-monospace,monospace", wordBreak: "break-all" }}>{issued.key}</code>
-              <button onClick={() => { try { navigator.clipboard.writeText(`ID: ${issued.account}\nPWD: ${issued.pwd}\nAppKey: ${issued.key}`); setToast({ ok: true, text: "계정·키 정보가 복사되었습니다." }); } catch { /* */ } }} style={S.smallBtn}>전체 복사</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
-        <button onClick={issue} disabled={!range} style={{ ...S.primary, ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>
-          {isNew ? "계정 등록 + App Key 발급" : "App Key 발급"}
-        </button>
-      </div>
-      {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: toast.ok ? "#047857" : "#dc2626" }}>{toast.text}</div>}
-
-      {/* 서비스 DB: 계정별 App Key */}
-      <div style={{ marginTop: 16, borderTop: "1px solid #eef0f4", paddingTop: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>서비스 DB · 계정 &amp; App Key <span style={{ color: "#9ca3af", fontWeight: 400 }}>{company ? `· ${company.name} (계정 ${companyAccounts.length})` : "· 고객사 선택 시 표시"}</span></div>
-        {companyAccounts.length === 0 ? (
-          <div style={{ fontSize: 12, color: "#9ca3af", padding: "8px 0" }}>{company ? `${company.name}에 등록된 계정이 없습니다.` : "고객사를 선택하세요."}</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {companyAccounts.map((a) => {
-              const keys = cast.appKeys.filter((k) => k.accountId === a.id);
-              return (
-                <div key={a.id} style={{ border: "1px solid #eef0f4", borderRadius: 10, padding: "10px 12px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, flexWrap: "wrap" }}>
-                    <b>{a.company}</b>
-                    <code style={{ fontFamily: "ui-monospace,monospace", color: "#374151" }}>{a.id}</code>
-                    {a.name && <span style={{ color: "#6b7280" }}>{a.name}</span>}
-                    <span style={{ ...S.tag, background: a.service ? "#ecfdf5" : "#fef2f2", color: a.service ? "#047857" : "#b91c1c", fontWeight: 700 }}
-                      title="이 계정이 로그인할 수 있는 서비스">{accountServiceLabel(a.service)}</span>
-                    <span style={{ ...S.tag, background: keys.length ? "#eef6ff" : "#f3f4f6", color: keys.length ? "#2563eb" : "#9ca3af" }}>App Key {keys.length}</span>
-                    <span style={{ flex: 1 }} />
-                    <button onClick={() => { if (confirm("이 계정과 연동 App Key를 삭제할까요?")) caster.removeAccount(a.id); }} style={{ ...S.linkBtn, color: "#dc2626" }}>삭제</button>
-                  </div>
-                  {keys.map((k) => (
-                    <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, paddingLeft: 10, fontSize: 11.5, color: "#6b7280", flexWrap: "wrap" }}>
-                      <code style={{ fontFamily: "ui-monospace,monospace" }}>{k.key.slice(0, 18)}…</code>
-                      <span style={{ ...S.tag, background: k.pt === "PDS3" ? "#eef6ff" : "#fef3c7", color: k.pt === "PDS3" ? "#2563eb" : "#92400e" }}>{k.pt} S{k.section}/O{k.owner}/B{k.bookStart}~{k.bookEnd}</span>
-                      <span>{accountServiceLabel(k.service)}</span>
-                      <span>유효 {k.until}</span>
-                      <span style={{ flex: 1 }} />
-                      <span style={{ fontFamily: "ui-monospace,monospace" }}>{k.createdAt}</span>
-                      <button onClick={() => caster.removeAppKey(k.id)} style={{ ...S.linkBtn, color: "#dc2626" }}>키 삭제</button>
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function StepHead({ n, t, d }: { n: number; t: string; d?: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -879,7 +625,7 @@ function StepHead({ n, t, d }: { n: number; t: string; d?: string }) {
 }
 
 // 할당된 SOBP 범위 선택 — 셀렉트(접힘) → 클릭 시 칩 리스트 펼침
-type SobpRange = { pt: string; section: number; owner: number; bookStart: number; bookEnd: number; pageStart: number; pageEnd: number; bookCount: number };
+export type SobpRange = { pt: string; section: number; owner: number; bookStart: number; bookEnd: number; pageStart: number; pageEnd: number; bookCount: number };
 function Chips({ r }: { r: SobpRange }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -890,7 +636,7 @@ function Chips({ r }: { r: SobpRange }) {
     </span>
   );
 }
-function SobpRangePicker({ company, ranges, value, onSelect }: { company: boolean; ranges: SobpRange[]; value: number; onSelect: (i: number) => void }) {
+export function SobpRangePicker({ company, ranges, value, onSelect }: { company: boolean; ranges: SobpRange[]; value: number; onSelect: (i: number) => void }) {
   const [open, setOpen] = useState(false);
   const note = (t: string) => <div style={{ fontSize: 12, color: "#9ca3af", padding: "9px 12px", border: "1px solid #eef0f4", borderRadius: 10, background: "#fafbfc" }}>{t}</div>;
   if (!company) return note("고객사를 먼저 선택하세요.");
@@ -935,9 +681,3 @@ function SB({ k, c, v }: { k: string; c: string; v: string | number }) {
   );
 }
 
-// 왼쪽 메뉴 버튼 — SOBP 맵 좌측 고객사 카드 느낌 (활성 시 좌측 컬러 바)
-const menuBtn = (on: boolean, col: string): React.CSSProperties => ({
-  display: "block", width: "100%", textAlign: "left", cursor: "pointer",
-  border: `1px solid ${on ? col : "#eef0f4"}`, borderLeft: `3px solid ${on ? col : "transparent"}`,
-  background: on ? "#f8fafc" : "#fff", borderRadius: 9, padding: "10px 12px",
-});

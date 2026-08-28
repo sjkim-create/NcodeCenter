@@ -103,9 +103,9 @@ export default function NcodeInfoView({ embedded }: { embedded?: boolean } = {})
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
           {[
             ["1", "코드 할당", "SOBP 맵에서 고객사에 Section/Owner/Book 할당"],
-            ["2", "티켓 발급 요청", "관리자가 티켓 발급 화면에서 N Key 또는 App Key 선택"],
+            ["2", "티켓 발급 요청", "관리자가 좌측 [티켓 발급] 메뉴에서 N Key 발급 또는 계정 발급 선택"],
             ["3-A", "N Key", "티켓 파일 생성 → 사용자 PC의 CodeTickets로 복사 → 오프라인 편집툴 사용 (계정 불필요)"],
-            ["3-B", "계정 + App Key", "계정 등록(회사·ID·PWD…) → App Key 발급 → 서비스 DB에 등록 → 계정으로 로그인/SDK 연동해 사용"],
+            ["3-B", "계정 발급 (계정 + App Key)", "계정 등록(회사·ID·PWD…) → App Key 발급 → 서비스 DB에 등록 → 계정으로 로그인/SDK 연동해 사용"],
           ].map(([n, t, d]) => (
             <div key={n} style={{ flex: "1 1 210px", border: "1px solid #eef0f4", borderRadius: 10, padding: 12 }}>
               <span style={{ background: n.startsWith("3") ? "#14b8a6" : "#5f8ff0", color: "#fff", fontWeight: 700, borderRadius: 6, padding: "2px 8px", fontSize: 11 }}>{n}</span>

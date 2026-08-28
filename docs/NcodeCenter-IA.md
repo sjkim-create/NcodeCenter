@@ -28,13 +28,15 @@
 NcodeCenter
 ├─ 대시보드                         DSH-01   (/)
 ├─ [코드]
-│   ├─ 티켓 발급                    TKT-01   (/tickets)
-│   │   ├─ N Key (물리 키)          TKT-01-1
-│   │   ├─ 계정 + App Key           TKT-01-2
-│   │   └─ 발급 목록·정산           TKT-01-3
 │   ├─ SOBP 맵                      SOB-01   (/ownership)
 │   └─ 코드 프로젝트                PRJ-01   (/projects)   ← 전 서비스 공통
 │       └─ 프로젝트 상세(우측)      PRJ-01-1
+├─ [티켓 발급]                              ← 발급 메뉴를 사이드바 그룹으로 분리
+│   ├─ 계정 발급 (목록)             TKT-03   (/tickets/account)
+│   │   ├─ 계정 등록                TKT-06   (/tickets/account/new)
+│   │   └─ 계정 상세·수정           TKT-06   (/tickets/account/{email})
+│   ├─ N Key 발급                   TKT-01   (/tickets/nkey)
+│   └─ Key 발급 정산                TKT-04   (/tickets/list)
 ├─ [서비스 관리]                            ← 사내 Ncode 사용 서비스별 (확장 축)
 │   ├─ CasterN 서비스 관리
 │   │   ├─ 편집 프로젝트            PRJ-02   (/projects/editing)
@@ -67,16 +69,18 @@ NcodeCenter
 | 화면 ID | 메뉴명 | Depth | 경로(Path) | 컴포넌트 | 권한 | 기능 설명 |
 |---------|--------|:---:|------------|----------|------|-----------|
 | **DSH-01** | 대시보드 | 2 | `/` | `DashboardView` | Staff/Admin | 할당 코드 레코드·업체·Book·섹션 KPI, 코드 사용 현황 요약 (코드 상태 = 할당됨/미발급) |
-| — | **코드** (그룹) | 1 | — | — | — | 코드 발급·소유권 지도·코드 프로젝트(전 서비스 공통) 영역 |
-| **TKT-01** | 티켓 발급 | 2 | `/tickets` | `TicketsView` | Staff/Admin | 코드 티켓 발급 및 발급 이력·정산 관리 |
-| TKT-01-1 | └ N Key (물리 키) | 3 | `/tickets` (탭) | `NKeyForm` | Staff/Admin | 물리 N Key(HLP) 발급 폼 — 고객사·프로젝트 선택 후 발급 |
-| TKT-01-2 | └ 계정 + App Key | 3 | `/tickets` (탭) | `AppKeyForm` | Staff/Admin | 계정 기반 App Key 발급 폼 |
-| TKT-01-3 | └ 발급 목록·정산 | 3 | `/tickets` (탭) | `TicketListView` | Staff/Admin | 발급 티켓 목록·정산, 대장(HLP 발급대장)/신규 발급 필터 |
+| — | **코드** (그룹) | 1 | — | — | — | 소유권 지도·코드 프로젝트(전 서비스 공통) 영역 |
 | **SOB-01** | SOBP 맵 | 2 | `/ownership` | `OwnershipMap` | Staff/Admin | Section·Owner·Book·Page 소유권 지도, 상태(발급/미발급/편집/공유/사용가능)·제품·고객사 필터 드릴다운. 직접 코드 할당 시 **사용 서비스** 지정(Ncode 프린터 포함) |
 | — | **서비스 관리** (그룹) | 1 | — | — | — | 사내에서 Ncode를 쓰는 **서비스별 프로젝트 현황(집계·상태)** 관리 영역. 서비스 추가 = `menu.ts` `SERVICE_MENUS` 1건 추가 |
 | — | └ **CasterN 서비스 관리** (헤더) | 1 | — | — | — | casterN 편집툴 고유 관리 — 편집 프로젝트·PUI 코드 |
 | **PRJ-01** | 코드 프로젝트 | 2 | `/projects` | `ProjectsView` | Staff/Admin | 고객사별 코드 프로젝트 목록(마스터), 공유(커먼) 코드 표시·검색 |
 | PRJ-01-1 | └ 프로젝트 상세 | 3 | `/projects` (우측 패널) | `ProjectsView` | Staff/Admin | 선택 프로젝트의 코드종류·Section/Owner·발급 상세 |
+| — | **티켓 발급** (그룹) | 1 | — | — | — | 발급 메뉴 3종을 담는 사이드바 그룹 (코드 다음, 서비스 관리 앞) |
+| **TKT-03** | 계정 발급 (목록) | 2 | `/tickets/account` | `AccountsListView` | Staff/Admin | 계정 목록 — 요약 4칸 · 고객사/사용처/검색 필터 · 8열 표(CasterN 권한·App Key 수) |
+| **TKT-06** | └ 계정 등록 | 3 | `/tickets/account/new` | `AccountNewView` | Staff/Admin | ① 계정 정보 → ② 사용처·권한(CasterN 7종) → ③ App Key(선택) → [계정 추가] |
+| **TKT-06** | └ 계정 상세·수정 | 3 | `/tickets/account/{email}` | `AccountDetailView` | Staff/Admin | 계정 정보·권한 수정, App Key 발급·삭제, 계정 삭제 |
+| **TKT-01** | N Key 발급 | 2 | `/tickets/nkey` | `TicketsView` (`NKeyForm`) | Staff/Admin | 물리 N Key(HLP) 발급 폼 — 고객사·SOBP 범위 선택 후 zip 발급 |
+| **TKT-04** | Key 발급 정산 | 2 | `/tickets/list` | `TicketsView` (`TicketListView`) | Staff/Admin | 발급 티켓 목록·정산, 대장(HLP 발급대장)/신규 발급 필터 |
 | **PRJ-02** | 편집 프로젝트 | 2 | `/projects/editing` | `EditingProjectsView` | Staff/Admin | 편집 고객사 목록, 발급규모(페이지)·편집원가(심볼) 단가 기준 집계·검색·고객사 추가 |
 | **PRJ-03** | 편집 프로젝트 상세 | 2 | `/projects/editing/[owner]` | `EditingDetailView` | Staff/Admin | 오너별 Book·편집 가능 범위·할당 SO·공유 정보 상세 |
 | **PUI-01** | PUI 코드 (피지컬) | 2 | `/pui` | `PuiView` | Staff/Admin | 피지컬 UI 기능표 — 카테고리·기능별 Book/Page·파라미터 참조 |

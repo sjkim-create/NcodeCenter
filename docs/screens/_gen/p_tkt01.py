@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-"""TKT-01 티켓 발급(N Key) + TKT-02 Key 정보 확인 모달 — 실제 화면 구조 그대로.
+"""TKT-01 N Key 발급 + TKT-02 Key 정보 확인 모달 — 실제 화면 구조 그대로.
 
-좌측 발급 메뉴(220px) + 우측 발급 폼(최대 900px). 단계 제목 없이 한 장으로 이어진다.
-menu() · sel() · field() · tkt02() 는 TKT-03 / TKT-04 / SOB-02 / PRJ-02 / PRJ-04 가 함께 쓴다.
+발급 메뉴는 사이드바 [티켓 발급] 그룹으로 빠졌고, 화면은 발급 폼 한 장(최대 900px)이다.
+sel() · field() · tkt02() 는 TKT-03 / TKT-04 / SOB-02 / PRJ-02 / PRJ-04 가 함께 쓴다.
 """
 from shell import page, frame
 
-CODE, NAME = 'TKT-01', '티켓 발급 (N Key 발급)'
-PRD = 'docs/prd/TKT-01_티켓 발급(N Key 발급).md'
+CODE, NAME = 'TKT-01', 'N Key 발급'
+PRD = 'docs/prd/TKT-01_N Key 발급.md'
 
 USE_NOTE = ('Key 생성 시 티켓이 <b>zip 파일(폴더 형태)</b>로 다운로드됩니다. 다운로드 폴더에서 zip의 '
             '압축을 풀어 그 폴더째 <b>nproj 폴더</b> 또는 <b>내 PC &gt; 문서 &gt; NeoLAB &gt; '
@@ -15,37 +15,6 @@ USE_NOTE = ('Key 생성 시 티켓이 <b>zip 파일(폴더 형태)</b>로 다운
             '<b>Caster lite</b>에서 사용합니다.')
 
 SC = {'S': '#5f8ff0', 'O': '#14b8a6', 'B': '#8b5cf6', 'P': '#f59e0b'}
-
-
-# ── 좌측 발급 메뉴 (TKT-01 · 03 · 04 공용) ──────────────────────────
-def menu(active='nkey', count=142):
-    items = (('nkey', 'N Key', '물리 키 · 오프라인 편집툴', '#14b8a6', None),
-             ('app', '계정 + App Key', '온라인 편집툴 · SDK', '#2563eb', None),
-             ('list', '발급 목록 · 정산', '발급 내역 · 과금 관리', '#7c3aed', count))
-    li = ''
-    for k, nm, sub, col, cnt in items:
-        on = (k == active)
-        badge = ''
-        if cnt is not None:
-            badge = ('<span style="margin-left:auto;font-size:10px;border-radius:5px;'
-                     'padding:2px 7px;background:%s;color:#6b7280">%s</span>'
-                     % ('#fff' if on else '#f3f4f6', cnt))
-        li += ('<div style="border:1px solid %s;border-left:3px solid %s;background:%s;'
-               'border-radius:9px;padding:10px 12px;margin-bottom:6px">'
-               '<div style="display:flex;align-items:center;gap:7px">'
-               '<span style="width:8px;height:8px;border-radius:3px;background:%s"></span>'
-               '<span style="font-weight:700;font-size:13px;color:%s">%s</span>%s</div>'
-               '<div style="font-size:11px;color:#9ca3af;margin-top:3px">%s</div></div>'
-               % (col if on else '#eef0f4', col if on else 'transparent',
-                  '#f8fafc' if on else '#fff', col, col if on else '#111827', nm, badge, sub))
-    return ('<div class="card" style="align-self:start"><div class="bd" style="padding:8px">'
-            '<div style="font-size:12px;font-weight:700;color:#6b7280;padding:4px 8px 8px">'
-            '발급 메뉴</div>%s'
-            '<div style="margin-top:10px;padding:10px 8px 4px;border-top:1px solid #eef0f4;'
-            'font-size:11px;color:#9ca3af;line-height:1.7">'
-            '<div><b style="color:#14b8a6">N Key</b> 물리 키 · 계정 불필요</div>'
-            '<div><b style="color:#2563eb">App Key</b> id/pwd + SOBP · 계정 연동</div>'
-            '</div></div></div>' % li)
 
 
 # ── 공용 입력 조각 (다른 모듈에서 import) ────────────────────────────
@@ -227,9 +196,7 @@ def form(state='ready', sep=False, unlimited=True, err=None, over=False,
 
 
 def content(**kw):
-    return ('<div style="display:grid;grid-template-columns:220px 1fr;gap:14px;'
-            'align-items:start">%s<div style="max-width:900px">%s</div></div>'
-            % (menu('nkey'), form(**kw)))
+    return '<div style="max-width:900px">%s</div>' % form(**kw)
 
 
 # ── TKT-02 Key 정보 확인 (TKT-04 도 사용) ──────────────────────────
@@ -278,15 +245,15 @@ def tkt02(mode='input', err=None, empty=False, fname=None):
 
 
 MENU_ACTS = [
-    ('발급 메뉴 [계정 + App Key]', '클릭', '<code>TKT-03</code>', '<b>고객사 선택 유지</b>'),
-    ('발급 메뉴 [발급 목록 · 정산]', '클릭', '<code>TKT-04</code>', '누적 발급 건수 함께 표시'),
+    ('사이드바 [계정 발급]', '클릭', '<code>TKT-03</code>', '<b>고객사 선택 유지</b>'),
+    ('사이드바 [발급 목록 · 정산]', '클릭', '<code>TKT-04</code>', '발급 이력·정산'),
 ]
 
 CLOSE = [('[닫기] · ✕ · 배경', '클릭', '<code>TKT-01</code>', '입력값은 그대로 남는다')]
 
 
 def scr(**kw):
-    return frame('TKT-01', '티켓 발급', content(**kw), height=1060)
+    return frame('TKT-01', 'N Key 발급', content(**kw), height=1060)
 
 
 def build():
@@ -425,7 +392,7 @@ def build():
         'S11', 'TKT-02 · 현재 입력값', '모달',
         '<b>[🔍 Key 정보 확인]</b> 으로 열린다. 지금 화면에 넣은 값이 티켓에 <b>어떤 항목으로 '
         '들어가는지</b> key · value 표로 보여준다. <b>아직 생성 전</b> 임을 항목 수 옆에 안내한다.',
-        frame('TKT-01', '티켓 발급', content(state='ready'),
+        frame('TKT-01', 'N Key 발급', content(state='ready'),
               overlay=tkt02('input'), height=1060),
         [('[현재 입력값]', '클릭', '입력값 표', '기본 선택'),
          ('항목 검색', '입력', '행 필터', 'key · value 에 포함된 문자열'),
@@ -437,7 +404,7 @@ def build():
         'S12', 'TKT-02 · Key 불러오기', '모달',
         '내려받은 티켓 <code>.json</code> 을 골라 <b>실제 발급된 값</b>을 확인한다. '
         '파일명이 탭 옆에 함께 표시되고, 항목 수 안내가 <b>(불러온 파일)</b> 로 바뀐다.',
-        frame('TKT-01', '티켓 발급', content(state='ready'),
+        frame('TKT-01', 'N Key 발급', content(state='ready'),
               overlay=tkt02('file', fname='Ticket_웅진씽크빅_S3O17_B400-499.json'),
               height=1060),
         [('[📂 Key 불러오기]', '파일 선택', '파일 내용 표시', '<code>.json</code> 만'),
@@ -449,7 +416,7 @@ def build():
     B.append((
         'S13', 'TKT-02 · 파일 형식 오류', '오류',
         '티켓 파일이 아닌 JSON 을 고른 경우. 빨강 안내가 뜨고 표는 비어 있다.',
-        frame('TKT-01', '티켓 발급', content(state='ready'),
+        frame('TKT-01', 'N Key 발급', content(state='ready'),
               overlay=tkt02('file', empty=True, fname='notes.json',
                             err='JSON 형식의 티켓 파일이 아닙니다. '
                                 'Key 생성으로 내려받은 .json 파일을 선택하세요.'),
@@ -460,9 +427,11 @@ def build():
          ('[현재 입력값]', '클릭', 'S11', '오류를 지우고 입력값으로 돌아간다')] + CLOSE))
 
     intro = ('<b>티켓 = 고객사가 이미 할당받은 SOBP 코드를 실제로 쓸 수 있게 하는 사용 허가</b>다. '
-             '이 화면은 발급 메뉴 3개를 담는 컨테이너이며 진입 시 <b>N Key 발급</b>이 열린다.<br>'
+             '발급 메뉴는 사이드바 <b>[티켓 발급]</b> 그룹(<code>TKT-01</code> N Key 발급 · '
+             '<code>TKT-03</code> 계정 발급 · <code>TKT-04</code> 발급 목록 · 정산)이며, '
+             '이 화면은 그중 <b>N Key 발급</b>(<code>/tickets/nkey</code>)이다.<br>'
              '<b>N Key</b> = 물리 키 · 오프라인 편집툴(Caster lite) 용 · <b>계정 불필요</b>. '
              '고객사 선택값은 <code>TKT-01</code> · <code>TKT-03</code> · <code>TKT-04</code> '
-             '<b>3개 메뉴가 공유</b>한다.<br>'
+             '<b>3개 화면이 공유</b>한다.<br>'
              'S11~S13 은 이 화면에서 열리는 <b><code>TKT-02</code> Key 정보 확인</b> 모달이다.')
     return page(CODE, NAME, PRD, intro, B)
