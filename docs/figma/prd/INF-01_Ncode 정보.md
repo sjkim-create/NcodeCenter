@@ -11,7 +11,7 @@
 
 ### 개요
 
-코드 발급·편집 업무에 필요한 **참조 정보**를 **밑줄 탭 4개**로 제공한다 — Ncode Info(Section별 발급 범위) · 확장 언어 슬롯 · 발급 구조 · 알아야 할 사항. **참조 전용 · 기능 없음**이며 권한은 전 역할(STAFF / ADMIN). 탭 2~4는 각각 `LangSlotView` · `NcodeInfoView` · `NcodeGuideView`를 `embedded`로 불러 쓴다. 기준: `web/components/InfoView.tsx`
+코드 발급·편집 업무에 필요한 **참조 정보**를 **밑줄 탭 4개**로 제공한다 — Code Info(Section별 발급 범위 — PDS2·PDS3·PDS4) · 확장 언어 슬롯 · 발급 구조 · OID 관리대장 · 알아야 할 사항. **참조 전용 · 기능 없음**이며 권한은 전 역할(STAFF / ADMIN). 탭 2~4는 각각 `LangSlotView` · `NcodeInfoView` · `NcodeGuideView`를 `embedded`로 불러 쓴다. 기준: `web/components/InfoView.tsx`
 
 ### 상태 구성
 
@@ -19,7 +19,7 @@
 
 | 상태 | Figma 프레임 | 제목 | 구분 |
 |---|---|---|---|
-| `S1` | `INF-01:S01` | Ncode Info · Section별 발급 범위 | 기본 |
+| `S1` | `INF-01:S01` | Code Info · Section별 발급 범위 | 기본 |
 | `S2` | `INF-01:S02` | 확장 언어 슬롯 · 전체 | 기본 |
 | `S3` | `INF-01:S03` | 확장 언어 슬롯 · Cake 필터 | 필터 |
 | `S4` | `INF-01:S04` | 발급 구조 | 기본 |
@@ -29,20 +29,20 @@
 
 ## 3. 상태별 변화
 
-### INF-01: S01 Ncode Info · Section별 발급 범위
+### INF-01: S01 Code Info · Section별 발급 범위
 
 *화면 정의서 상태 `S1`*
 
 **구분** — 기본
 
-좌측 메뉴 [Ncode 정보]로 진입하면 이 탭이 기본이다. 탭은 칩이 아니라 **밑줄 탭**이며 활성 탭만 파란 글씨 + 2px 밑줄이다. 표는 **Section 하나당 4행**(owner · bookcode · page · length)이고 SECTION 칸이 `rowspan=4`로 묶인다. **참조 전용 · 기능 없음** — 검증·오류 메시지가 없다. 기준: `web/components/InfoView.tsx`
+좌측 메뉴 [Ncode 정보]로 진입하면 이 **Code Info** 탭이 기본이다. 탭은 칩이 아니라 **밑줄 탭**이며 활성 탭만 파란 글씨 + 2px 밑줄이다. 표는 **Section 하나당 4행**(owner · bookcode · page · length)이고 SECTION 칸이 `rowspan=4`로 묶인다. **참조 전용 · 기능 없음** — 검증·오류 메시지가 없다. 기준: `web/components/InfoView.tsx`
 
 | 요소 | 액션 | 결과 · 이동 | 메시지 · 비고 |
 |---|---|---|---|
-| 탭 | 클릭 | 본문 교체 | Ncode Info / 확장 언어 슬롯 / 발급 구조 / 알아야 할 사항 |
+| 탭 | 클릭 | 본문 교체 | Code Info / 확장 언어 슬롯 / 발급 구조 / OID 관리대장 / 알아야 할 사항 |
 | length(판형) | 조회 | — | **코드를 입힐 수 있는 최대 크기** — 판형이 커지면 **Section이 달라진다** |
 | PDS2 범위 없는 Section | 표시 | — | 값이 **—**로 표시된다 (S5·S10·S11·S15) |
-| 안내 박스 | 조회 | — | 파란 박스(#eff6ff) · **※ Section 1·44는 테스트/개발 전용(상용 미출시).** |
+| 안내 박스 | 조회 | — | 파란 박스(#eff6ff) · **※ Section 1은 테스트/개발 전용** · **※ Section 44 = PDS4(S-code)** owner 0~4095 · book 0~255 · page 0~255 · xy 0~255 |
 | ⚠ 수록 Section | 참고 | — | 이 표에는 **0 · 3 · 5 · 10 · 11 · 14 · 15**만 있다 — `SOB-01`의 Section 목록(1 · 44 포함)과 **범위가 다르다** |
 | 판형·페이지 기준 확인 후 발급 | 이동 | `SOB-01` → `SOB-02` | 자동 추천이 이 표 기준으로 Section을 고른다 |
 | 언어 슬롯 실제 점유 확인 | 이동 | `SOB-01` | 해당 Owner의 코드 상태 |
@@ -89,11 +89,14 @@ PRD §4.2 — **INF-02(Common)와 INF-03(Cake)은 화면상 같은 탭**에서 �
 
 **구분** — 기본
 
-PRD §4.3 — PDS2(Gcode)·PDS3(Ncode)의 **코드 체계·구분**과 **SOBP 계층**을 설명한다. 기능 조작 없이 읽는 페이지다. 본문 최대 폭 1000px.
+PRD §4.3 — **좌표(SOBP)가 먼저**이고 코드 종류(PDS3·PDS2·PDS4·OID·IDS)는 그 좌표의 속성이라는 **코드 체계**와 **SOBP 계층**을 설명한다 `PC-032`. 기능 조작 없이 읽는 페이지다. 본문 최대 폭 1000px.
 
 | 요소 | 액션 | 결과 · 이동 | 메시지 · 비고 |
 |---|---|---|---|
-| 코드 구분 표 | 조회 | — | PDS3(N3C6)=**Ncode** 현행 주력 · PDS2(G3C6)=**Gcode** 구형/호환 · **S코드는 NcodeCenter 관리 대상 아님** |
+| 코드 종류 표 | 조회 | — | PDS3(N3C6)=**Ncode** 현행 주력 · PDS2(G3C6)=**Gcode** 구형/호환 · **PDS4(S-code)=Section 44**(owner 0~4095 · book 0~255 · page 0~255 · xy 0~255) · **OID**=인덱스 전용(같은 S/O 공유, B/P로 구분) · IDS(A)=이력 전용 |
+| 종류 규칙 | 조회 | — | **신규 발급**은 같은 S/O 에 한 종류만 `PC-041` (과거 혼용 이력은 표시 유지) |
+| OID 설명 | 조회 | `OID-01` | **index 전용 · 코드 1개 노출 · 약 6만 개 · book 미분할** — 업체+index 대장에서 관리 |
+| 펜 구분 | 조회 | — | **소리펜(NSP) · 필기펜(NWP)** 도 좌표 속성 |
 | SOBP 계층 | 조회 | — | S 파랑 · O 청록 · B 보라 · P 주황 4카드 |
 | X·Y 좌표 | 참고 | — | **한 페이지 안의 위치는 추가로 X·Y 좌표로 지정됩니다. 겹침 없이 발급하는 것이 최우선.** |
 

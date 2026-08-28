@@ -46,6 +46,17 @@
 | PC-029 | 2026-08-28 | App Key 계정 — 고객사당 계정 수 | 한 고객사에 **계정 1개**(발급 흐름 안에서만 등록) → **계정 여러 개**(개수 **제한 없음**). `[＋ 계정 추가]`로 언제든 추가하고, **`[계정만 등록]`으로 App Key 없이 계정만** 먼저 만든다. 목록에서 `[이 계정으로 발급]`으로 대상 계정을 바꾼다 | 한 고객사에서 담당자별·서비스별로 로그인 계정을 나눠 써야 함 (ID(email)는 전체에서 유일, 계정 수는 무제한) | `accountStore`(`accountsOfCompany`)·`TicketsView` App Key 폼/서비스 DB 목록·PRD TKT-03 v1.2·화면정의서 TKT-03(S3·S4·S11·**S13**) | ✅ |
 | PC-030 | 2026-08-28 | 티켓 발급 메뉴 위치 | **[코드] 그룹의 단일 화면 `티켓 발급`** + 화면 안 좌측 발급 메뉴(N Key / 계정+App Key / 발급 목록) → **사이드바 [티켓 발급] 그룹 3개 화면**: `TKT-01` **N Key 발급**(`/tickets/nkey`) · `TKT-03` **계정 발급**(`/tickets/account`) · `TKT-04` **발급 목록 · 정산**(`/tickets/list`). 화면명 **계정 + App Key → 계정 발급**, **티켓 발급 → N Key 발급**. 메뉴 순서 = **코드 → 티켓 발급 → 서비스 관리 → 멤버 관리 → 정보** | 발급 업무를 코드 관리와 분리해 좌측 메뉴에서 바로 고르게 한다 (화면 안 탭 이중 메뉴 제거) | `menu.ts`·`/tickets/{nkey,account,list}`·`TicketsView`(tab prop)·IA §1·§2·구조MD §4·PRD-00 §4.4·PRD TKT-01 v1.2·TKT-03 v1.3·TKT-04·화면정의서 사이드바 | ✅ |
 | PC-031 | 2026-08-28 | 계정 발급 화면 · CasterN 권한 | 발급 폼 1장(계정 선택 + App Key 동시 발급) → **목록(`TKT-03`) + 등록·상세 수정(`TKT-06`) 분리**. 등록은 **① 계정 정보 → ② 사용처·권한 → ③ App Key(선택)** 3단계이고 **App Key 발급은 선택**(계정만 등록 후 상세에서 발급 가능). 계정에 **CasterN 권한 7종**(프로젝트 생성 · 심볼 편집 · 리소스 편집 · Ncode PDF 내보내기 · NCP2 내보내기 · App용 패키지 내보내기 · App 페이지 설정)을 **개별 또는 모두** 지정. 티켓 발급 메뉴 순서 = **계정 발급 → N Key 발급 → Key 발급 정산**, 화면명 **발급 목록 및 정산 → Key 발급 정산** | 계정을 목록으로 관리하고, CasterN이 계정 단위로 기능 권한을 나눠 쓴다는 전달(권한 7종) 반영 | `accountStore`(`perms`·`CASTERN_PERMS`·`updateAccount`)·`AccountsView`·`/tickets/account/{new,[id]}`·`menu.ts`·IA §1·§2·구조MD §4·PRD-00 §4.4·PRD TKT-03 v2.0·**TKT-06 신규**·TKT-04 v1.2·화면정의서 TKT-03(5상태)·TKT-06(9상태) | ✅ |
+| PC-032 | 2026-08-28 | SOBP · 코드 종류 모델 | **PDS2/PDS3 안에서 SOBP 를 지정**하고 중복을 막던 방식 → **좌표(SOBP)를 먼저 지정하고 그 좌표의 속성으로 종류를 구분**한다: **PDS2 · PDS3 · PDS4(S-code = Section 44) · OID**(+IDS 이력). 좌표가 유일하므로 중복은 성립하지 않고, 해당 좌표가 어떤 종류인지만 가린다. 한 (S,O)는 PDS2·PDS3·PDS4 중 한 종류만 쓰고 **OID만 같은 S/O 를 공유**(B/P로 구분)한다. **펜 구분(소리펜 NSP·필기펜 NWP)도 좌표 속성**으로 관리한다 | 코드 체계를 좌표 중심으로 정리해 중복 판정을 없애고, 외부 코드 판독용 OID 발급분을 분류·검색할 수 있게 한다 | `build_all_sources.py`(OID k=O·pen)·`codeKind.ts`·`sobp.tsx`(KindChip·PenChip)·`OwnershipMap`(종류·펜 필터)·`ProjectsView`·`EditingProjectsView`·`TicketsView`(PatternType Scode/OID)·`NcodeInfoView`·정책정의서 P-01~03·PRD SOB-01·SOB-02·PRJ-01·INF-01 | ✅ |
+| PC-033 | 2026-08-28 | OID 관리 방식 | PDS2·PDS3·PDS4 와 **같은 좌표(SOBP) 축**에서 종류로 구분 → **좌표 관리 대상에서 분리**. OID는 **index 만 갖는 코드**(외부 코드를 우리 펜으로 판독, 펜으로 찍으면 코드 값 1개, 총량 약 6만)로 분량이 적으면 **book 미분할**이며, 업체 구분은 S/O·분량이 늘어난 업체만 **book 번호(=OID index)** 로 나눈다. → **업체 + index 대장(`OID-01` /oid)** 신설, 기존 SOBP 좌표는 **메모**로만 표기. SOBP 맵·코드 프로젝트·편집 목록의 종류 축에서 OID 제거 | OID는 좌표로 발급·점유하는 코드가 아니라 index 부여 수단이라, 좌표 축에 섞으면 무겹침·정원 관리가 왜곡된다 | `build_all_sources.py`(oid-data.json 분리·code-usage 에서 제외)·`oidLedger.ts`·`OidView`(/oid)·`menu.ts`·`codeKind.ts`(CODE_KINDS 에서 OID 제외)·`OwnershipMap`·`ProjectsView`·`EditingProjectsView`·`NcodeInfoView`·정책정의서 P-02-2·**PRD OID-01 신규**·INF-01·SOB-01 | ✅ |
+| PC-034 | 2026-08-28 | OID 화면 위치 | 사이드바 **[코드] ▸ [OID 관리대장]** 별도 메뉴(`/oid`) → **메뉴 분리 취소**. 화면은 **Ncode 정보(`INF-01`)의 [OID 관리대장] 탭**으로 편입한다(탭 순서: Ncode Info · 확장 언어 슬롯 · 발급 구조 · **OID 관리대장** · 알아야 할 사항). SOBP 맵 툴바 링크도 `[OID는 별도 관리 →]` → Ncode 정보 탭으로 연결 | 사용자 지시(2026-08-28) — 메뉴를 새로 빼지 않고 Ncode 정보 안에서 관리한다. OID **관리 방식 분리(PC-033)는 그대로 유지** | `menu.ts`(항목 제거)·`/oid` 라우트 삭제·`InfoView`(탭 5개)·`OidView`(embedded)·`OwnershipMap` 링크·IA §1·§2·구조MD §4·PRD-00 §4.4·PRD OID-01 v1.1·INF-01 v1.4·SOB-01·화면정의서 shell/p_inf01/p_oid01 | ✅ |
+| PC-035 | 2026-08-28 | OID 용어·필터 · 직접 할당 재선택 | ① **IDS(A코드) = OID 동일 용어**로 통합(별도 종류·라벨 폐기) ② 코드 종류 = **PDS2 · PDS3 · PDS4 · OID 4종**, SOBP 맵·코드 프로젝트에서 **OID 로 필터·검색** 가능(PC-033 의 '좌표 관리 대상 아님' 표현·[OID는 별도 관리] 링크는 삭제 — OID 데이터는 다시 지도 데이터에 포함) ③ **직접 코드 할당(SOB-02)** 에서 **코드 종류 · Section · Owner 를 모달 안에서 다시 선택**(각각 단일 선택, 다중 선택 없음) | IDS/OID 표기가 혼재해 필터가 갈렸고, 할당 창에 들어온 뒤 대상을 못 바꿔 지도로 되돌아가야 했다 | `codeKind.ts`(CodeKind 4종·A→OID)·`build_all_sources.py`(OID 행 code-usage 복귀)·`OwnershipMap`(칩 4종·재선택 UI)·`commonCodes.ts`·`EditingDetailView`·`NcodeInfoView`·`OidView`·정책정의서 P-02·P-02-2·PRD SOB-01 v2.2·SOB-02 v1.3·INF-01·OID-01·화면정의서 p_sob01·p_sob02 | ✅ |
+| PC-036 | 2026-08-28 | book 미분할 OID 노출 | 북코드가 없는 행은 데이터 빌드에서 **전량 제외**(중복/변형 표기 방지) → **OID 의 book 미분할 행은 지도에 싣는다**(`nb=1`, 35행). SOBP 맵에서 **OWNER 까지만** 표시하고 Book 카드로는 쓰지 않으며, BOOK 열 맨 위에 **『book 미분할 · {n}건』 안내 + 항목 목록**을 보여준다 | OID 는 분량이 적으면 book 을 나누지 않는데(한솔 S3/O25 등) 그 행이 빠져 지도에서 업체가 아예 보이지 않았다 | `build_all_sources.py`(OID nb 행 code-usage 추가)·`codeUsage.ts`(BookRec.nb · book 맵에서 제외)·`OwnershipMap`(OWNER 표시·BOOK 안내·Page 패널 종류 표기)·PRD SOB-01·OID-01 | ✅ |
+| PC-037 | 2026-08-28 | 펜 필터 폐지 · 편집 이력 코드 종류 | ① SOBP 맵의 **펜 구분 필터(펜 전체/소리펜/필기펜) 폐지** — 펜 값은 좌표 속성·배지로만 남긴다(필터 불필요) ② **편집 프로젝트(목록·상세)의 코드 종류를 PDS3·PDS2·PDS4·OID 4종**으로 구분(기존 N/G 2종) ③ OID 로 작업한 교재가 편집 이력에서 빠지던 문제 수정 — **book 미분할 OID 행을 편집 데이터에도 포함**(예: 한솔교육 S3/O25 『Ready Readers Book』·『신기한 영어나라』) | 펜 필터는 실사용 가치가 없고, 편집 이력도 코드 종류로 갈라 봐야 한다는 요청 | `build_all_sources.py`(nb 필터에서 OID 예외)·`OwnershipMap`(펜 필터 제거)·`EditingProjectsView`(종류 4종·배지)·`EditingDetailView`(종류 필터·셀)·정책정의서 P-03·PRD SOB-01 v2.4·PRJ-02·PRJ-03·화면정의서 p_sob01 | ✅ |
+| PC-038 | 2026-08-28 | 첫 화면 기준 | ① **SOBP 맵 종류 칩**을 고르면 그 종류의 **첫 좌표(S→O→B)** 로 이동한다 — 데이터가 있는 좌표부터 보여준다(없으면 원장의 첫 owner → 첫 Section) ② **편집 프로젝트 첫 화면**에서 특정 고객사를 미리 고르지 않고 **전체 고객사 요약 표**(고객사 · 코드 종류 · 북 · 심볼 · 리소스 · 청구액)를 보여준다. 표의 한 줄을 누르면 상세로, 상세에서 **[← 전체 고객사]** 로 복귀 | 종류를 바꿀 때마다 빈 좌표부터 나와 직접 찾아야 했고, 편집 화면은 특정 고객사(Common-21)로 열려 전체 현황을 볼 수 없었다 | `OwnershipMap`(firstSobpOf)·`EditingProjectsView`(초기 선택 없음·전체 요약 표)·`EditingDetailView`(종류 배지)·PRD SOB-01 v2.5·PRJ-02 v1.4·화면정의서 p_sob01·p_prj02 | ✅ |
+| PC-039 | 2026-08-28 | 종류 배타 폐지 · 코드 필터 | **좌표(SOBP)가 코드 종류보다 상위**라는 개념을 끝까지 적용한다. ① 「같은 (S,O)는 PDS2·PDS3·PDS4 중 한 종류만」 **배타 규칙과 🚫 영역 할당됨 표시·차단을 폐지** — 좌표를 할당하고 그 좌표가 어떤 종류인지는 **용도 표시**일 뿐이다 ② SOBP 맵 상단을 **「코드」 필터 그룹(전체 · PDS2 · PDS3 · PDS4 · OID)** + **「상태」 필터 그룹**으로 묶고 고객사 검색을 오른쪽으로 정리 ③ **전체** 보기 신설(종류 무관 좌표 전체 · 섹션 정원은 종류별 최대치) · OWNER/BOOK 카드에 **종류 배지**로 용도 표시 | 실데이터 확인 결과 한 고객사가 같은 (S,O) 안에서 Book 을 나눠 PDS2·PDS3 를 함께 쓰는 사례가 **7건**(구몬D-37 · 대교-31 · 교원구몬-10 · J research-1017 · 러닝루츠-1020 · NeoLAB FW TEST-42 · NeoLAB FW SET-44) 있어 기존 배타 규칙이 데이터와 어긋났다. (S,O,B) 까지 겹치는 것은 **S3/O1017/B1 1건**뿐 — 별도 확인 필요 | `OwnershipMap`(배타 로직·차단 UI 제거 · 코드/상태 필터 그룹 · 전체 보기 · 종류 배지)·`codeKind.ts`(표시 순서 PDS2 우선)·정책정의서 P-02-1·PRD SOB-01 v2.6·SOB-02 v1.4·화면정의서 p_sob01·p_sob02 | ✅ |
+| PC-040 | 2026-08-28 | 전체 고객사 화면 · 카드 칩 통일 | ① 편집 프로젝트 **첫 화면(전체 고객사)** 을 고객사 요약 표 → **고객사 상세와 같은 교재 표**로 통일 — **항목 셀렉트 필터(상태·고객사·사용 고객사·코드·타입·편집방식)** 와 **페이지네이션(50/100/200/500/전체)** 을 그대로 쓴다. 전체 보기는 **조회 전용**(수정은 고객사 선택 후)이며 **고객사 열**이 추가된다 ② SOBP 맵 **OWNER·BOOK 카드의 칩 순서를 통일** — **[번호] → [상태] → [종류(용도)] → (펜)** | 전체 화면에서 같은 방식으로 걸러 보고 싶다는 요청 · 같은 상태 값인데 O 카드와 B 카드의 칩 위치·줄바꿈이 달랐다 | `EditingDetailView`(allCustomers 모드·고객사 열/필터·읽기 전용)·`EditingProjectsView`(전체 화면 교체)·`OwnershipMap`(칩 순서)·PRD PRJ-02 v1.5·PRJ-03 v1.3·SOB-01 v2.7·화면정의서 p_prj02·p_sob01 | ✅ |
+| PC-041 | 2026-08-28 | S/O 내 종류 혼용 — 신규 금지·이력 유지 | **신규 발급은 한 (S,O) 안에서 한 종류만** 한다(PDS2·PDS3 혼용 금지). 이미 혼용된 **과거 이력은 그대로 표시**한다(당시 허용 정책) — `S3/O42` NeoLAB FW TEST · `S3/O44` NeoLAB FW SET · `S3/O1020` 러닝루츠(PDS2 B20~35 · PDS3 B1~11 — 한 고객사·Book 미겹침). **원장의 동일 (S,O,B,종류) 중복 행 49건**(다국어 분할 등)도 과거 이력으로 **그대로 유지**한다. 직접 코드 할당에서 그 S/O 가 다른 종류로 쓰이고 있으면 **안내 + [할당] 비활성**(OID 는 index 부여라 제외). 데이터 정리: **구몬D-37 S3/O37 의 PDS3 B669(데일리노트) 는 발급 없음** → 빌드에서 제외(담당 확인). **원장 보강 프로젝트는 코드 종류 미정**으로 두어 지도 배지에 PDS3 로 잘못 표시되던 것을 바로잡음 | 담당 확인(2026-08-28) + 소리펜 원장 재업로드 반영. 재확인 결과 (S,O,B) 중복 **0건**, (S,O) 혼용 **3건**(S3/O42 · S3/O44 · S3/O1020) | `build_all_sources.py`(구몬D B669 제외 · 보강 프로젝트 kind 미정)·`codeUsage.ts`(kindSet)·`OwnershipMap`(신규 할당 혼용 차단·배지 정확도)·PRD SOB-01 v2.8·SOB-02 v1.5 | ✅ |
+| PC-042 | 2026-08-28 | PDS4(S-code) 발급 범위 정식 수록 · 탭 개명 | Section **44 = PDS4(S-code)** 의 범위를 **owner 0~4095 · bookcode 0~255 · page 0~255 · xy 0~255** 로 확정해 **Code Info 표에 3번째 열**로 넣는다. PDS4 는 판형(**length**) 대신 **xy** 를 갖는다. 지금까지 “표에 없음 · 원장 관측치 · 개발팀 확인 필요” 로 적어 둔 주석을 지운다. 함께 **[Ncode Info] 탭 이름을 [Code Info]** 로 바꾼다(PDS2·PDS3·PDS4 를 함께 다루므로) | 담당 전달(2026-08-28) — `s44 o4095 b255 p255 xy255` | `InfoView.tsx`(SECTIONS·KEYS4·탭)·`OwnershipMap`(PDS4 owner 정원 1024→4096)·PRD INF-01 v1.6·화면정의서 `p_inf01.py` | ✅ |
 
 > **PC-004·005 확정 결과 = 단일 할당 상태**: 코드는 **'할당됨(발급)' / '미발급(빈 코드)'** 두 가지로만 본다. `예약(RESERVED) vs 사용중(IN_USE)` 2분 구분은 폐기.
 > **정리 완료(2026-08-03)**: 데이터 `ownership-data.json` status 제거(479건) · 파이프라인(`build_all_sources.py`·`build_ownership_data.py`) 태깅 제거 · `DashboardView` 예약 KPI·도넛 제거(→할당 규모) · `codeUsage`/`OwnershipMap`/`BrandGuide` 문구 정리 · 문서 배너/문구 정리.
@@ -55,9 +66,15 @@
 
 ## 용어 기준
 
-- **코드 좌표 = SOBP** (Section–Owner–Book–Page).
-- **코드 종류 = N코드 / G코드** (참고: 물리 체계 PDS3≈N코드, PDS2≈G코드). **S코드는 NcodeCenter 범위에서 제외**(결정 2026-07-15).
-- **펜 구분 데이터 = Ncp(소리펜) / Ndp(필기펜)** — 동일 page(동일 SOBP)라도 Ncp/Ndp로 **다르게 관리**.
+- **코드 좌표 = SOBP** (Section–Owner–Book–Page). **좌표가 먼저이고 1차 키**다 — 좌표가 정해지면 코드 중복은 성립하지 않는다 `PC-032`.
+- **코드 종류 = 좌표의 속성** — `PDS3`(Ncode) · `PDS2`(Gcode) · `PDS4`(**S-code**, Section 44) · `OID`(index 전용) `PC-032` `PC-035`.
+  - **좌표(SOBP)가 상위 개념**이라 한 **(S,O)** 안에서 Book 을 나눠 **여러 종류를 함께 쓸 수 있다** `PC-039`. 종류는 그 좌표의 **용도 표시**다. (예전의 종류 배타·🚫 영역 할당됨은 폐지)
+  - **옛 `IDS`(A코드) 표기 = `OID` 와 같은 것**이다. 화면·필터에서 구분하지 않는다 `PC-035`.
+- **OID = index 만 갖는 코드** — 외부 코드를 **우리 펜으로 읽으려고** 만든 방식이다 `PC-033`.
+  - 우리 펜으로 OID 책을 찍으면 **코드 값이 1개만** 나온다. 총량은 **약 6만 개**.
+  - 분량이 많지 않으면 **book 으로 나누지 않는다**. 업체 구분은 **S/O**, 분량이 늘어난 업체만 **book 번호(=OID index)** 로 나눈다.
+  - 좌표 조회는 **SOBP 맵의 종류 [OID] 필터**, 업체별 index 목록은 **`OID-01` 관리대장**(Ncode 정보 탭)에서 본다.
+- **펜 구분 데이터 = Ncp(소리펜·NSP) / Ndp(필기펜·NWP)** — **좌표 속성**으로 함께 관리한다. 동일 page(동일 SOBP)라도 Ncp/Ndp로 **다르게 관리**.
 
 ---
 
@@ -112,7 +129,9 @@
 
 ---
 
-## 4. 고객별 코드 종류(N/G) 할당 정책 (확인4)
+## 4. 고객별 코드 종류 할당 정책 (확인4)
+
+> 코드 종류는 **좌표(SOBP)의 속성**이다 `PC-032`. 아래 N/G 기준은 **PDS3(N)·PDS2(G)** 선택 기준을 말하며, PDS4(Section 44)·OID 는 좌표로 판별한다.
 
 **사례**
 - 교원 + 구몬: **N, G 모두** 사용(소리펜·필기펜 함께).
@@ -130,6 +149,7 @@
 
 > 주의: **편집 신규 할당은 편집 파트를 끼고 진행**하는 것이 안전.
 > **결정(2026-07-15): S코드는 NcodeCenter 범위 제외** — 취급 코드 종류는 **N/G** 두 가지.
+> **정정(2026-08-28 `PC-032`): S-code 는 `PDS4`(Section 44) 로 다시 편입**해 분류·조회한다. 여기에 **OID**(인덱스 전용)를 더해 **PDS2 · PDS3 · PDS4 · OID** 4종으로 구분한다.
 
 ---
 
@@ -150,7 +170,7 @@
 
 ### 6.1 공통코드 중앙 모델 (PC-006~009)
 - **코드 정본 = `(타입 k, Section, Owner)`** 중앙 레지스트리(`commonCodes.ts`). 옛 `nspCommon/nwpCommon` 불리언 플래그 폐기.
-- 타입 **k = N(PDS3) · G(PDS2) · A(IDS, 이력전용 historyOnly)**. A는 코드 할당·편집 없이 검색/이력만.
+- 타입 **k = N(PDS3) · G(PDS2) · A/O(OID, 옛 IDS 표기 포함 · historyOnly)**. A(옛 IDS)는 코드 할당·편집 없이 검색/이력만 `PC-035`.
 - **홀더 회사 1개 = 코드 1개**로 분리: 네오노트-27 → 네오노트-0-27 / 3-27 / 14-27 / IDS-27. 회사·프로젝트·편집·소유권이 모두 코드 단위로 일관.
 - **커먼코드 판정·필터는 레지스트리 기준.** 사용 고객사가 없는 코드(예: 팝펜스티커-26)는 공유코드로 보지 않음.
 

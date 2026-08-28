@@ -6,6 +6,7 @@ import { useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { makeZip } from "@/lib/zip";
+import { codeKind, kindLabel, patternOf, patternTypeParam } from "@/lib/codeKind";
 import { codesOfCompany } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import {
@@ -280,11 +281,15 @@ type Pattern = (typeof PATTERNS)[number];
 const PAGE_CAP: Partial<Record<Pattern, Record<number, number>>> = {
   PDS3: { 0: 4096, 3: 512, 5: 4096, 10: 1024, 11: 512, 14: 32, 15: 512 },
   PDS2: { 0: 1024, 3: 4096, 14: 1024 },
+  Scode: { 44: 256 },          // PDS4 (S-code) — Section 44
+  OID: { 3: 4096 },            // OID — 인덱스 전용(같은 S/O 공유, B/P로 구분)
 };
 // 패턴·섹션별 Book 정원 (Ncode 정보 기준)
 const BOOK_CAP: Partial<Record<Pattern, Record<number, number>>> = {
   PDS3: { 0: 16384, 3: 8192, 5: 4096, 10: 4096, 11: 8192, 14: 8192, 15: 4096 },
   PDS2: { 0: 8192, 3: 4096, 14: 4096 },
+  Scode: { 44: 256 },
+  OID: { 3: 8192 },
 };
 const yyyymmdd = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, ""); // KST
 
@@ -320,13 +325,13 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
     if (!company) return [];
     if (isCommon) {
       return commonCodes.map((c) => {
-        const pt: Pattern = c.k === "N" ? "PDS3" : "PDS2";
+        const pt: Pattern = patternOf(codeKind(c.k, c.s));
         const bcap = BOOK_CAP[pt]?.[c.s] ?? 4096, pcap = PAGE_CAP[pt]?.[c.s] ?? 512;
         return { pt, section: c.s, owner: c.o, bookStart: 0, bookEnd: bcap - 1, pageStart: 0, pageEnd: pcap - 1, bookCount: bcap };
       });
     }
     return projects.filter((p) => p.companyId === company.id).flatMap((p) => p.issued.map((b) => {
-      const pt: Pattern = (b.kind ?? "N") === "N" ? "PDS3" : "PDS2";
+      const pt: Pattern = patternOf(codeKind(b.kind, b.section));
       return { pt, section: b.section, owner: b.owner, bookStart: b.bookStart, bookEnd: b.bookEnd,
         pageStart: b.pageStart, pageEnd: b.pageEnd, bookCount: Math.max(1, b.bookEnd - b.bookStart + 1) };
     }));
@@ -370,7 +375,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
     BookVolume: books,
     PageStart: pageStart,
     PageVolume: pageVolume,
-    PatternType: range ? (range.pt === "PDS3" ? "Ncode_PDS3" : "Ncode_PDS2") : "-",
+    PatternType: range ? patternTypeParam(range.pt) : "-",
     TicketType: "Unlimited",
     SeparateEachBook: separate ? "Y (북코드별 개별 티켓)" : "N (1개 티켓 병합)",
     ...(isCommon ? { UsedCustomer: selCu?.cu ?? "-" } : {}),   // 공통코드: 사용 고객사
@@ -446,7 +451,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
                 <option value={-1}>- 사용 고객사 선택 ({cuCandidates.length}곳) -</option>
                 {cuCandidates.map((c, i) => <option key={`${c.k}${c.owner}:${c.cu}`} value={i}>{c.label}</option>)}
               </select>
-              {selCu && <div style={{ fontSize: 11.5, color: "#6b21a8", marginTop: 6 }}>발급 코드: <b>{selCu.k === "N" ? "PDS3" : "PDS2"} · S3 / O{selCu.owner}</b> · 사용 고객사 <b>{selCu.cu}</b></div>}
+              {selCu && <div style={{ fontSize: 11.5, color: "#6b21a8", marginTop: 6 }}>발급 코드: <b>{kindLabel(codeKind(selCu.k, 3))} · S3 / O{selCu.owner}</b> · 사용 고객사 <b>{selCu.cu}</b></div>}
             </>
           ) : (
             <>
@@ -491,7 +496,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
       {/* 자동/고정 항목 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 4 }}>
         <Field label="IssuedTime (발급일·고정)"><input style={fixed} value={issuedTime} readOnly /></Field>
-        <Field label="PatternType"><input style={fixed} value={range ? (range.pt === "PDS3" ? "Ncode_PDS3" : "Ncode_PDS2") : "-"} readOnly /></Field>
+        <Field label="PatternType"><input style={fixed} value={range ? patternTypeParam(range.pt) : "-"} readOnly /></Field>
         <Field label="TicketVersion"><input style={fixed} value={1} readOnly /></Field>
       </div>
 

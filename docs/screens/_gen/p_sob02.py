@@ -31,10 +31,16 @@ def sc(k, v):
             % (SC_C[k], k, v))
 
 
+# 코드 종류(좌표 속성) 배지 — PDS3 · PDS2 · PDS4(S-code) · OID · IDS
+KIND_C = {'PDS3': '#2563eb', 'PDS2': '#d97706', 'PDS4': '#7c3aed',
+          'OID': '#0f766e', 'IDS': '#6b7280'}
+
+
 def pbadge(k='N', fs=9):
+    k = {'N': 'PDS3', 'G': 'PDS2'}.get(k, k)
     return ('<span style="font-size:%spx;font-weight:700;color:#fff;background:%s;'
             'border-radius:4px;padding:1px 5px">%s</span>'
-            % (fs, '#2563eb' if k == 'N' else '#d97706', 'PDS3' if k == 'N' else 'PDS2'))
+            % (fs, KIND_C.get(k, '#2563eb'), k))
 
 
 def help_i(t=''):
@@ -101,13 +107,13 @@ def owned(cust='웅진씽크빅', rows=None):
     return '<div style="margin-top:10px">%s%s</div>' % (head, body)
 
 
-def detail(cust='웅진씽크빅', sec=3, own=17, locked=None, cross=False):
+def detail(cust='웅진씽크빅', sec=3, own=17, locked=None, cross=False, kind='PDS3'):
     lk = bool(locked)
     bar = ('<span style="font-size:11.5px;color:%s;font-weight:700">발급 대상</span>'
            % ('#991b1b' if lk else '#1e3a8a'))
     if lk:
         bar += tag('🔒 전용 · 할당 불가', '#fee2e2', '#991b1b')
-    bar += pbadge('N') + sc('S', sec) + sc('O', own)
+    bar += pbadge(kind) + sc('S', sec) + sc('O', own)
     bar += tag('owner 전체', '#eef6ff', '#2563eb')
     note = ('이 <b>S%s/O%s</b> 전체를 <b>%s</b> 에 발급(점유)합니다. owner 아래 '
             '<b>모든 Book 이 &lsquo;사용가능&rsquo;</b> 이 되고, 실제 발급 규모(코드 수)는 '
@@ -116,12 +122,24 @@ def detail(cust='웅진씽크빅', sec=3, own=17, locked=None, cross=False):
         note += ('<div style="margin-top:4px;font-weight:700">⚠ 이미 %s 전용입니다.</div>'
                  % locked)
     if cross:
-        note += ('<div style="margin-top:4px;font-weight:700;color:#b91c1c">'
-                 '🚫 PDS2 에서 이 owner를 사용 중 — 한쪽 PDS만 사용 가능</div>')
-    return ('<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px;'
-            'padding:8px 10px;border:1px solid %s;background:%s;border-radius:9px">%s</div>'
+        note += ('<div style="margin-top:4px;color:#0f766e">'
+                 'ℹ 이 S/O 는 다른 코드 종류로도 쓰이고 있습니다 — '
+                 '<b>Book 을 나눠 함께 사용</b>할 수 있습니다 (PC-039)</div>')
+    # 들어온 뒤에도 대상을 다시 고를 수 있다 — 각각 단일 선택 (PC-035)
+    repick = ('<div class="g3" style="margin-top:8px">'
+              + field('코드 종류', sel(kind + ' (' + {'PDS3': 'Ncode', 'PDS2': 'Gcode',
+                                                     'PDS4': 'S-code'}[kind] + ')'), True)
+              + field('Section', sel('S%s' % sec), True)
+              + field('Owner', '<div class="inp">%s</div>' % own, True)
+              + '</div>'
+                '<div style="font-size:10.5px;color:#6b7280;margin-top:6px">'
+                'Owner 는 0 ~ 정원-1 범위. 바꾸면 왼쪽 지도 선택도 함께 이동합니다.</div>')
+    return ('<div style="margin-top:12px;padding:10px 12px;border:1px solid %s;background:%s;'
+            'border-radius:9px">'
+            '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;'
+            'margin-bottom:8px">%s</div>%s</div>'
             '<div style="margin-top:10px;font-size:12px;color:%s;line-height:1.65">%s</div>'
-            % ('#fecaca' if lk else '#bfdbfe', '#fef2f2' if lk else '#f5f9ff', bar,
+            % ('#fecaca' if lk else '#bfdbfe', '#fef2f2' if lk else '#f5f9ff', bar, repick,
                '#b91c1c' if lk else '#6b7280', note))
 
 
@@ -133,7 +151,7 @@ def modal(title, body, save_off=False):
             % (title, body, ' style="opacity:.5"' if save_off else ''))
 
 
-T = '코드 할당 — PDS3 · S3/O17'
+T = '코드 할당 — S3/O17 · PDS3'
 BASE = notebox('base', '<b>S3/O17</b> 에 발급합니다.'
                + help_i('기존 고객사에는 추가 발급됩니다. '
                         '신규 고객사는 [고객사 관리]에서 먼저 등록해야 합니다.'))
@@ -154,7 +172,9 @@ def build():
     B.append((
         'S1', '진입 직후 — 고객사 미선택', '기본',
         '<code>SOB-01</code> 의 <b>[＋ 직접 코드 할당]</b> 으로 열린다. '
-        '제목에 <b>발급 대상 코드 종류·S·O</b> 가 들어간다. '
+        '제목에 <b>발급 대상 S·O·코드 종류</b> 가 들어간다. '
+        '발급 대상(코드 종류 · Section · Owner)은 <b>모달 안에서 다시 고를 수 있다</b> '
+        '<code>PC-035</code>. '
         '고객사를 고르기 전에는 <b>기존 보유 코드 영역이 아예 나오지 않고</b>, '
         '<b>[할당]</b> 도 눌리지 않는다. 사용 서비스 기본값은 <b>서비스 없음</b>.',
         scr(modal(T, BASE + cust_svc('', 'NONE') + owned('') + detail(''), save_off=True)),
@@ -162,6 +182,12 @@ def build():
           '<code>MEM-01</code> 에 등록된 고객사만 — <b>여기서 신규 고객사를 만들지 않는다</b>'),
          ('사용 서비스', '선택', '아래 안내문 교체',
           'casterN / 폼솔루션 / 서비스 없음 <b>3종</b> <code>PC-026</code>'),
+         ('코드 종류 *', '선택', 'Section 목록 재구성',
+          '<b>PDS3 · PDS2 · PDS4</b> 중 하나 — <b>단일 선택</b>(다중 선택 없음). '
+          'OID 는 index 부여라 할당 대상이 아니다 <code>PC-035</code>'),
+         ('Section * · Owner *', '선택·입력', '발급 대상 변경',
+          '지도에서 고르고 들어와도 <b>모달 안에서 다시 고를 수 있다</b>. '
+          '바꾸면 왼쪽 지도 선택도 함께 이동한다'),
          ('[할당]', '—', '비활성',
           '고객사 미선택 · 전용 잠금 · 반대 코드 종류 선점 중 하나라도 걸리면 잠긴다'),
          ('[할당]', '강제 실행', '확인창',
@@ -238,7 +264,7 @@ def build():
         '<code>P-07</code> 의 예외 · <code>P-12</code> — 미리 <b>공유(커먼) 코드로 지정된 Owner</b>. '
         '여러 고객사가 같은 Owner 를 쓸 수 있고 <b>Book 번호만 겹치지 않으면 된다</b>. '
         '전용 잠금이 걸리지 않는다.',
-        scr(modal('코드 할당 — PDS2 · S3/O964',
+        scr(modal('코드 할당 — S3/O964 · PDS2',
                   notebox('share', '✅ <b>공유 OWNER</b> · S3/O964 — 여러 고객사 사용 가능 '
                           '(Book 번호만 배타)'
                           + help_i('COMMON-21 언어 확장 슬롯\n'
@@ -251,18 +277,22 @@ def build():
          ('[할당]', '클릭', '정상 발급', 'Book 번호가 겹치지 않으면 발급된다')] + CLOSE))
 
     B.append((
-        'S8', '반대 코드 종류가 선점', '차단',
-        '<code>P-02</code> — 같은 S/O 는 <b>PDS3·PDS2 중 한쪽만</b> 쓸 수 있다. '
-        '반대쪽이 이미 쓰고 있으면 발급 대상 아래에 안내가 붙고 <b>[할당]</b> 이 잠긴다. '
-        '전용 잠금(S6)과 달리 <b>입력 자체는 잠기지 않는다</b>.',
+        'S8', '같은 S/O 를 여러 종류가 함께 사용', '분기',
+        '<code>PC-039</code> — <b>좌표(SOBP)가 코드 종류보다 상위</b>다. 예전의 '
+        '「같은 S/O 는 한 종류만」 배타와 <b>🚫 영역 할당됨</b> 차단은 <b>폐지</b>했다. '
+        '한 고객사가 같은 <b>S/O</b> 안에서 <b>Book 을 나눠</b> PDS2·PDS3 를 함께 쓰는 '
+        '실데이터가 있다(구몬D-37 · 대교-31 · 교원구몬-10 등 7건). '
+        '이제 좌표를 할당하고, 그 좌표가 어떤 종류인지는 <b>용도 표시</b>로만 남는다.',
         scr(modal(T, BASE + cust_svc('웅진씽크빅', 'NONE')
                   + owned('웅진씽크빅', OWN2)
                   + detail('웅진씽크빅', cross=True), save_off=True)),
-        [('발급 대상', '—', '🚫 안내 추가',
-          '<b>🚫 PDS2 에서 이 owner를 사용 중 — 한쪽 PDS만 사용 가능</b>'),
-         ('[할당]', '강제 실행', '확인창',
-          '<b>PDS2 에서 이 owner를 이미 사용 중입니다.<br>'
-          '같은 S/O 는 PDS3·PDS2 중 한쪽만 사용할 수 있습니다.</b>')] + CLOSE))
+        [('종류 배타', '—', '폐지', '<b>🚫 영역 할당됨</b> 배지·차단·확인창을 모두 없앴다'),
+         ('코드 종류', '선택', '용도 표시',
+          '할당한 좌표가 <b>PDS2 / PDS3 / PDS4</b> 중 무엇으로 쓰이는지만 기록한다'),
+         ('전용 잠금', '—', '유지', '<b>다른 고객사</b> 전용 코드는 여전히 잠긴다(S6)'),
+         ('(S,O,B) 중복', '—', '<b>확인 필요</b>',
+          '⚠ 실데이터에 Book 까지 겹치는 사례 <b>1건</b>(S3/O1017/B1 · J research) — '
+          '장부 표기 확인 필요')] + CLOSE))
 
     B.append((
         'S9', '저장 실패 — 확인창', '오류',

@@ -43,7 +43,9 @@ sections_dim (참조: Section×제품별 Owner/Book/Page max·length)
 - **allocations** = Owner×Book 소유/발급 원장(대시보드·소유권·import 근간). 모든 행=할당됨, `project_name`(Owner=프로젝트명)·`book_name`(Book=상품/교재명) 보유.
 - **projects / project_issued** = 코드 프로젝트(조회 전용)와 발급 SOBP 내역. **editing_books** = 편집 프로젝트(=casterN) 책 단위 원장. **work_logs** = 업무 메모 원장.
 - **tickets** = 기간(issue~expire)+페이지 limit 사용허가.
-- 제품(PDS3=Ncode/PDS2=Gcode)은 **Book 단위**(allocations.product). 한 Owner에 제품 혼재 가능.
+- 코드 종류(PDS3=Ncode / PDS2=Gcode / **PDS4=S-code(Section 44)** / **OID**=index 전용)는 **좌표(SOBP)의 속성**이며 Book 단위로 기록한다(allocations.product) `PC-032` `PC-035`.
+  한 (Section,Owner)는 PDS2·PDS3·PDS4 중 한 종류만 쓴다. 펜 구분(NSP 소리펜 / NWP 필기펜)도 좌표 속성으로 함께 기록한다.
+- **OID** 는 index 전용 코드다 `PC-033` — 좌표 조회는 종류 **[OID]** 필터로 하고, 업체별 index 목록은 별도 대장(`oid-data.json` · 화면 `OID-01`)에서 본다. **옛 IDS(A) = OID 동일** `PC-035`.
 - NDP 연동 시 `allocations.ndp_issued_code_id`, `tickets.ndp_ticket_id` 로 원격 식별자 보관.
 
 ---
@@ -53,7 +55,8 @@ sections_dim (참조: Section×제품별 Owner/Book/Page max·length)
 ```sql
 -- 참조: N코드 정보표 (Section×제품별 최대범위·길이)
 CREATE TABLE sections_dim (
-  product     TEXT   NOT NULL CHECK (product IN ('PDS2','PDS3')),  -- PDS2=Gcode, PDS3=Ncode
+  product     TEXT   NOT NULL CHECK (product IN ('PDS2','PDS3','PDS4','OID')),  -- 좌표 속성: PDS2=Gcode · PDS3=Ncode · PDS4=S-code(Section 44) · OID=index 전용
+  pen         TEXT   CHECK (pen IN ('NSP','NWP')),                 -- 펜 구분(좌표 속성): NSP=소리펜 · NWP=필기펜
   section     INT    NOT NULL,
   owner_max   BIGINT NOT NULL,
   book_max    INT    NOT NULL,
@@ -113,13 +116,13 @@ CREATE TABLE customer_users (
 -- 공통(커먼)코드 레지스트리 — 상위(대장) 고객사가 보유하는 코드 정본 (PC-006~009)
 --  코드 식별 = (code_type, section, owner). 여러 하위 고객사가 함께 사용(멤버십).
 CREATE TABLE common_codes (
-  code_type    TEXT NOT NULL CHECK (code_type IN ('N','G','A')),  -- N=PDS3 · G=PDS2 · A=IDS(초창기·이력전용)
+  code_type    TEXT NOT NULL CHECK (code_type IN ('N','G','A','O')),  -- N=PDS3 · G=PDS2 · O·A=OID(옛 IDS 표기 포함). PDS4 는 Section 44 로 판별
   section      INT    NOT NULL,
   owner        BIGINT NOT NULL,
   name         TEXT NOT NULL,                     -- 코드명 (예: 네오노트-3-27)
   holder       TEXT,                              -- 대표 브랜드(그룹핑)
   company      TEXT NOT NULL,                     -- 보유 대장 고객사(= 상위)
-  history_only BOOLEAN NOT NULL DEFAULT FALSE,    -- A(IDS) = 코드 할당·편집 없이 검색/이력만
+  history_only BOOLEAN NOT NULL DEFAULT FALSE,    -- A(옛 IDS = OID) = 코드 할당·편집 없이 검색/이력만
   PRIMARY KEY (code_type, section, owner)
 );
 
@@ -164,7 +167,7 @@ CREATE TABLE reservations (
 CREATE TABLE allocations (
   id            BIGSERIAL PRIMARY KEY,
   customer_id   INT NOT NULL REFERENCES customers(id),   -- 업체(ACCOUNT)
-  product       TEXT NOT NULL CHECK (product IN ('PDS2','PDS3')),  -- 물리 체계(PDS3≈N, PDS2≈G)
+  product       TEXT NOT NULL CHECK (product IN ('PDS2','PDS3','PDS4','OID')),  -- 좌표 속성(PDS3≈N · PDS2≈G · PDS4=S-code · OID=index 전용)
   code_type     TEXT CHECK (code_type IN ('N','G')),      -- 코드 종류(운영정책 §4, S 제외)
   pen_type      TEXT CHECK (pen_type IN ('Ncp','Ndp')),   -- 펜 구분 — 동일 SOBP라도 분리 관리
   section       INT  NOT NULL,
@@ -216,7 +219,7 @@ CREATE TABLE project_issued (
   book_start   INT NOT NULL, book_end INT NOT NULL,
   page_start   INT NOT NULL, page_end INT NOT NULL,
   codes        INT,                                   -- 발급 코드 수 = 페이지 용량
-  kind         TEXT CHECK (kind IN ('N','G')),
+  kind         TEXT CHECK (kind IN ('N','G','A','O')),   -- 좌표 코드 종류값 (O=OID · PDS4 는 Section 44)
   issued_at    DATE
 );
 

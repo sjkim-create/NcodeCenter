@@ -7,18 +7,29 @@ import { store, useStore, persistError } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { EDIT_BOOKS, projectBooks, rangesFor, ownersFor, usedBookMap, canAllocate, sharedInfo, ownerHolders, isBookEdited, RANGES, type BookRec, type CodeStatus } from "@/lib/codeUsage";
-import { recommendSobp, isExcluded, PAPER_SIZES, maxRecommendLength, type Reco, type Pen } from "@/lib/sobpRecommend";
+import { recommendSobp, isExcluded, PAPER_SIZES, maxRecommendLength, type Reco, type Pen, type Pds } from "@/lib/sobpRecommend";
 import { hydrateShared, markShared, useSharedOwners, customShared, BUILT_IN } from "@/lib/sharedOwners";
 import { langLabelOfOwner, isLangOwner, LANG_PDS, LANG_SECTION } from "@/lib/languageSlots";
 import { hydrateOverrides, overrideOf, useBookOverrides } from "@/lib/editOverrides";
-import { Sc, SobpChips } from "./sobp";
+import { Sc, SobpChips, KindChip, PenChip } from "./sobp";
+import { codeKind, CODE_KINDS, kindMeta, type CodeKind } from "@/lib/codeKind";
 import { SERVICE, type ServiceType } from "@/lib/customerData";
 
-// 사용 가능(Ncode 정보): PDS·섹션별 owner/book/page 최대치
-const SCALE: Record<"N" | "G", Record<number, { o: number; b: number; p: number }>> = {
-  N: { 0: { o: 1024, b: 16384, p: 4096 }, 3: { o: 1024, b: 8192, p: 512 }, 5: { o: 256, b: 4096, p: 4096 }, 10: { o: 1024, b: 4096, p: 1024 }, 11: { o: 1024, b: 8192, p: 512 }, 14: { o: 1024, b: 8192, p: 32 }, 15: { o: 32768, b: 4096, p: 512 } },
-  G: { 0: { o: 524288, b: 8192, p: 1024 }, 3: { o: 4096, b: 4096, p: 4096 }, 14: { o: 4096, b: 4096, p: 1024 } },
+// 좌표(SOBP) 정원 — 코드 종류·섹션별 owner/book/page 최대치 (Ncode 정보 기준)
+//   좌표가 먼저이고 종류는 좌표의 속성이다. PDS4 = Section 44(S-code) · OID = index 전용(옛 IDS 포함).
+const SCALE: Partial<Record<CodeKind, Record<number, { o: number; b: number; p: number }>>> = {
+  PDS3: { 0: { o: 1024, b: 16384, p: 4096 }, 3: { o: 1024, b: 8192, p: 512 }, 5: { o: 256, b: 4096, p: 4096 }, 10: { o: 1024, b: 4096, p: 1024 }, 11: { o: 1024, b: 8192, p: 512 }, 14: { o: 1024, b: 8192, p: 32 }, 15: { o: 32768, b: 4096, p: 512 } },
+  PDS2: { 0: { o: 524288, b: 8192, p: 1024 }, 3: { o: 4096, b: 4096, p: 4096 }, 14: { o: 4096, b: 4096, p: 1024 } },
+  // PDS4(S-code) — Code Info 정식 범위: owner 0~4095 · bookcode 0~255 · page 0~255 · xy 0~255 `PC-042`
+  PDS4: { 44: { o: 4096, b: 256, p: 256 } },
+  // OID = index 전용(옛 IDS/A코드 포함) — 데이터가 있는 Section 만 노출
+  OID: { 3: { o: 4096, b: 8192, p: 4096 }, 4: { o: 1024, b: 4096, p: 512 } },
 };
+// 종류 → 데이터 종류값(코드 원장·편집 데이터의 k). PDS4 는 Section 44 로 판별하므로 원장 기준 N 을 쓴다.
+//   OID 는 데이터 k="O" 와 옛 IDS 표기 k="A" 를 함께 본다 (동일 용어, PC-035).
+const DK: Record<CodeKind, string> = { PDS3: "N", PDS2: "G", PDS4: "N", OID: "O" };
+// 직접 코드 할당에서 고를 수 있는 종류 — OID 는 index 부여라 좌표 할당 대상이 아니다.
+const ALLOC_KINDS: CodeKind[] = ["PDS3", "PDS2", "PDS4"];
 const hue = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; };
 
 // 사용 중: 편집 데이터(교재) + 소유권 데이터(범위) + 코드 프로젝트(신규 할당)
@@ -58,7 +69,30 @@ export default function OwnershipMap() {
     [projects, companies, closedNames]
   );
 
-  const [pds, setPds] = useState<"N" | "G">("N");
+  const [kind, setKind] = useState<CodeKind | "ALL">("ALL");   // 코드 필터 — 전체 / PDS2 / PDS3 / PDS4 / OID `PC-039`
+  //   전체(ALL)는 원장이 N·G 양쪽으로 잡히므로 "N" 으로 조회하면 모두 포함된다.
+  const pds = kind === "ALL" ? "N" : DK[kind];             // 데이터 조회용 종류값
+  // 종류 칩을 고르면 그 종류의 **첫 좌표(S→O→B)** 로 이동한다 `PC-038`
+  //   ① 편집·코드 데이터(RECS) 의 첫 좌표 → ② 원장(ownersFor) 의 첫 owner → ③ 첫 Section·owner 0
+  const firstSobpOf = (k2: CodeKind | "ALL") => {
+    const secList = k2 === "ALL"
+      ? [...new Set(Object.values(SCALE).flatMap((m) => Object.keys(m).map(Number)))].sort((a, b) => a - b)
+      : Object.keys(SCALE[k2] ?? {}).map(Number).sort((a, b) => a - b);
+    const hit = RECS
+      .filter((r) => (k2 === "ALL" || codeKind(r.k, r.sec) === k2) && secList.includes(r.sec))
+      .sort((a, b) => a.sec - b.sec || a.owner - b.owner || a.book - b.book)[0];
+    if (hit) return { s: hit.sec, o: hit.owner, b: hit.nb ? -1 : hit.book };
+    for (const s2 of secList) {
+      const own = ownersFor(k2 === "ALL" ? "N" : DK[k2], s2).filter((r) => !closedNames.has(_cnz(r.account)))
+        .sort((a, b) => a.owner - b.owner)[0];
+      if (own) return { s: s2, o: own.owner, b: -1 };
+    }
+    return { s: secList[0] ?? 0, o: -1, b: -1 };
+  };
+
+  // 자동 추천(SOBP 추천)은 PDS3·PDS2 만 대상 — PDS4(Section 44)·OID 는 직접 선택으로 다룬다.
+  const recoPds: Pds = kind === "PDS2" ? "G" : "N";
+  const recoTarget = kind === "PDS3" || kind === "PDS2" || kind === "ALL";
   const [alloc, setAlloc] = useState<{ company: string; newCompany: string; bookStart: number; books: number; pages: number; mode: "코드발급" | "편집"; shared: boolean; service: ServiceType } | null>(null);
   const [aMode, setAMode] = useState<"auto" | "manual">("auto");                       // 자동 추천 / 직접 선택
   const [reco, setReco] = useState<{ lengthMm: number; pages: number; books: number }>({ lengthMm: 297, pages: 100, books: 10 });
@@ -88,14 +122,42 @@ export default function OwnershipMap() {
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 160) grow((v) => v + PAGE_O);
   };
 
-  const secs = useMemo(() => Object.keys(SCALE[pds]).map(Number).sort((a, b) => a - b), [pds]);
-  const scale = SCALE[pds][secs.includes(selS) ? selS : secs[0]];
+  const secs = useMemo(() => {
+    if (kind !== "ALL") return Object.keys(SCALE[kind] ?? {}).map(Number).sort((a, b) => a - b);
+    const all = new Set<number>();
+    Object.values(SCALE).forEach((m) => Object.keys(m).forEach((k2) => all.add(Number(k2))));
+    return [...all].sort((a, b) => a - b);
+  }, [kind]);
+  // 전체 보기의 섹션 정원 = 그 섹션을 쓰는 종류들의 최대치
+  const dimsOf = (sec: number) => {
+    if (kind !== "ALL") return (SCALE[kind] ?? {})[sec];
+    const cand = Object.values(SCALE).map((m) => m[sec]).filter(Boolean);
+    if (!cand.length) return undefined;
+    return { o: Math.max(...cand.map((c) => c.o)), b: Math.max(...cand.map((c) => c.b)), p: Math.max(...cand.map((c) => c.p)) };
+  };
+  const scale = dimsOf(secs.includes(selS) ? selS : secs[0]) ?? { o: 1024, b: 4096, p: 512 };
   const curS = secs.includes(selS) ? selS : secs[0];
   // 고객사 목록 — 공유 코드의 실제 사용 고객사(cu)도 포함해 검색·필터에서 찾을 수 있게 한다
   const accounts = useMemo(() => [...new Set(RECS.flatMap((r) => [r.cu, r.cust]).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, "ko")), [RECS]);
 
-  const secRecs = useMemo(() => RECS.filter((r) => r.k === pds && r.sec === curS), [RECS, pds, curS]);
-  const secOwners = useMemo(() => ownersFor(pds, curS).filter((r) => !closedNames.has(_cnz(r.account))), [pds, curS, closedNames]);   // 소유권 데이터(할당된 코드) · 사업 종료 회사 제외
+  const secRecs = useMemo(
+    () => RECS.filter((r) => r.sec === curS && (kind === "ALL" || codeKind(r.k, r.sec) === kind)),
+    [RECS, kind, curS]);
+  // owner 별 코드 종류(용도 표시) — 한 owner 가 Book 을 나눠 PDS2·PDS3 를 함께 쓸 수 있다 `PC-039`
+  const ownerKinds = useMemo(() => {
+    const m = new Map<number, CodeKind[]>();
+    secRecs.forEach((r) => {
+      if (r.fromProject && !r.kindSet) return;      // 원장 보강(코드 종류 미정)은 배지에 쓰지 않는다
+      const kd = codeKind(r.k, r.sec);
+      const cur = m.get(r.owner) ?? [];
+      if (!cur.includes(kd)) m.set(r.owner, [...cur, kd]);
+    });
+    return m;
+  }, [secRecs]);
+  // 소유권 데이터(할당된 코드) · 사업 종료 회사 제외
+  const secOwners = useMemo(
+    () => ownersFor(pds, curS).filter((r) => !closedNames.has(_cnz(r.account))),
+    [pds, curS, closedNames]);
   const ownerInfo = useMemo(() => {
     // accts = OWNER에 표시할 고객사(보유 업체)명 · cus = 공유 코드의 실제 사용 고객사(검색용)
     const m = new Map<number, { status: CodeStatus; accts: Set<string>; cus: Set<string> }>();
@@ -149,7 +211,9 @@ export default function OwnershipMap() {
   const clearFilters = () => { setFStat("전체"); setFAcct(""); setQ(""); setOFrom(""); setBFrom(""); setOLimit(PAGE_O); setBLimit(PAGE_B); };
 
   const curO = selO >= 0 && ownerNums.includes(selO) ? selO : (ownerNums[0] ?? 0);
-  const ownRecs = secRecs.filter((r) => r.owner === curO);
+  const ownRecs = secRecs.filter((r) => r.owner === curO && !r.nb);
+  // book 을 나누지 않은 행(OID) — Book 카드 없이 목록으로 안내한다 `PC-036`
+  const noBookRecs = secRecs.filter((r) => r.owner === curO && r.nb);
   // 사업 종료 회사 할당 제외(→ 미발급) + Book 범위는 이 PDS/Section 의 정원(scale.b, = Ncode 정보 기준)으로 클램프.
   //   (대장에 다른 PDS 기준의 넓은 범위 book_end 가 들어와도 유효 범위 밖 Book 은 노출하지 않는다)
   const ownRanges = useMemo(() =>
@@ -159,19 +223,10 @@ export default function OwnershipMap() {
       .filter((r) => r.start <= r.end),
     [pds, curS, curO, closedNames, scale.b]);
 
-  // 정책: PDS3/PDS2 는 같은 물리 코드 공간 → 한쪽에 발급된 (S/O/B)는 반대 PDS에서 사용 불가
-  const otherPds = pds === "N" ? "G" : "N";
-  // 반대 PDS가 이 섹션에서 '선점'한 owner 집합 — owner 단위 배타(PDS2·PDS3 owner는 중복 불가).
-  //   반대 PDS가 owner O 를 쓰면(발급/할당), 현재 PDS에서는 O 의 book 전체가 '영역 할당됨'이 된다.
-  //   (product UNKNOWN 처럼 N·G 양쪽으로 잡히는 통짜 범위는 배타 근거에서 제외)
-  const otherOwnerClaimed = useMemo(() => {
-    const set = new Set<number>();
-    RECS.filter((r) => r.k === otherPds && r.sec === curS).forEach((r) => set.add(r.owner));
-    RANGES.filter((r) => r.k.length === 1 && r.k[0] === otherPds && r.sec === curS).forEach((r) => set.add(r.owner));
-    return set;
-  }, [RECS, otherPds, curS]);
-  // owner 가 반대 PDS에서 선점되었는지 → true면 현재 PDS에서 그 owner 의 book 전체 사용 불가
-  const crossBlocked = (o: number, _b?: number) => otherOwnerClaimed.has(o);
+  // 정책 `PC-039`: **좌표(SOBP)가 상위 개념**이다. 좌표를 먼저 할당하고, 그 좌표가
+  //   PDS2·PDS3·PDS4·OID 중 무엇인지는 **용도 표시**일 뿐이다.
+  //   → 예전의 "같은 S/O 는 한 종류만" 배타(🚫 영역 할당됨)는 폐기했다.
+  //     (실데이터에서도 한 고객사가 같은 S/O 안에서 Book 을 나눠 PDS2·PDS3 를 함께 쓰고 있다)
   const usedBooks = uniqSort(ownRecs.map((r) => r.book));
   // 소유권 범위(다른 곳에서 할당된 코드)는 범위마다 앞에서 최대 60권까지 카드로 노출
   // 할당 범위는 범위 끝까지 노출 — 표시 상한(bLimit) 내에서
@@ -190,7 +245,8 @@ export default function OwnershipMap() {
   const shOwner = !!sharedInfo(curS, curO, pds);
   // 발급(할당) 여부 — 전용 OWNER는 이 S/O에 할당/발급 이력이 있으면 그 아래 Book 이 모두 '사용가능/편집'.
   const soHolder = ownRanges[0]?.account ?? ownRecs[0]?.cust ?? "";
-  const ownerIssued = !shOwner && (ownRanges.length > 0 || ownRecs.length > 0);
+  // OID 는 owner 전체를 점유하지 않는다 — 인덱스로 잡은 Book 만 발급이고 나머지는 미발급으로 남는다.
+  const ownerIssued = !shOwner && (ownRanges.length > 0 || ownRecs.some((r) => codeKind(r.k, r.sec) !== "OID"));
   const bookStatus = (b: number): { st: CodeStatus; who: string; title: string; label: string } => {
     // 편집 프로젝트에서 등록한 사용 고객사(오버라이드) — 공유 코드에 우선 반영
     const ovr = shOwner ? overrideOf(pds, curS, curO, b) : undefined;
@@ -230,31 +286,47 @@ export default function OwnershipMap() {
 
   return (
     <div style={{ padding: "18px 20px" }}>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 12, marginBottom: 12, fontSize: 12.5 }}>
-        <b style={{ fontSize: 13 }}>SOBP 맵</b>
-        <div style={{ display: "flex", gap: 4 }}>
-          {(["N", "G"] as const).map((k) => <button key={k} onClick={() => { setPds(k); const ns = Object.keys(SCALE[k]).map(Number).sort((a, b) => a - b); setSelS(ns[0]); setSelO(-1); setSelB(-1); setOLimit(PAGE_O); setBLimit(PAGE_B); setOFrom(""); setBFrom(""); }} style={chip(pds === k)}>{k === "N" ? "PDS3(Ncode)" : "PDS2(Gcode)"}</button>)}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 12, marginBottom: 12, fontSize: 12.5 }}>
+        <b style={{ fontSize: 13, marginRight: 2 }}>SOBP 맵</b>
+        {/* 코드 필터 — 좌표의 용도(종류). 고르면 그 종류의 첫 좌표로 이동한다 `PC-039` */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px 3px 6px", background: "#f7f8fa", borderRadius: 9 }}>
+          <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 700 }}>코드</span>
+          <div style={{ display: "flex", gap: 4 }}>
+            {([{ v: "ALL" as const, short: "전체", desc: "코드 종류 구분 없이 좌표 전체" }, ...CODE_KINDS]).map((k) => (
+              <button key={k.v} title={`${k.desc} — 고르면 첫 좌표로 이동합니다`}
+                onClick={() => {
+                  const f = firstSobpOf(k.v);
+                  setKind(k.v); setSelS(f.s); setSelO(f.o); setSelB(f.b);
+                  setOLimit(PAGE_O); setBLimit(PAGE_B); setOFrom(""); setBFrom(""); setFStat("전체");
+                }}
+                style={chip(kind === k.v)}>{k.short}</button>
+            ))}
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
-          {(["전체", "코드 발급", "코드 미발급", "편집", "공유", "사용가능"] as const).map((k) => (
-            <button key={k} onClick={() => setFStat(k)} style={chip(fStat === k)}
-              title={k === "코드 발급" ? "발급(할당)된 코드 전체 (편집·공유·사용가능 포함)"
-                : k === "코드 미발급" ? "아직 발급되지 않은 빈 코드"
-                : k === "공유" ? "여러 고객사가 함께 쓰도록 지정된 OWNER"
-                : k === "사용가능" ? "공유(커먼) 코드 중 아직 편집하지 않은 것" : undefined}>{F_LABEL[k]}</button>
-          ))}
+        {/* 상태 필터 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px 3px 6px", background: "#f7f8fa", borderRadius: 9 }}>
+          <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 700 }}>상태</span>
+          <div style={{ display: "flex", gap: 4 }}>
+            {(["전체", "코드 발급", "코드 미발급", "편집", "공유", "사용가능"] as const).map((k) => (
+              <button key={k} onClick={() => setFStat(k)} style={chip(fStat === k)}
+                title={k === "코드 발급" ? "발급(할당)된 코드 전체 (편집·공유·사용가능 포함)"
+                  : k === "코드 미발급" ? "아직 발급되지 않은 빈 코드"
+                  : k === "공유" ? "여러 고객사가 함께 쓰도록 지정된 OWNER"
+                  : k === "사용가능" ? "공유(커먼) 코드 중 아직 편집하지 않은 것" : undefined}>{F_LABEL[k]}</button>
+            ))}
+          </div>
         </div>
         <input list="ncc-acct-list" value={fAcct}
           onChange={(e) => {
             const v = e.target.value; setFAcct(v);
             const hit = RECS.filter((r) => r.cust === v || r.cu === v).sort((a, b) => a.sec - b.sec || a.owner - b.owner)[0];
             if (v && hit) {   // 목록에서 고르거나 정확히 입력하면 그 고객사 S/O 로 이동, 부분입력이면 필터만
-              setPds(hit.k as "N" | "G"); setSelS(hit.sec); setSelO(hit.owner); setSelB(hit.book); setOFrom(""); setBFrom("");
+              setKind(codeKind(hit.k, hit.sec)); setSelS(hit.sec); setSelO(hit.owner); setSelB(hit.book); setOFrom(""); setBFrom("");
             }
           }}
-          placeholder="고객사 전체 · 직접 입력" title="비우면 전체, 입력하면 해당 고객사만" style={{ ...S.input, width: 180 }} />
+          placeholder="고객사 검색 · 비우면 전체" title="비우면 전체, 입력하면 해당 고객사만" style={{ ...S.input, width: 180, marginLeft: "auto" }} />
         <datalist id="ncc-acct-list">{accounts.map((a) => <option key={a} value={a} />)}</datalist>
-        <span style={{ display: "inline-flex", gap: 10, fontSize: 12 }}>{(["코드발급", "편집", "사용가능", "공유", "미사용"] as const).map((k) => <Lg key={k} c={ST_C[k]} t={stLabel(k)} />)}</span>
+        <span style={{ display: "inline-flex", gap: 10, fontSize: 12, width: "100%", paddingTop: 2, borderTop: "1px dashed #eef0f4", marginTop: 2 }}>{(["코드발급", "편집", "사용가능", "공유", "미사용"] as const).map((k) => <Lg key={k} c={ST_C[k]} t={stLabel(k)} />)}</span>
       </div>
 
       {/* 코드 할당 진입 — 필터 아래 배치 */}
@@ -274,12 +346,12 @@ export default function OwnershipMap() {
         <div style={{ ...S.card, padding: 8 }}>
           <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 700, padding: "2px 4px 6px" }}>SECTION</div>
           {secs.map((s) => {
-            const on = s === curS; const used = uniqSort(RECS.filter((r) => r.k === pds && r.sec === s).map((r) => r.owner)).length;
+            const on = s === curS; const used = uniqSort(RECS.filter((r) => r.sec === s && (kind === "ALL" || codeKind(r.k, r.sec) === kind)).map((r) => r.owner)).length;
             return (
               <button key={s} onClick={() => { setSelS(s); setSelO(-1); setSelB(-1); setOLimit(PAGE_O); setBLimit(PAGE_B); setOFrom(""); setBFrom(""); }} style={cardBtn(on)}>
                 <Sc k="S" v={s} small />
-                {isExcluded(pds, s) && <span title="테스트/개발 전용 · 자동 추천 제외(직접 선택은 가능)" style={{ ...S.tag, fontSize: 8.5, marginLeft: 4, background: "#f3f4f6", color: "#9ca3af" }}>추천제외</span>}
-                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>사용 owner {used} / {SCALE[pds][s].o.toLocaleString()}</div>
+                {recoTarget && isExcluded(recoPds, s) && <span title="테스트/개발 전용 · 자동 추천 제외(직접 선택은 가능)" style={{ ...S.tag, fontSize: 8.5, marginLeft: 4, background: "#f3f4f6", color: "#9ca3af" }}>추천제외</span>}
+                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>사용 owner {used} / {(dimsOf(s)?.o ?? 0).toLocaleString()}</div>
               </button>
             );
           })}
@@ -295,7 +367,7 @@ export default function OwnershipMap() {
               const accts = [...(info?.accts ?? [])];
               return (
                 <button key={o} onClick={() => { setSelO(o); setSelB(-1); setBLimit(PAGE_B); setBFrom(""); }} style={cardBtn(on)}>
-                  {/* 칩은 줄바꿈으로 넘기고 글자는 세로로 쪼개지지 않게 (카드 높이는 늘어나도 됨) */}
+                  {/* 칩 순서는 BOOK 카드와 같다 — [번호] [상태] [종류(용도)] `PC-040` */}
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", rowGap: 3 }}>
                     <Sc k="O" v={o} small />
                     {(() => {
@@ -309,13 +381,10 @@ export default function OwnershipMap() {
                           공유
                         </span>
                       );
-                      // 반대 PDS가 이 owner를 선점 → 현재 PDS에서 영역 할당됨(사용 불가)
-                      if (crossBlocked(o) && idle) return (
-                        <span style={{ ...S.tag, fontSize: 9, whiteSpace: "nowrap", background: "#d1d5db", color: "#4b5563", fontWeight: 700 }}
-                          title={`${otherPds === "N" ? "PDS3" : "PDS2"} 에서 이 owner를 선점 — 이 PDS에서는 사용할 수 없습니다.`}>🚫 영역 할당됨</span>
-                      );
                       return <span style={{ ...S.tag, fontSize: 9, whiteSpace: "nowrap", ...stColor(st) }}>{stLabel(st)}</span>;
                     })()}
+                    {/* 이 owner 좌표가 어떤 코드 종류로 쓰이는지 — 용도 표시 `PC-039` */}
+                    {ownerKinds.get(o)?.map((kd) => <KindChip key={kd} kind={kd} small />)}
                   </div>
                   {accts.length > 0 && <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{accts.join(", ")}</div>}
                   {pds === LANG_PDS && curS === LANG_SECTION && isLangOwner(o) && (
@@ -346,29 +415,36 @@ export default function OwnershipMap() {
         <div style={{ ...S.card, padding: 8 }}>
           <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 700, padding: "2px 4px 4px" }}>BOOK</div>
           <FromInput label="B" value={bFrom} max={scale.b} onChange={(v) => { setBFrom(v); setBLimit(PAGE_B); setSelB(-1); }} />
+            {noBookRecs.length > 0 && (
+              <div style={{ border: "1px dashed #99f6e4", background: "#f0fdfa", borderRadius: 9, padding: "9px 10px", marginTop: 4 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#0f766e", marginBottom: 4 }}>book 미분할 · {noBookRecs.length}건</div>
+                <div style={{ fontSize: 10.5, color: "#115e59", lineHeight: 1.6, marginBottom: 5 }}>
+                  분량이 적어 <b>book 으로 나누지 않은</b> OID 입니다. 업체(S/O) 단위로 관리합니다.
+                </div>
+                {noBookRecs.slice(0, 12).map((r, i) => (
+                  <div key={i} style={{ fontSize: 10.5, color: "#374151", padding: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.title}>· {r.title || "(제목 없음)"}</div>
+                ))}
+                {noBookRecs.length > 12 && <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>… 외 {noBookRecs.length - 12}건 — Ncode 정보 ▸ OID 관리대장</div>}
+              </div>
+            )}
           <div onScroll={onScrollMore(setBLimit)} style={{ maxHeight: "calc(100vh - 282px)", overflowY: "auto" }}>
             {bookNums.map((b) => {
               const bs = bookStatus(b); const st = bs.st; const on = b === curB;
-              // 반대 PDS에 발급된 좌표 → '영역 할당됨'(비활성·선택 불가). 현재 PDS에 실제 레코드가 있으면 그건 그대로 표시.
-              const hasReal = ownRecs.some((r) => r.book === b);
-              const blocked = crossBlocked(curO, b) && !hasReal;
+              const bookKind = ownRecs.find((r) => r.book === b);
               return (
-                <button key={b} disabled={blocked} onClick={() => { if (!blocked) setSelB(b); }}
-                  style={{ ...cardBtn(on), ...(blocked ? { background: "#eceef1", opacity: 0.65, cursor: "not-allowed" } : {}) }}
-                  title={blocked ? `${otherPds === "N" ? "PDS3" : "PDS2"} 에서 이미 발급된 코드라 이 PDS에서는 사용할 수 없습니다.` : undefined}>
+                <button key={b} onClick={() => setSelB(b)} style={cardBtn(on)}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", rowGap: 3 }}>
                     <Sc k="B" v={b} small />
-                    {blocked
-                      ? <span style={{ ...S.tag, fontSize: 9, whiteSpace: "nowrap", background: "#d1d5db", color: "#4b5563", fontWeight: 700 }}>🚫 영역 할당됨</span>
-                      : <span style={{ ...S.tag, fontSize: 9, whiteSpace: "nowrap", ...stColor(st) }}>{stLabel(st)}</span>}
+                    <span style={{ ...S.tag, fontSize: 9, whiteSpace: "nowrap", ...stColor(st) }}>{stLabel(st)}</span>
+                    {/* 좌표 속성: 코드 종류 · 펜 구분 (용도 표시) */}
+                    {bookKind && <KindChip kind={codeKind(bookKind.k, bookKind.sec)} small />}
+                    {ownRecs.find((r) => r.book === b && r.pen)?.pen && <PenChip pen={ownRecs.find((r) => r.book === b && r.pen)?.pen} small />}
                   </div>
-                  {blocked
-                    ? <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>{otherPds === "N" ? "PDS3" : "PDS2"} 발급 · 선택 불가</div>
-                    : bs.label && <div style={{ fontSize: 10, color: shOwner ? "#7e22ce" : "#6b7280", fontWeight: shOwner ? 700 : 400, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={shOwner ? `사용 고객사: ${bs.label}${bs.title ? ` · 교재: ${bs.title}` : ""}` : bs.label}>{bs.label}</div>}
+                  {bs.label && <div style={{ fontSize: 10, color: shOwner ? "#7e22ce" : "#6b7280", fontWeight: shOwner ? 700 : 400, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={shOwner ? `사용 고객사: ${bs.label}${bs.title ? ` · 교재: ${bs.title}` : ""}` : bs.label}>{bs.label}</div>}
                 </button>
               );
             })}
-            {bookNums.length === 0 && <div style={{ fontSize: 11.5, color: "#9ca3af", padding: 10, textAlign: "center" }}>결과 없음</div>}
+            {bookNums.length === 0 && noBookRecs.length === 0 && <div style={{ fontSize: 11.5, color: "#9ca3af", padding: 10, textAlign: "center" }}>결과 없음</div>}
             {bBase + bLimit < scale.b && (
               <button onClick={() => setBLimit((v) => v + PAGE_B)} style={moreBtn}>
                 ＋ 더 보기 <span style={{ color: "#9ca3af" }}>(남은 {(scale.b - bBase - bLimit).toLocaleString()})</span>
@@ -379,13 +455,21 @@ export default function OwnershipMap() {
 
         {/* Page 그리드맵 */}
         <div style={{ ...S.card, padding: 16 }}>
-          <PageView sec={curS} owner={curO} book={curB} recs={bookRecs} pmax={scale.p} setTip={setTip} />
+          <PageView sec={curS} owner={curO} book={curB} recs={bookRecs} pmax={scale.p} dk={pds} setTip={setTip} />
         </div>
       </div>
 
       {/* 코드 할당 — 신규 업체 최초 할당 / 기존 업체 추가 발급 */}
       {alloc && (() => {
         const name = alloc.company.trim();
+        // 할당 대상 종류 — 전체 보기에서는 기본 PDS3 (모달에서 다시 고를 수 있다)
+        const aKind: CodeKind = kind === "ALL" ? "PDS3" : kind;
+        // 이 S/O 가 이미 쓰는 코드 종류 (OID 는 index 부여라 제외)
+        const soKinds = [...new Set(RECS.filter((r) => r.sec === curS && r.owner === curO)
+          .map((r) => codeKind(r.k, r.sec)))].filter((k2) => k2 !== "OID");
+        // 정책 `PC-041`: **신규 발급은 한 S/O 안에서 한 종류만**. 과거 혼용 이력(S3/O42·O44 등)은 그대로 두고 표시만 한다.
+        const mixed = soKinds.filter((k2) => k2 !== aKind);
+        const mixedBlock = mixed.length > 0;
         const allocBooks = projectBooks(projects, companies);
         const nzn = (x: string) => x.replace(/\s+/g, "").replace(/\(.*\)/g, "").toLowerCase();
         const usedNow = usedBookMap(pds, curS, curO, allocBooks);                 // 실제 등록된 교재
@@ -394,7 +478,6 @@ export default function OwnershipMap() {
         for (let b = 0; b < scale.b && freeBooks.length < 300; b++) {
           if (usedNow.has(b)) continue;
           if (otherRanges.some((r) => b >= r.start && b <= r.end)) continue;
-          if (crossBlocked(curO, b)) continue;                 // 반대 PDS에 발급된 좌표 제외
           freeBooks.push(b);
         }
         const firstFree = freeBooks[0];
@@ -403,9 +486,6 @@ export default function OwnershipMap() {
         const shared = known ?? (alloc.shared ? { note: "이번 할당에서 공유로 지정", custom: true } : null);
         const holders = ownerHolders(pds, curS, curO, allocBooks);
         const check = canAllocate(pds, curS, curO, name, { start, end: start + alloc.books - 1 }, allocBooks, alloc.shared);
-        // 반대 PDS 충돌: 발급 범위 중 반대 PDS에 이미 발급된 Book
-        const crossHit: number[] = [];
-        for (let b = start; b <= start + alloc.books - 1 && crossHit.length < 12; b++) if (crossBlocked(curO, b)) crossHit.push(b);
         // 전용(비공유) 코드가 이미 다른 업체에 할당된 S/O → 발급 상세 입력 전체 잠금 (공유 체크 시 해제)
         const others = holders.filter((h) => nzn(h) !== nzn(name));
         const locked = !shared && others.length > 0;
@@ -421,7 +501,7 @@ export default function OwnershipMap() {
         const save = () => {
           if (!name) { alert("고객사를 선택하세요. (신규 고객사는 고객사 관리에서 등록)"); return; }
           if (locked) { alert(`전용 코드입니다. S${curS}/O${curO} 는 이미 ${others.join(", ")} 에 할당되어 있습니다.`); return; }
-          if (crossBlocked(curO)) { alert(`${otherPds === "N" ? "PDS3" : "PDS2"} 에서 이 owner를 이미 사용 중입니다.\n같은 S/O 는 PDS3·PDS2 중 한쪽만 사용할 수 있습니다.`); return; }
+          if (mixedBlock) { alert(`이 S/O 는 이미 ${mixed.join(" · ")} 로 쓰고 있습니다.` + "\n" + "한 S/O 안에서는 한 종류만 발급합니다. 코드 종류를 맞추거나 다른 Owner 를 고르세요."); return; }
           // 고객사 관리에 등록된 고객사에만 발급 (여기서 신규 생성하지 않음)
           const norm = (x: string) => x.replace(/\s+/g, "").toLowerCase();
           const co = companies.find((c) => norm(c.name) === norm(name));
@@ -432,16 +512,16 @@ export default function OwnershipMap() {
           store.upsertProject({
             id: 0, name: `${co.name} 코드발급 · S${curS}/O${curO}`, companyId, service: alloc.service, grade: "",
             editing: alloc.service === "CASTERN", editingOwner: curO, symbols: 0,
-            issued: [{ id: 1, date: new Date().toISOString().slice(0, 10), codes: 0, kind: pds,
+            issued: [{ id: 1, date: new Date().toISOString().slice(0, 10), codes: 0, kind: pds as "N" | "G" | "A" | "O",
                        by: me?.name ?? "", section: curS, owner: curO, bookStart: 0, bookEnd: scale.b - 1, pageStart: 1, pageEnd: 1 }],
           });
           // 저장 실패(용량 초과 등) 시 사라진 것처럼 보이지 않도록 즉시 경고
           if (persistError()) { alert(`⚠ 할당이 저장되지 않았습니다.\n${persistError()}`); return; }
-          logActivity("alloc", `${co.name} · ${pds === "N" ? "PDS3" : "PDS2"} S${curS}/O${curO} · ${SERVICE.find((s) => s.v === alloc.service)?.label ?? "서비스 없음"} · SO 점유(전체 book 사용가능)`, me?.name);
+          logActivity("alloc", `${co.name} · ${kindMeta(aKind).short} S${curS}/O${curO} · ${SERVICE.find((s) => s.v === alloc.service)?.label ?? "서비스 없음"} · SO 점유(전체 book 사용가능)`, me?.name);
           setSelB(0); setAlloc(null);
         };
         return (
-          <Modal onClose={() => setAlloc(null)} title={aMode === "auto" && !applied ? "자동 코드 할당 — 조건으로 SOBP 추천" : `코드 할당 — ${pds === "N" ? "PDS3" : "PDS2"} · S${curS}/O${curO}`} width={900}>
+          <Modal onClose={() => setAlloc(null)} title={aMode === "auto" && !applied ? "자동 코드 할당 — 조건으로 SOBP 추천" : `코드 할당 — S${curS}/O${curO} · ${kindMeta(aKind).short}`} width={900}>
             {/* 상태 안내 — 한 줄 */}
             {(() => {
               if (aMode === "auto" && !applied) return null;      // 추천 단계에선 S/O가 미정이라 숨김
@@ -513,7 +593,7 @@ export default function OwnershipMap() {
                             onClick={() => {
                               // 이 S/O 에서 비어 있는 가장 빠른 Book 을 자동 선택
                               const k2 = a.k as "N" | "G";
-                              const bmax = SCALE[k2]?.[a.s]?.b ?? 4096;
+                              const bmax = SCALE[codeKind(k2, a.s)]?.[a.s]?.b ?? 4096;
                               const used2 = usedBookMap(k2, a.s, a.o, allocBooks);
                               const other2 = rangesFor(k2, a.s, a.o).filter((r) => nzn(r.account) !== nzn(name));
                               let nextB = -1;
@@ -521,7 +601,7 @@ export default function OwnershipMap() {
                                 if (used2.has(b) || other2.some((r) => b >= r.start && b <= r.end)) continue;
                                 nextB = b; break;
                               }
-                              setPds(k2); setSelS(a.s); setSelO(a.o);
+                              setKind(codeKind(k2, a.s)); setSelS(a.s); setSelO(a.o);
                               if (nextB < 0) { setRecoRes({ ok: false, reason: `S${a.s}/O${a.o} 에 사용 가능한 Book 번호가 없습니다.` }); setApplied(false); return; }
                               setSelB(nextB); setAlloc({ ...alloc, bookStart: nextB });
                               setRecoRes(null); setApplied(true);
@@ -551,7 +631,7 @@ export default function OwnershipMap() {
               <div style={{ border: "1px solid #eef0f4", borderRadius: 10, padding: 12, marginTop: 12, background: "#fafbfc" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
                   <b style={{ fontSize: 12.5, color: "#374151" }}>추천 조건</b>
-                  <Help t={`조건을 입력하면 PDS 타입·Section·Owner·Book 을 추천합니다.\n\n· 신규 고객 → 오너를 새로 발급\n· 기존 고객 → 기존 오너를 유지하고 잔여 구간에서 할당\n· PDS2 S0·S14는 테스트/개발 전용이라 추천에서 제외(직접 선택은 가능)\n· 판형은 가장 긴 변 기준, 최대 ${maxRecommendLength(pds).toLocaleString()}mm`} />
+                  <Help t={`조건을 입력하면 PDS 타입·Section·Owner·Book 을 추천합니다.\n\n· 신규 고객 → 오너를 새로 발급\n· 기존 고객 → 기존 오너를 유지하고 잔여 구간에서 할당\n· PDS2 S0·S14는 테스트/개발 전용이라 추천에서 제외(직접 선택은 가능)\n· 판형은 가장 긴 변 기준, 최대 ${maxRecommendLength(recoPds).toLocaleString()}mm`} />
                   <span style={{ flex: 1 }} />
                   <label style={{ fontSize: 11.5, color: "#6b7280", display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
                     <input type="checkbox" checked={pdsAuto} onChange={(e) => setPdsAuto(e.target.checked)} />
@@ -583,8 +663,8 @@ export default function OwnershipMap() {
                         <option value="__CUSTOM__">직접 입력</option>
                       </select>
                       {paper === "__CUSTOM__" && (
-                        <input type="number" min={1} max={maxRecommendLength(pds)} style={{ ...S.input, maxWidth: 88 }} value={reco.lengthMm}
-                          onChange={(e) => setReco({ ...reco, lengthMm: Math.min(maxRecommendLength(pds), Math.max(1, +e.target.value)) })} placeholder="mm" />
+                        <input type="number" min={1} max={maxRecommendLength(recoPds)} style={{ ...S.input, maxWidth: 88 }} value={reco.lengthMm}
+                          onChange={(e) => setReco({ ...reco, lengthMm: Math.min(maxRecommendLength(recoPds), Math.max(1, +e.target.value)) })} placeholder="mm" />
                       )}
                     </div>
                   </Field>
@@ -594,10 +674,10 @@ export default function OwnershipMap() {
 
                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
                   <button onClick={() => {
-                    const r = recommendSobp({ pds: pdsAuto ? undefined : pds, pen, mode: alloc.mode, lengthMm: reco.lengthMm, pagesPerBook: reco.pages, books: reco.books, company: name }, companies, projects);
+                    const r = recommendSobp({ pds: pdsAuto ? undefined : recoPds, pen, mode: alloc.mode, lengthMm: reco.lengthMm, pagesPerBook: reco.pages, books: reco.books, company: name }, companies, projects);
                     setRecoRes(r);
                     if (r.ok) {   // 추천 즉시 반영 → 아래에서 값 수정 가능
-                      setPds(r.pds); setSelS(r.section); setSelO(r.owner); setSelB(r.bookStart);
+                      setKind(codeKind(r.pds, r.section)); setSelS(r.section); setSelO(r.owner); setSelB(r.bookStart);
                       setAlloc({ ...alloc, bookStart: r.bookStart, books: reco.books, pages: Math.min(r.spec.page, reco.pages) });
                       setApplied(true);
                     }
@@ -626,22 +706,54 @@ export default function OwnershipMap() {
             {/* 2-B. 발급 상세 (직접 선택 또는 추천 적용 후) */}
             {(aMode === "manual" || applied) && (
               <>
-                {/* 발급 대상 — SO 단위 (owner 전체 점유) */}
-                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 12, padding: "8px 10px",
+                {/* 발급 대상 — 코드 종류 · Section · Owner 를 여기서 다시 고를 수 있다 (각각 단일 선택) */}
+                <div style={{ marginTop: 12, padding: "10px 12px",
                   border: `1px solid ${locked ? "#fecaca" : "#bfdbfe"}`, background: locked ? "#fef2f2" : "#f5f9ff", borderRadius: 9 }}>
-                  <span style={{ fontSize: 11.5, color: locked ? "#991b1b" : "#1e3a8a", fontWeight: 700 }}>발급 대상</span>
-                  {locked && <span style={{ ...S.tag, fontSize: 9.5, background: "#fee2e2", color: "#991b1b", fontWeight: 700 }}>🔒 전용 · 할당 불가</span>}
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: pds === "N" ? "#2563eb" : "#d97706", borderRadius: 4, padding: "1px 5px" }}>{pds === "N" ? "PDS3" : "PDS2"}</span>
-                  <Sc k="S" c="#5f8ff0" v={curS} />
-                  <Sc k="O" c="#14b8a6" v={curO} />
-                  <span style={{ ...S.tag, fontSize: 9.5, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>owner 전체</span>
-                  <span style={{ flex: 1 }} />
-                  {applied && aMode === "auto" && <button onClick={() => { setApplied(false); setRecoRes(null); }} style={S.linkBtn}>조건 다시 입력</button>}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                    <span style={{ fontSize: 11.5, color: locked ? "#991b1b" : "#1e3a8a", fontWeight: 700 }}>발급 대상</span>
+                    {locked && <span style={{ ...S.tag, fontSize: 9.5, background: "#fee2e2", color: "#991b1b", fontWeight: 700 }}>🔒 전용 · 할당 불가</span>}
+                    <KindChip kind={aKind} small />
+                    <Sc k="S" c="#5f8ff0" v={curS} />
+                    <Sc k="O" c="#14b8a6" v={curO} />
+                    <span style={{ ...S.tag, fontSize: 9.5, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>owner 전체</span>
+                    <span style={{ flex: 1 }} />
+                    {applied && aMode === "auto" && <button onClick={() => { setApplied(false); setRecoRes(null); }} style={S.linkBtn}>조건 다시 입력</button>}
+                  </div>
+                  {/* 들어온 뒤에도 대상을 다시 고를 수 있다 — 다중 선택은 없다 */}
+                  <div style={{ display: "grid", gridTemplateColumns: "160px 150px 150px", gap: 10 }}>
+                    <Field label="코드 종류 *">
+                      <select style={S.input} value={ALLOC_KINDS.includes(aKind) ? aKind : "PDS3"}
+                        onChange={(e) => {
+                          const k2 = e.target.value as CodeKind;
+                          const ns = Object.keys(SCALE[k2] ?? {}).map(Number).sort((a, b) => a - b);
+                          setKind(k2); setSelS(ns[0]); setSelO(-1); setSelB(-1); setOFrom(""); setBFrom("");
+                        }}>
+                        {ALLOC_KINDS.map((k2) => <option key={k2} value={k2}>{kindMeta(k2).label}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Section *">
+                      <select style={S.input} value={curS}
+                        onChange={(e) => { setSelS(+e.target.value); setSelO(-1); setSelB(-1); setOFrom(""); setBFrom(""); }}>
+                        {secs.map((s2) => <option key={s2} value={s2}>S{s2}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Owner *">
+                      <input type="number" min={0} max={scale.o - 1} style={S.input} value={curO}
+                        onChange={(e) => { const v = Math.max(0, Math.min(scale.o - 1, +e.target.value || 0)); setSelO(v); setSelB(-1); setOFrom(""); }} />
+                    </Field>
+                  </div>
+                  <div style={{ fontSize: 10.5, color: "#6b7280", marginTop: 6 }}>
+                    Owner 는 0 ~ {(scale.o - 1).toLocaleString()} 범위. 바꾸면 왼쪽 지도 선택도 함께 이동합니다.
+                  </div>
                 </div>
                 <div style={{ marginTop: 10, fontSize: 12, color: locked ? "#b91c1c" : "#6b7280", lineHeight: 1.65 }}>
                   이 <b>S{curS}/O{curO}</b> 전체를 <b>{name || "선택한 고객사"}</b> 에 발급(점유)합니다. owner 아래 <b>모든 Book 이 &lsquo;사용가능&rsquo;</b> 이 되고, 실제 발급 규모(코드 수)는 <b>편집 시 집계</b>됩니다.
                   {locked && <div style={{ marginTop: 4, fontWeight: 700 }}>⚠ 이미 {others.join(", ")} 전용입니다.</div>}
-                  {crossBlocked(curO) && <div style={{ marginTop: 4, fontWeight: 700, color: "#b91c1c" }}>🚫 {otherPds === "N" ? "PDS3" : "PDS2"} 에서 이 owner를 사용 중 — 한쪽 PDS만 사용 가능</div>}
+                  {mixedBlock && (
+                    <div style={{ marginTop: 4, fontWeight: 700, color: "#b91c1c" }}>
+                      🚫 이 S/O 는 이미 <b>{mixed.join(" · ")}</b> 로 사용 중 — <b>한 S/O 안에서는 한 종류만</b> 발급합니다 (과거 혼용 이력은 그대로 표시)
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -649,8 +761,8 @@ export default function OwnershipMap() {
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
               <button onClick={() => setAlloc(null)} style={S.ghost}>취소</button>
               {(aMode === "manual" || applied) && (
-                <button onClick={save} disabled={locked || !name || crossBlocked(curO)}
-                  style={{ ...S.primary, ...(locked || !name || crossBlocked(curO) ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>할당</button>
+                <button onClick={save} disabled={locked || !name || mixedBlock}
+                  style={{ ...S.primary, ...(locked || !name || mixedBlock ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>할당</button>
               )}
             </div>
           </Modal>
@@ -694,9 +806,9 @@ function Bar({ h, label, value, width, bg, fg, tip, setTip }: { h: number; label
   );
 }
 
-function PageView({ sec, owner, book, recs, pmax, setTip }: { sec: number; owner: number; book: number; recs: Rec[]; pmax: number; setTip: (t: { x: number; y: number; html: string } | null) => void }) {
+function PageView({ sec, owner, book, recs, pmax, dk, setTip }: { sec: number; owner: number; book: number; recs: Rec[]; pmax: number; dk?: string; setTip: (t: { x: number; y: number; html: string } | null) => void }) {
   const r = recs[0];
-  const k = r?.k ?? "N";
+  const k = r?.k ?? dk ?? "N";
   const shared = !!sharedInfo(sec, owner, k);               // 공유(커먼) 코드 여부
   const ovr = shared ? overrideOf(k, sec, owner, book) : undefined;   // 편집 프로젝트에서 등록한 사용 고객사
   const cuName = ovr?.cu || [...new Set(recs.map((x) => x.cu).filter(Boolean))].join(", ");   // 사용 고객사

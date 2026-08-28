@@ -286,7 +286,7 @@ def build():
     B.append((
         'S3', '범위 선택 완료 — 발급 준비', '기본',
         '범위를 고르면 <b>Start Book · Book 볼륨 · Page 볼륨</b> 이 자동으로 채워지고 '
-        'PatternType 이 확정된다 <code>P-02</code>. 버튼 아래에 <b>발급 예정</b> 요약이 나온다.',
+        'PatternType 이 확정된다 <code>P-02</code>(PDS3→Ncode_PDS3 · PDS2→Ncode_PDS2 · PDS4→Scode · OID→OID). 버튼 아래에 <b>발급 예정</b> 요약이 나온다.',
         scr(state='ready'),
         [('할당된 SOBP 범위', '클릭', 'S4 (목록 펼침)', '접힌 상태에서는 선택된 범위만 칩으로 표시'),
          ('자동 채움', '—', 'Start Book / Book 볼륨 / Page 볼륨',

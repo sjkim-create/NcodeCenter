@@ -102,7 +102,7 @@ def col_cust(pds='전체', flag='전체', svc='사용 서비스 · 전체', sear
             '<div class="inp" style="padding-right:28px">%s</div>%s</div>'
             '<div style="max-height:560px;overflow:hidden">%s</div>'
             '</div></div>'
-            % (chips(['전체', 'PDS2(Gcode)', 'PDS3(Ncode)'], pds),
+            % (chips(['전체', 'PDS3', 'PDS2', 'PDS4', 'OID'], pds),
                chips(['전체', '편집', '코드발급'], flag), svc, sv, clear, items))
 
 
@@ -243,7 +243,7 @@ def build():
         '상단은 KPI 카드가 아니라 <b>요약 한 줄</b>이며 우측에 [초기화]가 있다. '
         '⚠ PRD §1은 "좌: 고객사 목록 · 우: 선택 프로젝트 상세" <b>2단</b>으로 적혀 있어 구현과 다르다.',
         frame('PRJ-01', '코드 프로젝트', content(), height=1000),
-        [('코드 종류 칩', '클릭', '목록·집계 필터', '<b>전체 / PDS2(Gcode) / PDS3(Ncode)</b> — 선택 시 프로젝트 선택 해제'),
+        [('코드 종류 칩', '클릭', '목록·집계 필터', '<b>전체 / PDS3 / PDS2 / PDS4(S-code) / OID</b> — 좌표 속성 기준 <code>PC-032</code> · 옛 IDS = OID 동일 <code>PC-035</code> · 선택 시 프로젝트 선택 해제'),
          ('유형 칩', '클릭', '목록·집계 필터', '<b>전체 / 편집 / 코드발급</b> — 편집 = casterN이거나 심볼 보유'),
          ('사용 서비스', '드롭다운 선택', '목록·집계 필터', '<b>사용 서비스 · 전체</b> 기본값 · casterN / 폼솔루션 / 서비스 없음'),
          ('고객사 검색', '입력', '즉시 필터링', '값이 있으면 <b>×</b>로 해제'),

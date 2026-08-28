@@ -29,12 +29,24 @@ SCALE = {
           10: (1024, 4096, 1024), 11: (1024, 8192, 512), 14: (1024, 8192, 32),
           15: (32768, 4096, 512)},
     'G': {0: (524288, 8192, 1024), 3: (4096, 4096, 4096), 14: (4096, 4096, 1024)},
+    # PDS4 = S-code (Section 44) · OID = 인덱스 전용(같은 S/O 공유, B/P로 구분)
+    'PDS4': {44: (1024, 256, 256)},
+    'OID': {3: (4096, 8192, 4096), 4: (1024, 4096, 512)},
 }
+SCALE['PDS3'] = SCALE['N']
+SCALE['전체'] = {s2: max((m[s2] for m in (SCALE['N'], SCALE['G'], SCALE['PDS4'], SCALE['OID'])
+                          if s2 in m), key=lambda d: d[0])
+                 for s2 in sorted({s3 for m in (SCALE['N'], SCALE['G'], SCALE['PDS4'], SCALE['OID'])
+                                   for s3 in m})}
+SCALE['PDS2'] = SCALE['G']
 # RECOMMEND_EXCLUDE — N은 없음, G는 0·14
-EXCLUDE = {'N': [], 'G': [0, 14]}
+EXCLUDE = {'N': [], 'G': [0, 14], 'PDS3': [], 'PDS2': [0, 14], 'PDS4': [], 'OID': [], '전체': []}
 # 실제 화면(ncodecenter.vercel.app/ownership) 사용 owner 수
 USED_N = {0: 43, 3: 196, 5: 163, 10: 15, 11: 1, 14: 10, 15: 0}
 USED_G = {0: 27, 3: 184, 14: 9}
+USED_PDS4 = {44: 21}          # Section 44 원장 21 owner
+USED_OID = {3: 8, 4: 1}       # OID 좌표 (웅진·Common·한솔 등 8업체 · 옛 IDS 네오노트 S4/O27)
+USED_ALL = {0: 48, 3: 213, 4: 1, 5: 163, 10: 15, 11: 1, 14: 10, 15: 0, 44: 21}   # 전체 보기
 # 언어 슬롯 — LANG_PDS="G", LANG_SECTION=3
 LANG_PDS, LANG_SECTION = 'G', 3
 
@@ -57,13 +69,28 @@ def sc(k, v):
             % (SOBP_C[k], k, v))
 
 
-def pds_chip(k='N'):
+# 코드 종류(좌표 속성) — lib/codeKind.ts 와 같은 값·색
+# 코드 종류 4종 — OID 는 옛 IDS(A코드) 표기와 같은 것으로 함께 본다 (PC-035)
+KINDS = (('PDS3', '#2563eb', '현행 N코드'), ('PDS2', '#d97706', '이전 세대 G코드'),
+         ('PDS4', '#7c3aed', 'S-code · Section 44'),
+         ('OID', '#0f766e', 'index 전용 · 외부 코드 판독용 (옛 IDS 포함)'))
+KIND_C = {k: c for k, c, _ in KINDS}
+
+
+def pds_chip(k='PDS3'):
+    k = {'N': 'PDS3', 'G': 'PDS2'}.get(k, k)
     return ('<span style="display:inline-flex;align-items:center;border-radius:6px;'
             'padding:1px 5px;font-size:9.5px;font-weight:700;color:#fff;background:%s;'
             'white-space:nowrap" title="%s">%s</span>'
-            % ('#2563eb' if k == 'N' else '#d97706',
-               'PDS3 · Ncode' if k == 'N' else 'PDS2 · Gcode',
-               'N(PDS3)' if k == 'N' else 'G(PDS2)'))
+            % (KIND_C.get(k, '#2563eb'), k, k))
+
+
+def pen_chip(pen='소리펜'):
+    sound = (pen == '소리펜')
+    return ('<span style="display:inline-flex;align-items:center;border-radius:6px;'
+            'padding:1px 5px;font-size:9.5px;font-weight:700;white-space:nowrap;'
+            'color:%s;background:%s">%s</span>'
+            % ('#9a3412' if sound else '#3730a3', '#ffedd5' if sound else '#e0e7ff', pen))
 
 
 def lg(color, text):
@@ -124,9 +151,14 @@ def more_btn(rest):
 
 
 # ── 툴바 · 할당 진입 ─────────────────────────────────────────────
-def toolbar(pds='N', fstat='전체', acct=''):
-    pchips = ''.join(chip(l, (k == pds)) for k, l in
-                     (('N', 'PDS3(Ncode)'), ('G', 'PDS2(Gcode)')))
+def toolbar(pds='전체', fstat='전체', acct=''):
+    pds = {'N': 'PDS3', 'G': 'PDS2', 'ALL': '전체'}.get(pds, pds)
+    # 코드 필터 — 전체 + 4종 (PC-039)
+    pchips = ''.join(chip(k, (k == pds)) for k in ('전체',) + tuple(k for k, _, _ in KINDS))
+    grp = ('<div style="display:flex;align-items:center;gap:6px;padding:3px 8px 3px 6px;'
+           'background:#f7f8fa;border-radius:9px">'
+           '<span style="font-size:11px;color:#6b7280;font-weight:700">%s</span>'
+           '<div style="display:flex;gap:4px">%s</div></div>')
     fchips = ''.join(chip(lab, v == fstat) for v, lab in F_CHIPS)
     legend = ''.join(lg(ST_C[k], '코드 미발급' if k == '미사용' else k)
                      for k in ('코드발급', '편집', '사용가능', '공유', '미사용'))
@@ -135,12 +167,13 @@ def toolbar(pds='N', fstat='전체', acct=''):
             'padding:10px 12px;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:12px;'
             'font-size:12.5px;background:#fff">'
             '<b style="font-size:13px">SOBP 맵</b>'
-            '<div style="display:flex;gap:4px">%s</div>'
-            '<div style="display:flex;gap:4px;margin-left:auto">%s</div>'
-            '<div style="width:180px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;'
-            'font-size:13px;background:#fff" title="비우면 전체, 입력하면 해당 고객사만">%s</div>'
-            '<span style="display:inline-flex;gap:10px;font-size:12px">%s</span>'
-            '</div>' % (pchips, fchips, av, legend))
+            '%s%s'
+            '<div style="width:180px;margin-left:auto;padding:8px 10px;border:1px solid #e5e7eb;'
+            'border-radius:8px;font-size:13px;background:#fff" '
+            'title="비우면 전체, 입력하면 해당 고객사만">%s</div>'
+            '<span style="display:inline-flex;gap:10px;font-size:12px;width:100%%;padding-top:2px;'
+            'border-top:1px dashed #eef0f4;margin-top:2px">%s</span>'
+            '</div>' % (grp % ('코드', pchips), grp % ('상태', fchips), av, legend))
 
 
 def alloc_row(s=0, o=10):
@@ -157,7 +190,8 @@ def alloc_row(s=0, o=10):
 
 # ── SECTION ─────────────────────────────────────────────────────
 def sec_col(pds='N', sel=0):
-    used = USED_N if pds == 'N' else USED_G
+    used = {'N': USED_N, 'PDS3': USED_N, 'G': USED_G, 'PDS2': USED_G,
+            'PDS4': USED_PDS4, 'OID': USED_OID, '전체': USED_ALL}.get(pds, USED_N)
     rows = ''
     for s in sorted(SCALE[pds]):
         o_cap = SCALE[pds][s][0]
@@ -434,12 +468,25 @@ def build():
     B = []
 
     B.append((
-        'S1', '기본 — PDS3 · 상태 전체', '기본',
-        '처음 연 상태. 코드 종류 <b>PDS3</b> · 상태 <b>전체</b> · 고객사 비움 · 번호 점프 없음. '
-        'PDS3의 Section은 <b>0 · 3 · 5 · 10 · 11 · 14 · 15</b> 7개다.',
-        frame('SOB-01', 'SOBP 맵', content(), height=1180),
-        [('코드 종류 칩', '클릭', 'S2 (PDS2)',
-          'Section 목록이 다시 그려지고 <b>아래 선택·번호 점프·더 보기가 모두 초기화</b>된다'),
+        'S1', '기본 — 코드 전체 · 상태 전체', '기본',
+        '<b>좌표(SOBP)가 먼저</b>다 <code>PC-032</code>. Section·Owner·Book·Page 로 코드를 짚고, '
+        '그 좌표가 <b>PDS3 · PDS2 · PDS4(S-code, Section 44) · OID</b> 중 무엇인지를 '
+        '<b>종류 칩</b>으로 가른다. 좌표는 유일하므로 중복은 성립하지 않는다. '
+        '<b>옛 IDS(A코드) 표기는 OID 와 같은 것</b>으로 함께 본다 <code>PC-035</code>.<br>'
+        '상단은 <b>「코드」 필터(전체 · PDS2 · PDS3 · PDS4 · OID)</b> 와 '
+        '<b>「상태」 필터</b> 두 묶음이고, 오른쪽에 고객사 검색이 붙는다 <code>PC-039</code>. '
+        '처음 연 상태 = 코드 <b>전체</b> · 상태 <b>전체</b> · 고객사 비움이며, '
+        '전체 보기의 Section 정원은 그 섹션을 쓰는 <b>종류들의 최대치</b>다.',
+        frame('SOB-01', 'SOBP 맵', content(pds='전체'), height=1180),
+        [('코드 필터', '클릭', 'S2 (PDS2) · S18 (PDS4) · S19 (OID)',
+          '<b>전체 / PDS2 / PDS3 / PDS4 / OID</b> 5칸. 고르면 Section 목록이 다시 그려지고 '
+          '<b>그 종류의 첫 좌표(S→O→B)로 이동</b>하며 번호 점프·더 보기·상태 필터는 초기화된다 '
+          '<code>PC-038</code>'),
+         ('OWNER · BOOK 종류 배지', '표시', '—',
+          '그 좌표가 어떤 종류로 쓰이는지 <b>용도 표시</b>. 한 owner 가 Book 을 나눠 '
+          '<b>PDS2·PDS3 를 함께</b> 쓸 수 있다 <code>PC-039</code>'),
+         ('카드 칩 순서', '표시', '통일',
+          'OWNER·BOOK 모두 <b>[번호] → [상태] → [종류] → (펜)</b> 순서다 <code>PC-040</code>'),
          ('상태 필터 칩', '클릭', 'S3~S7', '전체 / 발급 전체 / 코드 미발급 / 편집 / 공유 / 사용가능 <b>6종</b>'),
          ('고객사 입력', '입력·선택', 'S8', '목록에서 고르거나 정확히 입력하면 코드 종류·S·O·B 가 한꺼번에 이동'),
          ('SECTION 항목', '클릭', 'Owner·Book 초기화', '<b>사용 owner {n} / {정원}</b>'),
@@ -455,8 +502,10 @@ def build():
 
     B.append((
         'S2', 'PDS2(Gcode)로 전환', '분기',
-        'Section이 <b>0 · 3 · 14</b> 3개로 바뀌고, 테스트/개발 전용인 <b>S0·S14</b> 에 '
-        '<b>추천제외</b> 배지가 붙는다. ⚠ <b>PDS3 에는 추천제외 Section 이 하나도 없다.</b>',
+        '종류 칩을 <b>PDS2</b> 로 바꾸면 Section이 <b>0 · 3 · 14</b> 3개로 바뀌고, '
+        '테스트/개발 전용인 <b>S0·S14</b> 에 <b>추천제외</b> 배지가 붙는다. '
+        '⚠ <b>PDS3 에는 추천제외 Section 이 하나도 없다.</b> '
+        '<b>PDS4</b> 는 Section <b>44</b>, <b>OID</b> 는 데이터가 있는 Section(3 · 4)만 나온다.',
         frame('SOB-01', 'SOBP 맵',
               content(pds='G', sel_s=0, sel_o=10, sel_b=0,
                       own_more='524,197', book_more='8,111',
@@ -582,7 +631,8 @@ def build():
               height=1180),
         [('공유 배지', 'hover', '툴팁', '<b>여러 고객사가 함께 쓰도록 지정된 OWNER</b> · 보라 #a855f7'),
          ('🚫 영역 할당됨', 'hover', '툴팁',
-          '<b>PDS3 에서 이 owner를 선점 — 이 PDS에서는 사용할 수 없습니다.</b>'),
+          '(폐지) 예전의 <b>🚫 영역 할당됨</b> 배지는 없앴다 — 종류는 배타가 아니라 '
+          '<b>용도 표시</b>다 <code>PC-039</code>'),
          ('🌐 언어 슬롯', '표시', '—', '<b>db에서 직접 관리</b> · PDS2 S3 에서만'),
          ('공유 Owner의 Book 라벨', '표시', '—', '<b>보라 굵게</b> = 실사용 고객사'),
          ('일반 Owner의 Book 라벨', '표시', '—', '회색 = 프로젝트/교재명')]))
@@ -590,7 +640,8 @@ def build():
     B.append((
         'S13', 'Book 🚫 영역 할당됨 (비활성)', '변형',
         '반대 코드 종류가 이미 발급한 Book 은 <b>회색으로 눌리지 않는다</b>. '
-        '부제로 <b>{반대PDS} 발급 · 선택 불가</b> 가 붙는다.',
+        'Book 카드에는 <b>상태 배지 + 종류 배지(용도) + 펜 배지</b> 가 붙는다. '
+        '예전의 <b>다른 종류 발급 · 선택 불가</b> 차단은 폐지했다 <code>PC-039</code>.',
         frame('SOB-01', 'SOBP 맵',
               content(sel_s=3, sel_o=26, sel_b=0,
                       own_rows=((26, '미사용', '', 'blocked'),),
@@ -602,7 +653,7 @@ def build():
               height=1060),
         [('🚫 Book', '클릭', '<b>동작 없음</b>', '선택 불가'),
          ('hover', '마우스 오버', '툴팁',
-          '<b>PDS2 에서 이미 발급된 코드라 이 PDS에서는 사용할 수 없습니다.</b>'),
+          '(폐지) 다른 종류가 쓰는 Book 도 <b>선택할 수 있다</b> — 좌표가 상위 개념이다'),
          ('배타 단위', '참고', '—',
           '배타는 <b>owner 단위</b> — 반대 코드 종류가 그 owner를 쓰면 book 전체가 막힌다')]))
 
@@ -668,6 +719,48 @@ def build():
          ('빗금 구간', 'hover', '툴팁',
           '<b>권장 초과 +{n}p ({}%)</b> / <b>실사용 {n}p / 권장 {n}p</b>'),
          ('마우스 이탈', '마우스 벗어남', '툴팁 닫힘', '')]))
+
+    B.append((
+        'S18', 'PDS4 (S-code) · Section 44', '분기',
+        '<code>PC-032</code> — <b>Section 44 로 발급된 좌표는 PDS4(S-code)</b> 로 구분한다. '
+        '종류 칩 <b>PDS4</b> 를 고르면 Section 은 <b>44</b> 하나만 남고, 원장에 있는 '
+        '<b>21 owner</b>(ICsolutions-300 등)가 목록에 나온다.',
+        frame('SOB-01', 'SOBP 맵',
+              content(pds='PDS4', sel_s=44, sel_o=300, sel_b=0,
+                      own_more='1,003', book_more='175',
+                      page_kw=dict(pmax=256, total=120, cust='ICsolutions-300',
+                                   proj='ICsolutions 코드발급')),
+              height=1120),
+        [('종류 칩 [PDS4]', '클릭', 'Section 44', '섹션 목록이 <b>44</b> 하나로 바뀐다'),
+         ('Section 44', '표시', '—', '원장 기준 <b>사용 owner 21</b> · 정원 1,024'),
+         ('좌표 범위', '표시', '—',
+          'owner 0~4095 · book 0~255 · page 0~255 · xy 0~255 (Code Info 정식 범위 <code>PC-042</code>)'),
+         ('이전 표기', '—', '정정', '과거 “테스트/개발 전용”으로만 적던 Section 44 를 '
+          '<b>PDS4(S-code)</b> 로 분류한다')] + NAV))
+
+    B.append((
+        'S19', 'OID 좌표 보기', '분기',
+        '<code>PC-035</code> — <b>OID</b> 는 index 만 갖는 코드(외부 코드를 우리 펜으로 판독)이고 '
+        '<b>옛 IDS(A코드) 표기와 같은 것</b>이다. 종류 칩 <b>OID</b> 로 좌표를 걸러 본다. '
+        'Section 은 데이터가 있는 <b>3 · 4</b> 만 나오고, OID 는 같은 S/O 를 다른 종류와 '
+        '함께 쓸 수 있어(index 부여) <b>OID 로 잡은 Book 만</b> 발급으로 표시된다. '
+        '업체별 index 목록은 <code>OID-01</code> 관리대장(Ncode 정보 탭)에서 본다.',
+        frame('SOB-01', 'SOBP 맵',
+              content(pds='OID', sel_s=3, sel_o=17, sel_b=431,
+                      own_more='4,077', book_more='8,111',
+                      page_kw=dict(pmax=4096, total=2, cust='웅진씽크빅-17',
+                                   proj='범블비 잉글리시 전집 OID 1권', edited=True)),
+              height=1180),
+        [('종류 칩 [OID]', '클릭', 'OID 좌표만', 'Section 3 · 4(옛 IDS 포함)'),
+         ('같은 S/O 공유', '표시', '—',
+          '예: <b>S3/O17</b> 은 PDS2 코드와 OID 가 함께 있고 <b>Book 으로 구분</b>된다'),
+         ('Book 목록', '표시', '—', 'OID 로 발급된 Book(예: 431~449)만 발급 상태'),
+         ('book 미분할 업체', '표시', 'OWNER 까지',
+          '분량이 적어 book 을 나누지 않은 업체(예: <b>한솔교육 S3/O25</b>)는 OWNER 로 나오고, '
+          'BOOK 열 맨 위에 <b>『book 미분할 · {n}건』 안내 + 항목 목록</b>이 붙는다 <code>PC-036</code>'),
+         ('IDS 표기', '—', '통합', '옛 <b>IDS(A코드)</b> 는 OID 와 <b>같은 것</b>으로 함께 나온다'),
+         ('업체·index 목록', '조회', '<code>OID-01</code>',
+          'Ncode 정보 ▸ OID 관리대장 탭 (book 미분할 업체 포함)')] + NAV))
 
     intro = ('<b>Section → Owner → Book → Page</b> 드릴다운 코드 지도. 조회 전용이며 저장 동작이 없다. '
              '상태는 <b>실제 화면에서 갈라지는 것</b>만 담았다.<br>'

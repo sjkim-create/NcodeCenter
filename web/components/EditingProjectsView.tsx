@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { S, Field, Modal } from "./ui";
+import { codeKind, CODE_KINDS, kindMeta, type CodeKind } from "@/lib/codeKind";
 import { store, useStore } from "@/lib/store";
 import EditingDetailView from "./EditingDetailView";
 import { EditCustomer, loadCustomCustomers, saveCustomCustomers } from "@/lib/editingCustomers";
@@ -22,13 +23,22 @@ const toFull = (c: EditCustomer): Cust => ({ ...c, owners: /^\d+$/.test(c.owner)
 // 편집 고객사 고유 식별자 — owner 만으로는 유일하지 않다(예: owner 100 = MathLAB·Neolab POD, owner 900 = RECO·TEST)
 const uidOf = (c: { owner: string; customer: string }) => `${c.owner}#${c.customer}`;
 
+// 편집 고객사의 코드 종류 — 교재 행의 (k, section) 으로 판별한다 `PC-037`
+const kindsOfCust = (c: { bookRows?: { k?: string; s?: number }[]; codeKinds?: string[] }): CodeKind[] => {
+  const rows = c.bookRows ?? [];
+  if (rows.length) return [...new Set(rows.map((r) => codeKind(r.k, r.s ?? -1)))];
+  return [...new Set((c.codeKinds ?? []).map((k) => codeKind(k, -1)))];
+};
+
 export default function EditingProjectsView() {
   const sp = useSearchParams();
   const spOwner = sp.get("owner") ?? "";
-  const initCust = D.customers.find((c) => c.owner === spOwner) ?? D.customers[0];
+  // 첫 화면은 특정 고객사를 고르지 않고 **전체 고객사** 를 보여준다 `PC-038`
+  //   (URL 에 owner 가 있으면 그 고객사로 바로 연다 — SOBP 맵 [✏️ 편집으로 이동 →])
+  const initCust = D.customers.find((c) => c.owner === spOwner);
   const [sel, setSel] = useState<string>(initCust ? uidOf(initCust) : "");
   const [q, setQ] = useState("");
-  const [pds, setPds] = useState<"ALL" | "G" | "N">("ALL");
+  const [pds, setPds] = useState<"ALL" | CodeKind>("ALL");   // 좌표의 코드 종류 (PDS3·PDS2·PDS4·OID)
   const [custom, setCustom] = useState<EditCustomer[]>([]);
   const [addForm, setAddForm] = useState<{ companyId: number; owner: string; kind: "N" | "G" } | null>(null);
   const st = useStore(); // 고객사 관리에 등록된 고객사/프로젝트
@@ -42,10 +52,10 @@ export default function EditingProjectsView() {
   // 고객사 단가 — 고객사 관리에 등록된 값(없으면 기본 단가)
   const nzc = (x: string) => x.replace(/\s+/g, "").replace(/\(.*\)/g, "").toLowerCase();
   const rateFor = useMemo(() => (name: string) => rateOf(st.companies.find((c) => nzc(c.name) === nzc(name))), [st.companies]);
-  type BRow = { k?: string; pg?: number; bytes?: number; sm?: number[]; pm?: number[]; pu?: number; su?: number; dcRate?: number; dcAmt?: number };
+  type BRow = { k?: string; s?: number; pg?: number; bytes?: number; sm?: number[]; pm?: number[]; pu?: number; su?: number; dcRate?: number; dcAmt?: number };
   const statOf = useMemo(() => (c: Cust) => {
     const rows = (c.bookRows ?? []) as BRow[];
-    const use = pds === "ALL" ? rows : rows.filter((r) => r.k === pds);
+    const use = pds === "ALL" ? rows : rows.filter((r) => codeKind(r.k, r.s ?? -1) === pds);
     const cRate = rateFor(c.customer);
     if (rows.length === 0) {
       // 교재 행이 없는 고객사(직접 추가) — 요약값만 있으므로 고객사 단가로 환산
@@ -67,7 +77,7 @@ export default function EditingProjectsView() {
 
   const list = useMemo(
     () => all
-      .filter((c) => (pds === "ALL" ? true : c.codeKinds.includes(pds)))
+      .filter((c) => (pds === "ALL" ? true : kindsOfCust(c as never).includes(pds)))
       .filter((c) => (q ? (c.customer + c.owner).toLowerCase().includes(q.toLowerCase()) : true))
       .slice()
       .sort((a, b) => a.customer.localeCompare(b.customer, "ko")),   // 고객사명 오름차순
@@ -156,7 +166,7 @@ export default function EditingProjectsView() {
             </div>
             {/* 코드 종류 필터 */}
             <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-              {([["ALL", "전체"], ["G", "PDS2(Gcode)"], ["N", "PDS3(Ncode)"]] as const).map(([v, label]) => (
+              {([["ALL", "전체"] as const, ...CODE_KINDS.map((k) => [k.v, k.short] as const)]).map(([v, label]) => (
                 <button key={v} onClick={() => setPds(v)} style={pdsChip(pds === v)}>{label}</button>
               ))}
             </div>
@@ -164,7 +174,7 @@ export default function EditingProjectsView() {
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="고객사 · owner 검색" style={{ ...S.input, paddingRight: 28 }} />
               {q && <button onClick={() => setQ("")} title="검색어 지우기" style={clearBtn}>×</button>}
             </div>
-            <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 6 }}>{list.length}곳 표시{pds !== "ALL" ? ` · ${pds === "N" ? "PDS3(Ncode)" : "PDS2(Gcode)"} 보유` : ""}</div>
+            <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 6 }}>{list.length}곳 표시{pds !== "ALL" ? ` · ${kindMeta(pds).label} 보유` : ""}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
               {list.map((c) => {
                 const id = uidOf(c);
@@ -175,10 +185,10 @@ export default function EditingProjectsView() {
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ fontWeight: 700, fontSize: 13, flex: 1, color: active ? "#1d4ed8" : "#111827" }}>{c.customer}</span>
                       {isCustom && <span style={{ ...S.tag, fontSize: 10, background: "#ecfdf5", color: "#047857" }}>신규</span>}
-                      {c.codeKinds.map((k) => <span key={k} style={{ ...S.tag, fontSize: 10, background: k === "N" ? "#eef6ff" : "#fef3c7", color: k === "N" ? "#2563eb" : "#92400e" }}>{k}</span>)}
+                      {kindsOfCust(c as never).map((k) => <span key={k} style={{ ...S.tag, fontSize: 10, background: kindMeta(k).bg, color: kindMeta(k).color, fontWeight: 700 }}>{kindMeta(k).short}</span>)}
                     </div>
                     <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
-                      {pds === "ALL" ? "북" : pds === "N" ? "PDS3" : "PDS2"} {statOf(c).books.toLocaleString()}권
+                      {pds === "ALL" ? "북" : kindMeta(pds).short} {statOf(c).books.toLocaleString()}권
                       {isCustom && <span onClick={(e) => { e.stopPropagation(); delCustom(c); }} style={{ color: "#dc2626", marginLeft: 8, cursor: "pointer" }}>삭제</span>}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
@@ -199,8 +209,24 @@ export default function EditingProjectsView() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ ...S.card, padding: 16 }}>
             {selCust
-              ? <EditingDetailView key={sel} owner={selCust.owner} custName={selCust.customer} embedded pdsLock={pds === "ALL" ? "" : pds} seedCustomer={customOwners.has(selCust.owner) ? (selCust as never) : undefined} />
-              : <div style={{ padding: 24, color: "#9ca3af" }}>좌측에서 고객사를 선택하세요.</div>}
+              ? (
+                <>
+                  <button onClick={() => setSel("")} style={{ ...S.linkBtn, padding: 0, marginBottom: 8 }}>← 전체 고객사</button>
+                  <EditingDetailView key={sel} owner={selCust.owner} custName={selCust.customer} embedded pdsLock={pds === "ALL" ? "" : pds} seedCustomer={customOwners.has(selCust.owner) ? (selCust as never) : undefined} />
+                </>
+              )
+              : (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                    <b style={{ fontSize: 14 }}>전체 고객사</b>
+                    <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>{list.length}곳</span>
+                    {pds !== "ALL" && <span style={{ ...S.tag, background: kindMeta(pds).bg, color: kindMeta(pds).color, fontWeight: 700 }}>{kindMeta(pds).short} 보유</span>}
+                    <span style={{ fontSize: 11.5, color: "#9ca3af" }}>모든 고객사의 교재를 한 목록으로 봅니다 · 조회 전용(수정은 고객사 선택 후)</span>
+                  </div>
+                  {/* 고객사 상세와 같은 표 — 항목 셀렉트 필터 + 페이지네이션 `PC-040` */}
+                  <EditingDetailView allCustomers embedded pdsLock={pds === "ALL" ? "" : pds} />
+                </>
+              )}
           </div>
         </div>
       </div>

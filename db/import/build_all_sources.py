@@ -182,9 +182,13 @@ def parse_sheet(ws, default_ty, s_hint=None, o_hint=None, common=False):
         g = lambda f: (row[cm[f]] if (f in cm and len(row) > cm[f]) else None)
 
         kind_raw = str(g("kind") or "").upper()
-        if "PDS" in kind_raw or "IDS" in kind_raw:
-            # 타입: PDS2→G(Gcode) · IDS→A(초창기 A코드, 이력전용) · 그 외 PDS3→N(Ncode)
-            k = "G" if "PDS2" in kind_raw else ("A" if "IDS" in kind_raw else "N")
+        if "PDS" in kind_raw or "IDS" in kind_raw or "OID" in kind_raw:
+            # 코드 종류(좌표 속성): PDS2→G(Gcode) · PDS3→N(Ncode) · IDS→A(초창기, 이력전용)
+            #   OID→O — 인덱스 전용(외부 코드 판독용). 같은 S/O 를 다른 종류와 공유하고 B/P 로 구분한다.
+            #   ※ Section 44 = PDS4(S-code) 는 좌표(섹션)로 판별하므로 여기서 태깅하지 않는다.
+            k = ("O" if "OID" in kind_raw else
+                 "G" if "PDS2" in kind_raw else
+                 "A" if "IDS" in kind_raw else "N")
             last_k = k
         else:
             if not (txt(g("title")) or txt(g("file"))): continue
@@ -251,7 +255,8 @@ def parse_sheet(ws, default_ty, s_hint=None, o_hint=None, common=False):
         if memo and "logs" not in b:
             b["logs"] = [{"id": 1, "no": 1, "kind": "메모", "content": memo, "date": b["d"], "author": ""}]
 
-        if not (b["t"] or b["f"] or b["pg"] or b["bytes"] or (txt(g("book")) and ("PDS" in kind_raw or "IDS" in kind_raw))): continue
+        if not (b["t"] or b["f"] or b["pg"] or b["bytes"]
+                or (txt(g("book")) and ("PDS" in kind_raw or "IDS" in kind_raw or "OID" in kind_raw))): continue
         books.append(b)
     return books
 
@@ -422,12 +427,29 @@ if os.path.exists(epath):
 else:
     print("!! 편집현황 파일 없음:", EDIT_FILE)
 
-# 북코드 없는 행(중복/변형 표기, 실제 book 아님)은 코드 프로젝트·SOBP 맵·편집 어디에도 넣지 않는다
+# OID 는 book 으로 나누지 않는 경우가 많다(북코드 없음) → 아래 nb 필터 전에 대장용으로 따로 모아 둔다 (PC-033)
+OID_ROWS = [(_c["name"], b) for _c in custs.values() for b in _c["books"] if b["k"] == "O"]
+
+# 북코드 없는 행(중복/변형 표기, 실제 book 아님)은 코드 프로젝트·SOBP 맵·편집에서 뺀다.
+#   단 **OID 는 분량이 적으면 book 을 나누지 않으므로** 그 행은 남긴다 — 편집 이력에도 나와야 한다 (PC-037)
 for _c in custs.values():
-    _c["books"] = [b for b in _c["books"] if not b.get("nb")]
+    _c["books"] = [b for b in _c["books"] if (not b.get("nb")) or b["k"] == "O"]
 for _k in list(common_books):
     common_books[_k] = [b for b in common_books[_k] if not b.get("nb")]
     if not common_books[_k]: del common_books[_k]
+
+# ═══ 예외 정리: 구몬D-37 S3/O37 의 PDS3 B669 (데일리노트) — 발급된 코드가 아니다 ═══
+#   담당 확인(2026-08-28): "구몬D-37 의 669 는 발급 없다" → 편집현황 표기 오류로 보고 제외한다.
+#   (S/O 안에 PDS2·PDS3 가 섞여 보이던 원인 중 하나)
+_n_kumon = 0
+for _c in custs.values():
+    before = len(_c["books"])
+    _c["books"] = [b for b in _c["books"]
+                   if not (b["k"] == "N" and b["s"] == 3 and b["o"] == 37 and b["b"] == 669)]
+    _n_kumon += before - len(_c["books"])
+if _n_kumon:
+    print(f"예외 정리: 구몬D-37 S3/O37 PDS3 B669 (발급 없음) {_n_kumon}행 제외")
+
 
 # (대장 기준 귀속이라 외래행 제거·오너별 분리 로직은 불필요 — 대장이 (섹션,오너)로 이미 분리됨)
 
@@ -490,7 +512,8 @@ for _, c in sorted(custs.items(), key=lambda kv: -len(kv[1]["books"])):
                                      "bookStart": g["bmin"], "bookEnd": g["bmax"], "pageStart": 0, "pageEnd": 0}],
                          "editing": _editing, "editingOwner": own,
                          "symbols": _symbols})
-    # 대장 할당 중 편집(책)이 없는 (섹션,오너) → 코드발급-only 프로젝트 (편집 안 됨, PDS 미정 임시 N)
+    # 대장 할당 중 편집(책)이 없는 (섹션,오너) → 코드발급-only 프로젝트 (편집 안 됨, **코드 종류 미정**)
+    #   원장에는 PDS 구분이 없다 → kind 를 넣지 않는다. 지도의 종류 배지에도 나오지 않는다 (PC-041)
     #   예) 교원도요새베트남-4: O4는 편집(위), O5는 할당만 → O5 코드발급-only.
     book_so = {(b["s"], b["o"]) for b in books}
     seen_alloc = set()
@@ -502,7 +525,7 @@ for _, c in sorted(custs.items(), key=lambda kv: -len(kv[1]["books"])):
         projects.append({"id": pid, "name": f"{name} 코드발급 · S{a['section']}/O{a['owner']}", "companyId": cid,
                          "service": "NONE", "grade": "",
                          "issued": [{"id": 1, "date": a.get("date") or "2020-01-01", "codes": 0, "used": 0,
-                                     "kind": "N", "section": a["section"], "owner": a["owner"],
+                                     "section": a["section"], "owner": a["owner"],
                                      "bookStart": a.get("book_start") or 0, "bookEnd": a.get("book_end") or 0,
                                      "pageStart": 0, "pageEnd": 0}],
                          "editing": False, "editingOwner": a["owner"], "symbols": 0, "codeOnly": True})
@@ -674,19 +697,71 @@ json.dump({"summary": {"customers": len(edit_only),
           open(os.path.join(WEB, "editing-detail.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 print("editing-detail.json", round(os.path.getsize(os.path.join(WEB, "editing-detail.json")) / 1024), "KB ·", len(edit_only), "고객사")
 
-# 지도/목록용 경량 데이터 (번들 최소화): k,s,o,b,p(page),sp,c(보유업체),t(교재),e(편집),cu(공유코드 실사용 고객사)
+# 지도/목록용 경량 데이터 (번들 최소화): k,s,o,b,p(page),sp,c(보유업체),t(교재),e(편집),cu(공유코드 실사용 고객사),pen(소리펜/필기펜)
+#   k = 좌표(SOBP)의 코드 종류: N=PDS3 · G=PDS2 · A=IDS(이력) · O=OID(인덱스 전용). PDS4(S-code)는 Section 44 로 판별.
 def crow(c, b):
     if b.get("nb"): return None                        # 북코드 없는 행은 지도(SOBP 맵)에 표시하지 않음
     r = {"k": b["k"], "s": b["s"], "o": b["o"], "b": b["b"], "p": b["pg"],
          "sp": b.get("sp", 0), "c": c["customer"], "t": (b["t"] or "")[:40],
          "e": 1 if b.get("ed") else 0}
+    # 펜 구분(좌표 속성) — S=소리펜(NSP) · W=필기펜(NWP). 원장 파일(src)이 정본.
+    if b.get("src"): r["pen"] = "W" if b["src"] == "pen" else "S"
     if b.get("cu"): r["cu"] = b["cu"][:40]        # 공유(커먼) 코드에서 실제 사용 고객사
     if "ea" in b: r["ea"] = b["ea"]               # 레퍼런스 시트 편집 O/X (1=편집, 0=코드만 할당)
     if not r["sp"]: del r["sp"]
     return r
+#   OID(k="O")도 좌표 종류의 하나로 지도·목록에서 필터한다 (PC-035). 업체별 index 목록은 oid-data.json.
 compact = [r for c in edit_customers for b in c["bookRows"] if (r := crow(c, b))]
+# OID 는 분량이 적으면 book 을 나누지 않는다(북코드 없음) → 그런 행도 지도에 싣되 nb=1 로 표시한다.
+#   (book 카드가 아니라 OWNER 단위로만 노출 — 예: 한솔교육 S3/O25)
+n_oid_nb = 0
+for _name, b in OID_ROWS:
+    if not b.get("nb"):
+        continue                                   # 북코드가 있는 행은 위 compact 에 이미 있다
+    r = {"k": "O", "s": b["s"], "o": b["o"], "b": 0, "p": b.get("pg", 0),
+         "c": _name, "t": (b["t"] or "")[:40], "e": 1 if b.get("ed") else 0, "nb": 1}
+    if b.get("src"): r["pen"] = "W" if b["src"] == "pen" else "S"
+    if b.get("cu"): r["cu"] = b["cu"][:40]
+    compact.append(r); n_oid_nb += 1
+
 json.dump(compact, open(os.path.join(WEB, "code-usage.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-print("code-usage.json", round(os.path.getsize(os.path.join(WEB, "code-usage.json")) / 1024), "KB ·", len(compact), "행")
+print("code-usage.json", round(os.path.getsize(os.path.join(WEB, "code-usage.json")) / 1024), "KB ·", len(compact), "행",
+      f"(OID book 미분할 {n_oid_nb}행 포함)")
+
+# ── OID 관리대장 → oid-data.json ────────────────────────────────────
+#   OID = index 만 갖는 코드(외부 코드를 우리 펜으로 읽기 위한 방식). 우리 펜으로 찍으면 코드 값이 1개만 나온다.
+#   총량이 약 6만 개뿐이라 책이 많지 않으면 book 으로 나누지 않는다.
+#   대장 관리 방식: 업체 구분은 S/O 로 해 왔고, 분량이 늘어난 업체만 book 번호(=OID index)로 나눈다.
+#   → SOBP(PDS2·PDS3·PDS4)와 같은 좌표 관리가 아니라 **업체 + index** 로 관리하고, 기존 좌표는 메모로 남긴다.
+OID_TOTAL = 60000        # OID 코드 총량(약 6만) — 사용량 대비 표시용
+oid_group = {}
+for _name, b in OID_ROWS:
+    if True:
+        key = _name
+        g = oid_group.setdefault(key, {"company": key, "section": b["s"], "owner": b["o"],
+                                       "pen": "W" if b.get("src") == "pen" else "S", "items": []})
+        item = {"title": (b["t"] or "")[:60]}
+        if not b.get("nb"):
+            item["idx"] = b["b"]                       # book 번호 = OID index 로 관리하는 업체
+        if b.get("pg"): item["pages"] = b["pg"]
+        if b.get("d"): item["date"] = b["d"][:10]
+        if b.get("cu"): item["cu"] = b["cu"][:40]
+        g["items"].append(item)
+for g in oid_group.values():
+    idxs = [i["idx"] for i in g["items"] if "idx" in i]
+    g["indexBy"] = "book" if idxs else "none"          # book 번호로 index 관리 / 미분할(업체 단위)
+    g["indexRange"] = [min(idxs), max(idxs)] if idxs else None
+    g["count"] = len(g["items"])
+    # 기존 SOBP 히스토리는 메모로만 남긴다 (좌표 관리 대상 아님)
+    g["sobpMemo"] = ("S%s/O%s" % (g["section"], g["owner"])) + (
+        " · B%s~%s" % (g["indexRange"][0], g["indexRange"][1]) if g["indexRange"] else " · book 미분할")
+oid_json = {"total": OID_TOTAL,
+            "companies": sorted(oid_group.values(), key=lambda x: -x["count"]),
+            "meta": {"source": "NSP/NWP 원장의 코드 구분 = OID 행",
+                     "note": "OID 는 index 전용 코드다. SOBP(PDS2·PDS3·PDS4) 좌표 관리와 분리해 업체+index 로 관리한다(PC-033). 기존 좌표는 메모."}}
+json.dump(oid_json, open(os.path.join(WEB, "oid-data.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+print("oid-data.json · 업체", len(oid_json["companies"]), "· 항목",
+      sum(g["count"] for g in oid_json["companies"]))
 
 # ── 공통(커먼) 코드 레지스트리 + 사용 고객사 멤버십(히스토리→시드) → common-members.json ──
 #   코드 정본 = (타입 k: N=PDS3·G=PDS2·A=IDS, section, owner). 사용 고객사(cu)는 엑셀 히스토리에서 자동 시드.
@@ -777,8 +852,9 @@ for a in ALLOC:
                 if bcnt and pcnt: iss["codes"] = bcnt * pcnt      # 발급 규모 = B × P
         continue
     pid += 1; have.add(key)
+    # 편집 데이터로 종류를 확정할 수 있을 때만 넣는다 — 원장에는 PDS 구분이 없다 (PC-041)
     kinds = [b["k"] for c in edit_customers if nz(c["customer"]) == nz(a["account"]) for b in c["bookRows"]]
-    k = max(set(kinds), key=kinds.count) if kinds else "N"
+    k = max(set(kinds), key=kinds.count) if kinds else None
     bs, be = a["book_start"] or 0, a["book_end"] or 0
     ps, pe = a["page_start"] or 0, a["page_end"] or 0
     projects.append({"id": pid, "name": f"{co['name']} 코드발급 · S{a['section']}/O{a['owner']}",
@@ -786,7 +862,7 @@ for a in ALLOC:
                      # 발급 코드 규모 = Book수 × Page수 (할당 원장 기준)
                      "issued": [{"id": 1, "date": a["date"] or "2020-01-01",
                                  "codes": max(0, be - bs + 1) * max(0, pe - ps + 1), "used": 0,
-                                 "kind": k, "section": a["section"], "owner": a["owner"],
+                                 **({"kind": k} if k else {}), "section": a["section"], "owner": a["owner"],
                                  "bookStart": bs, "bookEnd": be, "pageStart": ps, "pageEnd": pe}],
                      "editing": False, "editingOwner": a["owner"], "symbols": 0})
     added += 1

@@ -79,7 +79,7 @@ def left(sel_cust='웅진씽크빅', kind='전체', search='', empty=False):
                     '#eef6ff' if k == kind else '#fff',
                     '#2563eb' if k == kind else '#6b7280',
                     'font-weight:700' if k == kind else '', k)
-                 for k in ('전체', 'PDS2(Gcode)', 'PDS3(Ncode)'))
+                 for k in ('전체', 'PDS3', 'PDS2', 'PDS4', 'OID'))
     sv = ('<div class="inp" style="padding-right:28px">%s'
           '<span style="position:absolute;right:6px;top:50%%;transform:translateY(-50%%);'
           'color:#9ca3af;font-size:16px">×</span></div>' % search) if search else \
@@ -355,7 +355,7 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
         fr = '<tr>' + blank + fsel('전체')
         if share:
             fr += fsel('전체', 100)
-        fr += blank + fsel('G(PDS2)', 58, True) + fsel('전체', 74) + blank * 3
+        fr += blank + fsel('PDS2', 58, True) + fsel('전체', 74) + blank * 3
         fr += fsel('편집방식 전체', 130) + blank * 5 + '</tr>'
 
     body = ''
@@ -465,7 +465,47 @@ def detail(empty=False, share=False, filtered=False, base_price=False, discount=
                          hf=hf, page=not list_empty)))
 
 
-def content(sel_cust='웅진씽크빅', kind='전체', search='', left_empty=False,
+# 첫 화면 — 특정 고객사가 아니라 전체 고객사 요약 표 (PC-038)
+ALL_ROWS = (('가쿠쇼-1022', ('PDS3',), '73', '0', '0.0GB', '₩0'),
+            ('교원구몬-10', ('PDS2', 'PDS3'), '186', '292,674', '22.5GB', '₩313,383,500'),
+            ('교원도요새베트남-4', ('PDS3',), '290', '16,065', '0.0GB', '₩18,337,000'),
+            ('한솔교육-25', ('PDS2', 'OID'), '147', '0', '18.2GB', '₩0'),
+            ('웅진씽크빅-17', ('PDS2', 'OID'), '1,014', '412,905', '61.3GB', '₩512,004,000'))
+KIND_C2 = {'PDS3': ('#eef6ff', '#2563eb'), 'PDS2': ('#fef3c7', '#d97706'),
+           'PDS4': ('#f3e8ff', '#7c3aed'), 'OID': ('#ccfbf1', '#0f766e')}
+
+
+def all_customers(kind='전체', n=71):
+    chips = ''
+    if kind != '전체':
+        bg, fg = KIND_C2.get(kind, ('#eef6ff', '#2563eb'))
+        chips = ('<span style="font-size:11px;background:%s;color:%s;font-weight:700;'
+                 'border-radius:5px;padding:2px 7px">%s 보유</span>' % (bg, fg, kind))
+    head = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;'
+            'flex-wrap:wrap"><b style="font-size:14px">전체 고객사</b>'
+            '<span style="font-size:11px;background:#eef6ff;color:#2563eb;font-weight:700;'
+            'border-radius:5px;padding:2px 7px">%d곳</span>%s'
+            '<span style="font-size:11.5px;color:#9ca3af">고객사를 고르면 교재별 상세로 '
+            '들어갑니다.</span></div>' % (n, chips))
+    th = ''.join('<th>%s</th>' % h for h in ('고객사', '코드 종류', '북', '심볼', '리소스', '청구액'))
+    body = ''
+    for name, kinds, bk, sym, sz, amt in ALL_ROWS:
+        ks = ''.join('<span style="font-size:10px;background:%s;color:%s;font-weight:700;'
+                     'border-radius:5px;padding:2px 6px;margin-right:3px">%s</span>'
+                     % (KIND_C2[k][0], KIND_C2[k][1], k) for k in kinds)
+        body += ('<tr><td style="text-align:left;font-weight:600">%s</td>'
+                 '<td style="text-align:left">%s</td>'
+                 '<td style="font-family:ui-monospace,monospace">%s</td>'
+                 '<td style="font-family:ui-monospace,monospace">%s</td>'
+                 '<td style="font-family:ui-monospace,monospace;color:#6b7280">%s</td>'
+                 '<td style="font-family:ui-monospace,monospace;font-weight:700;color:#1d4ed8">%s</td>'
+                 '</tr>' % (name, ks, bk, sym, sz, amt))
+    return (head + '<div class="card" style="padding:0;overflow:auto">'
+            '<table style="text-align:center;min-width:720px"><tr>' + th + '</tr>'
+            + body + '</table></div>')
+
+
+def content(sel_cust='웅진씽크빅', kind='전체', search='', left_empty=False, all_view=False,
             empty_detail=False, share=False, filtered=False, base_price=False,
             discount=True, list_empty=False, toast='', top_row=True,
             basis=False, unfilter=False, bsearch='', sort=None, hf=False, toast3=''):
@@ -474,7 +514,8 @@ def content(sel_cust='웅진씽크빅', kind='전체', search='', left_empty=Fal
             + '<div style="display:flex;gap:16px;align-items:flex-start">'
               '<div style="width:280px;flex-shrink:0">%s</div>'
               '<div style="flex:1;min-width:0">%s</div></div>'
-            % (left(sel_cust, kind, search, left_empty),
+            % (left('' if all_view else sel_cust, kind, search, left_empty),
+               all_customers(kind) if all_view else
                detail(empty_detail, share, filtered, base_price, discount, list_empty,
                       basis, unfilter, bsearch, sort, hf, toast3)))
 
@@ -496,7 +537,7 @@ def prj05(step='cust', picked=0, direct=False):
                       'padding:1px 5px;background:%s">%s</span>%s%s</span>'
                       % ('#93c5fd' if on else '#e5e7eb', '#eef6ff' if on else '#fff',
                          '#2563eb' if k == 'N' else '#d97706',
-                         'N(PDS3)' if k == 'N' else 'G(PDS2)', sc('S', s), sc('O', o)))
+                         'PDS3' if k == 'N' else 'PDS2', sc('S', s), sc('O', o)))
         body += ('<div style="margin-top:12px">'
                  '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">'
                  'Owner 코드 <span style="color:#dc2626">*</span> '
@@ -561,12 +602,28 @@ def build2():
     B = []
 
     B.append((
-        'S1', '기본 — 좌 목록 + 우 상세', '기본',
-        '좌 <b>280px</b> 고객사 목록 + 우 상세(<code>PRJ-03</code>)가 <b>한 화면</b>에 함께 있다. '
-        '들어오면 <b>첫 고객사가 자동 선택</b>된다. 상단 한 줄은 <b>지금 목록 기준</b> 집계이며 '
-        '청구액은 <b>고객사 단가</b>로 계산한다 <code>P-16</code>.',
-        frame('PRJ-02', '편집 프로젝트', content(), height=H2),
-        [('상단 요약', '표시', '—',
+        'S1', '첫 화면 — 전체 고객사', '기본',
+        '좌 <b>280px</b> 고객사 목록 + 우 <b>전체 고객사 교재 목록</b>이 함께 있다. '
+        '<b>특정 고객사를 미리 고르지 않는다</b> <code>PC-038</code> — 표·항목 셀렉트 필터·'
+        '페이지네이션은 <b>고객사 상세(<code>PRJ-03</code>)와 같은 것</b>을 쓰고 '
+        '앞에 <b>고객사</b> 열이 붙는다 <code>PC-040</code>. 전체 보기는 <b>조회 전용</b>이며, '
+        '왼쪽에서 고객사를 고르면 수정할 수 있는 상세로 들어간다. '
+        '상단 한 줄은 <b>지금 목록 기준</b> 집계이며 청구액은 <b>고객사 단가</b>로 계산한다 '
+        '<code>P-16</code>.',
+        frame('PRJ-02', '편집 프로젝트', content(all_view=True), height=H2),
+        [('전체 고객사 표', '표시', '—',
+          '상세와 같은 교재 표 + <b>고객사</b> 열 · 상단 집계는 전체 기준'),
+         ('항목 셀렉트 필터', '선택', '목록 필터',
+          '<b>상태 · 고객사 · 사용 고객사 · 코드(PDS2·PDS3·PDS4·OID) · 타입 · 편집방식</b>'),
+         ('페이지네이션', '클릭', '페이지 이동',
+          '<b>50 / 100 / 200 / 500 / 전체 보기</b> · <b>전체 {n}건 중 {a}~{b} 표시</b>'),
+         ('전체 보기 편집', '—', '조회 전용',
+          '교재 추가·수정·초기화 버튼이 나오지 않는다 — 고객사를 골라야 수정 가능'),
+         ('좌측 고객사 카드', '클릭', 'S2 상세', '그 고객사의 교재별 상세로 들어간다'),
+         ('[← 전체 고객사]', '클릭', 'S1', '상세에서 전체 화면으로 되돌아온다'),
+         ('URL ?owner={n}', '진입', '해당 고객사 상세',
+          '<code>SOB-01</code> [✏️ 편집으로 이동 →] 은 그 고객사로 바로 연다'),
+         ('상단 요약', '표시', '—',
           '편집 고객사 · 편집 북코드 · 총 심볼 · 리소스 · <b>청구액</b>(할인 있으면 기준가·할인 표기)'),
          ('범위 안내', '표시', '—', '<b>· 편집현황 장부에 있는 업체만 표시</b>'),
          ('[＋ 고객사]', '클릭', 'S7 <code>PRJ-05</code>', '헤더 우측 파란 버튼'),
@@ -576,14 +633,20 @@ def build2():
           '[✏️ 편집으로 이동 →] 로 오면 그 Owner 의 고객사가 선택된 상태로 열린다')] + NAV2))
 
     B.append((
-        'S2', '코드 종류 필터', '필터',
-        '<code>P-02</code> — <b>전체 / PDS2(Gcode) / PDS3(Ncode)</b> 3칸이 균등하게 놓인다. '
+        'S2', '코드 종류 필터 · 고객사 상세', '필터',
+        '<code>P-02</code> <code>PC-037</code> — <b>전체 / PDS3 / PDS2 / PDS4 / OID</b> 5칸이 '
+        '균등하게 놓인다. 코드 종류는 교재 행의 <b>(종류값, Section)</b> 으로 판별한다 — '
+        '<b>OID</b>(옛 IDS 포함)로 작업한 교재도 여기서 걸러 본다. '
         '고르면 목록뿐 아니라 <b>상단 요약 · 카드 권수 · 우측 상세 집계</b>가 모두 '
         '그 종류의 교재만으로 다시 계산된다.',
         frame('PRJ-02', '편집 프로젝트',
               content(sel_cust='시원스쿨', kind='PDS3(Ncode)', filtered=True), height=H2 - 120),
         [('코드 종류 칩', '클릭', '목록·집계 재계산', '교재(행) 단위로 걸린다'),
          ('표시 수', '자동', '—', '<b>3곳 표시 · PDS3(Ncode) 보유</b>'),
+         ('OID 필터', '클릭', 'OID 보유 고객사',
+          'OID 로 작업한 교재를 가진 고객사만 — <b>book 미분할</b> 교재도 포함된다 '
+          '(예: 한솔교육-25 『Ready Readers Book』·『신기한 영어나라』)'),
+         ('고객사 배지', '자동', '—', '<b>PDS3 · PDS2 · PDS4 · OID</b> 라벨로 표시'),
          ('카드 권수', '자동', '—', '<b>북</b> → <b>PDS3</b> 로 바뀐다'),
          ('범위 안내', '자동', '—', '<b>· 필터 적용 (전체 11곳 / 2,269권)</b> 파랑'),
          ('우측 상세', '자동', '같은 필터 적용', '상세 목록·정산도 그 종류만')] + NAV2))

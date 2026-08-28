@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { S, Field, Modal } from "./ui";
-import { PdsChip as KindChip, Sc, SobpChips } from "./sobp";
+import { KindChip, Sc, SobpChips } from "./sobp";
+import { codeKind, CODE_KINDS, kindLabel, type CodeKind } from "@/lib/codeKind";
 import { store, useStore } from "@/lib/store";
 import {
   Project, ServiceType,
@@ -16,18 +17,15 @@ import { logActivity } from "@/lib/activityStore";
 
 type Draft = Omit<Project, "id">;
 
-// 고객사별 코드 종류(N=PDS3 / G=PDS2) — 편집 데이터에서 파생
-const KIND_BY_NAME: Record<string, string[]> = EDIT_BOOKS.reduce((m, r) => {
+// 고객사별 코드 종류 — 좌표(SOBP) 속성으로 판별 (PDS3 · PDS2 · PDS4 · OID). 옛 IDS(A) = OID 동일 `PC-035`
+const KIND_BY_NAME: Record<string, CodeKind[]> = EDIT_BOOKS.reduce((m, r) => {
+  const kd = codeKind(r.k, r.sec);
   const cur = m[r.cust] ?? [];
-  if (!cur.includes(r.k)) m[r.cust] = [...cur, r.k].sort();
-  else m[r.cust] = cur;
+  if (!cur.includes(kd)) m[r.cust] = [...cur, kd];
   return m;
-}, {} as Record<string, string[]>);
-const PDS_FILTERS = [
-  { v: "ALL", label: "전체" },
-  { v: "G", label: "PDS2(Gcode)" },
-  { v: "N", label: "PDS3(Ncode)" },
-] as const;
+}, {} as Record<string, CodeKind[]>);
+const PDS_FILTERS = [{ v: "ALL" as const, label: "전체" },
+  ...CODE_KINDS.map((k) => ({ v: k.v, label: k.label }))];
 // 고객사 카드 부제용 짧은 사용 서비스명
 const SHORT_SVC: Record<string, string> = { CASTERN: "casterN", FORMSOLUTION: "폼솔루션", NONE: "서비스 없음" };
 const shortSvc = (v: string) => SHORT_SVC[v] ?? serviceLabel(v as ServiceType);
@@ -46,7 +44,7 @@ export default function ProjectsView() {
   const [selCo, setSelCo] = useState<number>(0);
   const [selP, setSelP] = useState<number | null>(null);
   const [q, setQ] = useState("");
-  const [pds, setPds] = useState<"ALL" | "G" | "N">("ALL");
+  const [pds, setPds] = useState<"ALL" | CodeKind>("ALL");
   const [flag, setFlag] = useState<"ALL" | "편집" | "코드발급">("ALL");
   const [svc, setSvc] = useState<"ALL" | ServiceType>("ALL");
   const [memberQ, setMemberQ] = useState("");            // 하위 고객사 검색
@@ -95,7 +93,7 @@ export default function ProjectsView() {
     return codes.find((c) => c.k === (iss.kind ?? "N") && c.s === iss.section && c.o === iss.owner) ?? codes[0];
   };
   // 필터(PDS·편집여부)를 프로젝트 단위로 적용 — 집계·카드 수치가 필터를 따라간다
-  const projKind = (p: Project) => p.issued[0]?.kind ?? "N";
+  const projKind = (p: Project) => codeKind(p.issued[0]?.kind, p.issued[0]?.section ?? -1);
   const matchProject = (p: Project) =>
     (pds === "ALL" || projKind(p) === pds) &&
     (flag === "ALL" || (flag === "편집" ? isEditing(p) : !isEditing(p))) &&
@@ -172,7 +170,7 @@ export default function ProjectsView() {
                       {ps.length === 0 ? "서비스 없음" : svcs.map(shortSvc).join(" · ")} · 코드 {codes.toLocaleString()}
                     </span>
                     {kindsOf(c.name).map((k) => (
-                      <span key={k} style={{ ...S.tag, fontSize: 9.5, background: k === "N" ? "#eef6ff" : "#fef3c7", color: k === "N" ? "#2563eb" : "#92400e" }}>{k}</span>
+                      <span key={k} style={{ ...S.tag, fontSize: 9.5, background: CODE_KINDS.find((x) => x.v === k)?.bg, color: CODE_KINDS.find((x) => x.v === k)?.color, fontWeight: 700 }}>{k}</span>
                     ))}
                   </div>
                 </button>
@@ -195,7 +193,7 @@ export default function ProjectsView() {
                   <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 4, flexWrap: "wrap" }}>
                     {soOf(p).slice(0, 4).map((a) => (
                       <span key={`${a.k}/${a.s}/${a.o}`} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                        <KindChip k={a.k} small />
+                        <KindChip k={a.k} sec={a.s} small />
                         <Sc k="S" name="Section" v={a.s} c="#5f8ff0" small />
                         <Sc k="O" name="Owner" v={a.o} c="#14b8a6" small />
                       </span>
@@ -236,7 +234,7 @@ export default function ProjectsView() {
                 {/* 코드 종류 + S/O 칩 */}
                 {soOf(proj).map((a) => (
                   <span key={`${a.k}/${a.s}/${a.o}`} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    <KindChip k={a.k} />
+                    <KindChip k={a.k} sec={a.s} />
                     <Sc k="S" name="Section" v={a.s} c="#5f8ff0" />
                     <Sc k="O" name="Owner" v={a.o} c="#14b8a6" />
                   </span>
@@ -261,7 +259,7 @@ export default function ProjectsView() {
 
               {/* 발급 요약 */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, margin: "14px 0" }}>
-                {[["발급 코드 (B×P)", projectCodes(proj).toLocaleString(), "#2563eb"], ["실등록 페이지", projectUsed(proj).toLocaleString(), "#0f766e"], ["편집 심볼", (proj.symbols ?? 0).toLocaleString(), "#047857"], ["코드 종류", (KIND_BY_NAME[companyName(proj.companyId)] ?? []).map((k) => (k === "N" ? "N(PDS3)" : "G(PDS2)")).join(" · ") || "-", "#111827"]].map((x, i) => (
+                {[["발급 코드 (B×P)", projectCodes(proj).toLocaleString(), "#2563eb"], ["실등록 페이지", projectUsed(proj).toLocaleString(), "#0f766e"], ["편집 심볼", (proj.symbols ?? 0).toLocaleString(), "#047857"], ["코드 종류", (KIND_BY_NAME[companyName(proj.companyId)] ?? []).map(kindLabel).join(" · ") || "-", "#111827"]].map((x, i) => (
                   <div key={i} style={{ border: "1px solid #eef0f4", borderRadius: 10, padding: 10 }}>
                     <div style={{ fontSize: 10.5, color: "#6b7280" }}>{x[0]}</div>
                     <div style={{ fontSize: 17, fontWeight: 700, color: x[2] }}>{x[1]}</div>

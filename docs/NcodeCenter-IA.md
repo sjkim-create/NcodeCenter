@@ -49,9 +49,10 @@ NcodeCenter
 │   └─ 활동 로그       ★Admin       LOG-01   (/activity)
 ├─ [정보]
 │   ├─ Ncode 정보                   INF-01   (/info)
-│   │   ├─ Ncode Info               INF-01-1
+│   │   ├─ Code Info                INF-01-1
 │   │   ├─ 확장 언어 슬롯           INF-01-2
 │   │   ├─ 발급 구조                INF-01-3
+│   │   ├─ OID 관리대장             OID-01     ← index 전용 코드(좌표 관리 아님)
 │   │   └─ 알아야 할 사항           INF-01-4
 │   ├─ 브랜드 (CI)                  BRD-01   (/brand)
 │   └─ DB 구조                      DBS-01   (/db)
@@ -75,6 +76,7 @@ NcodeCenter
 | — | └ **CasterN 서비스 관리** (헤더) | 1 | — | — | — | casterN 편집툴 고유 관리 — 편집 프로젝트·PUI 코드 |
 | **PRJ-01** | 코드 프로젝트 | 2 | `/projects` | `ProjectsView` | Staff/Admin | 고객사별 코드 프로젝트 목록(마스터), 공유(커먼) 코드 표시·검색 |
 | PRJ-01-1 | └ 프로젝트 상세 | 3 | `/projects` (우측 패널) | `ProjectsView` | Staff/Admin | 선택 프로젝트의 코드종류·Section/Owner·발급 상세 |
+
 | — | **티켓 발급** (그룹) | 1 | — | — | — | 발급 메뉴 3종을 담는 사이드바 그룹 (코드 다음, 서비스 관리 앞) |
 | **TKT-03** | 계정 발급 (목록) | 2 | `/tickets/account` | `AccountsListView` | Staff/Admin | 계정 목록 — 요약 4칸 · 고객사/사용처/검색 필터 · 8열 표(CasterN 권한·App Key 수) |
 | **TKT-06** | └ 계정 등록 | 3 | `/tickets/account/new` | `AccountNewView` | Staff/Admin | ① 계정 정보 → ② 사용처·권한(CasterN 7종) → ③ App Key(선택) → [계정 추가] |
@@ -91,7 +93,7 @@ NcodeCenter
 | **LOG-01** | 활동 로그 | 2 | `/activity` | `ActivityLogView` | **Admin 전용** | 내부 직원 감사 로그(등록·할당·발급·삭제…) 월별 조회 |
 | — | **정보** (그룹) | 1 | — | — | — | 참조·가이드 영역 |
 | **INF-01** | Ncode 정보 | 2 | `/info` | `InfoView` | 전 역할 | Ncode 참조 정보(탭 통합) |
-| INF-01-1 | └ Ncode Info | 3 | `/info` (탭) | `RangeTable` | 전 역할 | 섹션 범위표·2.3m·코드 체계 참조 |
+| INF-01-1 | └ Code Info | 3 | `/info` (탭) | `RangeTable` | 전 역할 | 섹션 범위표(PDS2·PDS3·**PDS4**)·2.3m·코드 체계 참조 |
 | INF-01-2 | └ 확장 언어 슬롯 | 3 | `/info` (탭) | `LangSlotView` | 전 역할 | COMMON-21 기본 + 964~983 확장 언어 슬롯 |
 | INF-01-3 | └ 발급 구조 | 3 | `/info` (탭) | `NcodeInfoView` | 전 역할 | PDS2(Gcode)/PDS3(Ncode) 발급 구조 |
 | INF-01-4 | └ 알아야 할 사항 | 3 | `/info` (탭) | `NcodeGuideView` | 전 역할 | 운영 가이드·주의사항 |

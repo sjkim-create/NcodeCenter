@@ -3,7 +3,7 @@
 // 사용 고객사(cu)는 lib/commonMembers 의 중앙 멤버십으로 관리한다.
 // db/import/build_all_sources.py 의 COMMON_CODES 와 (k,s,o) 가 일치해야 한다.
 
-export type CodeType = "N" | "G" | "A";   // N=PDS3(Ncode) · G=PDS2(Gcode) · A=IDS(초창기, 이력전용)
+export type CodeType = "N" | "G" | "A";   // N=PDS3(Ncode) · G=PDS2(Gcode) · A=OID(옛 IDS 표기 — OID 와 같은 것, PC-035)
 
 export type CommonCode = {
   k: CodeType; s: number; o: number;   // 코드 정본
@@ -11,7 +11,7 @@ export type CommonCode = {
   holder: string;    // 대표 브랜드 (그룹핑)
   company: string;   // 이 코드를 보유한 고객사(대장) 이름 — 티켓/검색 진입점
   label: string;     // PDS·S/O 라벨
-  historyOnly?: boolean;   // A(IDS) 등 이력전용 — 코드 할당·편집 등록 없이 검색/이력만
+  historyOnly?: boolean;   // A(옛 IDS = OID) 등 이력전용 — 코드 할당·편집 등록 없이 검색/이력만
 };
 
 export const COMMON_CODES: CommonCode[] = [
@@ -24,7 +24,7 @@ export const COMMON_CODES: CommonCode[] = [
   { k: "N", s: 14, o: 303, name: "딥스원테크-303",           holder: "딥스원테크",   company: "딥스원테크-303",           label: "PDS3 · S14/O303" },
   { k: "G", s: 3, o: 37,   name: "구몬D-37",                holder: "구몬D",        company: "구몬D-37",                label: "PDS2 · S3/O37" },
   { k: "G", s: 3, o: 964,  name: "Common 추가 언어 슬롯-964", holder: "Common",       company: "Common 추가 언어 슬롯-964", label: "PDS2 · S3/O964" },
-  { k: "A", s: 4, o: 27,   name: "네오노트-IDS-27",          holder: "네오노트",     company: "네오노트-IDS-27",          label: "IDS · S4/O27", historyOnly: true },
+  { k: "A", s: 4, o: 27,   name: "네오노트-IDS-27",          holder: "네오노트",     company: "네오노트-IDS-27",          label: "OID · S4/O27", historyOnly: true },
 ];
 
 export const codeKey = (c: { k: string; s: number; o: number }) => `${c.k}:${c.s}:${c.o}`;

@@ -36,7 +36,9 @@ Ncode 코드는 계층 주소다: **Section → Owner → Book → Page**.
 | **Page** | 상품(Book)의 페이지 | Book별 Start~Total |
 | **ACCOUNT(고객사)** | **업체** | Owner의 상위 소유 주체 |
 
-- **코드 종류**: **N코드 / G코드** (S코드는 NcodeCenter 범위 **제외**). 물리 체계 PDS3≈N, PDS2≈G. Book 단위로 정해짐. 발급 기준(운영정책 §4): 해외 N · 국내 소리펜 G · 국내 소리+필기 N.
+- **코드 종류**: 좌표(SOBP)의 **속성**이다 `PC-032` — **PDS3(Ncode) · PDS2(Gcode) · PDS4(S-code, Section 44) · OID(index 전용 · 옛 IDS(A코드) 표기 포함)** `PC-035`.
+  좌표가 1차 키라 중복은 성립하지 않고, 해당 좌표가 어떤 종류인지만 가린다. 한 (S,O)는 PDS2·PDS3·PDS4 중 **한 종류만**, **OID만 예외**로 같은 S/O 를 공유하고 B/P 로 구분한다.
+  Book 단위로 정해지며 발급 기준(운영정책 §4): 해외 N · 국내 소리펜 G · 국내 소리+필기 N. **펜 구분(소리펜 NSP·필기펜 NWP)도 좌표 속성**이다.
 - **펜 구분**: **Ncp(소리펜) / Ndp(필기펜)** — 동일 SOBP라도 Ncp/Ndp로 **분리 관리**(구분 관리 원칙).
 - **2.3m 규칙**: 페이지 1장 ≤ 2.3m면 overflow 없음 → **판형 무시, 페이지 수만으로 티케팅**.
 - **상태(핵심)**: **RESERVED(예약·선점, 선할당)** / **ACTIVE(사용중, 발급내역 있음)**.
@@ -106,6 +108,7 @@ NcodeCenter
 │   └─ 활동 로그          ★Admin              LOG-01   (/activity)
 └─ [정보]
     ├─ Ncode 정보                             INF-01   (/info)
+    │   └─ OID 관리대장 (탭)                    OID-01   ← index 전용(좌표 관리 아님)
     ├─ 브랜드 (CI)                            (PRD 없음)
     └─ DB 구조                                (PRD 없음)
 ```

@@ -1,0 +1,485 @@
+{
+ "total": 60000,
+ "companies": [
+  {
+   "company": "웅진씽크빅-17",
+   "section": 3,
+   "owner": 17,
+   "pen": "S",
+   "items": [
+    {
+     "title": "범블비 잉글리시 전집 OID 북코드 모음"
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 1권",
+     "idx": 431
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 2권",
+     "idx": 432
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 3권",
+     "idx": 433
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 4권",
+     "idx": 434
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 5권",
+     "idx": 435
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 6권",
+     "idx": 436
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 7권",
+     "idx": 437
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 8권",
+     "idx": 438
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 9권",
+     "idx": 439
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 10권",
+     "idx": 440
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 11권",
+     "idx": 441
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 12권",
+     "idx": 442
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 13권",
+     "idx": 443
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 14권",
+     "idx": 444
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 15권",
+     "idx": 445
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 16권",
+     "idx": 446
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 17권",
+     "idx": 447
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 18권",
+     "idx": 448
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 19권",
+     "idx": 449
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 20권",
+     "idx": 450
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 21권",
+     "idx": 451
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 22권",
+     "idx": 452
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 23권",
+     "idx": 453
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 24권",
+     "idx": 454
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 25권",
+     "idx": 455
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 26권",
+     "idx": 456
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 27권",
+     "idx": 457
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 28권",
+     "idx": 458
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 29권",
+     "idx": 459
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 30권",
+     "idx": 460
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 31권",
+     "idx": 461
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 32권",
+     "idx": 462
+    },
+    {
+     "title": "범블비 잉글리시 전집 OID 33권",
+     "idx": 463
+    },
+    {
+     "title": "범블비 잉글리시 전집 단어카드",
+     "idx": 464
+    }
+   ],
+   "indexBy": "book",
+   "indexRange": [
+    431,
+    464
+   ],
+   "count": 35,
+   "sobpMemo": "S3/O17 · B431~464"
+  },
+  {
+   "company": "잉글리시에그-18",
+   "section": 3,
+   "owner": 18,
+   "pen": "S",
+   "items": [
+    {
+     "title": "스텝1 DVD버전 교재"
+    },
+    {
+     "title": "스텝1 플링버전 교재"
+    },
+    {
+     "title": "스텝2 교재"
+    },
+    {
+     "title": "스텝3 교재"
+    },
+    {
+     "title": "몽키북, 판다북, 비버북 교재"
+    },
+    {
+     "title": "잉글리시에그 ZOO (판단, 비버, 몽키 통합)"
+    },
+    {
+     "title": "abroad (해외패키지)"
+    },
+    {
+     "title": "스텝3 퍼펫텔링"
+    },
+    {
+     "title": "스텝3 놀이활동"
+    },
+    {
+     "title": "스텝1 플러스 (판다북스)"
+    },
+    {
+     "title": "스텝2 플러스 (비버북스)"
+    },
+    {
+     "title": "스텝3 플러스 (몽키북스)"
+    },
+    {
+     "title": "스텝1 놀이활동"
+    },
+    {
+     "title": "스텝2 놀이활동"
+    },
+    {
+     "title": "스텝2 퍼펫텔링"
+    },
+    {
+     "title": "드라마파닉스1 사은품"
+    },
+    {
+     "title": "드라마파닉스2 사은품"
+    },
+    {
+     "title": "Elmer 시리즈 스티커"
+    },
+    {
+     "title": "스텝1 퍼펫텔링"
+    },
+    {
+     "title": "스텝, ZOO 관련 사은ㄴ품"
+    },
+    {
+     "title": "Writing Lab STEP 4"
+    },
+    {
+     "title": "Writing Lab STEP 5"
+    }
+   ],
+   "indexBy": "none",
+   "indexRange": null,
+   "count": 22,
+   "sobpMemo": "S3/O18 · book 미분할"
+  },
+  {
+   "company": "Common-21",
+   "section": 3,
+   "owner": 21,
+   "pen": "S",
+   "items": [
+    {
+     "title": "스마트 발달동화",
+     "idx": 15,
+     "date": "2016-04-22",
+     "cu": "아들과딸"
+    },
+    {
+     "title": "키즈스콜레 11월 제공분",
+     "idx": 195,
+     "pages": 2,
+     "date": "2021-11-26",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 22년 1월호",
+     "idx": 198,
+     "pages": 2,
+     "date": "2021-12-20",
+     "cu": "LG U+"
+    },
+    {
+     "title": "키즈스콜레 11월 추가분, 12월, 1월 편성분",
+     "idx": 199,
+     "pages": 2,
+     "date": "2021-12-23",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 22년 2월호",
+     "idx": 200,
+     "pages": 2,
+     "date": "2022-01-21",
+     "cu": "LG U+"
+    },
+    {
+     "title": "키즈스콜레 22년 2월-5월 편성분",
+     "idx": 202,
+     "pages": 4,
+     "date": "2022-02-16",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 22년 3월호",
+     "idx": 203,
+     "pages": 2,
+     "date": "2022-02-22",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 22년 6월호",
+     "idx": 212,
+     "pages": 2,
+     "date": "2022-06-02",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 22년 7월호",
+     "idx": 214,
+     "pages": 2,
+     "date": "2022-06-23",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 22년 8월호",
+     "idx": 215,
+     "pages": 2,
+     "date": "2022-07-25",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 22년 9월호",
+     "idx": 216,
+     "pages": 2,
+     "date": "2022-08-17",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 22년 10월호",
+     "idx": 223,
+     "pages": 2,
+     "date": "2022-09-20",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 22년 11월호",
+     "idx": 224,
+     "pages": 2,
+     "date": "2022-10-07",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 22년 12월호",
+     "idx": 226,
+     "pages": 2,
+     "date": "2022-11-16",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 23년 1월호",
+     "idx": 230,
+     "pages": 2,
+     "date": "2022-12-20",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 23년 2월호",
+     "idx": 232,
+     "pages": 2,
+     "date": "2023-01-25",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 23년 3월호",
+     "idx": 233,
+     "pages": 2,
+     "date": "2023-02-17",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 23년 4월호",
+     "idx": 234,
+     "pages": 2,
+     "date": "2023-03-13",
+     "cu": "LG U+"
+    },
+    {
+     "title": "에그스쿨 23년 5월호",
+     "idx": 235,
+     "pages": 2,
+     "date": "2023-04-18",
+     "cu": "LG U+"
+    }
+   ],
+   "indexBy": "book",
+   "indexRange": [
+    15,
+    235
+   ],
+   "count": 19,
+   "sobpMemo": "S3/O21 · B15~235"
+  },
+  {
+   "company": "헤르만헤세-15",
+   "section": 3,
+   "owner": 15,
+   "pen": "S",
+   "items": [
+    {
+     "title": "씽씽 이지투리드"
+    },
+    {
+     "title": "씽씽영어음원 (레코딩북포함)"
+    },
+    {
+     "title": "리틀수학북스"
+    },
+    {
+     "title": "씽씽파닉스"
+    },
+    {
+     "title": "반짝반짝 읽기창작동화"
+    }
+   ],
+   "indexBy": "none",
+   "indexRange": null,
+   "count": 5,
+   "sobpMemo": "S3/O15 · book 미분할"
+  },
+  {
+   "company": "수하임-1021",
+   "section": 3,
+   "owner": 1021,
+   "pen": "S",
+   "items": [
+    {
+     "title": "UPIP Kamus"
+    },
+    {
+     "title": "UPIP MQS 1"
+    },
+    {
+     "title": "UPIP SOLAT"
+    }
+   ],
+   "indexBy": "none",
+   "indexRange": null,
+   "count": 3,
+   "sobpMemo": "S3/O1021 · book 미분할"
+  },
+  {
+   "company": "한솔교육-25",
+   "section": 3,
+   "owner": 25,
+   "pen": "S",
+   "items": [
+    {
+     "title": "Ready Readers Book"
+    },
+    {
+     "title": "신기한 영어나라"
+    }
+   ],
+   "indexBy": "none",
+   "indexRange": null,
+   "count": 2,
+   "sobpMemo": "S3/O25 · book 미분할"
+  },
+  {
+   "company": "FUA-33",
+   "section": 3,
+   "owner": 33,
+   "pen": "S",
+   "items": [
+    {
+     "title": "FUA"
+    }
+   ],
+   "indexBy": "none",
+   "indexRange": null,
+   "count": 1,
+   "sobpMemo": "S3/O33 · book 미분할"
+  },
+  {
+   "company": "Cake-1009",
+   "section": 3,
+   "owner": 1009,
+   "pen": "S",
+   "items": [
+    {
+     "title": "BTS 라온 보드 게임 (OID)",
+     "date": "2021-11-18"
+    }
+   ],
+   "indexBy": "none",
+   "indexRange": null,
+   "count": 1,
+   "sobpMemo": "S3/O1009 · book 미분할"
+  }
+ ],
+ "meta": {
+  "source": "NSP/NWP 원장의 코드 구분 = OID 행",
+  "note": "OID 는 index 전용 코드다. SOBP(PDS2·PDS3·PDS4) 좌표 관리와 분리해 업체+index 로 관리한다(PC-033). 기존 좌표는 메모."
+ }
+}

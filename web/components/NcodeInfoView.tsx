@@ -11,13 +11,43 @@ export default function NcodeInfoView({ embedded }: { embedded?: boolean } = {})
       </p>
 
       {/* 코드 구분 */}
-      <Section title="코드 구분 (PDS)">
+      <Section title="코드 종류 — 좌표(SOBP)의 속성">
+        <p style={{ margin: "0 0 10px", fontSize: 12.5, color: "#374151", lineHeight: 1.7 }}>
+          <b>좌표(SOBP)가 먼저</b>입니다. Section·Owner·Book·Page 로 코드를 지정하고, 그 좌표가 어떤 체계인지를
+          <b> 코드 종류</b>로 구분합니다. 좌표는 유일하므로 <b>코드 중복은 성립하지 않고</b>, 해당 좌표가
+          PDS2·PDS3·PDS4·OID 중 무엇인지만 가리면 됩니다.
+        </p>
         <table style={{ ...S.table }}>
           <thead><tr>{["표기", "약칭", "설명"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
           <tbody>
             <tr><td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>PDS3 (N3C6)</td><td style={{ ...td, fontWeight: 700, color: "#2563eb" }}>Ncode</td><td style={td}>N3C6의 <b>N</b>을 따서 Ncode. 현행 주력 코드.</td></tr>
             <tr><td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>PDS2 (G3C6)</td><td style={{ ...td, fontWeight: 700, color: "#92400e" }}>Gcode</td><td style={td}>G3C6의 <b>G</b>를 따서 Gcode. 구형/호환 코드.</td></tr>
-            <tr><td style={{ ...td, color: "#9ca3af" }}>S코드</td><td style={{ ...td, color: "#9ca3af" }}>제외</td><td style={{ ...td, color: "#9ca3af" }}>NcodeCenter 관리 대상 아님.</td></tr>
+            <tr><td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>PDS4 (S-code)</td><td style={{ ...td, fontWeight: 700, color: "#7c3aed" }}>Scode</td><td style={td}><b>Section 44</b> 로 발급된 좌표를 PDS4(S-code)로 구분합니다.</td></tr>
+            <tr><td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>OID</td><td style={{ ...td, fontWeight: 700, color: "#0f766e" }}>인덱스</td><td style={td}><b>index만 갖는 코드</b> — 외부 코드를 <b>우리 펜으로 읽을</b> 목적으로 만든 방식. 옛 <b>IDS(A코드)</b> 표기도 <b>같은 것</b>으로 본다.</td></tr>
+          </tbody>
+        </table>
+        <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280", lineHeight: 1.7 }}>
+          같은 <b>S/O</b> 는 <b>PDS2·PDS3·PDS4 중 한 종류만</b> 씁니다(무겹침). OID는 index 부여라 같은 S/O 를 함께 쓸 수 있습니다.
+          <br />펜 구분(<b>소리펜</b> NSP · <b>필기펜</b> NWP)도 좌표 속성이며 지도·목록에서 필터로 가릅니다.
+          <br />SOBP 맵·코드 프로젝트에서 <b>PDS2 · PDS3 · PDS4 · OID</b> 로 필터해 조회합니다.
+        </div>
+      </Section>
+
+      {/* OID — 좌표가 아닌 index 관리 */}
+      <Section title="OID — index 전용 코드">
+        <div style={{ background: "#f0fdfa", border: "1px solid #99f6e4", borderRadius: 10, padding: "12px 14px", fontSize: 12.5, color: "#115e59", lineHeight: 1.9 }}>
+          <div><b>개념</b> — OID는 <b>index만 갖는 코드</b>로, <b>외부 코드를 우리 펜으로 읽을</b> 목적으로 만든 방식입니다.</div>
+          <div>OID 책을 우리 펜으로 찍으면 <b>코드 값이 1개만</b> 나옵니다.</div>
+          <div>총량이 <b>약 60,000개</b>뿐이라, 책의 양이 많지 않으면 <b>book 으로 코드를 나누지 않습니다</b>.</div>
+        </div>
+        <table style={{ ...S.table, marginTop: 10 }}>
+          <thead><tr>{["대장 관리 방식", "내용", "예"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
+          <tbody>
+            <tr><td style={{ ...td, fontWeight: 700 }}>업체 구분</td><td style={td}><b>S/O</b> 로 업체를 구분해 왔습니다(관리 편의를 위한 구분이며 좌표 발급이 아닙니다).</td><td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>한솔 S3/O25 · 웅진 S3/O17</td></tr>
+            <tr><td style={{ ...td, fontWeight: 700 }}>book 미분할</td><td style={td}>분량이 <b>6만 페이지 미만</b>이면 book 번호로 나누지 않고 <b>업체 단위</b>로만 관리합니다.</td><td style={td}>한솔교육 · 잉글리시에그 · 헤르만헤세 등</td></tr>
+            <tr><td style={{ ...td, fontWeight: 700 }}>index 관리</td><td style={td}>분량이 늘어난 업체는 <b>book 번호로 나누며, 그 번호가 곧 OID index</b> 로 보입니다.</td><td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>웅진 B431~464</td></tr>
+            <tr><td style={{ ...td, fontWeight: 700 }}>조회 화면</td><td style={td}>좌표 기준은 <b>SOBP 맵의 종류 필터 [OID]</b>, 업체별 index 목록은 <b>이 화면의 [OID 관리대장] 탭</b>에서 봅니다.</td><td style={td}>book 미분할 업체는 대장에서 확인</td></tr>
+            <tr><td style={{ ...td, fontWeight: 700 }}>용어</td><td style={td}>옛 <b>IDS(A코드)</b> 표기는 <b>OID 와 같은 것</b>입니다. 화면·필터에서 구분하지 않습니다.</td><td style={td}>IDS = OID</td></tr>
           </tbody>
         </table>
       </Section>
@@ -126,7 +156,7 @@ export default function NcodeInfoView({ embedded }: { embedded?: boolean } = {})
       </Section>
 
       <div style={{ ...S.card, padding: "12px 14px", background: "#fffbeb", border: "1px solid #fde68a", fontSize: 12.5, color: "#92400e" }}>
-        ⚠ Section <b>1 · 44</b>는 테스트/개발 전용으로 만들어졌고 상용 서비스로는 미출시된 코드입니다(레거시 아님).
+        ⚠ Section <b>1</b>은 테스트/개발 전용으로 만들어졌고 상용 서비스로는 미출시된 코드입니다(레거시 아님). Section <b>44</b>는 <b>PDS4(S-code)</b> 로 구분합니다.
       </div>
     </div>
   );

@@ -18,7 +18,7 @@ import { sharedOf, BUILT_IN, builtInShared } from "./sharedOwners";
 export type CodeStatus = "편집" | "코드발급" | "사용가능" | "미사용";
 export type Usage = { status: CodeStatus; cust: string; title?: string; cu?: string };
 
-type CRow = { k: string; s: number; o: number; b: number; p: number; sp?: number; c: string; t: string; e: number; cu?: string; ea?: number };
+type CRow = { k: string; s: number; o: number; b: number; p: number; sp?: number; c: string; t: string; e: number; cu?: string; ea?: number; pen?: string; nb?: number };
 const ROWS = compact as unknown as CRow[];
 
 // 편집 여부 = "편집현황" 파일에 실린 교재(e=1). 소리펜/필기펜 목록은 코드 할당 자료.
@@ -28,7 +28,9 @@ type ORec = { account: string; owner: number; product: string; book_start: numbe
 type OSec = { section: number; records: ORec[] };
 const OD = (ownership as unknown as { sections: OSec[] }).sections;
 
-export type BookRec = { k: string; sec: number; owner: number; book: number; pg: number; sp: number; cust: string; title: string; status: CodeStatus; cu?: string; ea?: number; fromProject?: boolean };
+// k = 좌표의 코드 종류값(N=PDS3 · G=PDS2 · A=IDS · O=OID) · pen = 펜 구분(S=소리펜 · W=필기펜) → lib/codeKind.ts
+// nb=true : book 을 나누지 않은 행(OID) — OWNER 까지만 표시하고 Book 카드로는 쓰지 않는다 `PC-036`
+export type BookRec = { k: string; sec: number; owner: number; book: number; pg: number; sp: number; cust: string; title: string; status: CodeStatus; cu?: string; ea?: number; pen?: string; nb?: boolean; fromProject?: boolean; kindSet?: boolean };
 
 // 공유(커먼) 코드의 상태 판정: 실제 편집(ea=1)이면 편집, 아니면 사용가능(코드만 할당).
 //   레퍼런스 시트의 '편집' O/X 기준. 편집현황 파일의 중복행(cu·ea 없음)은 코드만 할당으로 취급해 편집을 강제하지 않는다.
@@ -40,7 +42,8 @@ const bookStatus = (r: CRow): CodeStatus => {
 // 모든 교재(책) — 경량 데이터에서 생성. cu = 공유(커먼) 코드에서 실제 사용 고객사
 export const EDIT_BOOKS: BookRec[] = ROWS.map((r) => ({
   k: r.k, sec: r.s, owner: r.o, book: r.b, pg: r.p, sp: r.sp ?? 0,
-  cust: r.c, title: r.t, status: bookStatus(r), cu: r.cu, ea: r.ea,
+  cust: r.c, title: r.t, status: bookStatus(r), cu: r.cu, ea: r.ea, pen: r.pen,
+  nb: r.nb === 1,
 }));
 
 // 소유권 데이터의 owner·book 범위 (다른 곳에서 이미 쓰는 코드)
@@ -75,7 +78,8 @@ export function projectBooks(projects: Project[], companies: Company[]): BookRec
     for (const b of p.issued) {
       const span = Math.min(500, Math.max(1, b.bookEnd - b.bookStart + 1));
       for (let i = 0; i < span; i++) {
-        out.push({ k: b.kind ?? "N", sec: b.section, owner: b.owner, book: b.bookStart + i,
+        // kindSet=false → 원장 보강(코드 종류 미정) · 조회 로직은 종전대로 "N" 으로 취급하고 배지에만 쓰지 않는다 `PC-041`
+        out.push({ k: b.kind ?? "N", kindSet: b.kind != null, sec: b.section, owner: b.owner, book: b.bookStart + i,
                    pg: Math.max(1, Math.round(b.codes / span)), sp: b.pageStart || 0, cust, title: p.name, status, fromProject: true });
       }
     }
@@ -95,6 +99,7 @@ export function usedBookMap(k: string, sec: number, owner: number, extra: BookRe
     m.set(b, rank(u.status) > rank(cur.status) ? { ...u, cu, title } : { ...cur, cu, title });
   };
   for (const r of [...EDIT_BOOKS, ...extra]) {
+    if (r.nb) continue;                                   // book 미분할 행은 Book 점유로 세지 않는다
     if (r.k === k && r.sec === sec && r.owner === owner) put(r.book, { status: r.status, cust: r.cust, title: r.title, cu: r.cu });
   }
   return m;
@@ -144,6 +149,7 @@ export function isBookEdited(recs: BookRec[] | undefined, overrideEa?: number): 
 export function bookRecordsOf(k: string, sec: number, owner: number, extra: BookRec[] = []): Map<number, BookRec[]> {
   const m = new Map<number, BookRec[]>();
   for (const r of [...EDIT_BOOKS, ...extra]) {
+    if (r.nb) continue;                                   // book 미분할 행 제외
     if (r.k === k && r.sec === sec && r.owner === owner) {
       const arr = m.get(r.book);
       if (arr) arr.push(r); else m.set(r.book, [r]);

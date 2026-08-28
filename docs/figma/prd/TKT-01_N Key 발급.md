@@ -82,7 +82,7 @@ S11~S13 은 이 화면에서 열리는 **`TKT-02` Key 정보 확인** 모달이�
 
 **구분** — 기본
 
-범위를 고르면 **Start Book · Book 볼륨 · Page 볼륨** 이 자동으로 채워지고 PatternType 이 확정된다 `P-02`. 버튼 아래에 **발급 예정** 요약이 나온다.
+범위를 고르면 **Start Book · Book 볼륨 · Page 볼륨** 이 자동으로 채워지고 PatternType 이 확정된다 `P-02`(PDS3→Ncode_PDS3 · PDS2→Ncode_PDS2 · PDS4→Scode · OID→OID). 버튼 아래에 **발급 예정** 요약이 나온다.
 
 | 요소 | 액션 | 결과 · 이동 | 메시지 · 비고 |
 |---|---|---|---|

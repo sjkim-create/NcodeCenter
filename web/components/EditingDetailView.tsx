@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { S, Field, Modal, AutoTextarea } from "./ui";
+import { codeKind, kindMeta, type CodeKind } from "@/lib/codeKind";
 import { SobpChips } from "./sobp";
 import type { WorkKind } from "@/lib/customerData";
 import { useAuth, currentUser } from "@/lib/authStore";
@@ -32,6 +33,7 @@ type BR = {
   //   rs = 항목별 단가맵 · rsAt = 적용 시점(YYYY-MM-DD). 없는(구) 교재는 현재 고객사 단가로 계산.
   rs?: RateMap; rsAt?: string;
   cu?: string;   // 사용 고객사 — 공유 OWNER(레퍼런스 코드)일 때만 사용
+  _cust?: string;   // 전체 고객사 보기에서만 채워지는 보유 고객사명 `PC-040`
   nhist?: { date: string; movedAt: string; by: string }[];   // 완료→진행중 전환 시 보관하는 ncp2 최종수정 이력
 };
 type Cust = { customer: string; owner: string; owners?: number[]; codeKinds: string[]; books: number; pages: number; symbols: number; soundSymbols: number; penSymbols: number; sizeMB: number; topMethods?: [string, number][]; bookRows?: BR[] };
@@ -69,7 +71,7 @@ const BOOK_MAX: Record<string, Record<number, number>> = {
 };
 const EMPTY = (o: number): BR => ({ b: 0, s: 0, o, k: "N", pg: 0, t: "", f: "", bytes: 0, ty: "소리펜", sm: zeros(SOUND_N), pm: zeros(PEN_N), m: "", d: "" });
 
-export default function EditingDetailView({ owner: ownerProp, custName, embedded, seedCustomer, ownerFilter, pdsLock }: { owner?: string; custName?: string; embedded?: boolean; seedCustomer?: Cust; ownerFilter?: number | null; pdsLock?: "N" | "G" | "" } = {}) {
+export default function EditingDetailView({ owner: ownerProp, custName, embedded, seedCustomer, ownerFilter, pdsLock, allCustomers }: { owner?: string; custName?: string; embedded?: boolean; seedCustomer?: Cust; ownerFilter?: number | null; pdsLock?: CodeKind | ""; allCustomers?: boolean } = {}) {
   const params = useParams();
   const owner = String(ownerProp ?? params.owner ?? "");
   const authState = useAuth();
@@ -78,11 +80,20 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   // 본인이 작성한 메모만 수정·삭제 가능
   const isMine = (l: BookLog) => !!me && (l.authorEmail ? l.authorEmail === me.email : l.author === me.name);
   // 고객사 식별은 이름 우선 (분리된 네오노트-0-27/3-27 등은 owner가 모두 27로 같아 owner만으론 충돌)
-  const cust = (custName ? D.customers.find((c) => c.customer === custName) : undefined)
+  // 전체 고객사 모드 — 모든 고객사의 교재를 한 목록으로 본다(읽기 전용) `PC-040`
+  const allCust = useMemo<Cust | undefined>(() => {
+    if (!allCustomers) return undefined;
+    const rows2 = D.customers.flatMap((c) => (c.bookRows ?? []).map((r) => ({ ...r, _cust: c.customer })));
+    return { customer: "전체 고객사", owner: "", owners: [], codeKinds: [], books: rows2.length,
+      pages: 0, symbols: 0, soundSymbols: 0, penSymbols: 0, sizeMB: 0, bookRows: rows2 as BR[] };
+  }, [allCustomers]);
+  const cust = allCust
+    ?? (custName ? D.customers.find((c) => c.customer === custName) : undefined)
     ?? D.customers.find((c) => c.owner === owner) ?? seedCustomer;
   const st = useStore(); // 코드 프로젝트(발급 내역) — 할당된 S/O 조회용
 
   const key = `ncc-edit12-${cust?.customer ?? owner}`;   // v12: 고객사명 식별(오너 충돌 방지) — 옛 편집 캐시 폐기
+  const readOnly = !!allCustomers;                        // 전체 고객사 보기 = 조회 전용
   // 구버전 데이터(mb=MB) → bytes 로 정규화
   // 빌드 데이터는 빈 값/0 배열을 빼서 내보내므로 여기서 기본값을 복원한다 (구버전 mb=MB → bytes 도 정규화)
   const norm = (arr: unknown[]): BR[] => (arr as (BR & { mb?: number })[]).map((r) => ({
@@ -104,6 +115,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const [fK, setFK] = useState("");                    // 코드(PDS) 필터
   const [fSt, setFSt] = useState("");                  // 진행 상태 필터
   const [fCu, setFCu] = useState("");                  // 사용 고객사 필터 (공유 코드)
+  const [fOwnerCust, setFOwnerCust] = useState("");    // 고객사 필터 — 전체 고객사 보기 `PC-040`
   useSharedOwners();                                   // 공유 OWNER 변경 시 리렌더
   useEffect(() => { hydrateShared(); hydrateMembers(); }, []);
   useCommonMembers();
@@ -128,14 +140,16 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
 
   // 고객사(owner) 전환 시 해당 고객사 데이터로 재로드 (localStorage 우선, 없으면 시드)
   useEffect(() => {
-    setEditing(null); setQ(""); setPage(1); setFS(null); setFO(null); setFB(null); setFM(""); setFT(""); setFK(""); setFSt(""); setFCu(""); setSort({ key: null, dir: 1 });
+    setEditing(null); setQ(""); setPage(1); setFS(null); setFO(null); setFB(null); setFM(""); setFT(""); setFK(""); setFSt(""); setFCu(""); setFOwnerCust(""); setSort({ key: null, dir: 1 });
+    if (allCustomers) { setRows(base); return; }             // 전체 보기는 캐시를 쓰지 않는다
     try { const raw = localStorage.getItem(key); setRows(raw ? norm(JSON.parse(raw)) : base); }
     catch { setRows(base); }
   }, [key, base]);
-  useEffect(() => { setPage(1); }, [ownerFilter, pdsLock, fS, fO, fB, fM, fT, fK, fSt, fCu]);
+  useEffect(() => { setPage(1); }, [ownerFilter, pdsLock, fS, fO, fB, fM, fT, fK, fSt, fCu, fOwnerCust]);
   const toggleSort = (k: "t" | "d") => { setSort((s2) => (s2.key === k ? (s2.dir === 1 ? { key: k, dir: -1 } : { key: null, dir: 1 }) : { key: k, dir: 1 })); setPage(1); };
   // 저장 실패(용량 초과) 시 다른 편집 캐시를 비우고 재시도 — 조용히 사라지지 않도록 경고
   const commit = (next: BR[]) => {
+    if (readOnly) { flash("전체 고객사 보기는 조회 전용입니다. 고객사를 선택해 수정하세요."); return; }
     setRows(next);
     const payload = JSON.stringify(next);
     try { localStorage.setItem(key, payload); return; }
@@ -195,7 +209,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const methodsOf = (r: BR) => (r.m ? r.m.split(",").map((s) => s.trim()).filter(Boolean) : []);
   const methodOpts = uniqS(rows.flatMap(methodsOf));
   const typeOpts = uniqS(rows.map((r) => r.ty));
-  const kindOpts = uniqS(rows.map((r) => r.k));
+  // 코드 종류(좌표 속성) — PDS3 · PDS2 · PDS4(Section 44) · OID(옛 IDS 포함) `PC-037`
+  const kindOpts = uniqS(rows.map((r) => codeKind(r.k, r.s)));
+  const ownerCustOpts = uniqS(rows.map((r) => r._cust ?? ""));   // 전체 보기의 고객사 목록
   // 공유 OWNER(레퍼런스 코드)를 쓰는 교재 → 실제 사용 고객사를 별도 항목으로 관리
   const isSharedRow = (r: BR) => !!sharedInfo(r.s, r.o, r.k);
   const hasSharedRows = rows.some(isSharedRow);
@@ -203,14 +219,15 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   // 커먼 코드 사용 고객사 후보 — 중앙 멤버십(히스토리 + 고객사 등록)에서 이 코드(k/s/o)의 하위 고객사
   const commonCandidates = (k: string, sec: number, own: number) => membersOf(k, sec, own).map((m) => m.name);
   const filtered = rows.map((r, i) => [r, i] as const)
-    .filter(([r]) => (pdsLock ? r.k === pdsLock : true))            // 리스트에서 고른 PDS(G/N) 강제 — 해당 코드만 노출
+    .filter(([r]) => (pdsLock ? codeKind(r.k, r.s) === pdsLock : true))   // 목록에서 고른 코드 종류 강제
     .filter(([r]) => (ownerFilter == null ? true : r.o === ownerFilter))
     .filter(([r]) => (fS == null ? true : r.s === fS))
     .filter(([r]) => (fO == null ? true : r.o === fO))
     .filter(([r]) => (fB == null ? true : r.b === fB))
     .filter(([r]) => (fM ? methodsOf(r).includes(fM) : true))
     .filter(([r]) => (fT ? r.ty === fT : true))
-    .filter(([r]) => (fK ? r.k === fK : true))
+    .filter(([r]) => (fK ? codeKind(r.k, r.s) === fK : true))
+    .filter(([r]) => (fOwnerCust ? r._cust === fOwnerCust : true))
     .filter(([r]) => (fSt ? stateOf(r.use) === fSt : true))
     .filter(([r]) => (fCu ? (r.cu ?? "") === fCu : true))
     .filter(([r]) => (q ? `${r.t ?? ""} ${r.cu ?? ""}`.toLowerCase().includes(q.toLowerCase()) : true));   // 교재명·사용고객사 검색
@@ -239,8 +256,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
              dcBooks: a.dcBooks + (discounted(r) ? 1 : 0) };
   }, { books: 0, pages: 0, sound: 0, pen: 0, sym: 0, bytes: 0, cost: 0, listed: 0, dc: 0, pageAmt: 0, symAmt: 0, dcBooks: 0 });
   const aggPct = agg.listed > 0 ? Math.round((agg.dc / agg.listed) * 1000) / 10 : 0;
-  const isFiltered = fS != null || fO != null || fB != null || !!fM || !!fT || !!fK || !!fSt || !!fCu || !!q;
-  const clearFilters = () => { setFS(null); setFO(null); setFB(null); setFM(""); setFT(""); setFK(""); setFSt(""); setFCu(""); setQ(""); setPage(1); };
+  const isFiltered = fS != null || fO != null || fB != null || !!fM || !!fT || !!fK || !!fSt || !!fCu || !!fOwnerCust || !!q;
+  const clearFilters = () => { setFS(null); setFO(null); setFB(null); setFM(""); setFT(""); setFK(""); setFSt(""); setFCu(""); setFOwnerCust(""); setQ(""); setPage(1); };
 
   // 할당된 S/O (수정 불가) — 편집 데이터 + 소유권 데이터 + 코드 프로젝트 발급 내역
   const allocBooks = useMemo(() => projectBooks(st.projects, st.companies), [st]);
@@ -320,10 +337,10 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
         {!embedded && <Link href="/projects/editing" style={{ ...S.ghost, textDecoration: "none", padding: "6px 12px" }}>← 편집 프로젝트</Link>}
         <div style={{ fontSize: 18, fontWeight: 700 }}>{cust.customer}</div>
         <span style={{ ...S.tag, fontFamily: "ui-monospace,monospace" }}>owner {cust.owners && cust.owners.length ? cust.owners.join("·") : owner}</span>
-        {cust.codeKinds.map((k) => <span key={k} style={{ ...S.tag, background: k === "N" ? "#eef6ff" : "#fef3c7", color: k === "N" ? "#2563eb" : "#92400e" }}>{k}</span>)}
+        {[...new Set((cust.bookRows ?? []).map((r) => codeKind(r.k, r.s)))].map((k) => <span key={k} style={{ ...S.tag, background: kindMeta(k).bg, color: kindMeta(k).color, fontWeight: 700 }}>{kindMeta(k).short}</span>)}
         <div style={{ flex: 1 }} />
-        <button onClick={() => { if (confirm("엑셀 시드로 초기화할까요?")) { commit(base); flash("초기화됨"); } }} style={{ ...S.ghost, marginRight: 8 }}>초기화</button>
-        <button onClick={openAdd} style={S.primary}>＋ 교재(책) 추가</button>
+        {!readOnly && <button onClick={() => { if (confirm("엑셀 시드로 초기화할까요?")) { commit(base); flash("초기화됨"); } }} style={{ ...S.ghost, marginRight: 8 }}>초기화</button>}
+        {!readOnly && <button onClick={openAdd} style={S.primary}>＋ 교재(책) 추가</button>}
       </div>
 
       {toast && <div style={S.toast}>{toast}</div>}
@@ -442,7 +459,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
         <table style={{ ...S.table, textAlign: "center", minWidth: 1120 }}>
           <thead>
             {/* 공유 OWNER를 쓰는 고객사면 "사용 고객사" 열이 교재명 왼쪽에 추가된다 */}
-            <tr>{["No", "상태", ...(hasSharedRows ? ["사용 고객사"] : []), "교재명", "코드", "타입", "S/O/B", "페이지", "심볼 개수", "편집방식", "발급일", "최종 수정일", "메모", "ncp2 크기(byte)", "정산 (청구액)"].map((h) => {
+            <tr>{["No", "상태", ...(readOnly ? ["고객사"] : []), ...(hasSharedRows ? ["사용 고객사"] : []), "교재명", "코드", "타입", "S/O/B", "페이지", "심볼 개수", "편집방식", "발급일", "최종 수정일", "메모", "ncp2 크기(byte)", "정산 (청구액)"].map((h) => {
               const k = h === "교재명" ? "t" : h === "발급일" ? "d" : null;   // 정렬 가능한 항목
               return (
                 <th key={h} style={{ ...S.th, textAlign: "center", cursor: k ? "pointer" : "default", userSelect: "none" }}
@@ -461,6 +478,15 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   {STATES.map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
               </th>
+              {/* 고객사 (전체 보기) */}
+              {readOnly && (
+                <th style={filterTh}>
+                  <select value={fOwnerCust} onChange={(e) => { setFOwnerCust(e.target.value); setPage(1); }} style={{ ...fSel, maxWidth: 130 }} title="고객사">
+                    <option value="">고객사 전체</option>
+                    {ownerCustOpts.map((v) => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </th>
+              )}
               {/* 사용 고객사 (공유 코드) */}
               {hasSharedRows && (
                 <th style={filterTh}>
@@ -475,7 +501,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               <th style={filterTh}>
                 <select value={pdsLock || fK} onChange={(e) => setFK(e.target.value)} disabled={!!pdsLock} style={{ ...fSel, minWidth: 58, ...(pdsLock ? { background: "#f3f4f6", color: "#6b7280" } : {}) }} title={pdsLock ? "목록의 PDS 필터로 고정됨" : "코드 종류"}>
                   {!pdsLock && <option value="">전체</option>}
-                  {(pdsLock ? [pdsLock] : kindOpts).map((v) => <option key={v} value={v}>{v === "N" ? "N(PDS3)" : "G(PDS2)"}</option>)}
+                  {(pdsLock ? [pdsLock] : kindOpts).map((v) => <option key={v} value={v}>{kindMeta(v as CodeKind).short}</option>)}
                 </select>
               </th>
               {/* 타입 */}
@@ -502,9 +528,10 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
           </thead>
           <tbody>
             {pageRows.map(([r, idx]) => (
-              <tr key={idx} onClick={() => openEdit(idx)} title="클릭하면 수정" style={{ borderTop: "1px solid #eef0f4", cursor: "pointer" }}>
+              <tr key={idx} onClick={() => { if (!readOnly) openEdit(idx); }} title={readOnly ? "전체 보기는 조회 전용 — 왼쪽에서 고객사를 고르면 수정할 수 있습니다" : "클릭하면 수정"} style={{ borderTop: "1px solid #eef0f4", cursor: readOnly ? "default" : "pointer" }}>
                 <td style={{ ...S.td, color: "#9ca3af", fontFamily: "ui-monospace,monospace" }}>{idx + 1}</td>
                 <td style={S.td}><span style={{ ...S.tag, fontSize: 10, ...ST_COLOR[stateOf(r.use)] }}>{stateOf(r.use)}</span></td>
+                {readOnly && <td style={{ ...S.td, fontSize: 11.5, textAlign: "left", maxWidth: 140, fontWeight: 600 }}>{r._cust ?? "-"}</td>}
                 {hasSharedRows && (
                   <td style={{ ...S.td, fontSize: 11.5, textAlign: "left", maxWidth: 130 }}>
                     {isSharedRow(r)
@@ -515,7 +542,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   </td>
                 )}
                 <td style={{ ...S.td, fontWeight: 600, textAlign: "left", maxWidth: 200 }}>{r.t || "-"}<div style={{ color: "#9ca3af", fontSize: 10.5 }}>{r.f}</div></td>
-                <td style={S.td}><span style={{ ...S.tag, background: r.k === "N" ? "#eef6ff" : "#fef3c7", color: r.k === "N" ? "#2563eb" : "#92400e" }}>{r.k}</span></td>
+                <td style={S.td}><span style={{ ...S.tag, background: kindMeta(codeKind(r.k, r.s)).bg, color: kindMeta(codeKind(r.k, r.s)).color, fontWeight: 700 }}>{kindMeta(codeKind(r.k, r.s)).short}</span></td>
                 <td style={{ ...S.td, fontSize: 11 }}>{r.ty}</td>
                 <td style={S.td}><SobpChips s={r.s} o={r.o} b={r.b} small /></td>
                 <td style={S.td}>{(() => { const st = typeof r.sp === "number" ? r.sp : 1; return `${st.toLocaleString()}~${(st + r.pg - 1).toLocaleString()}`; })()}<div style={{ fontSize: 10, color: "#9ca3af" }}>{r.pg.toLocaleString()}p</div></td>

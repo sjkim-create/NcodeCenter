@@ -12,6 +12,7 @@ import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { addTicket } from "@/lib/ticketStore";
 import { SobpRangePicker, type SobpRange } from "./TicketsView";
+import { codeKind, patternOf, patternTypeParam, type TicketPattern } from "@/lib/codeKind";
 import {
   caster, useCaster, ACCOUNT_SERVICES, accountServiceLabel,
   CASTERN_PERMS, ALL_PERMS, permLabel,
@@ -174,7 +175,7 @@ function useRanges(companyId: number): SobpRange[] {
   return useMemo(() => {
     if (!companyId) return [];
     return projects.filter((p) => p.companyId === companyId).flatMap((p) => p.issued.map((b) => {
-      const pt = (b.kind ?? "N") === "N" ? "PDS3" : "PDS2";
+      const pt = patternOf(codeKind(b.kind, b.section));
       return { pt, section: b.section, owner: b.owner, bookStart: b.bookStart, bookEnd: b.bookEnd,
         pageStart: b.pageStart, pageEnd: b.pageEnd, bookCount: Math.max(1, b.bookEnd - b.bookStart + 1) };
     }));
@@ -191,7 +192,7 @@ function issueAppKey(acc: CasterAccount, range: SobpRange, until: string, by?: s
   addTicket({ kind: "APP", companyId: acc.companyId, company: acc.company, by: by ?? "", summary,
     params: {
       CompanyName: acc.company, AccountId: acc.id, Service: accountServiceLabel(acc.service), Usage: accountServiceLabel(acc.service),
-      AppKey: key, PatternType: range.pt === "PDS3" ? "Ncode_PDS3" : "Ncode_PDS2",
+      AppKey: key, PatternType: patternTypeParam(range.pt as TicketPattern),
       Section: range.section, Owner: range.owner,
       BookStart: range.bookStart, BookEnd: range.bookEnd,
       PageStart: range.pageStart, PageEnd: range.pageEnd,

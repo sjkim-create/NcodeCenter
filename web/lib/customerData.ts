@@ -40,7 +40,7 @@ export type Company = {
 
 // ── 발급 SOBP 내역 (프로젝트가 발급받은 코드 블록, 여러 건 가능) ─
 export type SOBP = { section: number; owner: number; bookStart: number; bookEnd: number; pageStart: number; pageEnd: number };
-export type IssuedSOBP = SOBP & { id: number; date: string; codes: number; used?: number; kind?: "N" | "G"; by?: string };
+export type IssuedSOBP = SOBP & { id: number; date: string; codes: number; used?: number; kind?: "N" | "G" | "A" | "O"   /* 좌표 코드 종류값: N=PDS3 · G=PDS2 · A=IDS · O=OID (PDS4 는 Section 44 로 판별) */; by?: string };
 // codes = 발급(할당) 규모 = Book수 × Page수 · used = 실제 등록된 교재 페이지 합
 export const sobpText = (s: SOBP) =>
   `S${s.section}/O${s.owner}/B${s.bookStart}~${s.bookEnd}/P${s.pageStart}~${s.pageEnd}`;
