@@ -1,14 +1,19 @@
 # -*- coding: utf-8 -*-
 """PRD Sync(Figma 플러그인)용 마크다운 생성 — docs/figma/prd/
 
-화면 정의서(docs/screens)와 같은 소스(p_*.py board)에서 뽑으므로
-HTML 과 MD 내용이 어긋나지 않는다.
+두 곳에서 모은다.
+    docs/screens/_gen/p_*.py  → 화면 개요 · 상태 구성 · 상태별 변화
+    docs/prd/*.md             → 기능 개요 · 화면 흐름 · 정책 · 사용법 · 연결 화면
+화면 정의서(HTML)와 같은 소스를 쓰므로 HTML 과 MD 가 어긋나지 않는다.
 
 플러그인이 읽는 형식
     **화면 ID**: SOB-01
     ## 2. 화면 구성          → 프레임 왼쪽 카드 (첫 상태 프레임에만)
     ## 3. 상태별 변화        → 프레임 오른쪽 카드
     ### SOB-01: S1 제목      → 프레임 이름의 상태 ID 와 매칭
+
+플러그인은 위 두 ## 머리말만 읽고 나머지 ## 절은 버린다. 그래서 PRD 절은
+`## 1. 기능 개요` 가 아니라 「화면 구성」 안의 `### 기능 개요` 로 낮춰 넣는다.
 
     python mkmd.py
 """
@@ -25,6 +30,50 @@ import shell                                  # noqa: E402
 from build import MODULES                     # noqa: E402
 
 ACT_HEAD = ('요소', '액션', '결과 · 이동', '메시지 · 비고')
+
+ROOT = os.path.dirname(DOCS)
+
+# 손으로 쓴 PRD(docs/prd)에서 가져와 「화면 구성」 카드에 실을 절.
+# 플러그인은 '화면 구성' 을 포함한 ## 머리말 아래만 왼쪽 카드로 붙이므로
+# 이 절들은 ## 이 아니라 ### 로 낮춰 그 안에 넣는다.
+PRD_SECTIONS = ('기능 개요', '화면 흐름', '정책', '사용법', '연결 화면')
+
+
+def demote(body):
+    """PRD 본문의 머리말을 한 단계 낮춘다 — ### 4.1 → #### 4.1.
+
+    ### 로 두면 플러그인이 별도 카드로 쪼개므로, #### 이하로 낮춰
+    상위 절 카드 안의 그룹 제목(**▶ …**)이 되게 한다.
+    """
+    out, fence = [], False
+    for ln in body.split('\n'):
+        if ln.lstrip().startswith('```'):
+            fence = not fence
+        elif not fence:
+            m = re.match(r'^(#{3,5})(\s)', ln)
+            if m:
+                ln = '#' + ln
+        out.append(ln)
+    return '\n'.join(out)
+
+
+def prd_sections(prd_rel):
+    """docs/prd/*.md 에서 PRD_SECTIONS 에 해당하는 ## 절을 [(제목, 본문)] 로."""
+    path = os.path.join(ROOT, prd_rel.replace('/', os.sep))
+    if not os.path.exists(path):
+        return []
+    src = io.open(path, encoding='utf-8').read()
+    # ## N. 제목 단위로 자른다
+    parts = re.split(r'^##\s+(\d+)\.\s*(.+?)\s*$', src, flags=re.M)[1:]
+    found = []
+    for i in range(0, len(parts) - 2, 3):
+        title, body = parts[i + 1], parts[i + 2]
+        if not any(k in title for k in PRD_SECTIONS):
+            continue
+        body = re.sub(r'^\s*---\s*$', '', body, flags=re.M).strip()
+        if body:
+            found.append((title, demote(body)))
+    return found
 
 
 def fid(sid):
@@ -74,10 +123,15 @@ def build_md(code, info):
     out = ['# %s · %s' % (code, name), '',
            '**화면 ID**: %s' % code, '',
            '> 원본 — 화면 정의서 `docs/screens/` · PRD `%s`' % prd_link,
-           '> 이 파일은 화면 정의서와 **같은 소스에서 자동 생성**된다. 직접 고치지 말 것.',
+           '> 화면 구성·상태는 화면 정의서에서, 기능 개요·흐름·정책·사용법·연결 화면은 '
+           'PRD 에서 **자동으로 모아** 만든다. 이 파일을 직접 고치지 말 것.',
            '', '---', '',
            '## 2. 화면 구성', '',
            '### 개요', '', md(intro), '']
+
+    # 손으로 쓴 PRD 의 기능 개요 · 흐름 · 정책 · 사용법 · 연결 화면
+    for title, body in prd_sections(prd_link):
+        out += ['### %s' % title, '', body, '']
 
     tags = [b[2] for b in boards if b[2]]
     if tags:
