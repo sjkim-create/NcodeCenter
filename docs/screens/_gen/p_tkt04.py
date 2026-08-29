@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
-"""TKT-04 발급 목록 및 정산 (+ TKT-05 정산 등록 모달) — 실제 화면 구조 그대로.
+"""TKT-03 Key 관리 — 실제 화면 구조 그대로.
 
-요약 5칸 → (체험 만료 배너) → 한 줄 필터 → 10열 표. 목록은 폭 제한 없이 전체를 쓴다.
-TKT-05 정산 등록은 이 화면 위 모달(S8~S12), TKT-02 Key 정보는 S7.
+요약 5칸 → (체험 만료 배너) → 도구 막대 → 10열 표 → 페이지네이션.
+정산 등록·Key 정보 모달은 폐기되어 발급 상세(TKT-02)의 탭으로 이동했다.
+이 화면에 남은 창은 N Key 불러오기(외부 .json 확인) 하나뿐이다.
 """
 from shell import page, frame
-from p_tkt01 import sel, field, tkt02
+from p_tkt01 import sel, field
 
-CODE, NAME = 'TKT-04', 'Key 발급 정산'
-PRD = 'docs/prd/TKT-04_Key 발급 정산.md'
+CODE, NAME = 'TKT-03', 'Key 관리'
+PRD = 'docs/prd/TKT-03_Key 관리.md'
 
 # lib/ticketStore.ts BILL_COLOR
 BILL = {'미정': ('#f3f4f6', '#6b7280'), '유료': ('#eef6ff', '#1d4ed8'),
@@ -81,11 +82,13 @@ def bar(kind='전체', bill='정산 전체', src='전체', q=''):
             % ('' if q else ' ph', q or '고객사·내용 검색'))
     return ('<div class="card" style="padding:10px 12px;margin-bottom:10px;display:flex;'
             'gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px">'
-            '%s%s%s%s%s%s%s<span style="flex:1"></span>%s</div>'
+            '%s%s%s%s%s%s<span style="flex:1"></span>%s'
+            '<span class="btn gho" style="white-space:nowrap">📂 N Key 불러오기</span>'
+            '<span class="btn pri" style="white-space:nowrap">＋ N Key 발급</span></div>'
             % (sel('고객사 전체', w=180),
                g(('전체', 'N Key', 'App Key'), kind), div,
                g(('정산 전체', '미정', '유료', '무료'), bill), div,
-               g(('전체', '대장', '신규발급'), src), '', srch))
+               g(('전체', '대장', '신규발급'), src), srch))
 
 
 HEADS = (('No', None), ('발급일시', 'at'), ('종류', None), ('고객사', 'company'),
@@ -93,7 +96,7 @@ HEADS = (('No', None), ('발급일시', 'at'), ('종류', None), ('고객사', '
          ('비고', None), ('작업', None))
 
 
-def table(rows=None, empty=None, sort=('at', -1)):
+def table(rows=None, empty=None, sort=('at', -1), pg=''):
     th = ''
     for h, k in HEADS:
         mark = ''
@@ -107,8 +110,8 @@ def table(rows=None, empty=None, sort=('at', -1)):
                % ('cursor:pointer' if k else '', h, mark))
     body = ''
     if empty:
-        msg = ('아직 발급된 티켓이 없습니다. 왼쪽 [티켓 발급] 메뉴의 '
-               '[N Key 발급] 또는 [계정 발급]에서 발급하세요.'
+        msg = ('아직 발급된 티켓이 없습니다. [＋ N Key 발급] 또는 '
+               '[계정 발급 (App Key 발급)] 메뉴에서 발급하세요.'
                if empty == 'none' else '필터에 맞는 티켓이 없습니다.')
         body = ('<tr><td colspan="10" style="text-align:center;color:#9ca3af;'
                 'padding:30px">%s</td></tr>' % msg)
@@ -124,7 +127,8 @@ def table(rows=None, empty=None, sort=('at', -1)):
                    % ('#dc2626' if bad else '#92400e', tr[0],
                       '(만료)' if bad else '(%s)' % tr[1]))
         body += ('<tr>'
-                 '<td style="color:#9ca3af;font-family:ui-monospace,monospace">%d</td>'
+                 '<td style="font-family:ui-monospace,monospace">'
+                 '<span style="color:#2563eb;font-weight:600">%d</span></td>'
                  '<td style="font-family:ui-monospace,monospace;font-size:11.5px;'
                  'white-space:nowrap">%s</td>'
                  '<td>%s</td>'
@@ -136,284 +140,264 @@ def table(rows=None, empty=None, sort=('at', -1)):
                  '<td style="font-weight:700;color:%s;white-space:nowrap">%s</td>'
                  '<td style="text-align:left;font-size:11px;color:#9ca3af;'
                  'max-width:160px">%s</td>'
-                 '<td style="white-space:nowrap"><span class="btn sm">정산 등록</span>'
-                 '<span class="lnk" style="margin-left:6px">Key 정보</span>'
+                 '<td style="white-space:nowrap"><span class="btn sm">정산</span>'
+                 '<span class="lnk" style="margin-left:6px">상세</span>'
                  '<span class="lnk" style="margin-left:6px;color:#dc2626">삭제</span></td>'
                  '</tr>'
                  % (no, at, kb, cust, ledb, desc, by or '-', bc,
                     '#1d4ed8' if amt else '#d1d5db', amt or '-', memo or '-'))
     return ('<div class="card" style="padding:0;overflow:auto">'
-            '<table style="text-align:center;min-width:1040px"><tr>%s</tr>%s</table></div>'
-            % (th, body))
+            '<table style="text-align:center;min-width:1040px"><tr>%s</tr>%s</table>%s</div>'
+            % (th, body, pg))
 
 
 def content(kpi=None, warn=False, kind='전체', bill='정산 전체', src='전체', q='',
-            rows=None, empty=None, sort=('at', -1)):
+            rows=None, empty=None, sort=('at', -1), total=142, per=50, cur=1):
     body = (kpis(kpi) + (banner() if warn else '')
             + bar(kind, bill, src, q)
-            + table(ROWS if (rows is None and not empty) else rows, empty, sort))
+            + table(ROWS if (rows is None and not empty) else rows, empty, sort,
+                    pager(total, per, cur)))
     return '<div style="min-width:0">%s</div>' % body
 
 
-# ── TKT-05 정산 등록 모달 ──────────────────────────────────────────
-KINDS = (('미정', '미등록'), ('유료', '금액 입력'), ('무료', '청구 없음'), ('체험', '1개월'))
+# ── 페이지네이션 ────────────────────────────────────────────────
+def pager(total=142, per=50, cur=1):
+    import math
+    if total <= 0:
+        return ''
+    pages = max(1, int(math.ceil(total / float(per))))
+    cur = min(cur, pages)
+    start = (cur - 1) * per + 1
+    end = min(cur * per, total)
+    size = min(7, pages)
+    first = max(1, cur - size // 2)
+    if first + size - 1 > pages:
+        first = pages - size + 1
+
+    def pb(label, on=False, dis=False):
+        return ('<span style="min-width:28px;display:inline-block;text-align:center;'
+                'font-size:12px;padding:4px 7px;border-radius:6px;border:1px solid %s;'
+                'background:%s;color:%s;%s">%s</span>'
+                % ('#93c5fd' if on else '#e5e7eb', '#eef6ff' if on else '#fff',
+                   '#d1d5db' if dis else ('#2563eb' if on else '#4b5563'),
+                   'font-weight:700' if on else '', label))
+
+    nums = ''.join(pb(str(first + i), on=(first + i == cur)) for i in range(size))
+    return ('<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;'
+            'padding:10px 14px;border-top:1px solid #eef0f4;flex-wrap:wrap">'
+            '<div style="font-size:12px;color:#6b7280">전체 '
+            '<b style="color:#111827">{:,}</b>건 중 {:,}~{:,} 표시'
+            '<span style="margin-left:8px;font-size:12px;padding:3px 6px;border:1px solid #e5e7eb;'
+            'border-radius:6px">{}건씩 ▾</span></div>'
+            '<div style="display:flex;align-items:center;gap:4px">{}{}{}{}{}'
+            '<span style="font-size:11.5px;color:#9ca3af;margin-left:6px">{} / {}</span>'
+            '</div></div>').format(
+        total, start, end, per,
+        pb('«', dis=(cur == 1)), pb('‹', dis=(cur == 1)), nums,
+        pb('›', dis=(cur == pages)), pb('»', dis=(cur == pages)), cur, pages)
 
 
-def tkt05(bill='미정', recent=True, err=False):
-    cards = ''
-    for nm, sub in KINDS:
-        on = (nm == bill)
-        bg, fg = BILL[nm]
-        cards += ('<div style="padding:10px 8px;border-radius:9px;font-size:12.5px;'
-                  'text-align:center;border:1px solid %s;background:%s;color:%s;%s">%s'
-                  '<div style="font-size:10px;font-weight:400;color:%s;margin-top:2px">%s</div>'
-                  '</div>'
-                  % (fg if on else '#e5e7eb', bg if on else '#fff',
-                     fg if on else '#6b7280', 'font-weight:700' if on else '', nm,
-                     fg if on else '#9ca3af', sub))
-    extra = ''
-    if bill == '유료':
-        extra = ('<div style="max-width:320px">%s'
-                 '<div style="font-size:11.5px;color:#6b7280;margin-top:4px">'
-                 '대교 최근 유료 발급: <b>₩4,800,000</b>'
-                 '<span class="lnk" style="margin-left:6px">같은 금액 적용</span></div></div>'
-                 % field('금액 (원)',
-                         '<div class="inp%s">%s</div>'
-                         % (' err' if err else '', '0' if err else '3500000'), True))
-    elif bill == '체험':
-        extra = ('<div style="max-width:320px">%s'
-                 '<div style="font-size:11.5px;color:#92400e;margin-top:4px">'
-                 '만료되면 목록에서 <b>(만료)</b>로 표시되고 상단에 경고가 뜹니다.</div></div>'
-                 % field('체험 만료일 (기본 = 발급일 + 1개월)',
-                         '<div class="inp">2026-09-25</div>'))
-    elif bill == '무료':
-        extra = ('<div style="font-size:12.5px;color:#166534">청구하지 않는 티켓으로 '
-                 '기록됩니다. (사유는 아래 비고에 남겨 주세요)</div>')
-    rec = ''
-    if recent:
-        rec = ('<div style="font-size:11.5px;color:#9ca3af;margin-top:10px">'
-               '최근 등록: 2026-08-26 16:52 · 김순정</div>')
-    return ('<div class="ovl"><div class="mdl w" style="width:620px">'
-            '<div class="mh"><div class="mt">정산 등록 — 발급 141번 '
-            '<span class="tag">TKT-05</span></div><div class="mx">✕</div></div>'
-            '<div style="background:#f5f9ff;border:1px solid #bfdbfe;border-radius:9px;'
-            'padding:10px 12px;font-size:12.5px;color:#1e3a8a;margin-bottom:14px">'
-            '<b>대교</b> · App Key · 2026-08-26 16:40'
-            '<div style="color:#6b7280;margin-top:3px">계정 daekyo_edit@daekyo.com · '
-            'CasterN · PDS3 S3/O212/B0~99 · 무제한</div></div>'
-            '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">과금 유형 '
-            '<span style="color:#9ca3af">· 업체·티켓마다 다르게 등록할 수 있습니다</span></div>'
-            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;'
-            'margin-bottom:14px">%s</div>%s'
-            '<div style="margin-top:12px">%s</div>%s'
+# ── N Key 불러오기 (외부 .json 확인) ─────────────────────────────
+KEYROWS = (('CompanyName', '웅진씽크빅'), ('IssuedTime', '20260827'),
+           ('ValidUntilTime', '99999999 (무제한)'), ('Section', '3'), ('Owner', '17'),
+           ('TicketVersion', '1'), ('BookStart', '400'), ('BookVolume', '100'),
+           ('PageStart', '1'), ('PageVolume', '4096'), ('PatternType', 'PDS2'),
+           ('TicketType', 'Unlimited'), ('SeparateEachBook', 'N (1개 티켓 병합)'))
+
+
+def keyload(err=False, fname='Ticket_웅진씽크빅_S3O17_B400-499.json'):
+    if err:
+        body = ('<div style="padding:24px;text-align:center;color:#9ca3af;font-size:12.5px">'
+                '표시할 항목이 없습니다.</div>')
+        n = 0
+    else:
+        body = ('<table><tr><th style="width:240px">Key</th><th>Value</th></tr>'
+                + ''.join('<tr><td style="font-family:ui-monospace,monospace;font-weight:600;'
+                          'color:#374151">%s</td><td style="color:#111827">%s</td></tr>' % kv
+                          for kv in KEYROWS) + '</table>')
+        n = len(KEYROWS)
+    sub = ('<div style="background:#f5f9ff;border:1px solid #bfdbfe;border-radius:9px;'
+           'padding:9px 12px;font-size:12.5px;color:#1e3a8a;margin-bottom:12px">%s</div>' % fname)
+    errbox = ''
+    if err:
+        errbox = ('<div style="background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;'
+                  'border-radius:8px;padding:9px 11px;font-size:12.5px;margin-bottom:10px">'
+                  '⚠ JSON 형식의 티켓 파일이 아닙니다. Key 생성으로 내려받은 .json 파일을 '
+                  '선택하세요.</div>')
+    cap = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+           '<div style="font-size:12px;color:#6b7280">Key Info '
+           '<span style="color:#9ca3af">· %d개 항목 (불러온 파일)</span></div>'
+           '<span style="flex:1"></span>'
+           '<div class="inp ph" style="width:150px">항목 검색</div></div>' % n)
+    return ('<div class="ovl"><div class="mdl w" style="width:720px">'
+            '<div class="mh"><div class="mt">N Key 불러오기 '
+            '<span class="tag">TKT-05</span></div><div class="mx">✕</div></div>%s%s%s'
+            '<div style="border:1px solid #eef0f4;border-radius:9px;overflow:hidden;'
+            'max-height:420px">%s</div>'
+            '<div class="mf"><div class="btn gho">표 복사</div>'
+            '<div class="btn pri">닫기</div></div></div></div>'
+            % (sub, errbox, cap, body))
+
+
+def deldlg():
+    return ('<div class="ovl"><div class="mdl" style="width:440px">'
+            '<div class="mh"><div class="mt">발급 기록 삭제</div><div class="mx">✕</div></div>'
+            '<div style="font-size:13px;color:#374151;line-height:1.7">'
+            '발급 <b>142번</b> 기록을 삭제할까요?</div>'
             '<div class="mf"><div class="btn gho">취소</div>'
-            '<div class="btn pri">저장</div></div></div></div>'
-            % (cards, extra,
-               field('비고 (사유·계약 정보)',
-                     '<div class="inp ph">예) 2026 연간 계약 포함 · 데모 제공</div>'), rec))
+            '<div class="btn dgr">삭제</div></div></div></div>')
 
 
-def alertbox(msg):
-    return ('<div class="ovl"><div class="mdl">'
-            '<div class="mh"><div class="mt">확인</div><div class="mx">✕</div></div>'
-            '<div style="font-size:13px;color:#374151;line-height:1.7">%s</div>'
-            '<div class="mf"><div class="btn pri">확인</div></div></div></div>' % msg)
+H = 980
+NAV = [('사이드바 [계정 발급 (App Key 발급)]', '클릭', '<code>TKT-01</code>', 'App Key 발급'),
+       ('사이드바 [코드 프로젝트]', '클릭', '<code>PRJ-01</code>', '발급 원장'),
+       ('고객사 계약·단가', '확인', '<code>MEM-01</code>', '업체 상세')]
 
-
-NAV = [('사이드바 [N Key 발급]', '클릭', '<code>TKT-01</code>', '고객사 선택 유지'),
-       ('사이드바 [계정 발급]', '클릭', '<code>TKT-03</code>', '')]
-
-H = 1120
+ROW_ACTS = [
+    ('발급번호 · 발급 내용', '클릭', '<code>TKT-02</code>', '발급 상세 — 발급 기본정보 탭'),
+    ('행 [정산]', '클릭', '<code>TKT-02</code>', '발급 상세 — <b>정산 정보 탭이 선택된 상태</b>'),
+    ('행 [상세]', '클릭', '<code>TKT-02</code>', '발급 상세 — 발급 기본정보 탭'),
+    ('행 [삭제]', '클릭', '확인창', '<b>발급 {No}번 기록을 삭제할까요?</b>'),
+]
 
 
 def build():
     B = []
 
-    B.append((
-        'S1', 'Key 발급 정산 목록 — 기본', '기본',
-        '좌측 메뉴 <b>[티켓 발급] ▸ [Key 발급 정산]</b>(<code>/tickets/list</code>) 으로 들어온다. '
-        '요약 5칸 → 필터 → 10열 표 순서이며 <b>최근순</b>으로 정렬되어 있다. '
-        '요약은 <b>필터를 반영한 결과</b> 기준으로 다시 계산된다.',
-        frame('TKT-04', 'Key 발급 정산', content(), height=H),
-        [('요약 5칸', '표시', '—',
-          '발급 티켓 · 유료 합계 · 유료 건수 · 무료/체험 · <b>정산 미등록</b>(0이 아니면 빨강)'),
-         ('No', '표시', '—', '발급 번호 — <b>삭제해도 다시 쓰지 않는다</b>'),
-         ('[정산 등록]', '클릭', 'S8 <code>TKT-05</code>', '과금 유형·금액 등록'),
-         ('[Key 정보]', '클릭', 'S7 <code>TKT-02</code>', '발급된 티켓의 <b>저장값</b>'),
-         ('[삭제]', '클릭', 'S13 확인창', '')] + NAV))
+    def F(inner, h=H, overlay=''):
+        return frame('TKT-03', 'Key 관리', inner, height=h, overlay=overlay)
 
     B.append((
-        'S2', '체험 만료 경고 · 대장 배지', '경고',
-        '체험 만료 건이 있으면 목록 위에 <b>빨간 배너</b>가 뜬다. '
-        '정산 열의 체험 행은 아래 줄에 <b>~만료일 (D-n)</b> 을 보여주고, '
-        '기한이 지나면 <b>(만료)</b> 빨강으로 바뀐다. '
-        'nkey(HLP) 발급 대장에서 가져온 과거 이력은 고객사명 옆에 <b>대장</b> 배지가 붙는다.',
-        frame('TKT-04', 'Key 발급 정산', content(warn=True), height=H + 60),
+        'S1', '기본 목록 · 최근순', '기본',
+        '요약 5칸 → 도구 막대 → 10열 표 → 페이지네이션 순서다. 목록에는 '
+        '<b>N Key 와 App Key 가 함께</b> 쌓인다 — N Key 는 이 메뉴에서, App Key 는 '
+        '계정 등록·수정 화면에서 발급된다. 기본 정렬은 <b>발급일시 내림차순</b>이다. '
+        '⚠ <b>정산 등록·Key 정보 모달은 폐기</b>되어 발급 상세의 탭으로 이동했다.',
+        F(content()),
+        [('요약 5칸', '조회', '—',
+          '발급 티켓 142 · 유료 합계 ₩8,300,000 · 유료 3건 · 무료/체험 1/2건 · 정산 미등록 2건'),
+         ('요약 기준', '—', '필터 결과 <b>전체</b>', '페이지를 넘겨도 합계는 변하지 않는다'),
+         ('[＋ N Key 발급]', '클릭', '<code>TKT-04</code>', 'N Key 생성'),
+         ('[📂 N Key 불러오기]', '클릭', '파일 선택 → 확인 창', 'S8'),
+         ('페이지네이션', '조회', '—', '기본 <b>50건씩</b> · 전체 142건 중 1~50 표시')]
+        + ROW_ACTS + NAV))
+
+    B.append((
+        'S2', '체험 만료 경고 · 대장 이력', '분기',
+        '체험 만료 건이 있으면 목록 위에 경고가 뜬다. 체험은 정산 배지 아래에 '
+        '<b>~만료일 (D-n)</b>, 기간이 지났으면 <b>(만료)</b> 로 표시된다. '
+        '과거 발급 이력은 고객사명 옆에 <b>대장</b> 배지가 붙는다. 잔여일 계산은 PRD §4.7(나).',
+        F(content(warn=True), h=H + 60),
         [('배너', '표시', '—',
           '<b>⚠ 체험 기간이 만료된 티켓 1건 — 유료 전환 또는 회수 여부를 확인하세요.</b>'),
-         ('체험 진행 중', '표시', '—', '<b>~2026-09-25 (D-29)</b> 주황'),
-         ('체험 만료', '표시', '—', '<b>~2026-07-31 (만료)</b> 빨강'),
-         ('대장 배지', 'hover', '툴팁',
-          '<b>nkey(HLP) 발급 대장에서 가져온 과거 이력</b>'),
+         ('체험 진행 중', '표시', '—', '<b>~2026-09-25 (D-29)</b>'),
+         ('체험 만료', '표시', '—', '<b>~2026-07-31 (만료)</b>'),
+         ('대장 배지', 'hover', '툴팁', '<b>발급 대장에서 가져온 과거 이력</b>'),
          ('대장 이력', '참고', '—', '발급인이 비어 있어 <b>-</b> 로 표시된다')] + NAV))
 
     B.append((
         'S3', '필터 — 종류 · 정산 · 출처', '필터',
         '필터는 한 줄에 이어지고 구분선(<b>|</b>)으로 묶음이 나뉜다. '
-        '⚠ <b>정산 필터에는 「체험」이 없다</b> — <code>정산 전체 · 미정 · 유료 · 무료</code> 4개뿐이다. '
-        '고객사 목록에는 <b>발급 이력이 있는 고객사만</b> 나온다.',
-        frame('TKT-04', 'Key 발급 정산',
-              content(kind='App Key', bill='유료', src='신규발급',
-                      rows=(ROWS[1],),
-                      kpi=(('발급 티켓', '1', '#111827'), ('유료 합계', '₩3,500,000', '#1d4ed8'),
-                           ('유료 건수', '1건', '#2563eb'), ('무료 / 체험', '0 / 0건', '#166534'),
-                           ('정산 미등록', '0건', '#9ca3af'))),
-              height=H - 200),
+        '⚠ <b>정산 필터에는 「체험」이 없다</b> — 정산 전체 · 미정 · 유료 · 무료 4개뿐이다. '
+        '고객사 목록에는 <b>발급 이력이 있는 고객사만</b> 나온다. '
+        '필터가 바뀌면 <b>1페이지로 되돌아간다</b>.',
+        F(content(kind='App Key', bill='유료', src='신규발급', rows=(ROWS[1],),
+                  kpi=(('발급 티켓', '1', '#111827'), ('유료 합계', '₩3,500,000', '#1d4ed8'),
+                       ('유료 건수', '1건', '#2563eb'), ('무료 / 체험', '0 / 0건', '#166534'),
+                       ('정산 미등록', '0건', '#9ca3af')), total=1),
+          h=H - 220),
         [('고객사', '선택', '해당 고객사만', '기본 <b>고객사 전체</b>'),
          ('종류', '클릭', '전체 / N Key / App Key', ''),
-         ('정산', '클릭', '정산 전체 / 미정 / 유료 / 무료',
-          '<b>체험은 필터로 고를 수 없다</b>'),
-         ('출처', '클릭', '전체 / 대장 / 신규발급',
-          '대장 = nkey(HLP) 발급 대장 · 신규발급 = 이 화면에서 발급한 티켓'),
+         ('정산', '클릭', '정산 전체 / 미정 / 유료 / 무료', '<b>체험은 필터로 고를 수 없다</b>'),
+         ('출처', '클릭', '전체 / 대장 / 신규발급', ''),
          ('검색', '입력', '발급 내용 + 발급인', '<b>고객사·내용 검색</b>'),
-         ('요약', '자동', '재계산', '필터 결과 기준으로 5칸이 모두 다시 계산된다')] + NAV))
+         ('요약', '자동', '재계산', '필터 결과 기준으로 5칸이 모두 다시 계산된다'),
+         ('페이지', '자동', '1페이지', '필터·검색·정렬이 바뀌면 되돌아간다')] + NAV))
 
     B.append((
         'S4', '정렬 — 머리글 클릭', '분기',
-        '정렬 가능한 열은 <b>발급일시 · 고객사 · 발급인</b> 3개다. '
-        '머리글을 누르면 오름/내림이 바뀐다. 정렬 중인 열은 <b>▲ / ▼</b>(파랑), '
-        '나머지는 <b>↕</b>(회색)로 표시된다. 기본은 <b>발급일시 내림차순</b>.',
-        frame('TKT-04', 'Key 발급 정산',
-              content(sort=('company', 1),
-                      rows=(ROWS[2], ROWS[1], ROWS[4], ROWS[3], ROWS[0], ROWS[5])),
-              height=H),
+        '정렬 가능한 열은 <b>발급일시 · 고객사 · 발급인</b> 3개다. 머리글을 누르면 '
+        '오름/내림이 바뀐다. 기본은 <b>발급일시 내림차순</b>이다.',
+        F(content(sort=('company', 1),
+                  rows=(ROWS[2], ROWS[1], ROWS[4], ROWS[3], ROWS[0], ROWS[5]))),
         [('발급일시', '클릭', '오름 ⇄ 내림', '기본값은 <b>내림차순(최근순)</b>'),
          ('고객사', '클릭', '가나다순', '한국어 정렬'),
          ('발급인', '클릭', '가나다순', ''),
-         ('정렬 안 된 열', '표시', '—', '<b>↕</b> 회색'),
          ('No · 종류 · 금액 등', '클릭', '<b>동작 없음</b>', '정렬 대상이 아니다')] + NAV))
 
     B.append((
         'S5', '필터 결과 없음', '빈 상태',
         '필터에 맞는 티켓이 없을 때. 표에는 안내만 남고 <b>요약 5칸은 0건 기준</b>으로 '
-        '다시 계산된다.',
-        frame('TKT-04', 'Key 발급 정산',
-              content(kind='App Key', bill='무료', empty='filter',
-                      kpi=(('발급 티켓', '0', '#111827'), ('유료 합계', '₩0', '#1d4ed8'),
-                           ('유료 건수', '0건', '#2563eb'), ('무료 / 체험', '0 / 0건', '#166534'),
-                           ('정산 미등록', '0건', '#9ca3af'))),
-              height=H - 320),
+        '다시 계산된다. <b>페이지네이션 막대는 사라진다.</b>',
+        F(content(empty='filter', bill='무료',
+                  kpi=(('발급 티켓', '0', '#111827'), ('유료 합계', '₩0', '#1d4ed8'),
+                       ('유료 건수', '0건', '#2563eb'), ('무료 / 체험', '0 / 0건', '#166534'),
+                       ('정산 미등록', '0건', '#9ca3af')), total=0),
+          h=H - 380),
         [('표', '표시', '—', '<b>필터에 맞는 티켓이 없습니다.</b>'),
-         ('요약', '자동', '0건 기준', '정산 미등록도 0이라 회색으로 바뀐다'),
-         ('해제', '필터 클릭', 'S1', '<b>일괄 해제 버튼은 없다</b> — 칩을 각각 [전체]로 되돌린다')]
-        + NAV))
+         ('요약', '자동', '0건 기준', '금액도 <b>₩0</b>'),
+         ('페이지네이션', '표시', '<b>없음</b>', '목록이 비면 막대를 그리지 않는다')]))
 
     B.append((
         'S6', '발급 이력 없음', '빈 상태',
-        '아직 한 건도 발급하지 않은 상태. 필터 결과 없음(S5)과 <b>문구가 다르다</b>.',
-        frame('TKT-04', 'Key 발급 정산',
-              content(empty='none',
-                      kpi=(('발급 티켓', '0', '#111827'), ('유료 합계', '₩0', '#1d4ed8'),
-                           ('유료 건수', '0건', '#2563eb'), ('무료 / 체험', '0 / 0건', '#166534'),
-                           ('정산 미등록', '0건', '#9ca3af'))),
-              height=H - 320),
+        '아직 한 건도 발급하지 않은 상태. 안내 문구가 <b>발급 동선</b>을 알려준다.',
+        F(content(empty='none',
+                  kpi=(('발급 티켓', '0', '#111827'), ('유료 합계', '₩0', '#1d4ed8'),
+                       ('유료 건수', '0건', '#2563eb'), ('무료 / 체험', '0 / 0건', '#166534'),
+                       ('정산 미등록', '0건', '#9ca3af')), total=0),
+          h=H - 380),
         [('표', '표시', '—',
-          '<b>아직 발급된 티켓이 없습니다. 왼쪽 [티켓 발급] 메뉴의 [N Key 발급] 또는 '
-          '[계정 발급]에서 발급하세요.</b>'),
-         ('해결', '이동', '<code>TKT-01</code> / <code>TKT-03</code>', '발급 후 이 목록에 쌓인다')]
-        + NAV))
+          '<b>아직 발급된 티켓이 없습니다. [＋ N Key 발급] 또는 '
+          '[계정 발급 (App Key 발급)] 메뉴에서 발급하세요.</b>'),
+         ('[＋ N Key 발급]', '클릭', '<code>TKT-04</code>', 'N Key 생성'),
+         ('사이드바 [계정 발급]', '클릭', '<code>TKT-01</code>', 'App Key 발급')]))
 
     B.append((
-        'S7', 'TKT-02 · Key 정보 (발급된 값)', '모달',
-        '<code>TKT-01</code> 의 [🔍 Key 정보 확인]과 <b>같은 모달</b>이지만, '
-        '여기서는 <b>이미 발급된 티켓에 저장된 값</b>을 보여준다. '
-        '화면 구성은 동일하고 데이터 출처만 다르다.',
-        frame('TKT-04', 'Key 발급 정산', content(), overlay=tkt02('input'), height=H),
-        [('[Key 정보]', '클릭', '저장값 표', '발급 당시 기록된 항목 그대로'),
-         ('항목 검색', '입력', '행 필터', ''),
-         ('[표 복사]', '클릭', '클립보드', ''),
-         ('[📂 Key 불러오기]', '클릭', '파일 값',
-          '고객사가 보관 중인 <code>.json</code> 과 대조할 때'),
-         ('[닫기] · ✕', '클릭', '<code>TKT-04</code>', '목록으로 복귀')]))
+        'S7', '페이지 이동 · 건수 변경', '분기',
+        '페이지당 건수는 <b>25 / 50 / 100 / 200 / 500 / 전체 보기</b> 중 고른다(기본 50건). '
+        '표시 범위 계산은 PRD §4.7(다). <b>요약 합계는 페이지와 무관</b>하게 '
+        '필터 결과 전체 기준을 유지한다.',
+        F(content(cur=3)),
+        [('건수 선택', '변경', '1페이지로', '25 / 50 / 100 / 200 / 500 / 전체 보기'),
+         ('페이지 번호', '클릭', '해당 페이지', '현재 위치 기준 <b>최대 7개</b>'),
+         ('« ‹ › »', '클릭', '처음 · 이전 · 다음 · 끝', '양 끝에서는 비활성'),
+         ('표시 범위', '조회', '—', '<b>전체 142건 중 101~142 표시 · 3 / 3</b>'),
+         ('요약 5칸', '조회', '변하지 않음', '페이지를 넘겨도 합계는 그대로다')] + NAV))
 
     B.append((
-        'S8', 'TKT-05 · 정산 등록 — 미정', '모달',
-        '행의 <b>[정산 등록]</b> 으로 열린다. 상단 파란 박스에 <b>대상 티켓</b>(고객사 · 종류 · '
-        '발급일시 · 발급 내용)이 나온다. 과금 유형은 <b>미정 / 유료 / 무료 / 체험</b> 4종이며 '
-        '업체·티켓마다 다르게 등록할 수 있다. <b>미정</b> 은 추가 입력이 없다.',
-        frame('TKT-04', 'Key 발급 정산', content(), overlay=tkt05('미정'), height=H),
-        [('대상 티켓', '표시', '—', '잘못 열었으면 [취소]로 닫는다'),
-         ('과금 유형', '클릭', 'S9~S11', '선택한 칸만 색이 채워진다'),
-         ('미정', '선택', '추가 입력 없음',
-          '<code>TKT-04</code> 상단 <b>정산 미등록</b> 건수에 포함된 상태 유지'),
-         ('비고', '입력', '—', '사유·계약 정보'),
-         ('최근 등록', '표시', '—', '이미 등록한 이력이 있으면 <b>일시 · 등록자</b>'),
-         ('[저장]', '클릭', '<code>TKT-04</code> 갱신',
-          '목록의 정산·금액·비고가 즉시 바뀌고 <code>LOG-01</code> 에 기록'),
-         ('[취소] · ✕', '클릭', '<code>TKT-04</code>', '변경 없음')]))
+        'S8', 'N Key 불러오기 — 파일 확인', '분기',
+        '도구 막대의 <b>[📂 N Key 불러오기]</b> 로 외부 키 파일(.json)을 열어 항목을 확인한다. '
+        '<b>목록에 없는 외부 키도 확인할 수 있다.</b> 파일명이 위에 표시되고, '
+        '항목 검색과 표 복사를 지원한다.',
+        F(content(), overlay=keyload()),
+        [('파일 선택', '선택', '항목 표', 'Key · Value 2열'),
+         ('파일명', '표시', '—', '어떤 파일을 보고 있는지 상단에 고정'),
+         ('항목 검색', '입력', '표 필터', '항목명·값을 함께 찾는다'),
+         ('[표 복사]', '클릭', '복사', '표시 중인 항목 전체'),
+         ('[닫기] · ✕', '클릭', '목록으로', '같은 파일을 연속으로 다시 고를 수 있다')]))
 
     B.append((
-        'S9', 'TKT-05 · 유료', '모달',
-        '<b>금액(원)</b> 입력이 나타난다. 같은 고객사의 <b>최근 유료 금액</b>이 함께 표시되어 '
-        '<b>[같은 금액 적용]</b> 으로 그대로 가져올 수 있다 — 업체별 단가 참고용이다.',
-        frame('TKT-04', 'Key 발급 정산', content(), overlay=tkt05('유료'), height=H),
-        [('금액 (원) *', '입력', '—', '<b>0보다 커야 한다</b> · 1만 원 단위로 오르내린다'),
-         ('최근 유료 발급', '표시', '—', '같은 고객사의 직전 유료 건 금액'),
-         ('[같은 금액 적용]', '클릭', '금액 채움', ''),
-         ('금액 0 · 미입력', '[저장]', 'S12 확인창', '<b>유료는 금액을 입력해야 합니다.</b>'),
-         ('[저장]', '클릭', '목록 갱신', '정산 <b>유료</b> + 금액이 파랑으로 표시된다')]))
+        'S9', 'N Key 불러오기 — 형식 오류', '검증',
+        'JSON 으로 읽을 수 없는 파일을 고르면 오류 안내와 함께 <b>빈 표</b>가 남는다. '
+        '창은 닫히지 않아 바로 다른 파일을 고를 수 있다.',
+        F(content(), overlay=keyload(err=True)),
+        [('형식 오류', '표시', '—',
+          '<b>⚠ JSON 형식의 티켓 파일이 아닙니다. Key 생성으로 내려받은 .json 파일을 '
+          '선택하세요.</b>'),
+         ('표', '표시', '—', '<b>표시할 항목이 없습니다.</b>'),
+         ('창', '유지', '—', '닫히지 않는다 — 다른 파일 재선택 가능')]))
 
     B.append((
-        'S10', 'TKT-05 · 무료', '모달',
-        '청구하지 않는 티켓. 추가 입력은 없고 <b>초록 안내</b>만 나온다. '
-        '사유는 비고에 남긴다.',
-        frame('TKT-04', 'Key 발급 정산', content(), overlay=tkt05('무료'), height=H),
-        [('무료', '선택', '안내 표시',
-          '<b>청구하지 않는 티켓으로 기록됩니다. (사유는 아래 비고에 남겨 주세요)</b>'),
-         ('비고', '입력', '—', '무료 사유를 남기는 자리'),
-         ('[저장]', '클릭', '목록 갱신', '금액 열은 <b>-</b> 로 남는다')]))
+        'S10', '발급 기록 삭제 확인', '차단',
+        '행 <b>[삭제]</b> 는 확인을 거친다. 삭제해도 <b>발급 번호는 다시 쓰지 않는다.</b>',
+        F(content(), overlay=deldlg()),
+        [('행 [삭제]', '클릭', '확인창', '<b>발급 142번 기록을 삭제할까요?</b>'),
+         ('[삭제]', '클릭', '목록에서 제거', '발급 번호는 재사용하지 않는다'),
+         ('[취소] · ✕', '클릭', '변경 없음', '')]))
 
-    B.append((
-        'S11', 'TKT-05 · 체험', '모달',
-        '<b>체험 만료일</b> 입력이 나타난다. 기본값은 <b>발급일 + 1개월</b>이며 바꿀 수 있다. '
-        '만료되면 목록에서 <b>(만료)</b> 로 바뀌고 상단 배너(S2)가 뜬다.',
-        frame('TKT-04', 'Key 발급 정산', content(), overlay=tkt05('체험'), height=H),
-        [('체험 만료일', '선택', '—', '기본 = <b>발급일 + 1개월</b>'),
-         ('안내', '표시', '—',
-          '<b>만료되면 목록에서 (만료)로 표시되고 상단에 경고가 뜹니다.</b>'),
-         ('[저장]', '클릭', '목록 갱신', '정산 열에 <b>체험</b> + <b>~만료일 (D-n)</b>'),
-         ('체험 필터', '참고', '<b>없음</b>', '정산 필터에서 체험만 골라볼 수는 없다')]))
-
-    B.append((
-        'S12', 'TKT-05 · 금액 오류 확인창', '오류',
-        '유료를 골랐는데 금액이 <b>0 이하</b>면 저장되지 않는다. '
-        '확인창을 닫으면 모달은 그대로 남아 금액을 고칠 수 있다.',
-        frame('TKT-04', 'Key 발급 정산',
-              content(),
-              overlay=tkt05('유료', err=True)
-                      + alertbox('유료는 금액을 입력해야 합니다.'),
-              height=H),
-        [('[저장]', '클릭', '확인창', '<b>유료는 금액을 입력해야 합니다.</b>'),
-         ('[확인]', '클릭', 'S9 복귀', '입력값은 그대로 남는다'),
-         ('다른 검증', '—', '<b>없음</b>',
-          '비고·체험 만료일에는 별도 검증이 없다')]))
-
-    B.append((
-        'S13', '발급 기록 삭제 확인창', '확인창',
-        '발급 기록을 목록에서 제거한다. <b>발급 번호는 다시 쓰이지 않는다.</b>',
-        frame('TKT-04', 'Key 발급 정산', content(),
-              overlay=alertbox('발급 141번 기록을 삭제할까요?'), height=H),
-        [('[삭제]', '클릭', '확인창', '<b>발급 {No}번 기록을 삭제할까요?</b>'),
-         ('[확인]', '클릭', '목록에서 제거', '요약 5칸이 다시 계산된다'),
-         ('[취소]', '클릭', '<code>TKT-04</code>', '변경 없음'),
-         ('발급 번호', '참고', '—', '삭제해도 <b>재사용하지 않는다</b>'),
-         ('키 회수', '—', '<b>미결</b>',
-          '⚠ 목록에서 지워도 <b>이미 나간 티켓 파일·App Key 는 무효화되지 않는다</b>')]))
-
-    intro = ('발급된 티켓을 모아 보고 <b>정산(과금)</b> 을 등록하는 화면이다. '
-             '이 화면만 <b>폭 제한 없이</b> 전체를 쓴다(N Key·App Key 발급 폼은 900px 제한).<br>'
-             'nkey(HLP) 발급 대장에서 가져온 <b>과거 이력</b>과 이 시스템에서 발급한 '
-             '<b>신규 발급</b>이 한 목록에 섞여 있고, <b>대장</b> 배지와 출처 필터로 구분한다.<br>'
-             'S7 은 <code>TKT-02</code> Key 정보 확인, S8~S12 는 <code>TKT-05</code> 정산 등록 '
-             '모달이다.')
+    intro = ('발급된 티켓(N Key · App Key)의 <b>전체 이력을 조회하고, 발급 건별로 '
+             '상세·정산 화면에 들어가는 진입점</b>이다. 목록에는 두 종류가 함께 쌓이며 '
+             '종류 필터로 구분한다. <b>정산 등록과 Key 정보 확인은 이 화면의 모달이 아니라 '
+             '발급 상세(TKT-02)의 탭</b>이다. 요약 합계는 <b>필터 결과 전체</b> 기준이라 '
+             '페이지를 넘겨도 변하지 않는다. 계산 규칙은 PRD §4.7.')
     return page(CODE, NAME, PRD, intro, B)

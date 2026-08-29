@@ -15,7 +15,7 @@ import { Sc, SobpChips, KindChip, PenChip } from "./sobp";
 import { codeKind, CODE_KINDS, kindMeta, type CodeKind } from "@/lib/codeKind";
 import { SERVICE, type ServiceType } from "@/lib/customerData";
 
-// 좌표(SOBP) 정원 — 코드 종류·섹션별 owner/book/page 최대치 (Ncode 정보 기준)
+// 좌표(SOBP) 정원 — 코드 종류·섹션별 owner/book/page 최대치 (코드 관리 정보 기준)
 //   좌표가 먼저이고 종류는 좌표의 속성이다. PDS4 = Section 44(S-code) · OID = index 전용(옛 IDS 포함).
 const SCALE: Partial<Record<CodeKind, Record<number, { o: number; b: number; p: number }>>> = {
   PDS3: { 0: { o: 1024, b: 16384, p: 4096 }, 3: { o: 1024, b: 8192, p: 512 }, 5: { o: 256, b: 4096, p: 4096 }, 10: { o: 1024, b: 4096, p: 1024 }, 11: { o: 1024, b: 8192, p: 512 }, 14: { o: 1024, b: 8192, p: 32 }, 15: { o: 32768, b: 4096, p: 512 } },
@@ -214,7 +214,7 @@ export default function OwnershipMap() {
   const ownRecs = secRecs.filter((r) => r.owner === curO && !r.nb);
   // book 을 나누지 않은 행(OID) — Book 카드 없이 목록으로 안내한다 `PC-036`
   const noBookRecs = secRecs.filter((r) => r.owner === curO && r.nb);
-  // 사업 종료 회사 할당 제외(→ 미발급) + Book 범위는 이 PDS/Section 의 정원(scale.b, = Ncode 정보 기준)으로 클램프.
+  // 사업 종료 회사 할당 제외(→ 미발급) + Book 범위는 이 PDS/Section 의 정원(scale.b, = 코드 관리 정보 기준)으로 클램프.
   //   (대장에 다른 PDS 기준의 넓은 범위 book_end 가 들어와도 유효 범위 밖 Book 은 노출하지 않는다)
   const ownRanges = useMemo(() =>
     rangesFor(pds, curS, curO)
@@ -342,7 +342,7 @@ export default function OwnershipMap() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "150px 150px 150px 1fr", gap: 10, alignItems: "start" }}>
-        {/* Section (Ncode 정보 사용가능) */}
+        {/* Section (코드 관리 정보 사용가능) */}
         <div style={{ ...S.card, padding: 8 }}>
           <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 700, padding: "2px 4px 6px" }}>SECTION</div>
           {secs.map((s) => {
@@ -424,7 +424,7 @@ export default function OwnershipMap() {
                 {noBookRecs.slice(0, 12).map((r, i) => (
                   <div key={i} style={{ fontSize: 10.5, color: "#374151", padding: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.title}>· {r.title || "(제목 없음)"}</div>
                 ))}
-                {noBookRecs.length > 12 && <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>… 외 {noBookRecs.length - 12}건 — Ncode 정보 ▸ OID 관리대장</div>}
+                {noBookRecs.length > 12 && <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>… 외 {noBookRecs.length - 12}건 — 코드 관리 정보 ▸ OID 관리대장</div>}
               </div>
             )}
           <div onScroll={onScrollMore(setBLimit)} style={{ maxHeight: "calc(100vh - 282px)", overflowY: "auto" }}>

@@ -303,10 +303,10 @@ def build():
     boards.append((
         'S9', '등록 · 수정 완료 복귀', '성공',
         '<code>MEM-02</code>에서 저장하면 이 화면으로 복귀하며 목록이 갱신되고 상단 알림이 뜬다. '
-        '등록 직후 그 고객사는 <code>SOB-02</code>·<code>TKT-01</code>의 <b>선택 대상</b>이 된다.',
+        '등록 직후 그 고객사는 <code>SOB-02</code>·<code>TKT-04</code>의 <b>선택 대상</b>이 된다.',
         frame('MEM-01', '고객사 관리', content(toast=toast_new), height=900),
         [('상단 알림', '표시', '—', '등록: <b>등록됨 · {업체명}</b> / 수정: <b>수정됨 · {업체명}</b>'),
-         ('(등록 직후)', '자동', '<code>SOB-02</code>·<code>TKT-01</code> 편입', '코드 할당·티켓 발급 가능'),
+         ('(등록 직후)', '자동', '<code>SOB-02</code>·<code>TKT-04</code> 편입', '코드 할당·티켓 발급 가능'),
          ('코드 할당하러 가기', '좌측 메뉴', '<code>SOB-01</code> → <code>SOB-02</code>', ''),
          ('코드 보유 현황', '좌측 메뉴', '<code>PRJ-01</code>', ''),
          ('편집 실적·정산', '좌측 메뉴', '<code>PRJ-02</code> → <code>PRJ-03</code>', '')]))

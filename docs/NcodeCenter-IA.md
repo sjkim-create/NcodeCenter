@@ -14,7 +14,7 @@
 |--------|------|--------|------|
 | `DSH` | 대시보드 | `CLI` | 고객사(Client) |
 | `TKT` | 티켓 발급 | `LOG` | 활동 로그 |
-| `SOB` | SOBP 맵 | `INF` | Ncode 정보 |
+| `SOB` | SOBP 맵 | `INF` | 코드 관리 정보 |
 | `PRJ` | 프로젝트 | `BRD` | 브랜드(CI) |
 | `PUI` | PUI 코드 | `DBS` | DB 구조 |
 | `SVC` | 서비스 관리(예정) | | |
@@ -32,11 +32,11 @@ NcodeCenter
 │   └─ 코드 프로젝트                PRJ-01   (/projects)   ← 전 서비스 공통
 │       └─ 프로젝트 상세(우측)      PRJ-01-1
 ├─ [티켓 발급]                              ← 발급 메뉴를 사이드바 그룹으로 분리
-│   ├─ 계정 발급 (목록)             TKT-03   (/tickets/account)
-│   │   ├─ 계정 등록                TKT-06   (/tickets/account/new)
-│   │   └─ 계정 상세·수정           TKT-06   (/tickets/account/{email})
-│   ├─ N Key 발급                   TKT-01   (/tickets/nkey)
-│   └─ Key 발급 정산                TKT-04   (/tickets/list)
+│   ├─ 계정 발급 (목록)             TKT-01   (/tickets/account)
+│   │   ├─ 계정 등록                TKT-02   (/tickets/account/new)
+│   │   └─ 계정 상세·수정           TKT-02   (/tickets/account/{email})
+│   ├─ N Key 발급                   TKT-04   (/tickets/nkey)
+│   └─ Key 발급 정산                TKT-03   (/tickets/list)
 ├─ [서비스 관리]                            ← 사내 Ncode 사용 서비스별 (확장 축)
 │   ├─ CasterN 서비스 관리
 │   │   ├─ 편집 프로젝트            PRJ-02   (/projects/editing)
@@ -48,11 +48,11 @@ NcodeCenter
 │   │   └─ 고객사 수정(모달)        CLI-01-1
 │   └─ 활동 로그       ★Admin       LOG-01   (/activity)
 ├─ [정보]
-│   ├─ Ncode 정보                   INF-01   (/info)
+│   ├─ 코드 관리 정보                   INF-01   (/info)
 │   │   ├─ Code Info                INF-01-1
 │   │   ├─ 확장 언어 슬롯           INF-01-2
 │   │   ├─ 발급 구조                INF-01-3
-│   │   ├─ OID 관리대장             OID-01     ← index 전용 코드(좌표 관리 아님)
+│   │   ├─ OID 관리대장             INF-04     ← index 전용 코드(좌표 관리 아님)
 │   │   └─ 알아야 할 사항           INF-01-4
 │   ├─ 브랜드 (CI)                  BRD-01   (/brand)
 │   └─ DB 구조                      DBS-01   (/db)
@@ -78,11 +78,11 @@ NcodeCenter
 | PRJ-01-1 | └ 프로젝트 상세 | 3 | `/projects` (우측 패널) | `ProjectsView` | Staff/Admin | 선택 프로젝트의 코드종류·Section/Owner·발급 상세 |
 
 | — | **티켓 발급** (그룹) | 1 | — | — | — | 발급 메뉴 3종을 담는 사이드바 그룹 (코드 다음, 서비스 관리 앞) |
-| **TKT-03** | 계정 발급 (목록) | 2 | `/tickets/account` | `AccountsListView` | Staff/Admin | 계정 목록 — 요약 4칸 · 고객사/사용처/검색 필터 · 8열 표(CasterN 권한·App Key 수) |
-| **TKT-06** | └ 계정 등록 | 3 | `/tickets/account/new` | `AccountNewView` | Staff/Admin | ① 계정 정보 → ② 사용처·권한(CasterN 7종) → ③ App Key(선택) → [계정 추가] |
-| **TKT-06** | └ 계정 상세·수정 | 3 | `/tickets/account/{email}` | `AccountDetailView` | Staff/Admin | 계정 정보·권한 수정, App Key 발급·삭제, 계정 삭제 |
-| **TKT-01** | N Key 발급 | 2 | `/tickets/nkey` | `TicketsView` (`NKeyForm`) | Staff/Admin | 물리 N Key(HLP) 발급 폼 — 고객사·SOBP 범위 선택 후 zip 발급 |
-| **TKT-04** | Key 발급 정산 | 2 | `/tickets/list` | `TicketsView` (`TicketListView`) | Staff/Admin | 발급 티켓 목록·정산, 대장(HLP 발급대장)/신규 발급 필터 |
+| **TKT-01** | 계정 발급 (목록) | 2 | `/tickets/account` | `AccountsListView` | Staff/Admin | 계정 목록 — 요약 4칸 · 고객사/사용처/검색 필터 · 8열 표(CasterN 권한·App Key 수) |
+| **TKT-02** | └ 계정 등록 | 3 | `/tickets/account/new` | `AccountNewView` | Staff/Admin | ① 계정 정보 → ② 사용처·권한(CasterN 7종) → ③ App Key(선택) → [계정 추가] |
+| **TKT-02** | └ 계정 상세·수정 | 3 | `/tickets/account/{email}` | `AccountDetailView` | Staff/Admin | 계정 정보·권한 수정, App Key 발급·삭제, 계정 삭제 |
+| **TKT-04** | N Key 발급 | 2 | `/tickets/nkey` | `TicketsView` (`NKeyForm`) | Staff/Admin | 물리 N Key(HLP) 발급 폼 — 고객사·SOBP 범위 선택 후 zip 발급 |
+| **TKT-03** | Key 발급 정산 | 2 | `/tickets/list` | `TicketsView` (`TicketListView`) | Staff/Admin | 발급 티켓 목록·정산, 대장(HLP 발급대장)/신규 발급 필터 |
 | **PRJ-02** | 편집 프로젝트 | 2 | `/projects/editing` | `EditingProjectsView` | Staff/Admin | 편집 고객사 목록, 발급규모(페이지)·편집원가(심볼) 단가 기준 집계·검색·고객사 추가 |
 | **PRJ-03** | 편집 프로젝트 상세 | 2 | `/projects/editing/[owner]` | `EditingDetailView` | Staff/Admin | 오너별 Book·편집 가능 범위·할당 SO·공유 정보 상세 |
 | **PUI-01** | PUI 코드 (피지컬) | 2 | `/pui` | `PuiView` | Staff/Admin | 피지컬 UI 기능표 — 카테고리·기능별 Book/Page·파라미터 참조 |
@@ -92,7 +92,7 @@ NcodeCenter
 | CLI-01-1 | └ 고객사 수정 | 3 | `/companies` (모달) | `CompaniesView` | Admin | 고객사 정보 수정 폼(단가 지정 포함) |
 | **LOG-01** | 활동 로그 | 2 | `/activity` | `ActivityLogView` | **Admin 전용** | 내부 직원 감사 로그(등록·할당·발급·삭제…) 월별 조회 |
 | — | **정보** (그룹) | 1 | — | — | — | 참조·가이드 영역 |
-| **INF-01** | Ncode 정보 | 2 | `/info` | `InfoView` | 전 역할 | Ncode 참조 정보(탭 통합) |
+| **INF-01** | 코드 관리 정보 | 2 | `/info` | `InfoView` | 전 역할 | Ncode 참조 정보(탭 통합) |
 | INF-01-1 | └ Code Info | 3 | `/info` (탭) | `RangeTable` | 전 역할 | 섹션 범위표(PDS2·PDS3·**PDS4**)·2.3m·코드 체계 참조 |
 | INF-01-2 | └ 확장 언어 슬롯 | 3 | `/info` (탭) | `LangSlotView` | 전 역할 | COMMON-21 기본 + 964~983 확장 언어 슬롯 |
 | INF-01-3 | └ 발급 구조 | 3 | `/info` (탭) | `NcodeInfoView` | 전 역할 | PDS2(Gcode)/PDS3(Ncode) 발급 구조 |
@@ -112,7 +112,7 @@ NcodeCenter
 | 레거시 경로 | → 이동 대상 | 사유 |
 |-------------|------------|------|
 | `/register` | `/projects` (PRJ-01) | 업체/프로젝트 등록 → 고객사·프로젝트로 분리 |
-| `/ncode-info` | `/info` (INF-01) | Ncode 정보 탭 통합 |
+| `/ncode-info` | `/info` (INF-01) | 코드 관리 정보 탭 통합 |
 | `/info/guide` | `/info` (INF-01-4) | 알아야 할 사항 탭 통합 |
 | `/info/ncode` | `/info` (INF-01-3) | 발급 구조 탭 통합 |
 

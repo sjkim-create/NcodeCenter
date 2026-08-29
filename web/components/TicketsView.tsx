@@ -463,7 +463,7 @@ const PAGE_CAP: Partial<Record<Pattern, Record<number, number>>> = {
   Scode: { 44: 256 },          // PDS4 (S-code) — Section 44
   OID: { 3: 4096 },            // OID — 인덱스 전용(같은 S/O 공유, B/P로 구분)
 };
-// 패턴·섹션별 Book 정원 (Ncode 정보 기준)
+// 패턴·섹션별 Book 정원 (코드 관리 정보 기준)
 const BOOK_CAP: Partial<Record<Pattern, Record<number, number>>> = {
   PDS3: { 0: 16384, 3: 8192, 5: 4096, 10: 4096, 11: 8192, 14: 8192, 15: 4096 },
   PDS2: { 0: 8192, 3: 4096, 14: 4096 },

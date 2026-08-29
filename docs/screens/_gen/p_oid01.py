@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
-"""OID-01 OID 관리대장 — 실제 화면 구조 그대로.
+"""INF-04 OID 관리대장 — 실제 화면 구조 그대로.
 
 OID = index 만 갖는 코드(외부 코드를 우리 펜으로 읽기 위한 방식).
 SOBP(PDS2·PDS3·PDS4) 좌표 관리와 분리해 **업체 + index** 로 관리하고, 기존 좌표는 메모로만 남긴다.
-화면은 별도 메뉴가 아니라 **Ncode 정보(INF-01)의 탭**으로 들어간다 (PC-034).
+화면은 별도 메뉴가 아니라 **코드 관리 정보(INF-01)의 탭**으로 들어간다 (PC-034).
 탭 바 → 개념 안내 배너 → 요약 4칸 → 필터 → 업체 목록(좌 300px) + 항목 표(우).
 """
 from shell import page, frame
 from p_inf01 import tabs
 
-CODE, NAME = 'OID-01', 'OID 관리대장'
-PRD = 'docs/prd/OID-01_OID 관리대장.md'
+CODE, NAME = 'INF-04', 'OID 관리대장'
+PRD = 'docs/prd/INF-04_OID 관리대장.md'
 TEAL = '#0f766e'
 
 # web/data/oid-data.json — (업체, index관리, 건수, 좌표메모)

@@ -1,0 +1,14 @@
+{
+  "name": "PRD Sync",
+  "id": "1613052711736972212",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "capabilities": ["inspect"],
+  "enableProposedApi": false,
+  "editorType": ["figma", "dev"],
+  "networkAccess": {
+    "allowedDomains": ["https://api.github.com"],
+    "reasoning": "GitHub에서 PRD 마크다운 파일 가져오기"
+  }
+}

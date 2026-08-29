@@ -1,6 +1,6 @@
 "use client";
 
-// OID-01 OID 관리대장 — 업체 + index 로 보는 OID 대장 (Ncode 정보 탭)
+// INF-04 OID 관리대장 — 업체 + index 로 보는 OID 대장 (코드 관리 정보 탭)
 // OID 좌표는 SOBP 맵에서 **OID 종류로 필터**해 볼 수 있고 `PC-035`,
 // 이 화면은 **업체별 index 목록**(book 미분할 업체 포함)을 본다.
 import { useMemo, useState } from "react";

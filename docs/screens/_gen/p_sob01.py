@@ -744,7 +744,7 @@ def build():
         '<b>옛 IDS(A코드) 표기와 같은 것</b>이다. 종류 칩 <b>OID</b> 로 좌표를 걸러 본다. '
         'Section 은 데이터가 있는 <b>3 · 4</b> 만 나오고, OID 는 같은 S/O 를 다른 종류와 '
         '함께 쓸 수 있어(index 부여) <b>OID 로 잡은 Book 만</b> 발급으로 표시된다. '
-        '업체별 index 목록은 <code>OID-01</code> 관리대장(Ncode 정보 탭)에서 본다.',
+        '업체별 index 목록은 <code>INF-04</code> 관리대장(코드 관리 정보 탭)에서 본다.',
         frame('SOB-01', 'SOBP 맵',
               content(pds='OID', sel_s=3, sel_o=17, sel_b=431,
                       own_more='4,077', book_more='8,111',
@@ -759,8 +759,8 @@ def build():
           '분량이 적어 book 을 나누지 않은 업체(예: <b>한솔교육 S3/O25</b>)는 OWNER 로 나오고, '
           'BOOK 열 맨 위에 <b>『book 미분할 · {n}건』 안내 + 항목 목록</b>이 붙는다 <code>PC-036</code>'),
          ('IDS 표기', '—', '통합', '옛 <b>IDS(A코드)</b> 는 OID 와 <b>같은 것</b>으로 함께 나온다'),
-         ('업체·index 목록', '조회', '<code>OID-01</code>',
-          'Ncode 정보 ▸ OID 관리대장 탭 (book 미분할 업체 포함)')] + NAV))
+         ('업체·index 목록', '조회', '<code>INF-04</code>',
+          '코드 관리 정보 ▸ OID 관리대장 탭 (book 미분할 업체 포함)')] + NAV))
 
     intro = ('<b>Section → Owner → Book → Page</b> 드릴다운 코드 지도. 조회 전용이며 저장 동작이 없다. '
              '상태는 <b>실제 화면에서 갈라지는 것</b>만 담았다.<br>'

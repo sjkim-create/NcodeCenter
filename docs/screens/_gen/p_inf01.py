@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""INF-01 Ncode 정보 — web/components/InfoView.tsx (+ LangSlotView · NcodeInfoView · NcodeGuideView) 기준"""
+"""INF-01 코드 관리 정보 — web/components/InfoView.tsx (+ LangSlotView · NcodeInfoView · NcodeGuideView) 기준"""
 from shell import page, frame
 
-CODE, NAME = 'INF-01', 'Ncode 정보'
-PRD = 'docs/prd/INF-01_Ncode 정보.md'
+CODE, NAME = 'INF-01', '코드 관리 정보'
+PRD = 'docs/prd/INF-01_코드 관리 정보.md'
 
 TABS = ('Code Info', '확장 언어 슬롯', '발급 구조', 'OID 관리대장', '알아야 할 사항')
 KEYS = ('owner', 'bookcode', 'page', 'length')
@@ -214,13 +214,13 @@ def issue_struct():
                 [('OID', mono), ('인덱스', 'font-weight:700;color:#0f766e'),
                  ('<b>index만 갖는 코드</b> — 외부 코드를 <b>우리 펜으로 읽을</b> 목적으로 '
                   '만든 방식. <b>좌표(SOBP) 관리 대상이 아니며</b> 업체+index 대장'
-                  '(<code>OID-01</code>)에서 관리합니다.', '')],
+                  '(<code>INF-04</code>)에서 관리합니다.', '')],
                 [('IDS (A)', 'color:#9ca3af;' + mono), ('이력', 'color:#9ca3af'),
                  ('초창기 A코드 — 이력 조회 전용.', 'color:#9ca3af')]])
                     + '<div style="margin-top:8px;font-size:12px;color:#6b7280;line-height:1.7">'
                       '<b>신규 발급</b>은 같은 <b>S/O</b> 에 한 종류만 씁니다 <code>PC-041</code>. 과거 혼용 이력은 그대로 표시합니다.<br>'
                       '<b>OID</b> 는 index 전용이라 좌표로 관리하지 않고 '
-                      '<b>업체 + index</b> 대장(<code>OID-01</code>)에서 관리합니다 — '
+                      '<b>업체 + index</b> 대장(<code>INF-04</code>)에서 관리합니다 — '
                       '펜으로 찍으면 <b>코드 값 1개</b>, 총량 <b>약 6만 개</b>, 분량이 적으면 '
                       '<b>book 미분할</b>.<br>'
                       '펜 구분(<b>소리펜</b> NSP · <b>필기펜</b> NWP)도 좌표 속성이며 '
@@ -256,7 +256,7 @@ def must_know():
 
 
 def content(tab=0, flt='all'):
-    #   tab 3 = OID 관리대장(OID-01 에서 그린다) · tab 4 = 알아야 할 사항
+    #   tab 3 = OID 관리대장(INF-04 에서 그린다) · tab 4 = 알아야 할 사항
     body = {0: range_table, 1: lambda: lang_slots(flt), 2: issue_struct, 4: must_know}[tab]()
     return tabs(tab) + body
 
@@ -273,12 +273,12 @@ def build():
 
     boards.append((
         'S1', 'Code Info · Section별 발급 범위', '기본',
-        '좌측 메뉴 [Ncode 정보]로 진입하면 이 <b>Code Info</b> 탭이 기본이다. 탭은 칩이 아니라 <b>밑줄 탭</b>이며 '
+        '좌측 메뉴 [코드 관리 정보]로 진입하면 이 <b>Code Info</b> 탭이 기본이다. 탭은 칩이 아니라 <b>밑줄 탭</b>이며 '
         '활성 탭만 파란 글씨 + 2px 밑줄이다. 표는 <b>Section 하나당 4행</b>'
         '(owner · bookcode · page · length)이고 SECTION 칸이 <code>rowspan=4</code>로 묶인다. '
         '<b>참조 전용 · 기능 없음</b> — 검증·오류 메시지가 없다. '
         '기준: <code>web/components/InfoView.tsx</code>',
-        frame('INF-01', 'Ncode 정보', content(0), height=1240),
+        frame('INF-01', '코드 관리 정보', content(0), height=1240),
         [('탭', '클릭', '본문 교체', 'Code Info / 확장 언어 슬롯 / 발급 구조 / OID 관리대장 / 알아야 할 사항'),
          ('length(판형)', '조회', '—',
           '<b>코드를 입힐 수 있는 최대 크기</b> — 판형이 커지면 <b>Section이 달라진다</b>'),
@@ -294,7 +294,7 @@ def build():
         '오너 카드는 <code>repeat(auto-fill, minmax(168px, 1fr))</code> 격자이며 '
         '<b>오너당 4슬롯</b>, 슬롯 번호는 프로젝트 내에서 <b>연속</b>으로 매겨진다. '
         '언어가 지정되지 않은 슬롯은 <b>사용가능</b>으로 표시된다.',
-        frame('INF-01', 'Ncode 정보', content(1), height=2000),
+        frame('INF-01', '코드 관리 정보', content(1), height=2000),
         [('[전체] / [Common] / [Cake]', '클릭', '프로젝트 필터', 'Common 파랑 · Cake 자홍'),
          ('Common', '조회', '—', 'PDS2(Gcode) · Section 3 · 기본 <b>O21</b> · 확장 <b>O964~O983</b> · 오너 21개'),
          ('Cake', '조회', '—', 'PDS3(Ncode) · Section 3 · 기본 <b>O1009</b> · 확장 <b>O1003~O984(내림차순)</b> · 오너 21개'),
@@ -307,7 +307,7 @@ def build():
     boards.append((
         'S3', '확장 언어 슬롯 · Cake 필터', '필터',
         '프로젝트 필터로 <b>Cake</b>만 본 상태. 활성 칩은 프로젝트 색(자홍 #db2777)으로 채워진다.',
-        frame('INF-01', 'Ncode 정보', content(1, 'Cake'), height=1100),
+        frame('INF-01', '코드 관리 정보', content(1, 'Cake'), height=1100),
         [('[Cake]', '클릭', 'Cake만 표시', ''),
          ('[전체]', '클릭', 'S2 복귀', ''),
          ('기본 Owner', '조회', '—', 'O1009 (한국어·영어·일본어·스페인어)'),
@@ -318,14 +318,14 @@ def build():
         'PRD §4.3 — <b>좌표(SOBP)가 먼저</b>이고 코드 종류(PDS3·PDS2·PDS4·OID·IDS)는 '
         '그 좌표의 속성이라는 <b>코드 체계</b>와 <b>SOBP 계층</b>을 설명한다 <code>PC-032</code>. '
         '기능 조작 없이 읽는 페이지다. 본문 최대 폭 1000px.',
-        frame('INF-01', 'Ncode 정보', content(2), height=900),
+        frame('INF-01', '코드 관리 정보', content(2), height=900),
         [('코드 종류 표', '조회', '—',
           'PDS3(N3C6)=<b>Ncode</b> 현행 주력 · PDS2(G3C6)=<b>Gcode</b> 구형/호환 · '
           '<b>PDS4(S-code)=Section 44</b>(owner 0~4095 · book 0~255 · page 0~255 · xy 0~255) · '
           '<b>OID</b>=인덱스 전용(같은 S/O 공유, B/P로 구분) · '
           'IDS(A)=이력 전용'),
          ('종류 규칙', '조회', '—', '<b>신규 발급</b>은 같은 S/O 에 한 종류만 <code>PC-041</code> (과거 혼용 이력은 표시 유지)'),
-         ('OID 설명', '조회', '<code>OID-01</code>',
+         ('OID 설명', '조회', '<code>INF-04</code>',
           '<b>index 전용 · 코드 1개 노출 · 약 6만 개 · book 미분할</b> — 업체+index 대장에서 관리'),
          ('펜 구분', '조회', '—', '<b>소리펜(NSP) · 필기펜(NWP)</b> 도 좌표 속성'),
          ('SOBP 계층', '조회', '—', 'S 파랑 · O 청록 · B 보라 · P 주황 4카드'),
@@ -336,7 +336,7 @@ def build():
         'S5', '알아야 할 사항', '기본',
         'PRD §4.4 — 코드 발급·편집 운영에서 <b>반드시 알아야 할 기준</b>을 번호 붙은 섹션으로 정리한다. '
         '단가의 정본은 <code>P-16</code>이며 고객사별 단가는 <code>MEM-02</code>에서 지정한다.',
-        frame('INF-01', 'Ncode 정보', content(4), height=900),
+        frame('INF-01', '코드 관리 정보', content(4), height=900),
         [('① 편집 비용 산출', '조회', '—', '소리펜·필기펜 모두 <b>페이지 수 + 심볼 갯수</b> · <b>심볼 갯수 = 작업량</b>'),
          ('② 산출물·저장 위치', '조회', '—',
           'mp3·ncp2 = <b>디바이스</b>(파랑) / nproj·PDF·JPG·썸네일 = <b>서버 등록</b>(초록)'),

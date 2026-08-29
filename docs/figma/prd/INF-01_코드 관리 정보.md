@@ -1,8 +1,8 @@
-# INF-01 · Ncode 정보
+# INF-01 · 코드 관리 정보
 
 **화면 ID**: INF-01
 
-> 원본 — 화면 정의서 `docs/screens/` · PRD `docs/prd/INF-01_Ncode 정보.md`
+> 원본 — 화면 정의서 `docs/screens/` · PRD `docs/prd/INF-01_코드 관리 정보.md`
 > 이 파일은 화면 정의서와 **같은 소스에서 자동 생성**된다. 직접 고치지 말 것.
 
 ---
@@ -35,7 +35,7 @@
 
 **구분** — 기본
 
-좌측 메뉴 [Ncode 정보]로 진입하면 이 **Code Info** 탭이 기본이다. 탭은 칩이 아니라 **밑줄 탭**이며 활성 탭만 파란 글씨 + 2px 밑줄이다. 표는 **Section 하나당 4행**(owner · bookcode · page · length)이고 SECTION 칸이 `rowspan=4`로 묶인다. **참조 전용 · 기능 없음** — 검증·오류 메시지가 없다. 기준: `web/components/InfoView.tsx`
+좌측 메뉴 [코드 관리 정보]로 진입하면 이 **Code Info** 탭이 기본이다. 탭은 칩이 아니라 **밑줄 탭**이며 활성 탭만 파란 글씨 + 2px 밑줄이다. 표는 **Section 하나당 4행**(owner · bookcode · page · length)이고 SECTION 칸이 `rowspan=4`로 묶인다. **참조 전용 · 기능 없음** — 검증·오류 메시지가 없다. 기준: `web/components/InfoView.tsx`
 
 | 요소 | 액션 | 결과 · 이동 | 메시지 · 비고 |
 |---|---|---|---|
@@ -95,7 +95,7 @@ PRD §4.3 — **좌표(SOBP)가 먼저**이고 코드 종류(PDS3·PDS2·PDS4·O
 |---|---|---|---|
 | 코드 종류 표 | 조회 | — | PDS3(N3C6)=**Ncode** 현행 주력 · PDS2(G3C6)=**Gcode** 구형/호환 · **PDS4(S-code)=Section 44**(owner 0~4095 · book 0~255 · page 0~255 · xy 0~255) · **OID**=인덱스 전용(같은 S/O 공유, B/P로 구분) · IDS(A)=이력 전용 |
 | 종류 규칙 | 조회 | — | **신규 발급**은 같은 S/O 에 한 종류만 `PC-041` (과거 혼용 이력은 표시 유지) |
-| OID 설명 | 조회 | `OID-01` | **index 전용 · 코드 1개 노출 · 약 6만 개 · book 미분할** — 업체+index 대장에서 관리 |
+| OID 설명 | 조회 | `INF-04` | **index 전용 · 코드 1개 노출 · 약 6만 개 · book 미분할** — 업체+index 대장에서 관리 |
 | 펜 구분 | 조회 | — | **소리펜(NSP) · 필기펜(NWP)** 도 좌표 속성 |
 | SOBP 계층 | 조회 | — | S 파랑 · O 청록 · B 보라 · P 주황 4카드 |
 | X·Y 좌표 | 참고 | — | **한 페이지 안의 위치는 추가로 X·Y 좌표로 지정됩니다. 겹침 없이 발급하는 것이 최우선.** |

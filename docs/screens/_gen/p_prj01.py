@@ -230,7 +230,7 @@ NAV = [('[✏️ 편집 →]', '클릭', '<code>PRJ-02</code>', '해당 owner의
        ('코드 신규 발급', '이동', '<code>SOB-01</code> → <code>SOB-02</code>',
         '<b>이 화면에서는 발급하지 않는다</b> <code>PC-011</code>'),
        ('고객사 정보·단가 확인', '이동', '<code>MEM-01</code> → <code>MEM-02</code>', ''),
-       ('티켓 발급', '이동', '<code>TKT-01</code> / <code>TKT-03</code>', '발급된 코드로 사용 허가 생성')]
+       ('티켓 발급', '이동', '<code>TKT-04</code> / <code>TKT-01</code>', '발급된 코드로 사용 허가 생성')]
 
 
 def build():

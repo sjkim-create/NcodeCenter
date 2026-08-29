@@ -45,7 +45,7 @@ sections_dim (참조: Section×제품별 Owner/Book/Page max·length)
 - **tickets** = 기간(issue~expire)+페이지 limit 사용허가.
 - 코드 종류(PDS3=Ncode / PDS2=Gcode / **PDS4=S-code(Section 44)** / **OID**=index 전용)는 **좌표(SOBP)의 속성**이며 Book 단위로 기록한다(allocations.product) `PC-032` `PC-035`.
   한 (Section,Owner)는 PDS2·PDS3·PDS4 중 한 종류만 쓴다. 펜 구분(NSP 소리펜 / NWP 필기펜)도 좌표 속성으로 함께 기록한다.
-- **OID** 는 index 전용 코드다 `PC-033` — 좌표 조회는 종류 **[OID]** 필터로 하고, 업체별 index 목록은 별도 대장(`oid-data.json` · 화면 `OID-01`)에서 본다. **옛 IDS(A) = OID 동일** `PC-035`.
+- **OID** 는 index 전용 코드다 `PC-033` — 좌표 조회는 종류 **[OID]** 필터로 하고, 업체별 index 목록은 별도 대장(`oid-data.json` · 화면 `INF-04`)에서 본다. **옛 IDS(A) = OID 동일** `PC-035`.
 - NDP 연동 시 `allocations.ndp_issued_code_id`, `tickets.ndp_ticket_id` 로 원격 식별자 보관.
 
 ---

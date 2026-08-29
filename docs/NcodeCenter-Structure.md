@@ -94,10 +94,10 @@ NcodeCenter
 │   ├─ SOBP 맵                               SOB-01   (/ownership)
 │   └─ 코드 프로젝트                          PRJ-01   (/projects)  ← 전 서비스 공통 조회
 ├─ [티켓 발급]                                ← 발급 메뉴를 사이드바 그룹으로 분리
-│   ├─ 계정 발급 (목록)                       TKT-03   (/tickets/account)
-│   │   └─ 계정 등록·상세 수정                 TKT-06   (/tickets/account/new · /{email})
-│   ├─ N Key 발급                            TKT-01   (/tickets/nkey)
-│   └─ Key 발급 정산                          TKT-04   (/tickets/list)
+│   ├─ 계정 발급 (목록)                       TKT-01   (/tickets/account)
+│   │   └─ 계정 등록·상세 수정                 TKT-02   (/tickets/account/new · /{email})
+│   ├─ N Key 발급                            TKT-04   (/tickets/nkey)
+│   └─ Key 발급 정산                          TKT-03   (/tickets/list)
 ├─ [서비스 관리]                              ← 사내 Ncode 사용 서비스별 관리 (확장 축)
 │   ├─ CasterN 서비스 관리                    (구현)
 │   │   ├─ 편집 프로젝트                      PRJ-02   (/projects/editing)
@@ -107,8 +107,8 @@ NcodeCenter
 │   ├─ 고객사 관리                            MEM-01   (/companies)
 │   └─ 활동 로그          ★Admin              LOG-01   (/activity)
 └─ [정보]
-    ├─ Ncode 정보                             INF-01   (/info)
-    │   └─ OID 관리대장 (탭)                    OID-01   ← index 전용(좌표 관리 아님)
+    ├─ 코드 관리 정보                             INF-01   (/info)
+    │   └─ OID 관리대장 (탭)                    INF-04   ← index 전용(좌표 관리 아님)
     ├─ 브랜드 (CI)                            (PRD 없음)
     └─ DB 구조                                (PRD 없음)
 ```
@@ -228,7 +228,7 @@ NcodeCenter/
 |------|------|-----------|
 | #1 | 기간 + 페이지수 limit | 4 티켓 |
 | #2 | 대시보드(할당현황 + 내부 직원 로그, 예약/사용중) | 1 대시보드, 9 활동 로그 |
-| #3 | N코드 정보(섹션·2.3m·PDS2/3) | 10 Ncode 정보 |
+| #3 | N코드 정보(섹션·2.3m·PDS2/3) | 10 코드 관리 정보 |
 | #4 | 2.3m 이하 → 페이지수로만 티케팅 | 4 티켓, 6 할당, 11 설정 |
 | #5 | 직원이 업체/프로젝트 등록 → 코드 할당(폼솔루션=풀 미리할당→end-user 등급 자동배정) | 2·3·5·6·7 |
 

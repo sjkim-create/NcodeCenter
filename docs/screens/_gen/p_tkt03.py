@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-"""TKT-03 계정 발급 (계정 목록) — 실제 화면 구조 그대로.
+"""TKT-01 계정 발급 (계정 목록) — 실제 화면 구조 그대로.
 
 요약 4칸 → 한 줄 필터(고객사·사용처·검색 + [＋ 계정 추가]) → 8열 표.
-등록·상세 수정은 TKT-06 (p_tkt06.py).
+등록·상세 수정은 TKT-02 (p_tkt06.py).
 """
 from shell import page, frame
 from p_tkt01 import sel
 
-CODE, NAME = 'TKT-03', '계정 발급'
-PRD = 'docs/prd/TKT-03_계정 발급.md'
+CODE, NAME = 'TKT-01', '계정 발급'
+PRD = 'docs/prd/TKT-01_계정 발급.md'
 
 # lib/accountStore.ts — (고객사, ID(email), 이름, 사용처, 권한 수, App Key 수, 등록일)
 ROWS = (
@@ -105,11 +105,11 @@ def content(kpi=None, company='고객사 전체', service='사용처 전체', q=
 
 
 def scr(h=780, **kw):
-    return frame('TKT-03', '계정 발급', content(**kw), height=h)
+    return frame('TKT-01', '계정 발급', content(**kw), height=h)
 
 
-NAV = [('사이드바 [N Key 발급]', '클릭', '<code>TKT-01</code>', '물리 키 발급'),
-       ('사이드바 [Key 발급 정산]', '클릭', '<code>TKT-04</code>', '발급 이력·정산')]
+NAV = [('사이드바 [N Key 발급]', '클릭', '<code>TKT-04</code>', '물리 키 발급'),
+       ('사이드바 [Key 발급 정산]', '클릭', '<code>TKT-03</code>', '발급 이력·정산')]
 
 ZERO_KPI = (('등록 계정', '0', '#111827'), ('App Key 연동', '0', '#2563eb'),
             ('App Key 없음', '0', '#92400e'), ('발급 App Key', '0', '#7c3aed'))
@@ -123,11 +123,11 @@ def build():
         '좌측 메뉴 <b>[티켓 발급] ▸ [계정 발급]</b>(<code>/tickets/account</code>) 의 첫 화면. '
         '등록된 <b>모든 고객사의 계정</b>을 한 표로 본다. 한 고객사에 계정을 '
         '<b>여러 개</b> 둘 수 있다 <code>PC-029</code>. '
-        '<b>ID</b> 나 <b>[상세]</b> 를 누르면 <code>TKT-06</code> 상세·수정으로 간다.',
+        '<b>ID</b> 나 <b>[상세]</b> 를 누르면 <code>TKT-02</code> 상세·수정으로 간다.',
         scr(),
-        [('[＋ 계정 추가]', '클릭', '<code>TKT-06</code> 등록',
+        [('[＋ 계정 추가]', '클릭', '<code>TKT-02</code> 등록',
           '<code>/tickets/account/new</code>'),
-         ('ID(email) · [상세]', '클릭', '<code>TKT-06</code> 상세·수정',
+         ('ID(email) · [상세]', '클릭', '<code>TKT-02</code> 상세·수정',
           '<code>/tickets/account/{email}</code>'),
          ('[삭제]', '클릭', 'S5 확인창', '계정과 <b>연동 App Key가 함께</b> 삭제된다'),
          ('요약 4칸', '표시', '—', '등록 계정 · App Key 연동 · App Key 없음 · 발급 App Key'),
@@ -143,7 +143,7 @@ def build():
         scr(h=560, kpi=ZERO_KPI, count=0, rows=(), empty='none'),
         [('안내 문구', '표시', '—',
           '<b>등록된 계정이 없습니다. [＋ 계정 추가]로 등록하세요.</b>'),
-         ('[＋ 계정 추가]', '클릭', '<code>TKT-06</code> 등록', '계정 수 제한 없음')] + NAV))
+         ('[＋ 계정 추가]', '클릭', '<code>TKT-02</code> 등록', '계정 수 제한 없음')] + NAV))
 
     B.append((
         'S3', '필터 · 검색', '분기',
@@ -170,7 +170,7 @@ def build():
         'S5', '계정 삭제 확인창', '확인창',
         '계정을 지우면 <b>연동된 App Key 도 함께</b> 사라진다. '
         '되돌릴 수 없으므로 확인창으로 한 번 막는다.',
-        frame('TKT-03', '계정 발급', content(),
+        frame('TKT-01', '계정 발급', content(),
               overlay='<div class="ovl"><div class="mdl">'
                       '<div class="mh"><div class="mt">확인</div>'
                       '<div class="mx">✕</div></div>'
@@ -180,12 +180,12 @@ def build():
                       '<div class="btn dan">삭제</div></div></div></div>',
               height=780),
         [('[삭제]', '클릭', '계정 + 키 삭제', '목록에서 사라진다'),
-         ('[취소]', '클릭', '<code>TKT-03</code>', '변경 없음'),
-         ('키만 삭제', '—', '<code>TKT-06</code>',
+         ('[취소]', '클릭', '<code>TKT-01</code>', '변경 없음'),
+         ('키만 삭제', '—', '<code>TKT-02</code>',
           '개별 App Key 는 상세 화면에서 지운다')] + NAV))
 
     intro = ('<b>계정 발급</b> 은 서비스 로그인 계정을 관리하는 화면이다. '
-             '이 화면은 <b>목록</b>이며 등록·상세 수정은 <code>TKT-06</code> 이다.<br>'
+             '이 화면은 <b>목록</b>이며 등록·상세 수정은 <code>TKT-02</code> 이다.<br>'
              '계정은 <b>고객사당 여러 개</b>(제한 없음)를 둘 수 있고 ID(email)만 전체에서 '
              '유일하면 된다 <code>PC-029</code>. <b>App Key 발급은 선택</b>이라 '
              '계정만 먼저 만들어 두었다가 나중에 상세 화면에서 키를 붙일 수 있다.<br>'

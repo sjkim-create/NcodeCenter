@@ -1,0 +1,2482 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 12px;
+      color: #333;
+      padding: 16px;
+      background: #fff;
+    }
+
+    h1 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h2 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #666;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      margin-bottom: 8px;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      width: auto;
+    }
+
+    .btn-primary {
+      background: #18A0FB;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0d8de5;
+    }
+
+    .btn-primary:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .btn-danger {
+      background: #ff4444;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #dd3333;
+    }
+
+    .info-box {
+      background: #f5f5f5;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+
+    .info-box h3 {
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .frame-list {
+      max-height: 150px;
+      overflow-y: auto;
+      font-size: 11px;
+    }
+
+    .frame-item {
+      padding: 4px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .frame-item:last-child {
+      border-bottom: none;
+    }
+
+    .screen-id {
+      font-weight: 600;
+      color: #18A0FB;
+    }
+
+    .divider {
+      height: 1px;
+      background: #eee;
+      margin: 16px 0;
+    }
+
+    .status {
+      font-size: 11px;
+      color: #666;
+      margin-top: 8px;
+    }
+
+    .status.error {
+      color: #ff4444;
+    }
+
+    .status.success {
+      color: #22cc22;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #18A0FB;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+    }
+
+    .form-row .btn {
+      margin-bottom: 12px;
+      width: auto;
+      white-space: nowrap;
+    }
+
+    .settings-panel {
+      background: #fafafa;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+
+    .connected-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      background: #e8f5e9;
+      border-radius: 4px;
+      margin-bottom: 12px;
+      font-size: 11px;
+      color: #2e7d32;
+    }
+
+    .connected-info svg {
+      flex-shrink: 0;
+    }
+
+    .tab-buttons {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      background: #f0f0f0;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .tab-btn.active {
+      background: #18A0FB;
+      color: white;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#18A0FB" stroke-width="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+    PRD Sync
+  </h1>
+
+  <!-- 탭 버튼 -->
+  <div class="tab-buttons">
+    <button class="tab-btn active" data-tab="sync">PRD 동기화</button>
+    <button class="tab-btn" data-tab="settings">설정</button>
+  </div>
+
+  <!-- PRD 동기화 탭 -->
+  <div class="tab-content active" id="tab-sync">
+    <div class="connected-info" id="connectedInfo" style="display: none;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+        <polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
+      <span id="connectedRepo">-</span>
+    </div>
+
+    <button class="btn btn-primary" id="syncSelectedBtn">
+      PRD 추가 (선택 프레임)
+    </button>
+
+    <button class="btn btn-primary" id="syncAllBtn">
+      PRD 추가 (현재 페이지)
+    </button>
+
+    <button class="btn btn-primary" id="syncAllPagesBtn">
+      PRD 추가 (모든 페이지)
+    </button>
+
+    <div class="divider"></div>
+
+    <button class="btn btn-danger" id="removeAllBtn">
+      PRD 삭제 (현재 페이지)
+    </button>
+
+    <button class="btn btn-danger" id="removeAllPagesBtn">
+      PRD 삭제 (모든 페이지)
+    </button>
+
+    <div class="status" id="statusText"></div>
+  </div>
+
+  <!-- 설정 탭 -->
+  <div class="tab-content" id="tab-settings">
+    <div class="settings-panel">
+      <h2>GitHub 연결</h2>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>GitHub Token</label>
+          <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxx">
+        </div>
+        <button class="btn btn-primary btn-sm" id="connectBtn">연결</button>
+      </div>
+
+      <div id="repoSettings" style="display: none;">
+        <div class="form-group">
+          <label>저장소</label>
+          <select id="repoSelect">
+            <option value="">저장소 선택...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>브랜치</label>
+          <select id="branchSelect">
+            <option value="">브랜치 선택...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>PRD 경로</label>
+          <select id="prdPathSelect">
+            <option value="">폴더 선택...</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary" id="saveSettingsBtn">설정 저장</button>
+      </div>
+    </div>
+
+    <div class="status" id="settingsStatus"></div>
+  </div>
+
+  <script>
+    // 설정
+    let settings = {
+      token: '',
+      repo: '',
+      branch: 'main',
+      prdPath: 'document/prd'
+    };
+
+    let settingsLoaded = false;
+
+    // PRD 파일 캐시
+    let prdFileCache = {};
+
+    // DOM 요소
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const tokenInput = document.getElementById('tokenInput');
+    const connectBtn = document.getElementById('connectBtn');
+    const repoSettings = document.getElementById('repoSettings');
+    const repoSelect = document.getElementById('repoSelect');
+    const branchSelect = document.getElementById('branchSelect');
+    const prdPathSelect = document.getElementById('prdPathSelect');
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    const connectedInfo = document.getElementById('connectedInfo');
+    const connectedRepo = document.getElementById('connectedRepo');
+    const settingsStatus = document.getElementById('settingsStatus');
+
+    const syncSelectedBtn = document.getElementById('syncSelectedBtn');
+    const syncAllBtn = document.getElementById('syncAllBtn');
+    const syncAllPagesBtn = document.getElementById('syncAllPagesBtn');
+    const removeAllBtn = document.getElementById('removeAllBtn');
+    const removeAllPagesBtn = document.getElementById('removeAllPagesBtn');
+    const statusText = document.getElementById('statusText');
+
+    // 탭 전환
+    tabBtns.forEach(btn => {
+      btn.onclick = () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      };
+    });
+
+    // 설정 로드 요청
+    function loadSettings() {
+      parent.postMessage({ pluginMessage: { type: 'load-settings' } }, '*');
+    }
+
+    // 설정 저장 요청
+    function saveSettings() {
+      settings.token = tokenInput.value;
+      settings.prdPath = prdPathSelect.value || '';
+      parent.postMessage({ pluginMessage: { type: 'save-settings', settings: settings } }, '*');
+    }
+
+    // 설정 로드 완료 시 UI 업데이트
+    async function applyLoadedSettings(loaded) {
+      if (loaded) {
+        settings = loaded;
+        tokenInput.value = settings.token || '';
+
+        if (settings.token && settings.repo) {
+          updateConnectedInfo();
+          repoSettings.style.display = 'block';
+          // 디렉토리 목록 로드 후 저장된 경로 선택
+          if (settings.branch) {
+            await loadDirectories(settings.repo, settings.branch);
+            if (settings.prdPath) {
+              prdPathSelect.value = settings.prdPath;
+            }
+          }
+        }
+      }
+      settingsLoaded = true;
+    }
+
+    // 연결 상태 표시
+    function updateConnectedInfo() {
+      if (settings.repo && settings.branch) {
+        connectedInfo.style.display = 'flex';
+        connectedRepo.textContent = `${settings.repo} (${settings.branch})`;
+      } else {
+        connectedInfo.style.display = 'none';
+      }
+    }
+
+    // GitHub API 헤더
+    function getHeaders() {
+      return {
+        'Accept': 'application/vnd.github.v3+json',
+        'Authorization': `token ${settings.token}`
+      };
+    }
+
+    // 저장소 목록 가져오기
+    async function fetchRepos() {
+      const res = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      return await res.json();
+    }
+
+    // 브랜치 목록 가져오기
+    async function fetchBranches(repo) {
+      const res = await fetch(`https://api.github.com/repos/${repo}/branches`, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      return await res.json();
+    }
+
+    // 연결 버튼
+    connectBtn.onclick = async () => {
+      const token = tokenInput.value.trim();
+      if (!token) {
+        setSettingsStatus('토큰을 입력하세요', 'error');
+        return;
+      }
+
+      settings.token = token;
+      setSettingsStatus('연결 중...');
+
+      try {
+        const repos = await fetchRepos();
+
+        repoSelect.innerHTML = '<option value="">저장소 선택...</option>';
+        repos.forEach(repo => {
+          const option = document.createElement('option');
+          option.value = repo.full_name;
+          option.textContent = repo.full_name;
+          if (repo.full_name === settings.repo) {
+            option.selected = true;
+          }
+          repoSelect.appendChild(option);
+        });
+
+        repoSettings.style.display = 'block';
+        setSettingsStatus(`${repos.length}개 저장소 발견`, 'success');
+
+        // 이전에 선택한 저장소가 있으면 브랜치도 로드
+        if (settings.repo) {
+          await loadBranches(settings.repo);
+        }
+      } catch (e) {
+        setSettingsStatus('연결 실패: ' + e.message, 'error');
+      }
+    };
+
+    // 저장소 선택 시 브랜치 로드
+    repoSelect.onchange = async () => {
+      const repo = repoSelect.value;
+      if (!repo) return;
+
+      settings.repo = repo;
+      await loadBranches(repo);
+    };
+
+    async function loadBranches(repo) {
+      setSettingsStatus('브랜치 로드 중...');
+      try {
+        const branches = await fetchBranches(repo);
+
+        branchSelect.innerHTML = '';
+        branches.forEach(branch => {
+          const option = document.createElement('option');
+          option.value = branch.name;
+          option.textContent = branch.name;
+          if (branch.name === settings.branch || branch.name === 'main' || branch.name === 'master') {
+            option.selected = true;
+            settings.branch = branch.name;
+          }
+          branchSelect.appendChild(option);
+        });
+
+        // 브랜치 선택 후 디렉토리 목록도 로드
+        if (settings.branch) {
+          await loadDirectories(repo, settings.branch);
+        }
+      } catch (e) {
+        setSettingsStatus('브랜치 로드 실패: ' + e.message, 'error');
+      }
+    }
+
+    // 브랜치 선택
+    branchSelect.onchange = async () => {
+      settings.branch = branchSelect.value;
+      if (settings.repo && settings.branch) {
+        await loadDirectories(settings.repo, settings.branch);
+      }
+    };
+
+    // 디렉토리 목록 가져오기 (재귀적으로 모든 폴더)
+    async function fetchDirectories(repo, branch, path = '') {
+      const url = `https://api.github.com/repos/${repo}/contents/${path}?ref=${branch}`;
+      const res = await fetch(url, { headers: getHeaders() });
+      if (!res.ok) return [];
+      const items = await res.json();
+      return items.filter(item => item.type === 'dir');
+    }
+
+    // 전체 디렉토리 트리 가져오기 (prd 폴더만)
+    async function fetchAllDirectories(repo, branch) {
+      const url = `https://api.github.com/repos/${repo}/git/trees/${branch}?recursive=1`;
+      const res = await fetch(url, { headers: getHeaders() });
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      const data = await res.json();
+      // prd로 끝나는 디렉토리만 필터링
+      return data.tree
+        .filter(item => item.type === 'tree' && (item.path.endsWith('/prd') || item.path === 'prd'))
+        .map(item => item.path)
+        .sort();
+    }
+
+    // 디렉토리 목록 로드
+    async function loadDirectories(repo, branch) {
+      setSettingsStatus('폴더 목록 로드 중...');
+      try {
+        const dirs = await fetchAllDirectories(repo, branch);
+
+        prdPathSelect.innerHTML = '<option value="">폴더 선택...</option>';
+        dirs.forEach(dir => {
+          const option = document.createElement('option');
+          option.value = dir;
+          option.textContent = dir;
+          prdPathSelect.appendChild(option);
+        });
+
+        setSettingsStatus(`${dirs.length}개 폴더 발견`, 'success');
+      } catch (e) {
+        setSettingsStatus('폴더 목록 로드 실패: ' + e.message, 'error');
+      }
+    }
+
+    // 설정 저장 버튼
+    saveSettingsBtn.onclick = () => {
+      settings.repo = repoSelect.value;
+      settings.branch = branchSelect.value;
+      settings.prdPath = prdPathSelect.value;
+
+      if (!settings.repo || !settings.branch) {
+        setSettingsStatus('저장소와 브랜치를 선택하세요', 'error');
+        return;
+      }
+
+      if (!settings.prdPath) {
+        setSettingsStatus('PRD 폴더를 선택하세요', 'error');
+        return;
+      }
+
+      saveSettings();
+    };
+
+    function setSettingsStatus(text, type = '') {
+      settingsStatus.textContent = text;
+      settingsStatus.className = 'status' + (type ? ' ' + type : '');
+    }
+
+    function setStatus(text, type = '') {
+      statusText.textContent = text;
+      statusText.className = 'status' + (type ? ' ' + type : '');
+    }
+
+    // GitHub에서 PRD 파일 목록 가져오기
+    async function fetchPrdFileList() {
+      const url = `https://api.github.com/repos/${settings.repo}/contents/${settings.prdPath}?ref=${settings.branch}`;
+      const res = await fetch(url, { headers: getHeaders() });
+      if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
+      const files = await res.json();
+      return files.filter(f => f.name.endsWith('.md')).map(f => f.name);
+    }
+
+    // GitHub에서 PRD 파일 내용 가져오기
+    async function fetchPrdContent(filename) {
+      const url = `https://api.github.com/repos/${settings.repo}/contents/${settings.prdPath}/${filename}?ref=${settings.branch}`;
+      const res = await fetch(url, {
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
+      const json = await res.json();
+      // base64 디코딩 + CRLF → LF 정규화 (JS regex `.`/`$`가 \r을 못 잡아 헤더 매칭이 깨지는 문제 방지)
+      const content = decodeURIComponent(escape(atob(json.content))).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      return content;
+    }
+
+    // 마크다운에서 "화면 ID" 필드 값 추출
+    function extractScreenIdFromMarkdown(markdown) {
+      // 디버그: 화면 ID 주변 텍스트 찾기
+      const idIndex = markdown.indexOf('화면 ID');
+      if (idIndex !== -1) {
+        console.log('화면 ID 발견 위치:', idIndex);
+        console.log('화면 ID 주변 텍스트:', JSON.stringify(markdown.substring(idIndex, idIndex + 50)));
+      } else {
+        console.log('화면 ID 텍스트 없음');
+      }
+
+      // 여러 패턴 시도
+      const patterns = [
+        /화면\s*ID[^\n]*?:\s*`?([A-Z]{2,4}-\d{1,2})`?/,           // 백틱 포함 유연한 패턴
+        /\*\*화면\s*ID\*\*[^\n]*?:\s*`?([A-Z]{2,4}-\d{1,2})`?/,  // 볼드 + 백틱 패턴
+        /화면\s*ID\s*[|:]\s*`?([A-Z]{2,4}-\d{1,2})`?/,            // 테이블 패턴
+      ];
+
+      for (const pattern of patterns) {
+        const match = markdown.match(pattern);
+        if (match) {
+          console.log('매칭 성공:', pattern.toString(), '->', match[1]);
+          return match[1];
+        }
+      }
+
+      console.log('모든 패턴 매칭 실패');
+      return null;
+    }
+
+    // 3번 섹션에서 첫 번째 상태 ID 추출
+    function getFirstStateId(markdown, screenId) {
+      const lines = markdown.split('\n');
+      let inSection3 = false;
+
+      for (const line of lines) {
+        // ## 3. 상태별 변화 / 상태별 대응 감지
+        if (line.match(/^##\s+\d+\.\s+.*상태별/)) {
+          inSection3 = true;
+          continue;
+        }
+        // 다른 ## 섹션 시작하면 종료
+        if (inSection3 && line.match(/^##\s+\d+\./)) {
+          break;
+        }
+        // ### 에서 상태 ID 추출 (한글 상태명 지원)
+        if (inSection3) {
+          const stateMatch = line.match(new RegExp(`###\\s+(?:[\\d.]+\\s+)?${screenId}:\\s*(\\S+)`, 'i'));
+          if (stateMatch) {
+            return stateMatch[1];
+          }
+        }
+      }
+      return null;
+    }
+
+    // 마크다운 파싱 - 2번(화면구성)과 3번(상태별 변화) 섹션을 분리 추출
+    // 반환: { screenSections: [...], stateSections: [...] }
+    // screenSections: 2번 섹션 내용 (첫 번째 상태 프레임의 왼쪽에 배치)
+    // stateSections: 3번 섹션의 해당 상태 내용 (프레임 오른쪽에 배치)
+    // stateId가 없으면: 기존 로직 (전체 섹션 → stateSections로 반환)
+    function parseMarkdownForState(markdown, screenId, stateId) {
+      const screenSections = [];  // 2번 화면구성 (LEFT)
+      const stateSections = [];   // 3번 상태별 변화 (RIGHT)
+      const lines = markdown.split('\n');
+
+      // 첫 번째 상태 ID 확인 (2번 섹션은 첫 번째 상태 프레임에만 배치)
+      const firstStateId = stateId ? getFirstStateId(markdown, screenId) : null;
+      const isFirstState = stateId && firstStateId && stateId === firstStateId;
+
+      let inScreenSection = false;  // 왼쪽: 주요 사용자 흐름 + 화면 구성
+      let inStateSection = false;  // 오른쪽: 상태별 변화
+      let inTargetState = false;
+      let currentSection = null;
+      let currentTarget = null;  // 'screen' | 'state'
+
+      function saveSection() {
+        if (!currentSection) return;
+        if (!currentSection.body.trim()) { currentSection = null; currentTarget = null; return; }
+        if (currentTarget === 'screen') screenSections.push(currentSection);
+        else if (currentTarget === 'state') stateSections.push(currentSection);
+        currentSection = null;
+        currentTarget = null;
+      }
+
+      /**
+       * Figma 설명용: 디자인 스펙(색상/수치 토큰·CSS 레이아웃 속성 등) 제거
+       * — 기획·동작 문장은 유지, 토큰·치수·구현 스타일만 걷어냄
+       */
+      function stripDesignSpecs(text) {
+        if (!text) return text;
+        var s = text;
+
+        // camelCase / kebab-case CSS 속성:값 (여러 개 쉼표 나열 포함)
+        // 예: maxHeight: 78vh, overflowY: auto | border-radius: 8px
+        var cssProp =
+          '(?:' +
+          [
+            // 크기·오버플로·레이아웃
+            'max-?height', 'min-?height', 'max-?width', 'min-?width',
+            'overflow-?[xy]?', 'overflow',
+            'width', 'height', 'top', 'right', 'bottom', 'left',
+            'inset', 'z-?index', 'gap', 'row-?gap', 'column-?gap',
+            // 플렉스/그리드
+            'flex(?:-?(?:grow|shrink|basis|direction|wrap))?',
+            'justify-?content', 'align-?(?:items|self|content)',
+            'grid(?:-?(?:template-?(?:columns|rows)|gap|auto-?(?:columns|rows)|column|row))?',
+            // 여백·보더
+            'margin(?:-?(?:top|right|bottom|left|inline|block))?',
+            'padding(?:-?(?:top|right|bottom|left|inline|block))?',
+            'border(?:-?(?:radius|width|color|style|top|right|bottom|left))?',
+            'borderRadius', 'borderWidth', 'borderColor', 'borderStyle',
+            // 타이포·색
+            'font(?:-?(?:size|weight|family|style))?',
+            'fontSize', 'fontWeight', 'fontFamily',
+            'line-?height', 'letter-?spacing', 'text-?(?:align|decoration|overflow|shadow)',
+            'color', 'opacity', 'background(?:-?(?:color|image|size|position|repeat))?',
+            'backgroundColor', 'backgroundImage',
+            // 기타 비주얼
+            'box-?shadow', 'drop-?shadow', 'text-?shadow', 'boxShadow',
+            'object-?fit', 'object-?position', 'aspect-?ratio',
+            'white-?space', 'pointer-?events', 'user-?select',
+            'transform', 'transition', 'animation', 'clip-?path',
+            'display', 'position', 'visibility', 'cursor'
+          ].join('|') +
+          ')';
+
+        // `maxHeight: 78vh, overflowY: auto` 처럼 백틱 안이 CSS 위주면 통째 제거
+        s = s.replace(/`([^`]+)`/g, function (full, inner) {
+          var t = inner.trim();
+          // prop: value 형태가 1개 이상이면 디자인 스니펫으로 간주
+          var propHits = t.match(new RegExp('\\b' + cssProp + '\\s*[:=]', 'gi'));
+          var unitHits = t.match(/\b\d+(?:\.\d+)?(?:px|rem|em|vw|vh|%|pt|dp|sp)\b/gi);
+          if (propHits && propHits.length >= 1) return '';
+          if (unitHits && unitHits.length >= 2 && t.length < 80) return '';
+          // 속성 제거 후 내용 없으면 백틱 제거
+          var cleaned = stripCssPropsAndValues(inner, cssProp);
+          cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+          if (!cleaned || /^[,;:.\-\s+|/·]+$/.test(cleaned)) return '';
+          return '`' + cleaned + '`';
+        });
+
+        // (maxHeight: 78vh, overflowY: auto) / (`overflowX: auto`) —
+        // 괄호 안이 디자인·CSS 스펙이면 괄호까지 통째 삭제
+        s = stripDesignParentheses(s, cssProp);
+
+        s = stripCssPropsAndValues(s, cssProp);
+
+        // CSS 함수 색상: rgba() / rgb() / hsl() / hsla()
+        s = s.replace(/\b(?:rgba?|hsla?)\s*\([^)]*\)/gi, '');
+
+        // hex 색상 — 긴 것부터 매칭 (#RRGGBBAA → #RGB)
+        s = s.replace(
+          /[(\[（【]?\s*#(?:[0-9A-Fa-f]{8}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{3})(?![0-9A-Fa-f])\s*[)\]）】]?/g,
+          ''
+        );
+
+        // 길이 단위: px, rem, em, vw, vh, pt, dp, sp, %
+        s = s.replace(/\b\d+(?:\.\d+)?(?:px|rem|em|vw|vh|pt|dp|sp)\b/gi, '');
+        // 단독 퍼센트 치수 (100%, 78% 등) — 비즈니스 % 와 구분 어려워 짧은 문맥만 약하게 제거하지 않음
+        // 단, CSS 잔여 "N%" 가 prop 없이 남은 경우는 위에서 prop 제거 시 같이 제거됨
+
+        // overflow + 값 (콜론 없는 표기: overflow hidden / overflow-x auto)
+        s = s.replace(
+          /\boverflow(?:-[xy])?\s+(?:auto|hidden|scroll|visible|clip)\b/gi,
+          ''
+        );
+        s = s.replace(
+          /\boverflow(?:X|Y)?\s+(?:auto|hidden|scroll|visible|clip)\b/gi,
+          ''
+        );
+
+        // 보더 스타일 키워드 (레이아웃 auto/flex 등은 기획 문장에 남을 수 있어 전역 삭제하지 않음)
+        s = s.replace(/\b(?:solid|dashed|dotted|border-box|content-box)\b/gi, '');
+
+        // CSS 값으로만 쓰이는 잔여 토큰 (쉼표/콜론 옆) — "…, auto)" / ": hidden"
+        s = s.replace(/(?<=[=:,(]\s*)\b(?:auto|hidden|scroll|clip|ellipsis|sticky|relative|absolute|fixed|static|none|cover|contain|stretch|space-between|space-around|space-evenly)\b/gi, '');
+        s = s.replace(/\b(?:auto|hidden|scroll)\b(?=\s*[,;):])/gi, '');
+
+        // box-shadow / drop-shadow / text-shadow 잔여 키워드 줄
+        s = s.replace(/\b(?:box-shadow|drop-shadow|text-shadow)\s*[:=]?\s*[^,;|]+/gi, '');
+
+        // "12 라운드" / "radius 8" 잔여
+        s = s.replace(
+          /(?:^|[\s+(,，])(?:라운드|radius|보더\s*라디우스|border[\s-]?radius)\s*\d*(?:\.\d+)?/gi,
+          function (m) {
+            var lead = m.charAt(0);
+            return /[\s+(,，]/.test(lead) ? lead : ' ';
+          }
+        );
+
+        // 단위 제거 후 남은 "N 라운드"
+        s = s.replace(/(?:^|[\s+])\d+(?:\.\d+)?\s*(?=라운드|radius)/gi, ' ');
+
+        s = s.replace(/\b(?:hex|HEX|컬러코드|색상코드|컬러값|색상값)\b/gi, '');
+
+        // 빈 괄호 · 빈 백틱 · 중복 구분자 정리
+        s = s.replace(/`\s*`/g, '');
+        // 여러 번: ( ) 안이 비었거나 구분자만
+        for (var pi = 0; pi < 3; pi++) {
+          s = s.replace(/[(\[（【]\s*[)\]）】]/g, '');
+          s = s.replace(/[(\[（【][\s,;:·|/+\-—–]*[)\]）】]/g, '');
+        }
+        // 스펙 삭제 후 내용 없는 볼드 잔여: ** **, 단어**조사
+        s = s.replace(/\*\*\s*\*\*/g, '');
+        s = s.replace(/\*\*(?=\s*(?:로|을|를|에|과|와|으로|이며|이고|[,.。]|$))/g, '');
+        s = s.replace(/\s*\+\s*/g, ' + ');
+        s = s.replace(/(?:\s*\+\s*){2,}/g, ' + ');
+        s = s.replace(/\s*\/\s*/g, ' / ');
+        s = s.replace(/(?:\s*\/\s*){2,}/g, ' / ');
+        s = s.replace(/\s{2,}/g, ' ');
+        s = s.replace(/\s+([,，.。;；:：])/g, '$1');
+        s = s.replace(/([,，;；:：])\s*([,，.。;；:：])/g, '$1');
+        // 주의: 마크다운 표 구분자(|)는 절대 제거하지 않음
+        s = s.replace(/(?:^|\s)(?:\+|\/|·)\s+/g, ' ');
+        s = s.replace(/\s*(?:\+|\/|·)\s*$/g, '');
+        s = s.replace(/^(?:\+|\/|·)\s*/g, '');
+        s = s.replace(/\s{2,}/g, ' ').trim();
+        s = s.replace(/\+\s*([.。])/g, '$1');
+        s = s.replace(/\s+([.。])/g, '$1');
+        // 구분자만 남은 tail
+        s = s.replace(/[,;:]\s*$/g, '').trim();
+        s = s.replace(/^[,;:]\s*/g, '').trim();
+
+        return s;
+      }
+
+      /** CSS 속성:값 토큰 제거 (camelCase·kebab-case 공통) */
+      function stripCssPropsAndValues(src, cssProp) {
+        var s = src;
+        // 1) overflow hidden / overflow-x: auto 등 (속성 단독 제거 전에 처리)
+        s = s.replace(
+          /\boverflow(?:-[xy]|[XY])?\s*[:=]?\s*(?:auto|hidden|scroll|visible|clip)\b/gi,
+          ''
+        );
+        // 2) prop: value / prop=value
+        var propRe = new RegExp(
+          '\\b' + cssProp + '\\s*[:=]\\s*[^,;|)`\'"\\n]+',
+          'gi'
+        );
+        s = s.replace(propRe, '');
+        // 3) 값이 없는 단독 속성 — 짧고 일반적 단어(width/height/flex/color…)는 제외
+        s = s.replace(
+          /\b(?:maxHeight|minHeight|maxWidth|minWidth|overflowX|overflowY|borderRadius|fontSize|fontWeight|lineHeight|letterSpacing|zIndex|backgroundColor|boxShadow|textShadow|flexGrow|flexShrink|flexDirection|justifyContent|alignItems|alignSelf|whiteSpace|objectFit|aspectRatio|pointerEvents|userSelect|max-height|min-height|max-width|min-width|overflow-x|overflow-y|border-radius|font-size|font-weight|line-height|letter-spacing|z-index|background-color|box-shadow|text-shadow)\b/gi,
+          ''
+        );
+        // 쉼표로만 이어진 잔여: ",  , "
+        s = s.replace(/(?:,\s*){2,}/g, ', ');
+        s = s.replace(/^\s*,\s*|\s*,\s*$/g, '');
+        return s;
+      }
+
+      /**
+       * 괄호 안이 디자인/CSS 스펙이면 괄호 포함 제거
+       * 예: (maxHeight: 78vh, overflowY: auto), (`overflowX: auto`), (#EFF6FF)
+       * 유지: (묶음 단위), (필수)
+       * 버전 괄호 (v2.61) 는 stripVersionMarkers에서 제거
+       */
+      function stripDesignParentheses(src, cssProp) {
+        if (!src) return src;
+        var s = src;
+        // 중첩 거의 없음 — 한 레벨 괄호를 여러 번 스캔
+        for (var pass = 0; pass < 4; pass++) {
+          var next = s.replace(/([(\[（【])([^)\]）】]*)([)\]）】])/g, function (full, open, inner) {
+            return isDesignParenInner(inner, cssProp) ? '' : full;
+          });
+          if (next === s) break;
+          s = next;
+        }
+        return s;
+      }
+
+      /** 괄호 내부 문자열이 디자인 스펙 위주인지 */
+      function isDesignParenInner(inner, cssProp) {
+        var raw = (inner || '').trim();
+        if (!raw) return true;
+
+        // 버전·짧은 한글 기획 메모는 유지
+        if (/^v?\d+(?:\.\d+)+$/i.test(raw)) return false;
+        if (/^[가-힣A-Za-z0-9\s/·+\-]{1,24}$/.test(raw) &&
+            !new RegExp('\\b' + cssProp + '\\b', 'i').test(raw) &&
+            !/\b\d+(?:\.\d+)?(?:px|rem|em|vw|vh|pt|dp|sp)\b/i.test(raw) &&
+            !/#[0-9A-Fa-f]{3,8}/.test(raw)) {
+          // 순수 한글/짧은 메모 (필수, 선택, 묶음 단위…)
+          if (/[가-힣]/.test(raw)) return false;
+        }
+
+        var bare = raw.replace(/`/g, '').trim();
+
+        // CSS 속성 선언이 하나라도 있으면 디자인 괄호
+        if (new RegExp('\\b' + cssProp + '\\s*[:=]', 'i').test(bare)) return true;
+        // overflow hidden 등
+        if (/\boverflow(?:-[xy]|[XY])?\s*[:=]?\s*(?:auto|hidden|scroll|visible|clip)\b/i.test(bare)) {
+          return true;
+        }
+        // hex / rgba 색상 위주
+        if (/(?:rgba?|hsla?)\s*\(/i.test(bare) || /#[0-9A-Fa-f]{3,8}/.test(bare)) {
+          var afterColor = bare
+            .replace(/(?:rgba?|hsla?)\s*\([^)]*\)/gi, '')
+            .replace(/#[0-9A-Fa-f]{3,8}/g, '')
+            .replace(/[\s,;:·+|/`'"\-—–=「」]/g, '');
+          var hangulLeft = (afterColor.match(/[가-힣]/g) || []).length;
+          // 색상 + 짧은 라벨만 있으면 디자인 (「ℹ️ 성취기준의 활용」 등 한글 라벨 길면 유지)
+          if (hangulLeft < 4) return true;
+        }
+
+        // 단위·디자인 prop 밀도
+        var units = bare.match(/\b\d+(?:\.\d+)?(?:px|rem|em|vw|vh|pt|dp|sp)\b/gi) || [];
+        var props = bare.match(new RegExp('\\b' + cssProp + '\\b', 'gi')) || [];
+        if (units.length + props.length >= 1) {
+          var cleaned = stripCssPropsAndValues(bare, cssProp);
+          cleaned = cleaned
+            .replace(/\b\d+(?:\.\d+)?(?:px|rem|em|vw|vh|pt|dp|sp)\b/gi, '')
+            .replace(/(?:rgba?|hsla?)\s*\([^)]*\)/gi, '')
+            .replace(/#[0-9A-Fa-f]{3,8}/g, '')
+            .replace(/\b(?:auto|hidden|scroll|solid|dashed|flex|grid|radius|라운드)\b/gi, '')
+            .replace(/[\s,;:·+|/`'"\-—–=()（）【】]/g, '');
+          var hangul = (cleaned.match(/[가-힣]/g) || []).length;
+          // 스펙 제거 후 기획 문장이 거의 없으면 괄호 전체 삭제
+          if (hangul < 2 && cleaned.length < 8) return true;
+        }
+
+        // 스펙 제거 후 사실상 빈 괄호
+        var emptied = stripCssPropsAndValues(bare, cssProp)
+          .replace(/\b\d+(?:\.\d+)?(?:px|rem|em|vw|vh|pt|dp|sp)\b/gi, '')
+          .replace(/#[0-9A-Fa-f]{3,8}/g, '')
+          .replace(/[\s,;:·+|/`'"\-—–=]/g, '');
+        if (!emptied && (units.length || props.length || /#/.test(bare) || /:/.test(bare))) {
+          return true;
+        }
+
+        return false;
+      }
+
+      /** 마크다운 테이블 행/구분선 여부 */
+      function isMdTableLine(line) {
+        var t = (line || '').trim();
+        return t.startsWith('|') && t.indexOf('|', 1) > 0;
+      }
+
+      /** 디자인 스펙만 남은 줄이면 true (한글 문장은 유지) */
+      function isDesignOnlyContent(text) {
+        if (!text) return true;
+        var t = text
+          .replace(/^[\s\u3000]*(?:[•◦\-\*]|\d+\.)\s*/, '')
+          .replace(/\*\*/g, '')
+          .trim();
+        if (!t) return true;
+
+        // 한글/영문 유지 — \W 사용 금지(한글 삭제됨)
+        var meaningful = t.replace(/[\s\d\[\]()（）【】`'\"=,:;.\-—–·+|\\/<>~!@#$%^&*]/g, '');
+        if (meaningful.length < 2) return true;
+
+        if (/^(?:색상|컬러|타이포|타이포그래피|폰트|스타일|디자인\s*토큰|스페이싱|그림자|elevation|spacing|typography|palette|token)s?$/i.test(t)) {
+          return true;
+        }
+
+        var almostDesign = t
+          .replace(/(?:흰색|회색|검정|검은색|하얀|빨간|파란|초록|노란|배경|보더|테두리|라운드|그림자|그라데이션|투명|불투명|볼드|레귤러|미디엄|라이트)/g, '')
+          .replace(/[\s+·|,./\\-—–:：]/g, '');
+        if (almostDesign.length < 2 && /(?:배경|보더|라운드|그림자|색|컬러)/.test(t)) return true;
+
+        return false;
+      }
+
+      /** 리스트 접두어 보존하면서 디자인 스펙·폐기 이력 제거. null이면 해당 줄 스킵 */
+      function filterDesignFromLine(line) {
+        // 마크다운 표: | 구조를 유지하고 셀 내용만 스펙 제거
+        if (isMdTableLine(line)) {
+          var cells = line.split('|');
+          for (var ci = 0; ci < cells.length; ci++) {
+            var cell = cells[ci];
+            var trim = cell.trim();
+            // 구분선 셀은 그대로
+            if (!trim || /^:?-+:?$/.test(trim) || /^:?[\-:]+$/.test(trim)) {
+              continue;
+            }
+            if (isDeprecatedContent(trim)) {
+              cells[ci] = cell.replace(trim, '');
+              continue;
+            }
+            var cleanedCell = stripDeprecatedNotes(trim);
+            cleanedCell = stripVersionMarkers(cleanedCell);
+            cleanedCell = stripDevCodeRefs(cleanedCell);
+            cleanedCell = stripDesignSpecs(cleanedCell);
+            cleanedCell = cleanedCell.replace(/\s{2,}/g, ' ').trim();
+            cells[ci] = cell.replace(trim, cleanedCell || '');
+          }
+          var rebuilt = cells.join('|');
+          // 여전히 표 형태면 통과
+          if (isMdTableLine(rebuilt)) return rebuilt.trim();
+          return line.trim();
+        }
+
+        var m = line.match(/^([\s\u3000]*(?:[•◦]|\d+\.)\s+)([\s\S]*)$/);
+        var prefix = '';
+        var content = line;
+        if (m) {
+          prefix = m[1];
+          content = m[2];
+        }
+
+        // 폐기 이력 줄 전체 스킵 (운영 "데이터 폐기"는 유지)
+        if (isDeprecatedContent(content)) return null;
+
+        content = stripDeprecatedNotes(content);
+        content = stripVersionMarkers(content);
+        content = stripDevCodeRefs(content);
+        content = stripDesignSpecs(content);
+        content = content
+          .replace(/\s*\+\s*$/g, '')
+          .replace(/^\s*\+\s*/g, '')
+          .replace(/:\s*$/g, '')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+
+        if (!content || isDesignOnlyContent(content) || isDeprecatedContent(content)) return null;
+        return prefix + content;
+      }
+
+      /**
+       * 운영 동작에서의 「폐기」(데이터 삭제·편집 취소 등) — 유지해야 함
+       */
+      function isOperationalDiscard(text) {
+        var t = text || '';
+        return /(?:편집|입력|작성|변경)?\s*(?:내용|데이터|작성\s*내용|입력\s*내용)\S{0,8}폐기/.test(t) ||
+          /폐기\s*(?:되|된|된다|됩니다|시키고|되고|된다|한\s*뒤|후)/.test(t) &&
+            /(?:편집|입력|내용|데이터|모달|확인|사용자)/.test(t) ||
+          /폐기\s*후\s*(?:\/|이동|나가)/.test(t) ||
+          /입력\s*내용\s*폐기/.test(t);
+      }
+
+      /**
+       * 줄 전체가 폐기 이력(舊 스펙 기록)인지
+       * — 예: **v2.13 폐기**: 舊 [✕ 취소] 버튼...
+       * — 예: `v2.73 폐기`: 이전 페이지 버튼...
+       */
+      function isDeprecatedContent(text) {
+        if (!text) return false;
+        if (isOperationalDiscard(text)) return false;
+
+        var t = String(text)
+          .replace(/\*\*/g, '')
+          .replace(/`/g, '')
+          .replace(/^[\s\u3000]*(?:[•◦\-\*]|\d+\.)\s*/, '')
+          .trim();
+        if (!t) return false;
+
+        // 제목/불릿 시작이 폐기 선언
+        if (/^(?:v[\d.]+\s*)?폐기(?:\s*[:：]|\s*항목|\s*내용|\s*메시지|\s*된|\s*\(|$)/.test(t)) return true;
+        if (/^v[\d.]+\s*폐기\b/.test(t)) return true;
+        if (/^폐기된?\s*(?:항목|단계|내용|라벨|버튼|정책|enum|UI|모달|스펙)/i.test(t)) return true;
+
+        // 줄 본문이 "vX.Y 폐기:" 형태
+        if (/\bv[\d.]+\s*폐기\s*[:：]/.test(t)) return true;
+
+        // 舊 ... 폐기/제거 중심 줄
+        if (/^舊/.test(t) && /(?:폐기|제거됨|모두 제거)/.test(t)) return true;
+
+        // 줄 전체가 폐기 이력 서술 (현재 스펙 문장 거의 없음)
+        // 예: "… 버튼은 폐기 (v2.66)" 단독, "… UI 폐기"
+        if (/폐기/.test(t)) {
+          // 대체/현재 정책 설명이 함께 있으면 부분 스트립만 (줄 스킵 X)
+          var hasCurrentPolicy =
+            /(?:채택|대체|일원화|통일|유지|노출|활성|가능|필수|조건|클릭|표시|입력|저장|배포|검증|진입|사용)/.test(t) ||
+            /→/.test(t) ||
+            /로\s+(?:변경|전환|대체)/.test(t);
+          if (!hasCurrentPolicy && /(?:舊|버튼|항목|단계|라벨|UI|정책|모달|스펙|표기|네비게이션|드롭다운|셀렉트)/.test(t)) {
+            return true;
+          }
+          // 끝맺음이 폐기/제거됨 이고 舊·버전 폐기 표기가 뚜렷
+          if (/(?:폐기|제거됨)\s*[.。]?$/.test(t) && /(?:舊|v[\d.]+|폐기\s*[:：])/.test(t) && !hasCurrentPolicy) {
+            return true;
+          }
+        }
+
+        return false;
+      }
+
+      /**
+       * 현재 스펙 문장 안의 폐기 이력 조각만 제거
+       * — (v2.66 폐기), 舊 … 폐기, `v2.82`에서 … 폐기 —
+       */
+      function stripDeprecatedNotes(text) {
+        if (!text || !/폐기|舊/.test(text)) return text;
+        if (isOperationalDiscard(text)) return text;
+
+        var s = text;
+
+        // 1) 괄호: (v2.66 폐기) / (舊 모달 폐기) / (`v2.83`에서 … 폐기)
+        s = s.replace(/([(\[（【])([^)\]）】]*)([)\]）】])/g, function (full, open, inner) {
+          if (isOperationalDiscard(inner)) return full;
+          if (/폐기/.test(inner) || (/舊/.test(inner) && /(?:제거|삭제)/.test(inner))) {
+            return '';
+          }
+          return full;
+        });
+
+        // 2) `v2.73 폐기` / v2.73 폐기 단독 토큰
+        s = s.replace(/`?v[\d.]+\s*폐기`?/gi, '');
+
+        // 3) `v2.83`에서 … 폐기 — (후속 현재 동작이 올 때 앞부분 제거)
+        s = s.replace(
+          /`?v[\d.]+`?\s*에서\s+[^。.\n—–,]{0,50}?\s*폐기(?:됨)?\s*[—–\-]\s*/g,
+          ''
+        );
+        s = s.replace(
+          /`?v[\d.]+`?\s*에서\s+[^。.\n—–,]{0,50}?\s*폐기(?:됨)?/g,
+          function (m) {
+            return isOperationalDiscard(m) ? m : '';
+          }
+        );
+
+        // 4) — 舊 … 폐기 / · 舊 … 폐기
+        s = s.replace(/(?:^|[\s,，·—–\-])舊[^。.\n]{0,100}?폐기(?:됨|된)?/g, function (m) {
+          var lead = m.charAt(0);
+          return /[\s,，·—–\-]/.test(lead) ? lead : '';
+        });
+
+        // 5) "…버튼은 폐기" / "…정책 폐기" 꼬리·중간 절 (· 중점은 문장 내부로 취급)
+        s = s.replace(
+          /(?:^|[,，.。]\s*)[^,，。.\n]{0,80}?(?:버튼|모달|UI|layout|레이아웃|정책|항목|라벨|스펙|표기|네비게이션|드롭다운|셀렉트|영역|단계)(?:은|는|이|가)?\s*폐기(?:됨)?(?:\s*\([^)]*\))?\.?/g,
+          function (m) {
+            if (isOperationalDiscard(m)) return m;
+            return '';
+          }
+        );
+
+        // 6) 쉼표 앞 "… 폐기," 낡은 절 (예: 좌·우 분할 layout 폐기, 안내 위 …)
+        s = s.replace(
+          /(?:^|[,，]\s*)[^,，。.\n]{2,80}?폐기(?:됨)?\s*(?=[,，])/g,
+          function (m) {
+            if (isOperationalDiscard(m)) return m;
+            return '';
+          }
+        );
+
+        // 7) 문장 끝 꼬리 "… 폐기."
+        s = s.replace(
+          /(?:\s*[—–\-]\s*|\s+)(?:舊\s*)?[^。.\n]{0,50}?(?:정책|버튼|모달|UI|항목|라벨|스펙)?\s*폐기(?:됨)?\s*$/g,
+          function (m) {
+            return isOperationalDiscard(m) ? m : '';
+          }
+        );
+
+        // 잔여 빈 괄호·구분자
+        s = s.replace(/[(\[（【]\s*[)\]）】]/g, '');
+        s = s.replace(/\s{2,}/g, ' ');
+        s = s.replace(/\s+([,，.。;；:：])/g, '$1');
+        s = s.replace(/([,，;；:：]){2,}/g, '$1');
+        s = s.replace(/^\s*[,，·—–\-]\s*/, '');
+        s = s.replace(/\s*[,，·—–\-]\s*$/, '');
+        return s.trim();
+      }
+
+      /**
+       * 버전 표기 제거 — Figma 설명에는 스펙 내용만
+       * (v2.13), [UPDATE v2.80], [NEW v2.81], `v2.12`
+       * 기획 메모 괄호 (묶음 단위)(필수) 는 유지
+       */
+      function stripVersionMarkers(text) {
+        if (!text || !/v\d/i.test(text)) return text;
+        var s = text;
+        var ver = 'v\\d+(?:\\.\\d+)+';
+
+        // [UPDATE v2.80] [NEW v2.81] [v4.5]
+        s = s.replace(
+          new RegExp('\\[\\s*(?:NEW|UPDATE|UPDATED?|FIX|HOTFIX)?\\s*' + ver + '[^\\]]*\\]', 'gi'),
+          ''
+        );
+
+        // (`v2.80` UPDATE) / (v2.80) 형태
+        s = s.replace(
+          new RegExp(
+            '[(\\[]\\s*`?' + ver + '`?\\s*(?:UPDATE|NEW|UPDATED?|FIX)?\\s*[)\\]]',
+            'gi'
+          ),
+          ''
+        );
+
+        // 백틱 단독 버전 `v2.80`
+        s = s.replace(new RegExp('`' + ver + '`', 'gi'), '');
+
+        // 괄호 안 버전 / 버전 메타
+        s = s.replace(/([(\[（【])([^)\]）】]*)([)\]）】])/g, function (full, open, inner, close) {
+          var bare = inner.replace(/`/g, '').trim();
+          if (/^\s*(?:UPDATE|NEW|UPDATED?)\s*$/i.test(bare)) return '';
+          if (!new RegExp(ver, 'i').test(bare)) return full;
+
+          // 순수 버전 나열: v2.13 / v2.12, v2.14
+          if (new RegExp('^(?:' + ver + ')(?:\\s*[,，/·|\\s]\\s*' + ver + ')*$', 'i').test(bare)) {
+            return '';
+          }
+
+          // 버전 + 메타만 → 괄호 전체 삭제 (한글 메타는 \\b 미사용)
+          var metaOnly = bare
+            .replace(new RegExp(ver, 'gi'), '')
+            .replace(/(?:NEW|UPDATE|UPDATED?|FIX|HOTFIX)/gi, '')
+            .replace(/(?:도입|변경|추가|수정|개선|통일|기준|부터|까지|이후|이전|토스트|업데이트)/g, '')
+            .replace(/[\s,，.·|/—–\-:`'"]/g, '');
+          if (!metaOnly) return '';
+
+          // 내용 있는 괄호: 버전만 걷고 기획 문구 유지
+          var cleaned = bare
+            .replace(new RegExp(
+              '(?:^|[\\s,，·|/—–\\-])' + ver + '(?:\\s*(?:도입|변경|추가|수정|개선|통일|기준|업데이트))?',
+              'gi'
+            ), ' ')
+            .replace(new RegExp('^' + ver + '(?:\\s*(?:도입|변경|추가|수정|개선|통일|기준|업데이트))?', 'gi'), '')
+            .replace(/^\s*[—–\-·,，|/]\s*/, '')
+            .replace(/\s*[—–\-·,，|/]\s*$/, '')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+
+          if (!cleaned) return '';
+          if (new RegExp('^' + ver + '$', 'i').test(cleaned)) return '';
+          if (/^(?:UPDATE|NEW|UPDATED?)$/i.test(cleaned)) return '';
+          return open + cleaned + close;
+        });
+
+        // 볼드 안 단독 버전
+        s = s.replace(new RegExp('\\*\\*\\s*' + ver + '\\s*\\*\\*', 'gi'), '');
+
+        // 정리
+        s = s.replace(/[(\[（【]\s*[)\]）】]/g, '');
+        s = s.replace(/\[\s*\]/g, '');
+        s = s.replace(/\s{2,}/g, ' ');
+        s = s.replace(/\s+([,，.。;；:：])/g, '$1');
+        s = s.replace(/([,，;；:：]){2,}/g, '$1');
+        s = s.replace(/^\s*[,，·—–\-]\s*/, '');
+        s = s.replace(/\s*[,，·—–\-]\s*$/, '');
+        s = s.replace(/\s+:/g, ':');
+        return s.trim();
+      }
+
+      /**
+       * 개발 코드/핸들러 참조 제거
+       * (`handleExitNoSave`), `uploadedFile.pages[]`, `canNext() === true`
+       * 유지: 화면·상태 ID (`TSK-12`, `TSK-12:신규작성`), 짧은 UI 배지 (`p1`)
+       */
+      function stripDevCodeRefs(text) {
+        if (!text) return text;
+        var s = text;
+
+        // 백틱 코드 스니펫
+        s = s.replace(/`([^`]+)`/g, function (full, inner) {
+          return isDevCodeSnippet(inner) ? '' : full;
+        });
+
+        // 괄호가 코드 참조만 담은 경우 (백틱 제거 후 포함)
+        s = s.replace(/([(\[（【])([^)\]）】]*)([)\]）】])/g, function (full, open, inner) {
+          var bare = String(inner || '').replace(/`/g, '').trim();
+          if (!bare) return '';
+          if (isDevCodeSnippet(bare)) return '';
+          // 여러 코드 토큰만 나열
+          if (!/[가-힣]/.test(bare) && isMostlyDevTokens(bare)) return '';
+          return full;
+        });
+
+        // 본문에 남은 순수 코드 토큰 (드묾): handleFoo / foo.bar.baz
+        // 한글 문장 안에서 안전하게 — 공백 경계의 식별자·호출만
+        s = s.replace(
+          /(?:^|[\s,，·—–\-→])([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*|\[[^\]]*\])+(?:\([^)]*\))?)/g,
+          function (m, code) {
+            if (isScreenOrStateId(code)) return m;
+            var lead = m.slice(0, m.length - code.length);
+            return isDevCodeSnippet(code) ? lead : m;
+          }
+        );
+        s = s.replace(
+          /(?:^|[\s,，·—–\-→])([A-Za-z_$][\w$]*\([^)]*\))(?=[\s,，.。;；:：)\]）】]|$)/g,
+          function (m, code) {
+            var lead = m.slice(0, m.length - code.length);
+            return isDevCodeSnippet(code) ? lead : m;
+          }
+        );
+
+        // canNext: / sortAndRenumber: 처럼 코드 식별자 라벨만 남은 경우
+        s = s.replace(
+          /(^|[\s,，·—–\-])([a-z][a-zA-Z0-9]*[A-Z][A-Za-z0-9]*)\s*:\s*/g,
+          function (m, lead, id) {
+            return isDevCodeSnippet(id) ? lead : m;
+          }
+        );
+
+        // 잔여 빈 괄호·백틱·구분자
+        s = s.replace(/`\s*`/g, '');
+        s = s.replace(/[(\[（【]\s*[)\]）】]/g, '');
+        // ( 정렬) → (정렬) 공백 정리
+        s = s.replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+        s = s.replace(/\s{2,}/g, ' ');
+        s = s.replace(/\s+([,，.。;；:：])/g, '$1');
+        s = s.replace(/([,，;；:：]){2,}/g, '$1');
+        s = s.replace(/^\s*[,，·—–\-]\s*/, '');
+        s = s.replace(/\s*[,，·—–\-]\s*$/, '');
+        return s.trim();
+      }
+
+      /** 화면/상태 ID — 개발 코드로 취급하지 않음 */
+      function isScreenOrStateId(t) {
+        return /^[A-Z]{2,6}-\d+(?::[^\s`]+)?$/.test(String(t || '').trim());
+      }
+
+      /** 백틱/괄호 안이 개발 코드 스니펫인지 */
+      function isDevCodeSnippet(raw) {
+        var t = String(raw || '').trim();
+        if (!t) return false;
+        // 한글 포함이면 제품 문장·라벨일 가능성 — 유지
+        if (/[가-힣]/.test(t)) return false;
+        if (isScreenOrStateId(t)) return false;
+        // 짧은 UI 배지 (p1, p2)
+        if (/^[a-z]\d{1,2}$/.test(t)) return false;
+        // 순수 숫자·단위 아님 (이미 design/version에서 처리)
+        if (/^§?\d+(?:\.\d+)*$/.test(t)) return false;
+
+        // camelCase / multi-part PascalCase 식별자: handleExitNoSave, sortAndRenumber
+        if (/^[A-Za-z_$][\w$]*$/.test(t)) {
+          if (/[a-z][A-Z]/.test(t)) return true;
+          if (/^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+$/.test(t)) return true;
+          // 이벤트 핸들러 onXxx
+          if (/^on[A-Z][A-Za-z0-9]*$/.test(t)) return true;
+          // ref 등 흔한 단일어 중 개발 예약
+          if (/^(?:ref|props|state|dispatch|useState|useEffect|useRef|useMemo|useCallback)$/.test(t)) {
+            return true;
+          }
+          return false;
+        }
+
+        // 함수 호출 / 비교식: canNext() === true, s.n < step
+        if (/^[A-Za-z_$][\w$.\[\]'"]*\s*\(/.test(t)) return true;
+        if (/[=!<>]=?|===|!==/.test(t) && /^[\w\s$()\[\]"'.<>=!&|?:+\-*/%\\]+$/.test(t)) {
+          if (/[a-z][A-Z]|\.\w+|\(\)|\[\w/.test(t)) return true;
+        }
+
+        // 프로퍼티 경로: uploadedFile.pages[], drawRefs.current[pageNum]
+        if (/^[A-Za-z_$][\w$]*(?:\.[\w$]+|\[[^\]]*\])+/.test(t)) return true;
+
+        // 할당/타입: area.group = null | { id }, customName: true, expandedAreaIds: Set
+        if (/[=:{|]/.test(t) && /^[\w\s$()\[\]{}"'.,=:<>!&|?:+\-*/%\\|]+$/.test(t) && t.length < 140) {
+          if (/[a-z][A-Z]|\.\w+|:\s*(?:true|false|null|undefined|Set|Map|number|string|boolean)/.test(t)) {
+            return true;
+          }
+          if (/\|\s*\{/.test(t) || /\{\s*[\w$]+/.test(t)) return true;
+        }
+
+        // 객체 리터럴 { pageNum, dataUrl, width, height }
+        if (/^\{\s*[^}]+\}$/.test(t) && !/[가-힣]/.test(t) && t.length < 100) {
+          if (/[a-z][A-Z]|pageNum|dataUrl|partIndex|totalParts/.test(t) || /,\s*\w+/.test(t)) {
+            return true;
+          }
+        }
+
+        // JSX/HTML 태그성
+        if (/^<\/?[A-Za-z][\w-]*[^>]*>$/.test(t)) return true;
+
+        // page → y → x 같은 정렬 키 표현 (화살표 + 영문 필드)
+        if (/^[a-zA-Z0-9_$]+(?:\s*→\s*[a-zA-Z0-9_$]+)+$/.test(t)) return true;
+
+        return false;
+      }
+
+      /** 공백·구분자로 나뉜 토큰이 전부 개발 코드인지 */
+      function isMostlyDevTokens(bare) {
+        var parts = String(bare).split(/[\s,，·|/]+/).filter(Boolean);
+        if (parts.length === 0) return false;
+        var dev = 0;
+        for (var i = 0; i < parts.length; i++) {
+          if (isDevCodeSnippet(parts[i]) || isDevCodeSnippet(parts[i].replace(/^[\[({]|[\])}]$/g, ''))) {
+            dev++;
+          }
+        }
+        return dev >= Math.ceil(parts.length * 0.7);
+      }
+
+      var inHtmlComment = false;
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // 멀티라인 HTML 주석 스킵
+        if (inHtmlComment) {
+          if (line.indexOf('-->') !== -1) { inHtmlComment = false; }
+          continue;
+        }
+        if (line.trim().startsWith('<!--')) {
+          if (line.indexOf('-->') === -1) { inHtmlComment = true; }
+          continue;
+        }
+
+        // ## 레벨 헤더 감지
+        const h2Match = line.match(/^##\s+\d+\.\s+(.+)$/);
+        if (h2Match) {
+          saveSection();
+          const h2Title = h2Match[1].trim();
+          // 왼쪽(공통): 주요 사용자 흐름, 화면 구성, 화면 요소 및 기능
+          inScreenSection = h2Title.includes('주요 사용자 흐름') ||
+            h2Title.includes('화면 구성') ||
+            h2Title.includes('화면 요소 및 기능');
+          // 오른쪽(상태): 상태별 변화, 상태별 대응
+          inStateSection = h2Title.includes('상태별 변화') || h2Title.includes('상태별 대응');
+          inTargetState = false;
+
+          // ## 레벨에서 ### 없이 바로 본문이 시작되는 경우 (예: 주요 사용자 흐름)
+          if (stateId && inScreenSection && isFirstState) {
+            currentSection = { tag: String(screenSections.length + 1), title: stripVersionMarkers(h2Title), body: '' };
+            currentTarget = 'screen';
+          }
+          continue;
+        }
+
+        // ### 레벨 헤더 감지
+        const h3Match = line.match(/^###\s+(?:\d+\.\d+\s+)?(.+)$/);
+        if (h3Match) {
+          saveSection();
+          const title = h3Match[1].trim();
+
+          if (stateId) {
+            // 왼쪽(공통): 주요 사용자 흐름 + 화면 구성 — 첫 번째 상태 프레임에만
+            if (inScreenSection && isFirstState) {
+              currentSection = { tag: String(screenSections.length + 1), title: stripVersionMarkers(title), body: '' };
+              currentTarget = 'screen';
+            }
+            // 오른쪽(상태): 상태별 변화 — 해당 상태만
+            else if (inStateSection) {
+              const statePattern = new RegExp(`${screenId}:\\s*${stateId}`, 'i');
+              if (statePattern.test(title)) {
+                inTargetState = true;
+                currentSection = { tag: String(stateSections.length + 1), title: stripVersionMarkers(title), body: '' };
+                currentTarget = 'state';
+              } else {
+                inTargetState = false;
+              }
+            }
+          } else {
+            // 상태 ID가 없는 경우: 기존 로직 (제외 키워드 기반)
+            const excludeKeywords = ['문서 이력', '화면 개요', '관련 화면'];
+            if (!excludeKeywords.some(kw => title.includes(kw))) {
+              currentSection = { tag: String(stateSections.length + 1), title: stripVersionMarkers(title), body: '' };
+              currentTarget = 'state';
+            }
+          }
+          continue;
+        }
+
+        // #### 이하 레벨 헤더 (####, #####, ######)
+        const subHeadMatch = line.match(/^(#{4,6})\s+(.+)$/);
+        if (subHeadMatch) {
+          var subLevel = subHeadMatch[1].length; // 4, 5, 6
+          var subTitle = subHeadMatch[2].trim();
+          if (inStateSection && inTargetState && stateId) {
+            if (currentSection && !currentSection.body.trim()) {
+              currentSection.body = '**▶ ' + stripVersionMarkers(subTitle) + '**';
+            } else {
+              saveSection();
+              currentSection = { tag: String(stateSections.length + 1), title: stripVersionMarkers(subTitle), body: '' };
+              currentTarget = 'state';
+            }
+          } else if (currentSection) {
+            if (currentSection.body) currentSection.body += '\n\n';
+            var cleanedSub = stripVersionMarkers(subTitle);
+            // #### = 탭/그룹 경계 (##### 이하는 그룹 안 항목)
+            if (subLevel === 4) {
+              currentSection.body += '<!--prd-group:' + shortGroupTitle(cleanedSub) + '-->\n';
+            }
+            currentSection.body += '**▶ ' + cleanedSub + '**';
+          }
+          continue;
+        }
+
+        // 본문 내용 추가
+        if (currentSection && line.trim() && !line.startsWith('#')) {
+          var cleanLine = line.trim();
+          // HTML 주석 제거 (<!-- ... --> 한 줄 또는 여러 줄)
+          cleanLine = cleanLine.replace(/<!--[\s\S]*?-->/g, '').trim();
+          if (!cleanLine) continue;
+          // 비순서 리스트: 들여쓰기 레벨 계산
+          var rawLine = line;
+          var indent = rawLine.search(/\S/);
+          if (cleanLine.startsWith('- ')) {
+            var level = Math.floor(indent / 2);
+            var prefix = '';
+            for (var lv = 0; lv < level; lv++) prefix += '    ';
+            // 1단계: • / 중첩: ◦ (빈 도트)
+            var bullet = level > 0 ? '◦' : '•';
+            cleanLine = prefix + bullet + ' ' + cleanLine.substring(2);
+          }
+          // 순서 리스트: 1. 2. 등
+          else if (cleanLine.match(/^\d+\.\s/)) {
+            var level = Math.floor(indent / 2);
+            var prefix = '';
+            for (var lv = 0; lv < level; lv++) prefix += '    ';
+            cleanLine = prefix + cleanLine;
+          }
+
+          // 디자인 스펙(색상/치수/CSS) 필터
+          cleanLine = filterDesignFromLine(cleanLine);
+          if (!cleanLine) continue;
+
+          if (currentSection.body) {
+            currentSection.body += '\n';
+          }
+          currentSection.body += cleanLine;
+        }
+      }
+
+      // 마지막 섹션 저장
+      saveSection();
+
+      // 마크다운 테이블 구분선 여부 판별 (| --- | :--- | 등)
+      function isTableSeparator(line) {
+        var trimmed = line.trim();
+        if (!trimmed.startsWith('|')) return false;
+        var inner = trimmed.replace(/^\|/, '').replace(/\|$/, '');
+        var cells = inner.split('|');
+        for (var j = 0; j < cells.length; j++) {
+          if (!cells[j].trim().match(/^[:\-][\-:]+$/)) return false;
+        }
+        return true;
+      }
+
+      // 테이블 행 여부 판별
+      function isTableRow(line) {
+        var trimmed = line.trim();
+        return trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.indexOf('|', 1) > 0;
+      }
+
+      // body 문자열 → segments 배열 (텍스트, 테이블, 인용문, 코드블록, 구분선 분리)
+      function bodyToSegments(body) {
+        if (!body) return [];
+        var lines = body.split('\n');
+        var segments = [];
+        var textBuf = [];
+        var tableBuf = [];
+        var codeBuf = [];
+        var inCodeBlock = false;
+
+        function flushText() {
+          if (textBuf.length > 0) {
+            // 텍스트 끝 빈 줄 제거 — 헤더 아래 허공 여백 방지
+            while (textBuf.length > 0 && !String(textBuf[textBuf.length - 1]).trim()) {
+              textBuf.pop();
+            }
+            // 텍스트 앞 빈 줄은 유지하되(위 여백), 내용이 남으면 세그먼트화
+            if (textBuf.length > 0) {
+              segments.push({ type: 'text', content: textBuf.join('\n') });
+            }
+            textBuf = [];
+          }
+        }
+        function flushTable() {
+          if (tableBuf.length === 0) return;
+          var dataLines = [];
+          for (var j = 0; j < tableBuf.length; j++) {
+            if (!isTableSeparator(tableBuf[j])) {
+              dataLines.push(tableBuf[j]);
+            }
+          }
+          if (dataLines.length > 0) {
+            var headers = parseCells(dataLines[0]);
+            var rows = [];
+            for (var j = 1; j < dataLines.length; j++) {
+              rows.push(parseCells(dataLines[j]));
+            }
+            segments.push({ type: 'table', headers: headers, rows: rows });
+          }
+          tableBuf = [];
+        }
+        function flushCode() {
+          if (codeBuf.length > 0) {
+            segments.push({ type: 'codeblock', content: codeBuf.join('\n') });
+            codeBuf = [];
+          }
+        }
+
+        function parseCells(line) {
+          return line.split('|').map(function(c) { return c.trim(); }).filter(function(c) { return c !== ''; });
+        }
+
+        for (var k = 0; k < lines.length; k++) {
+          var ln = lines[k];
+          var trimmed = ln.trim();
+
+          // 코드블록 ``` 토글
+          if (trimmed.startsWith('```')) {
+            if (inCodeBlock) {
+              flushCode();
+              inCodeBlock = false;
+            } else {
+              flushText();
+              flushTable();
+              inCodeBlock = true;
+            }
+            continue;
+          }
+          if (inCodeBlock) {
+            codeBuf.push(ln);
+            continue;
+          }
+
+          // 탭 그룹 범례 / 헤더 바
+          var legendMatch = trimmed.match(/^<!--prd-legend:(.+)-->$/);
+          if (legendMatch) {
+            flushText();
+            flushTable();
+            segments.push({
+              type: 'legend',
+              items: legendMatch[1].split('|').map(function (s) { return s.trim(); }).filter(Boolean)
+            });
+            continue;
+          }
+          var groupBarMatch = trimmed.match(/^<!--prd-groupbar:(\d+):(.+)-->$/);
+          if (groupBarMatch) {
+            flushText();
+            flushTable();
+            segments.push({
+              type: 'groupheader',
+              colorIndex: parseInt(groupBarMatch[1], 10) || 0,
+              title: groupBarMatch[2].trim()
+            });
+            continue;
+          }
+          if (/^<!--prd-group:/.test(trimmed)) {
+            continue;
+          }
+
+          // 구분선 (---, ***, ___) — 섹션 분리는 Description box로 하므로 무시
+          if (trimmed.match(/^[-*_]{3,}$/) && !isTableSeparator(ln)) {
+            continue;
+          }
+
+          // 인용문 >
+          if (trimmed.startsWith('> ') || trimmed === '>') {
+            flushTable();
+            // 연속 인용문을 하나로 모음
+            var quoteBuf = [trimmed.replace(/^>\s?/, '')];
+            while (k + 1 < lines.length) {
+              var next = lines[k + 1].trim();
+              if (next.startsWith('> ') || next === '>') {
+                quoteBuf.push(next.replace(/^>\s?/, ''));
+                k++;
+              } else {
+                break;
+              }
+            }
+            flushText();
+            segments.push({ type: 'blockquote', content: quoteBuf.join('\n') });
+            continue;
+          }
+
+          // 테이블 행
+          if (isTableRow(ln)) {
+            flushText();
+            tableBuf.push(ln);
+            continue;
+          }
+
+          // 일반 텍스트
+          flushTable();
+          textBuf.push(ln);
+        }
+
+        flushText();
+        flushTable();
+        flushCode();
+        return segments;
+      }
+
+      /**
+       * 기획 디스크립션 표기용 표준 형식
+       * — 번호 주제 블록 아래에 표·정책·불릿을 이어서 붙임
+       * — 「정책」「공통」 같은 짧은 라벨은 새 ▶ N. 이 아니라 하위 항목
+       */
+      function reformatToDescriptionSpec(body, sectionTitle) {
+        if (!body || !String(body).trim()) return body;
+        var src = String(body).replace(/\r\n/g, '\n');
+
+        // 이미 번호 섹션이 있으면 인용 폴리시만
+        if (/\*\*▶\s*\d+\.\s+/.test(src)) {
+          return polishDescriptionQuotes(src);
+        }
+
+        return reformatDescriptionContinuous(src, sectionTitle || '');
+      }
+
+      function polishDescriptionQuotes(text) {
+        var lines = text.split('\n');
+        var out = [];
+        for (var i = 0; i < lines.length; i++) {
+          var ln = lines[i];
+          // 이미 ▶ N. 헤더 / 표 / 그룹 마커는 그대로
+          if (/^<!--prd-group:/.test(ln.trim()) ||
+              /^\*\*▶\s*\d+\./.test(ln.trim()) ||
+              isTableRow(ln) || isTableSeparator(ln)) {
+            out.push(ln);
+            continue;
+          }
+          out.push.apply(out, formatDescriptionLine(ln));
+        }
+        return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+      }
+
+      /**
+       * 표 앞뒤를 끊지 않고 한 흐름으로 재구성.
+       * buckets[].items 에는 string[] (텍스트 줄) 또는 {type:'table', lines:[]}
+       */
+      function reformatDescriptionContinuous(text, sectionTitle) {
+        var lines = text.split('\n');
+        var buckets = [];
+        var current = null;
+        var stickyTitle = null;
+        var pendingSubLabel = null; // '정책' 등 — 다음 불릿을 하위로
+        var tableBuf = [];
+        var inTable = false;
+        var justClosedTable = false;
+
+        function ensureBucket(title) {
+          var t = normalizeBucketTitle(title);
+          if (isSubLabelOnly(t)) {
+            // 단독 「정책」 버킷 금지 — 직전 주제에 붙이거나 섹션 타이틀 사용
+            if (current) return current;
+            t = cleanBucketTitle(sectionTitle) || '구성';
+          }
+          if (current && current.title === t) return current;
+          if (current && isSameBucketFamily(current.title, t)) return current;
+          current = { title: t, items: [] };
+          buckets.push(current);
+          pendingSubLabel = null;
+          return current;
+        }
+
+        function pushTextLines(arr, asNestedUnderSubLabel) {
+          if (!arr || !arr.length) return;
+          if (!current) ensureBucket(stickyTitle || sectionTitle || '구성');
+          if (asNestedUnderSubLabel && pendingSubLabel) {
+            // 하위 라벨 헤더가 아직 안 붙었으면 한 번만
+            if (!current._subLabelEmitted) {
+              current.items.push(['• **' + pendingSubLabel + '**']);
+              current._subLabelEmitted = pendingSubLabel;
+            }
+            var nested = [];
+            for (var i = 0; i < arr.length; i++) {
+              nested.push(nestBulletOneLevel(arr[i]));
+            }
+            current.items.push(nested);
+            return;
+          }
+          // 서브라벨 구간 종료
+          if (pendingSubLabel && current && current._subLabelEmitted === pendingSubLabel) {
+            pendingSubLabel = null;
+            current._subLabelEmitted = null;
+          }
+          current.items.push(arr);
+        }
+
+        function pushTable(tblLines) {
+          if (!tblLines.length) return;
+          if (!current) ensureBucket(stickyTitle || sectionTitle || '구성');
+          // 표가 나오면 이전 서브라벨 구간 종료
+          pendingSubLabel = null;
+          if (current) current._subLabelEmitted = null;
+          current.items.push({ type: 'table', lines: tblLines.slice() });
+          justClosedTable = true;
+        }
+
+        function flushTable() {
+          if (!inTable) return;
+          pushTable(tableBuf);
+          tableBuf = [];
+          inTable = false;
+        }
+
+        function isListLine(ln) {
+          return /^[ \t]*([•◦]|\d+\.)\s+/.test(ln);
+        }
+
+        for (var i = 0; i < lines.length; i++) {
+          var raw = lines[i];
+          var trimmed = raw.trim();
+          var isTbl = isTableRow(raw) || isTableSeparator(raw);
+
+          if (isTbl) {
+            if (!inTable) {
+              inTable = true;
+              tableBuf = [];
+            }
+            tableBuf.push(raw);
+            continue;
+          }
+          flushTable();
+
+          if (!trimmed) continue;
+
+          if (/^\*\*전체\s*공통:?\*\*$/.test(trimmed) || /^전체\s*공통:?$/.test(trimmed)) {
+            continue;
+          }
+
+          var groupMark = trimmed.match(/^<!--prd-group:(.+)-->$/);
+          if (groupMark) {
+            buckets.push({ title: '__GROUP__', groupTitle: groupMark[1].trim(), items: [] });
+            current = null;
+            stickyTitle = null;
+            pendingSubLabel = null;
+            continue;
+          }
+
+          // 명시 헤더
+          var headMatch = trimmed.match(/^\*\*▶\s*(.+?)\*\*$/) ||
+            trimmed.match(/^\*\*([^*]+?)\*\*\s*:?\s*$/);
+          if (headMatch && !isInlinePolicyLabel(headMatch[1])) {
+            var rawTitle = cleanBucketTitle(headMatch[1]);
+            justClosedTable = false;
+            if (isSubLabelOnly(rawTitle)) {
+              if (!current) ensureBucket(stickyTitle || sectionTitle || '구성');
+              pendingSubLabel = rawTitle;
+              if (current) current._subLabelEmitted = null;
+            } else {
+              stickyTitle = normalizeBucketTitle(rawTitle);
+              ensureBucket(stickyTitle);
+              pendingSubLabel = null;
+            }
+            continue;
+          }
+
+          // 표 직후 불릿 → 「정책」 하위로 묶어 주제와의 관계 유지
+          if (justClosedTable && isListLine(raw) && !pendingSubLabel) {
+            pendingSubLabel = '정책';
+            if (current) current._subLabelEmitted = null;
+          }
+          if (!isListLine(raw)) {
+            justClosedTable = false;
+            // 리스트가 아닌 본문이 오면 서브라벨 구간 종료
+            if (pendingSubLabel && current && current._subLabelEmitted) {
+              pendingSubLabel = null;
+              current._subLabelEmitted = null;
+            }
+          } else {
+            justClosedTable = false;
+          }
+
+          // 본문 — sticky 주제 유지 (표 뒤 불릿도 같은 주제)
+          if (stickyTitle) {
+            ensureBucket(stickyTitle);
+          } else if (current) {
+            // 이미 주제 있으면 유지
+          } else {
+            var guessed = guessBucketTitle(trimmed, sectionTitle);
+            ensureBucket(guessed);
+            if (!stickyTitle && !isSubLabelOnly(guessed)) {
+              stickyTitle = current.title;
+            }
+          }
+
+          var formatted = formatDescriptionLine(raw);
+          if (formatted.length) {
+            pushTextLines(formatted, !!(pendingSubLabel && isListLine(raw)));
+          }
+        }
+        flushTable();
+
+        buckets = mergeAdjacentBuckets(buckets);
+
+        var out = [];
+        var sectionNum = 0;
+        for (var b = 0; b < buckets.length; b++) {
+          var bucket = buckets[b];
+          if (bucket.title === '__GROUP__') {
+            if (out.length) out.push('');
+            out.push('<!--prd-group:' + bucket.groupTitle + '-->');
+            continue;
+          }
+          if (!bucket.items.length) continue;
+          sectionNum++;
+          // 위 여백만: 이전 블록이 있을 때 헤더 앞에 빈 줄 1개
+          if (out.length) out.push('');
+          out.push('**▶ ' + sectionNum + '. ' + bucket.title + '**');
+          for (var j = 0; j < bucket.items.length; j++) {
+            var item = bucket.items[j];
+            if (item && item.type === 'table') {
+              // 헤더/본문 바로 아래 빈 줄 없음 — 표는 바로 이어붙임
+              out.push.apply(out, item.lines);
+            } else if (item && item.length) {
+              out.push.apply(out, item);
+            }
+          }
+          // 블록 끝 빈 줄 없음 (아래 여백 방지)
+        }
+        return out.join('\n').replace(/\n{3,}/g, '\n\n').replace(/\n+$/g, '').trim();
+      }
+
+      /** 「정책」「공통」처럼 주제명이 아닌 메타 라벨 — 상위 주제 하위로만 */
+      function isSubLabelOnly(title) {
+        var t = cleanBucketTitle(title);
+        return /^(?:정책|공통|참고|예시|비고|규칙|조건|안내|메모|요약|기타)$/.test(t);
+      }
+
+      function nestBulletOneLevel(line) {
+        var m = String(line).match(/^([ \t]*)([•◦]|\d+\.)\s+(.*)$/);
+        if (!m) return '    ◦ ' + String(line).trim();
+        var indent = m[1];
+        var content = m[3];
+        // • → ◦ 한 단계, 이미 ◦ 면 들여쓰기만
+        if (m[2] === '•') return indent + '    ◦ ' + content;
+        return indent + '    ' + m[2] + ' ' + content;
+      }
+
+      function isInlinePolicyLabel(title) {
+        var t = String(title || '').replace(/:$/, '').trim();
+        return /^(?:성공|실패(?:\s*\([^)]*\))?|대기\s*중|메시지|액션|조건|활성\s*조건|동작\s*조건|school\s*모드.*|system\s*모드.*)$/i.test(t);
+      }
+
+      function cleanBucketTitle(title) {
+        return String(title || '')
+          .replace(/^▶\s*/, '')
+          .replace(/^\d+\.\s*/, '')
+          .replace(/:$/, '')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+      }
+
+      function normalizeBucketTitle(title) {
+        var t = cleanBucketTitle(title);
+        if (isSubLabelOnly(t)) return t;
+        if (/필드\s*정책|필드\s*구성|모드별/.test(t)) return '모드별 필드 구성 및 정책';
+        if (/트리거|검증\s*정책|명단\s*추가/.test(t)) return '명단 추가 트리거 및 검증 정책';
+        if (/아코디언|컴포넌트|토글|접기|펼침/.test(t)) return '아코디언·컴포넌트 정책';
+        if (/테이블|시각화|명단\s*중복|경고/.test(t)) return '테이블·시각화 정책';
+        if (/업로드|영역\s*구성|Step|엑셀/.test(t)) return '영역 구성 및 업로드';
+        if (/액션|버튼/.test(t)) return '액션·버튼 정책';
+        if (/상태\s*개요|상태\s*설명|전환/.test(t)) return '상태 개요';
+        return t;
+      }
+
+      function isSameBucketFamily(a, b) {
+        return normalizeBucketTitle(a) === normalizeBucketTitle(b);
+      }
+
+      function mergeAdjacentBuckets(buckets) {
+        if (!buckets.length) return buckets;
+        var merged = [buckets[0]];
+        for (var i = 1; i < buckets.length; i++) {
+          var prev = merged[merged.length - 1];
+          var cur = buckets[i];
+          if (prev.title === '__GROUP__' || cur.title === '__GROUP__') {
+            merged.push(cur);
+            continue;
+          }
+          if (isSameBucketFamily(prev.title, cur.title)) {
+            prev.items = prev.items.concat(cur.items);
+          } else {
+            merged.push(cur);
+          }
+        }
+        return merged;
+      }
+
+      function guessBucketTitle(line, sectionTitle) {
+        var t = String(line || '').replace(/\*\*/g, '').replace(/^[•◦\d.\s]+/, '');
+        var st = String(sectionTitle || '');
+
+        if (/상태\s*설명|전환\s*트리거/.test(t)) return '상태 개요';
+
+        if (/헤더\s*클릭|펼침\/접힘|접힘\/펼침|토글|아코디언|기본\s*=\s*접힘/.test(t)) {
+          return '아코디언·컴포넌트 정책';
+        }
+        if (/펼침\s*시\s*안내|안내\s*문구|(?:^|•\s*)안내\s*[:：]/.test(t)) {
+          return '아코디언·컴포넌트 정책';
+        }
+
+        if (/트리거|onBlur|(?:^|[\s(（])Enter(?:\s*키)?|silent|explicit|검증\s*처리/i.test(t)) {
+          return '명단 추가 트리거 및 검증 정책';
+        }
+        if (/\[➕\s*명단\s*추가\]|명단\s*추가\s*트리거|명단\s*추가\s*버튼/.test(t)) {
+          return '명단 추가 트리거 및 검증 정책';
+        }
+        if (/^(?:성공|실패)/.test(t) || /추가\s*차단|무동작/.test(t)) {
+          return '명단 추가 트리거 및 검증 정책';
+        }
+        if (/동작\s*조건|활성\s*조건|우측\s*정렬|펼침\s*시에만\s*노출/.test(t)) {
+          return '명단 추가 트리거 및 검증 정책';
+        }
+
+        if (/\bschool\b|\bsystem\b|모드\s*—|모드별|최대\s*\d+자|정규식|자동\s*절삭|자유\s*입력|라벨\s*우측/i.test(t)) {
+          return '모드별 필드 구성 및 정책';
+        }
+        if (/^이름\s*:|^이메일\s*:|^학교명/.test(t)) {
+          return '모드별 필드 구성 및 정책';
+        }
+
+        if (/컬럼|테이블|행\s*시각화|경고\s*박스|카운트|빈\s*상태|신청\s*컬럼|삭제\s*버튼/.test(t)) {
+          return '테이블·시각화 정책';
+        }
+        if (/Step\s*0|다운로드|드롭존|업로드|양식/.test(t)) {
+          return '영역 구성 및 업로드';
+        }
+        if (/목록으로|Dirty/.test(t)) {
+          return '액션·버튼 정책';
+        }
+        if (/누적|단일\s*명단|세션|발송\s*시점/.test(t)) {
+          return '공통 비즈니스 정책';
+        }
+        if (/모달/.test(t)) return '모달';
+
+        if (/직접\s*입력|개별\s*등록/.test(st)) return '아코디언·컴포넌트 정책';
+        if (/엑셀|일괄/.test(st)) return '영역 구성 및 업로드';
+        if (/명단|중복\s*확인/.test(st)) return '테이블·시각화 정책';
+        if (/헤더/.test(st)) return '헤더 정책';
+        if (/액션|등록/.test(st)) return '액션·버튼 정책';
+        if (/상태|이메일|처리중|세션/.test(st)) return '상태 동작';
+        // 기본: 섹션 타이틀 (절대 「정책」으로 새 블록 만들지 않음)
+        return cleanBucketTitle(st) || '구성';
+      }
+
+      /**
+       * 한 줄을 표준 표기(라벨·인용·프로세스 화살표)로 변환
+       */
+      function formatDescriptionLine(line) {
+        var m = String(line).match(/^([ \t]*)([•◦]|\d+\.)\s+(.*)$/);
+        var indent = m ? m[1] : '';
+        var bullet = m ? m[2] : '';
+        var content = m ? m[3] : String(line).trim();
+        var prefix = bullet ? (indent + bullet + ' ') : '';
+
+        if (!content) return [];
+        if (/^>/.test(content.trim())) return [String(line)];
+
+        // 트리거 번호 정규화 (라벨 파싱 전)
+        content = content
+          .replace(/(?:명단\s*추가\s*)?트리거\s*①/g, 'Silent 트리거 ①')
+          .replace(/(?:명단\s*추가\s*)?트리거\s*②/g, 'Silent 트리거 ②')
+          .replace(/(?:명단\s*추가\s*)?트리거\s*③/g, 'Explicit 트리거 ③');
+
+        var label = null;
+        var rest = content;
+
+        var labelMatch = content.match(/^\*\*([^*]+)\*\*\s*[:：]\s*(.*)$/);
+        if (labelMatch) {
+          label = labelMatch[1].trim();
+          rest = labelMatch[2].trim();
+        } else {
+          var plainLabel = content.match(
+            /^(기본\s*상태|토글\s*동작|안내\s*문구|메시지|성공|실패(?:\s*\([^)]*\))?|활성\s*조건|동작\s*조건|전환\s*트리거|상태\s*설명|대기\s*중)\s*[:：]\s*(.+)$/
+          );
+          if (plainLabel) {
+            label = plainLabel[1].trim();
+            rest = plainLabel[2].trim();
+          } else {
+            var guide = content.match(/^(.+?안내)\s*[:：]\s*(.*)$/);
+            if (guide && /[「"]/.test(guide[2])) {
+              label = /펼침/.test(content) ? '안내 문구 (펼침 시 노출)' : guide[1].trim();
+              rest = guide[2].trim();
+            }
+          }
+        }
+
+        var quote = null;
+        var quoteMarks = rest.match(/[「"][^」"]+[」"]/g);
+        if (quoteMarks && quoteMarks.length === 1) {
+          var qm = rest.match(/[「"]([^」"]+)[」"]/);
+          var candidate = qm ? qm[1].trim() : '';
+          if (shouldPromoteQuote(label, rest, candidate, content)) {
+            quote = candidate;
+            var withoutQuote = rest
+              .replace(/[「"][^」"]+[」"]/g, '')
+              .replace(/\s{2,}/g, ' ')
+              .replace(/\s*토스트\s*$/g, '')
+              .replace(/^[\s·\-—–+/]+|[\s·\-—–+/]+$/g, '')
+              .trim();
+            if (!withoutQuote || /^(?:토스트|노출|표시)?$/.test(withoutQuote)) {
+              rest = '';
+            } else if (/토스트/.test(rest)) {
+              withoutQuote = withoutQuote.replace(/\s*토스트.*$/, '').trim();
+              rest = withoutQuote ? withoutQuote + ' → 토스트 노출' : '토스트 노출';
+            } else {
+              // 본문 + 안내 문구 동시 유지 (예: 에러 박스 + 메시지)
+              rest = withoutQuote;
+            }
+          }
+        }
+
+        if (label && /^(성공|실패)/.test(label) && rest) {
+          rest = rest
+            .replace(/\s*\+\s*/g, ' → ')
+            .replace(/\s*→\s*→\s*/g, ' → ')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+        }
+
+        var out = [];
+        if (label) {
+          var head = prefix + '**' + label + '**';
+          if (rest) head += ': ' + rest;
+          out.push(head);
+        } else if (quote && rest !== content) {
+          // 인용 승격 후 남은 본문
+          if (rest) out.push(prefix + rest);
+        } else {
+          out.push(prefix + content);
+        }
+
+        if (quote) {
+          out.push(indent + (bullet ? '  ' : '') + '> *"' + quote + '"*');
+        }
+        return out;
+      }
+
+      /** UI 크롬(버튼명) vs 실제 안내 문구 구분 */
+      function shouldPromoteQuote(label, rest, quote, fullContent) {
+        if (!quote) return false;
+        if (/안내|메시지|토스트|에러|경고/.test(label || '')) return true;
+        if (/토스트|인라인\s*에러|에러\s*박스|경고/.test(rest || fullContent || '')) return true;
+        // 짧은 따옴표 + 긴 문장 = 버튼/배지 라벨 → 인라인 유지
+        if (quote.length <= 24 && (rest || '').length > quote.length + 8) {
+          if (/헤더|클릭|배지|버튼|라벨\s*우측|토글/.test(fullContent || rest || '')) {
+            return false;
+          }
+        }
+        // 인용이 rest의 전부(또는 거의 전부)
+        var plainRest = String(rest || '')
+          .replace(/[「"][^」"]+[」"]/g, '')
+          .replace(/\s+/g, '');
+        return plainRest.length < 4;
+      }
+
+      /** #### 탭 제목 → 그룹 라벨 (이모지·부연 제거) */
+      function shortGroupTitle(title) {
+        var t = String(title || '')
+          .replace(/^[^\w가-힣A-Za-z0-9(]+/, '')
+          .split(/[—–]/)[0]
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+        t = t.replace(/\s*「[^」]*」\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+        t = t.replace(/\s*\([^)]*\)\s*$/, '').trim();
+        return t || String(title || '').trim();
+      }
+
+      function inferCommonGroupName(sectionTitle) {
+        var st = String(sectionTitle || '');
+        if (/탭|채점 활용|교과별/.test(st)) return '탭 공통 설정';
+        return '공통';
+      }
+
+      function groupDisambiguator(groupTitle) {
+        var t = String(groupTitle || '');
+        if (/재검토/.test(t)) return '재검토 탭';
+        if (/매트릭스|학교급/.test(t)) return '매트릭스';
+        if (/월별/.test(t)) return '월별 추세';
+        if (/공통/.test(t)) return '공통';
+        return t;
+      }
+
+      /**
+       * #### 탭이 2개 이상이면 범례 + 색 그룹 헤더로 묶음
+       */
+      function applyTabGroupLayout(body, sectionTitle) {
+        if (!body || body.indexOf('<!--prd-group:') === -1) return body;
+        var lines = String(body).split('\n');
+        var groups = [];
+        var current = {
+          title: inferCommonGroupName(sectionTitle),
+          lines: [],
+          items: []
+        };
+
+        function startGroup(title) {
+          var hasContent = current.lines.some(function (l) { return String(l).trim(); });
+          if (hasContent || current.items.length) groups.push(current);
+          current = { title: title, lines: [], items: [] };
+        }
+
+        for (var i = 0; i < lines.length; i++) {
+          var trimmed = lines[i].trim();
+          var gm = trimmed.match(/^<!--prd-group:(.+)-->$/);
+          if (gm) {
+            startGroup(gm[1].trim());
+            continue;
+          }
+          var item = trimmed.match(/^\*\*▶\s*(\d+)\.\s+(.+?)\*\*$/);
+          if (item) {
+            current.items.push({
+              lineIdx: current.lines.length,
+              num: item[1],
+              title: item[2]
+            });
+          }
+          current.lines.push(lines[i]);
+        }
+        if (current.lines.some(function (l) { return String(l).trim(); }) || current.items.length) {
+          groups.push(current);
+        }
+
+        if (groups.length < 2) return body;
+
+        // 항목 전역 번호 + 중복 제목 구분
+        var titleCount = {};
+        var allItems = [];
+        var n = 0;
+        for (var g = 0; g < groups.length; g++) {
+          var startNum = n + 1;
+          for (var it = 0; it < groups[g].items.length; it++) {
+            n++;
+            groups[g].items[it].globalNum = n;
+            var key = groups[g].items[it].title.replace(/\s+/g, ' ').trim();
+            titleCount[key] = (titleCount[key] || 0) + 1;
+            allItems.push({ group: g, item: groups[g].items[it], key: key });
+          }
+          var endNum = n;
+          groups[g].rangeLabel = startNum > endNum
+            ? groups[g].title
+            : (startNum === endNum
+              ? groups[g].title + ' (' + startNum + ')'
+              : groups[g].title + ' (' + startNum + '-' + endNum + ')');
+        }
+
+        var out = [];
+        out.push('<!--prd-legend:' + groups.map(function (gr) { return gr.rangeLabel; }).join('|') + '-->');
+        out.push('');
+
+        for (g = 0; g < groups.length; g++) {
+          out.push('<!--prd-groupbar:' + g + ':' + groups[g].rangeLabel + '-->');
+          var glines = groups[g].lines;
+          var byLine = {};
+          for (it = 0; it < groups[g].items.length; it++) {
+            byLine[groups[g].items[it].lineIdx] = groups[g].items[it];
+          }
+          for (var li = 0; li < glines.length; li++) {
+            var rec = byLine[li];
+            if (rec) {
+              var display = rec.title;
+              var tkey = rec.title.replace(/\s+/g, ' ').trim();
+              if (titleCount[tkey] > 1) {
+                display = display + ' (' + groupDisambiguator(groups[g].title) + ')';
+              }
+              out.push('**▶ ' + rec.globalNum + '. ' + display + '**');
+            } else {
+              out.push(glines[li]);
+            }
+          }
+          if (g < groups.length - 1) out.push('');
+        }
+        return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+      }
+
+      // segments 변환 적용 (+ 디스크립션 표준 형식)
+      var allSections = screenSections.concat(stateSections);
+      for (var s = 0; s < allSections.length; s++) {
+        allSections[s].body = applyTabGroupLayout(
+          reformatToDescriptionSpec(
+            allSections[s].body,
+            allSections[s].title
+          ),
+          allSections[s].title
+        );
+        allSections[s].bodySegments = bodyToSegments(allSections[s].body);
+      }
+
+      return { screenSections, stateSections };
+    }
+
+    // 기존 호환성을 위한 래퍼 (캐시용)
+    function parseMarkdown(markdown) {
+      const result = parseMarkdownForState(markdown, null, null);
+      return result.stateSections;
+    }
+
+    // PRD 파일 로드
+    async function loadPrdFiles() {
+      if (!settings.repo || !settings.token) {
+        setStatus('설정 탭에서 GitHub 연결을 먼저 해주세요', 'error');
+        console.log('설정 없음:', { repo: settings.repo, token: settings.token ? '있음' : '없음' });
+        return false;
+      }
+
+      setStatus('PRD 파일 로드 중...');
+      console.log('PRD 로드 시작:', settings.repo, settings.prdPath);
+
+      try {
+        const files = await fetchPrdFileList();
+        console.log('PRD 파일 목록:', files);
+
+        for (const file of files) {
+          try {
+            const content = await fetchPrdContent(file);
+            // 파일 내용에서 화면 ID 추출 (여러 패턴 시도)
+            const screenId = extractScreenIdFromMarkdown(content);
+            console.log(`${file} -> screenId: ${screenId}`);
+            console.log(`${file} 첫 100자:`, content.substring(0, 100));
+
+            if (screenId) {
+              prdFileCache[screenId] = {
+                filename: file,
+                content: content,
+                sections: parseMarkdown(content)
+              };
+            }
+          } catch (e) {
+            console.log(`${file} 로드 실패:`, e.message);
+          }
+        }
+
+        console.log('로드된 화면 ID:', Object.keys(prdFileCache));
+        setStatus(`${Object.keys(prdFileCache).length}개 PRD 로드 완료`, 'success');
+        return true;
+      } catch (e) {
+        console.log('PRD 로드 에러:', e);
+        setStatus('PRD 로드 실패: ' + e.message, 'error');
+        return false;
+      }
+    }
+
+    // PRD 데이터 가져오기
+    function getPrdData(screenId) {
+      return prdFileCache[screenId] || null;
+    }
+
+    // 특정 screenId에 대한 PRD만 찾기 (찾으면 즉시 중단)
+    async function findPrdForScreenId(targetScreenId) {
+      // 이미 캐시에 있으면 바로 반환
+      if (prdFileCache[targetScreenId]) {
+        return prdFileCache[targetScreenId];
+      }
+
+      if (!settings.repo || !settings.token) {
+        setStatus('설정 탭에서 GitHub 연결을 먼저 해주세요', 'error');
+        return null;
+      }
+
+      setStatus(`${targetScreenId} PRD 검색 중...`);
+
+      try {
+        const files = await fetchPrdFileList();
+
+        for (const file of files) {
+          try {
+            const content = await fetchPrdContent(file);
+            const screenId = extractScreenIdFromMarkdown(content);
+
+            if (screenId) {
+              prdFileCache[screenId] = {
+                filename: file,
+                content: content,
+                sections: parseMarkdown(content)
+              };
+
+              // 찾던 screenId면 즉시 반환
+              if (screenId === targetScreenId) {
+                console.log(`${targetScreenId} 찾음: ${file}`);
+                return prdFileCache[screenId];
+              }
+            }
+          } catch (e) {
+            console.log(`${file} 로드 실패:`, e.message);
+          }
+        }
+
+        return null;
+      } catch (e) {
+        setStatus('PRD 검색 실패: ' + e.message, 'error');
+        return null;
+      }
+    }
+
+    // 선택한 프레임 동기화
+    syncSelectedBtn.onclick = async () => {
+      prdFileCache = {};
+      setStatus('처리 중...');
+      parent.postMessage({ pluginMessage: { type: 'sync-selected' } }, '*');
+    };
+
+    // 모든 프레임 동기화
+    syncAllBtn.onclick = async () => {
+      prdFileCache = {};
+      const loaded = await loadPrdFiles();
+      if (!loaded) return;
+      setStatus('처리 중...');
+      parent.postMessage({ pluginMessage: { type: 'sync-all' } }, '*');
+    };
+
+    // PRD 추가 (모든 페이지)
+    syncAllPagesBtn.onclick = async () => {
+      prdFileCache = {};
+      const loaded = await loadPrdFiles();
+      if (!loaded) return;
+      setStatus('모든 페이지 처리 중...');
+      parent.postMessage({ pluginMessage: { type: 'sync-all-pages' } }, '*');
+    };
+
+    // PRD 삭제 (현재 페이지)
+    removeAllBtn.onclick = () => {
+      if (confirm('현재 페이지의 모든 PRD 레이어를 삭제하시겠습니까?')) {
+        parent.postMessage({ pluginMessage: { type: 'remove-all-prd' } }, '*');
+      }
+    };
+
+    // PRD 삭제 (모든 페이지)
+    removeAllPagesBtn.onclick = () => {
+      if (confirm('모든 페이지의 PRD 레이어를 삭제하시겠습니까?')) {
+        parent.postMessage({ pluginMessage: { type: 'remove-all-pages-prd' } }, '*');
+      }
+    };
+
+    // 메시지 수신
+    window.onmessage = async (event) => {
+      const msg = event.data.pluginMessage;
+      if (!msg) return;
+
+      // 설정 로드 완료
+      if (msg.type === 'settings-loaded') {
+        applyLoadedSettings(msg.settings);
+      }
+
+      // 설정 저장 완료
+      if (msg.type === 'settings-saved') {
+        setSettingsStatus('설정 저장됨', 'success');
+        updateConnectedInfo();
+        prdFileCache = {}; // 캐시 초기화
+        // PRD 탭으로 전환
+        tabBtns[0].click();
+      }
+
+      if (msg.type === 'progress') {
+        const displayId = msg.stateId ? `${msg.screenId}:${msg.stateId}` : msg.screenId;
+        setStatus(`처리 중: ${displayId}`);
+      }
+
+      if (msg.type === 'sync-complete') {
+        setStatus('완료!', 'success');
+        setTimeout(() => { setStatus(''); }, 2000);
+      }
+
+      if (msg.type === 'fetch-prd') {
+        const { screenId, stateId, frameId, frameName } = msg;
+
+        // 해당 screenId PRD만 찾기 (찾으면 즉시 중단)
+        const prdData = await findPrdForScreenId(screenId);
+
+        if (prdData) {
+          // 상태에 따라 2번(화면구성) / 3번(상태변화) 분리 추출
+          const { screenSections, stateSections } = parseMarkdownForState(prdData.content, screenId, stateId);
+
+          parent.postMessage({
+            pluginMessage: {
+              type: 'prd-content',
+              screenSections: screenSections,
+              stateSections: stateSections,
+              frameId: frameId,
+              frameName: frameName
+            }
+          }, '*');
+        } else {
+          const displayId = stateId ? `${screenId}:${stateId}` : screenId;
+          console.log(`${displayId}: PRD 데이터 없음`);
+          setStatus(`${displayId}: PRD 없음`, 'error');
+          parent.postMessage({
+            pluginMessage: {
+              type: 'prd-not-found',
+              frameId: frameId
+            }
+          }, '*');
+        }
+      }
+    };
+
+    // 초기화 - 설정 로드 요청
+    loadSettings();
+  </script>
+</body>
+</html>

@@ -810,7 +810,7 @@ for a in ALLOC:
         "book_start": a["book_start"], "book_end": a["book_end"],
         "page_start": a["page_start"], "page_end": a["page_end"],
         "shared": False})   # 예약(RESERVED) 개념 폐기 — 원장의 코드는 모두 '할당됨'(PC-004)
-# 섹션별 owner 정원(Ncode 정보) — 없으면 관측 최대치
+# 섹션별 owner 정원(코드 관리 정보) — 없으면 관측 최대치
 OWNER_CAP = {0: 1024, 1: 1024, 3: 4096, 5: 256, 10: 1024, 11: 1024, 14: 4096, 15: 32768, 44: 1024}
 acc_agg = {}
 for a in ALLOC:

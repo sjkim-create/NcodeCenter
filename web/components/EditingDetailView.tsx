@@ -64,7 +64,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 const sSum = (r: BR) => r.sm.reduce((a, b) => a + b, 0);
 const pSum = (r: BR) => r.pm.reduce((a, b) => a + b, 0);
 const tSum = (r: BR) => sSum(r) + pSum(r);
-// Ncode 정보 기준 Book 최대치 (PDS·Section별)
+// 코드 관리 정보 기준 Book 최대치 (PDS·Section별)
 const BOOK_MAX: Record<string, Record<number, number>> = {
   N: { 0: 16384, 3: 8192, 5: 4096, 10: 4096, 11: 8192, 14: 8192, 15: 4096 },
   G: { 0: 8192, 3: 4096, 14: 4096 },
