@@ -11,13 +11,19 @@ CODE, NAME = 'TKT-01', '계정 발급'
 PRD = 'docs/prd/TKT-01_계정 발급.md'
 
 # lib/accountStore.ts — (고객사, ID(email), 이름, 사용처, 권한 수, App Key 수, 등록일)
+# 사용처는 중복 선택이라 튜플로 담는다
 ROWS = (
-    ('웅진씽크빅', 'wj_edit@wjthinkbig.com', '웅진 편집팀', 'CasterN', 7, 2, '2026-08-20'),
-    ('웅진씽크빅', 'wj_design@wjthinkbig.com', '웅진 디자인', 'CasterN', 3, 0, '2026-08-22'),
-    ('웅진씽크빅', 'wj_sdk@wjthinkbig.com', '웅진 SDK', 'SDK 연동', 0, 1, '2026-08-25'),
-    ('대교', 'daekyo_form@daekyo.com', '대교 폼솔루션', '폼솔루션', 0, 1, '2026-08-26'),
-    ('한솔교육', 'hansol_old@hansol.com', '(구) 담당자', None, 0, 1, '2025-11-03'),
+    ('웅진씽크빅', 'wj_edit@wjthinkbig.com', '웅진 편집팀', ('CasterN',), 7, 2, '2026-08-20'),
+    ('웅진씽크빅', 'wj_design@wjthinkbig.com', '웅진 디자인',
+     ('CasterN', '폼솔루션'), 3, 0, '2026-08-22'),
+    ('웅진씽크빅', 'wj_sdk@wjthinkbig.com', '웅진 SDK', ('SDK 연동',), 0, 1, '2026-08-25'),
+    ('대교', 'daekyo_form@daekyo.com', '대교 폼솔루션',
+     ('폼솔루션', 'SDK 연동'), 0, 1, '2026-08-26'),
+    ('한솔교육', 'hansol_old@hansol.com', '(구) 담당자', (), 0, 1, '2025-11-03'),
 )
+
+# 조건(권한·설정)이 정의된 서비스 — 나머지는 '준비중'
+READY = ('CasterN',)
 
 KPI = (('등록 계정', '5', '#111827'), ('App Key 연동', '4', '#2563eb'),
        ('App Key 없음', '1', '#92400e'), ('발급 App Key', '5', '#7c3aed'))
@@ -54,9 +60,9 @@ def bar(company='고객사 전체', service='사용처 전체', q='', count=5):
 HEADS = ('고객사', 'ID (EMAIL)', '이름', '사용처', 'CasterN 권한', 'App Key', '등록일', '')
 
 
-def perm_cell(service, n):
-    """CasterN 권한 칸 — 전체 / 부분 / 미지정 / 해당 없음"""
-    if service != 'CasterN':
+def perm_cell(services, n):
+    """CasterN 권한 칸 — 사용처에 CasterN 이 있을 때만 표시"""
+    if 'CasterN' not in (services or ()):
         return '<span style="color:#9ca3af">—</span>'
     if n == 0:
         return '<span style="color:#dc2626">미지정</span>'
@@ -74,8 +80,14 @@ def table(rows=None, empty=None):
         body = ('<tr><td colspan="8" style="text-align:center;color:#9ca3af;'
                 'padding:30px">' + msg + '</td></tr>')
     for (co, aid, nm, svc, perms, keys, at) in (ROWS if rows is None else rows):
-        svc_tag = (tag(svc, '#ecfdf5', '#047857') if svc
-                   else tag('미지정', '#fef2f2', '#b91c1c'))
+        if svc:
+            svc_tag = ' '.join(
+                tag(x + ('' if x in READY else ' · 준비중'),
+                    '#ecfdf5' if x in READY else '#f3f4f6',
+                    '#047857' if x in READY else '#6b7280')
+                for x in svc)
+        else:
+            svc_tag = tag('미지정', '#fef2f2', '#b91c1c')
         key_tag = tag(str(keys), '#eef6ff' if keys else '#f3f4f6',
                       '#2563eb' if keys else '#9ca3af', bold=False)
         body += ('<tr>'
@@ -84,7 +96,7 @@ def table(rows=None, empty=None):
                  'style="font-family:ui-monospace,monospace;font-weight:600">' + aid
                  + '</span></td>'
                  '<td style="text-align:left">' + (nm or '—') + '</td>'
-                 '<td>' + svc_tag + '</td>'
+                 '<td style="white-space:nowrap">' + svc_tag + '</td>'
                  '<td>' + perm_cell(svc, perms) + '</td>'
                  '<td>' + key_tag + '</td>'
                  '<td style="font-family:ui-monospace,monospace;color:#6b7280">' + at
@@ -94,7 +106,7 @@ def table(rows=None, empty=None):
                  '<span class="lnk" style="margin-left:6px;color:#dc2626">삭제</span>'
                  '</td></tr>')
     return ('<div class="card" style="padding:0;overflow:auto">'
-            '<table style="text-align:center;min-width:980px"><tr>' + th + '</tr>'
+            '<table style="text-align:center;min-width:1080px"><tr>' + th + '</tr>'
             + body + '</table></div>')
 
 
@@ -131,9 +143,11 @@ def build():
           '<code>/tickets/account/{email}</code>'),
          ('[삭제]', '클릭', 'S5 확인창', '계정과 <b>연동 App Key가 함께</b> 삭제된다'),
          ('요약 4칸', '표시', '—', '등록 계정 · App Key 연동 · App Key 없음 · 발급 App Key'),
+         ('사용처 칸', '표시', '—',
+          '계정이 가진 서비스를 <b>모두</b> 배지로 — 조건 미정의 서비스는 <b>준비중</b> 표기'),
          ('CasterN 권한 칸', '표시', '—',
-          '<b>전체 7</b> / <b>{n} / 7</b>(마우스를 올리면 권한 이름) / '
-          '<b>미지정</b>(빨강) / <b>—</b>(CasterN 아님)'),
+          '사용처에 <b>CasterN 이 있을 때만</b> — <b>전체 7</b> / <b>{n} / 7</b> / '
+          '<b>미지정</b>. 없으면 <b>—</b>'),
          ('App Key 칸', '표시', '—', '이 계정에 연동된 키 개수 · 0이면 회색')] + NAV))
 
     B.append((
@@ -148,11 +162,14 @@ def build():
     B.append((
         'S3', '필터 · 검색', '분기',
         '고객사 · 사용처 · 검색어로 목록을 좁힌다. 검색은 '
-        '<b>ID(email) · 이름 · 고객사</b> 를 함께 본다. 세 조건은 <b>동시에</b> 걸린다.',
+        '<b>ID(email) · 이름 · 고객사</b> 를 함께 본다. 세 조건은 <b>동시에</b> 걸린다. '
+        '사용처는 <b>포함 기준</b>이라 여러 서비스를 쓰는 계정은 각 필터에 모두 잡힌다.',
         scr(h=640, company='웅진씽크빅', service='CasterN', q='wj_', count=2,
             rows=ROWS[:2]),
         [('고객사', '선택', '해당 고객사만', '계정이 등록된 고객사만 목록에 나온다'),
-         ('사용처', '선택', '해당 서비스만', 'CasterN / 폼솔루션 / SDK 연동'),
+         ('사용처', '선택', '<b>포함 기준</b>',
+          '그 서비스를 사용처로 가진 계정을 모두 — 여러 서비스를 쓰는 계정은 '
+          '<b>각 필터에 모두 잡힌다</b>'),
          ('검색', '입력', '즉시 필터', 'ID(email) · 이름 · 고객사'),
          ('건수', '표시', '—', '필터 결과 건수'),
          ('요약 4칸', '—', '고정',
