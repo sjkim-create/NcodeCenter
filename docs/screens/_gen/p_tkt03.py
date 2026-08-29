@@ -2,7 +2,7 @@
 """TKT-01 계정 발급 (계정 목록) — 실제 화면 구조 그대로.
 
 요약 4칸 → 한 줄 필터(고객사·사용처·검색 + [＋ 계정 추가]) → 8열 표.
-등록·상세 수정은 TKT-02 (p_tkt06.py).
+등록·상세 수정은 TKT-02 (p_tkt02.py).
 """
 from shell import page, frame
 from p_tkt01 import sel
