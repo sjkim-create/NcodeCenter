@@ -60,7 +60,8 @@ export const TABLES: Table[] = [
       { name: "id", type: "serial", key: "PK" },
       { name: "customer_id", type: "int", key: "FK", note: "→ customers" },
       { name: "user_ref", type: "text", note: "계정 ID(email) · App Key 연동" },
-      { name: "service", type: "text", note: "사용처 — CASTERN / FORMSOLUTION / SDK. 해당 서비스에서만 로그인 허용" },
+      { name: "services", type: "text[]", note: "사용처(중복 선택) — CASTERN / FORMSOLUTION / SDK. 선택한 서비스에서만 로그인 허용" },
+      { name: "service_settings", type: "jsonb", note: "서비스별 권한·설정 — 현재 CasterN 권한 7종만 정의(그 외 준비중)" },
     ],
   },
   {

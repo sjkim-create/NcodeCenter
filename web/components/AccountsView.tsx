@@ -1,22 +1,24 @@
 "use client";
 
 // 계정 발급 — TKT-03 계정 목록 / TKT-06 계정 등록·수정
-// 목록에서 [＋ 계정 추가] → 등록 화면(① 계정 정보 → ② 사용처·권한 → ③ App Key 발급(선택)),
+// 목록에서 [＋ 계정 추가] → 등록 화면(① 계정 정보 → ② 사용처·권한),
 // 목록의 계정을 누르면 상세·수정 화면에서 정보를 고치고 App Key 를 추가·삭제한다.
+// ② 는 서비스 탭 구조 — 사용처는 중복 선택하고, 조건은 선택한 탭의 서비스 것만 보인다.
+// App Key 는 CasterN 전용 조건이라 CasterN 탭 안에서만 노출한다.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { S, Field } from "./ui";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { S, Field, BLUE } from "./ui";
 import { useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
-import { addTicket } from "@/lib/ticketStore";
+import { addTicket, hydrateTickets } from "@/lib/ticketStore";
 import { SobpRangePicker, type SobpRange } from "./TicketsView";
 import { codeKind, patternOf, patternTypeParam, type TicketPattern } from "@/lib/codeKind";
 import {
-  caster, useCaster, ACCOUNT_SERVICES, accountServiceLabel,
-  CASTERN_PERMS, ALL_PERMS, permLabel,
-  type AccountService, type CasterPerm, type CasterAccount,
+  caster, useCaster, ACCOUNT_SERVICES, accountServiceLabel, accountServiceReady,
+  CASTERN_PERMS, ALL_PERMS, permLabel, casternPerms, hasService,
+  type AccountService, type CasterPerm, type CasterAccount, type AccountSettings,
 } from "@/lib/accountStore";
 
 const accountHref = (id: string) => `/tickets/account/${encodeURIComponent(id)}`;
@@ -31,7 +33,7 @@ export function AccountsListView() {
 
   const rows = cast.accounts
     .filter((a) => (fCo ? a.companyId === fCo : true))
-    .filter((a) => (fSvc ? a.service === fSvc : true))
+    .filter((a) => (fSvc ? hasService(a, fSvc) : true))
     .filter((a) => (q ? `${a.id} ${a.name} ${a.company}`.toLowerCase().includes(q.toLowerCase()) : true));
   const keysOf = (id: string) => cast.appKeys.filter((k) => k.accountId === id);
   const coOpts = companies.filter((c) => cast.accounts.some((a) => a.companyId === c.id));
@@ -80,7 +82,8 @@ export function AccountsListView() {
           <tbody>
             {rows.map((a) => {
               const keys = keysOf(a.id);
-              const perms = a.perms ?? [];
+              const svcs = a.services ?? [];
+              const perms = casternPerms(a);
               return (
                 <tr key={a.id} style={{ borderTop: "1px solid #eef0f4" }}>
                   <td style={S.td}>{a.company}</td>
@@ -89,10 +92,19 @@ export function AccountsListView() {
                   </td>
                   <td style={S.td}>{a.name || "—"}</td>
                   <td style={S.td}>
-                    <span style={{ ...S.tag, background: a.service ? "#ecfdf5" : "#fef2f2", color: a.service ? "#047857" : "#b91c1c", fontWeight: 700 }}>{accountServiceLabel(a.service)}</span>
+                    {svcs.length === 0
+                      ? <span style={{ ...S.tag, background: "#fef2f2", color: "#b91c1c", fontWeight: 700 }}>미지정</span>
+                      : <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
+                          {svcs.map((sv) => (
+                            <span key={sv} title={accountServiceReady(sv) ? undefined : "권한·설정 준비중"}
+                              style={{ ...S.tag, background: "#ecfdf5", color: "#047857", fontWeight: 700, ...(accountServiceReady(sv) ? {} : { background: "#f3f4f6", color: "#6b7280" }) }}>
+                              {accountServiceLabel(sv)}{accountServiceReady(sv) ? "" : " · 준비중"}
+                            </span>
+                          ))}
+                        </span>}
                   </td>
                   <td style={S.td}>
-                    {a.service !== "CASTERN" ? <span style={{ color: "#9ca3af" }}>—</span>
+                    {!hasService(a, "CASTERN") ? <span style={{ color: "#9ca3af" }}>—</span>
                       : perms.length === 0 ? <span style={{ color: "#dc2626" }}>미지정</span>
                       : perms.length === ALL_PERMS.length ? <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>전체 {perms.length}</span>
                       : <span title={perms.map(permLabel).join(" · ")}>{perms.length} / {ALL_PERMS.length}</span>}
@@ -158,6 +170,79 @@ function PermPicker({ value, onChange }: { value: CasterPerm[]; onChange: (v: Ca
   );
 }
 
+// 사용처(연동 서비스) — 중복 선택. 한 계정으로 여러 서비스를 쓸 수 있다.
+// 사용처 · 서비스별 조건 — 탭 구조.
+// 탭 = 서비스 / 패널 = 그 서비스의 사용 여부 + 자기 조건.
+// 선택한 서비스의 설정이 아래로 쌓이지 않도록 한 번에 한 서비스만 보여준다.
+// casternExtra — CasterN 에만 딸린 조건(App Key 발급). CasterN 탭 안에서만 노출된다.
+function ServiceTabs({ services, settings, onServices, onSettings, casternExtra }: {
+  services: AccountService[];
+  settings: AccountSettings;
+  onServices: (v: AccountService[]) => void;
+  onSettings: (v: AccountSettings) => void;
+  casternExtra?: ReactNode;
+}) {
+  const [tab, setTab] = useState<AccountService>("CASTERN");
+  const meta = ACCOUNT_SERVICES.find((x) => x.v === tab);
+  const on = services.includes(tab);
+  const toggle = () => onServices(on ? services.filter((x) => x !== tab) : [...services, tab]);
+
+  return (
+    <div style={{ border: "1px solid #eef0f4", borderRadius: 10, overflow: "hidden" }}>
+      {/* 탭 바 — 체크된 서비스에 ✓ */}
+      <div style={{ display: "flex", borderBottom: "1px solid #eef0f4", background: "#fafbfc" }}>
+        {ACCOUNT_SERVICES.map((sv) => {
+          const active = sv.v === tab;
+          const picked = services.includes(sv.v);
+          return (
+            <button key={sv.v} onClick={() => setTab(sv.v)} title={sv.desc}
+              style={{ flex: 1, border: 0, borderBottom: `2px solid ${active ? BLUE : "transparent"}`,
+                background: active ? "#fff" : "transparent", padding: "9px 10px", fontSize: 12.5, cursor: "pointer",
+                color: active ? "#111827" : "#6b7280", fontWeight: active ? 700 : 400,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 5, whiteSpace: "nowrap" }}>
+              <span style={{ color: picked ? "#047857" : "#d1d5db", fontWeight: 700 }}>{picked ? "✓" : "○"}</span>
+              {sv.label}
+              {!sv.ready && <span style={{ ...S.tag, background: "#fff7ed", color: "#c2410c", fontSize: 10 }}>준비중</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 패널 — 현재 탭 서비스의 조건만 */}
+      <div style={{ padding: "12px 14px" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, cursor: "pointer" }}>
+          <input type="checkbox" checked={on} onChange={toggle} />
+          <b style={{ color: on ? "#1d4ed8" : "#374151" }}>{meta?.label ?? tab}</b>
+          <span style={{ color: "#9ca3af", fontSize: 11.5 }}>· {meta?.desc}</span>
+        </label>
+
+        <div style={{ marginTop: 10 }}>
+          {!on ? (
+            <div style={{ fontSize: 11.5, color: "#9ca3af" }}>사용처로 선택하면 이 서비스의 조건을 설정할 수 있습니다.</div>
+          ) : tab === "CASTERN" ? (
+            <>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
+                사용자 권한 <span style={{ fontWeight: 400, color: "#9ca3af" }}>· 개별 또는 모두 선택</span>
+              </div>
+              <PermPicker
+                value={settings.CASTERN?.perms ?? []}
+                onChange={(perms) => onSettings({ ...settings, CASTERN: { ...settings.CASTERN, perms } })}
+              />
+              {casternExtra && (
+                <div style={{ marginTop: 14, borderTop: "1px solid #eef0f4", paddingTop: 12 }}>{casternExtra}</div>
+              )}
+            </>
+          ) : (
+            <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.6, border: "1px solid #eef0f4", background: "#fafbfc", borderRadius: 9, padding: "10px 12px" }}>
+              <b style={{ color: "#c2410c" }}>준비중</b> — 이 서비스의 권한·설정 항목은 아직 정의되지 않았습니다. 사용처 연동만 등록됩니다.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const genPwdStr = () => {
   const buf = new Uint8Array(9);
   (globalThis.crypto ?? window.crypto).getRandomValues(buf);
@@ -183,15 +268,18 @@ function useRanges(companyId: number): SobpRange[] {
 }
 
 // App Key 발급 — 계정 등록·상세에서 공용으로 쓴다.
+// App Key 는 CasterN 서비스에만 해당한다(SOBP 범위를 편집툴에 연동하는 키).
+const APP_KEY_SERVICE: AccountService = "CASTERN";
 function issueAppKey(acc: CasterAccount, range: SobpRange, until: string, by?: string) {
+  const service = APP_KEY_SERVICE;
   const key = genKeyStr();
-  caster.addAppKey({ key, accountId: acc.id, service: acc.service, company: acc.company, pt: range.pt,
+  caster.addAppKey({ key, accountId: acc.id, service, company: acc.company, pt: range.pt,
     section: range.section, owner: range.owner, bookStart: range.bookStart, bookEnd: range.bookEnd,
     pageStart: range.pageStart, pageEnd: range.pageEnd, until });
-  const summary = `계정 ${acc.id} · ${accountServiceLabel(acc.service)} · ${range.pt} S${range.section}/O${range.owner}/B${range.bookStart}~${range.bookEnd} · ${until}`;
+  const summary = `계정 ${acc.id} · ${accountServiceLabel(service)} · ${range.pt} S${range.section}/O${range.owner}/B${range.bookStart}~${range.bookEnd} · ${until}`;
   addTicket({ kind: "APP", companyId: acc.companyId, company: acc.company, by: by ?? "", summary,
     params: {
-      CompanyName: acc.company, AccountId: acc.id, Service: accountServiceLabel(acc.service), Usage: accountServiceLabel(acc.service),
+      CompanyName: acc.company, AccountId: acc.id, Service: accountServiceLabel(service), Usage: accountServiceLabel(service),
       AppKey: key, PatternType: patternTypeParam(range.pt as TicketPattern),
       Section: range.section, Owner: range.owner,
       BookStart: range.bookStart, BookEnd: range.bookEnd,
@@ -208,6 +296,7 @@ export function AccountNewView() {
   const { companies } = useStore();
   const me = currentUser(useAuth());
   useCaster();
+  useEffect(() => { hydrateTickets(); }, []);   // App Key 발급분이 Key 발급 목록에 쌓이도록 원장 로드
 
   const [companyId, setCompanyId] = useState(0);
   const [id, setId] = useState("");
@@ -215,9 +304,9 @@ export function AccountNewView() {
   const [name, setName] = useState("");
   const [addr, setAddr] = useState("");
   const [homepage, setHomepage] = useState("");
-  const [service, setService] = useState<AccountService>("CASTERN");
-  const [perms, setPerms] = useState<CasterPerm[]>([...ALL_PERMS]);
-  const [withKey, setWithKey] = useState(false);          // ③ App Key 발급 — 선택
+  const [services, setServices] = useState<AccountService[]>(["CASTERN"]);
+  const [settings, setSettings] = useState<AccountSettings>({ CASTERN: { perms: [...ALL_PERMS] } });
+  const [withKey, setWithKey] = useState(false);          // ③ App Key 발급 — 선택(CasterN 전용)
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [until, setUntil] = useState("");
   const [unlimited, setUnlimited] = useState(true);
@@ -226,6 +315,14 @@ export function AccountNewView() {
   const company = companies.find((c) => c.id === companyId);
   const ranges = useRanges(companyId);
   const range = ranges[sobpIdx];
+
+  const hasCastern = services.includes("CASTERN");
+
+  // 사용처를 새로 켜면 그 서비스의 기본 설정을 채운다. (CasterN 은 전체 권한이 기본)
+  const onServices = (next: AccountService[]) => {
+    setServices(next);
+    if (next.includes("CASTERN") && !settings.CASTERN) setSettings({ ...settings, CASTERN: { perms: [...ALL_PERMS] } });
+  };
 
   const onCompany = (cid: number) => {
     setCompanyId(cid); setSobpIdx(-1);
@@ -237,30 +334,62 @@ export function AccountNewView() {
     if (!company) { setToast({ ok: false, text: "회사(고객사)를 선택하세요." }); return; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(id.trim())) { setToast({ ok: false, text: "계정 ID는 이메일 형식이어야 합니다." }); return; }
     if (!pwd.trim()) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
-    if (withKey && !range) { setToast({ ok: false, text: "할당된 SOBP 범위를 선택하세요." }); return; }
+    if (services.length === 0) { setToast({ ok: false, text: "사용처(연동 서비스)를 1개 이상 선택하세요." }); return; }
+    // App Key 는 CasterN 전용 — 사용처에서 CasterN 이 빠졌으면 함께 발급하지 않는다.
+    const wantKey = withKey && hasCastern;
+    if (wantKey && !range) { setToast({ ok: false, text: "할당된 SOBP 범위를 선택하세요." }); return; }
+
+    // 선택하지 않은 사용처의 설정은 저장하지 않는다.
+    const kept: AccountSettings = {};
+    for (const sv of services) if (settings[sv]) kept[sv] = settings[sv];
 
     const acc: CasterAccount = {
-      id: id.trim(), pwd: pwd.trim(), name: name.trim(), service,
+      id: id.trim(), pwd: pwd.trim(), name: name.trim(), services, settings: kept,
       companyId: company.id, company: company.name, addr: addr.trim(), homepage: homepage.trim(),
-      perms: service === "CASTERN" ? perms : [], createdAt: "",
+      createdAt: "",
     };
     const r = caster.addAccount(acc);
     if (!r.ok) { setToast({ ok: false, text: r.msg }); return; }
-    logActivity("ticket", `계정 등록 · ${company.name} · ${acc.id} · ${accountServiceLabel(service)}`, me?.name);
-    if (withKey && range) issueAppKey(acc, range, unlimited ? "무제한" : (until || "무제한"), me?.name);
+    logActivity("ticket", `계정 등록 · ${company.name} · ${acc.id} · ${services.map(accountServiceLabel).join(" · ")}`, me?.name);
+    if (wantKey && range) issueAppKey(acc, range, unlimited ? "무제한" : (until || "무제한"), me?.name);
     router.push("/tickets/account");        // 목록에 노출
   };
+
+  // App Key 발급 — CasterN 전용 조건이라 ② 의 CasterN 탭 안에서만 노출한다.
+  const appKeyBlock = (
+    <>
+      <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "#374151", cursor: "pointer" }}>
+        <input type="checkbox" checked={withKey} onChange={(e) => setWithKey(e.target.checked)} />
+        이 계정에 <b>App Key도 함께 발급</b>합니다 <span style={{ color: "#9ca3af" }}>· SOBP 범위 연동 · 선택</span>
+      </label>
+      {withKey && (
+        <div style={{ marginTop: 10 }}>
+          <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={setSobpIdx} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+            <Field label="만료일 (기간)">
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited} onChange={(e) => setUntil(e.target.value)} />
+                <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
+                  <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> 무제한
+                </label>
+              </div>
+            </Field>
+          </div>
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div style={{ padding: "18px 20px", maxWidth: 900 }}>
       <div style={{ ...S.card, padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>계정 등록 <span style={{ color: "#9ca3af", fontWeight: 400, fontSize: 12 }}>· ① 계정 정보 → ② 사용처·권한 → ③ App Key(선택)</span></div>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>계정 등록 <span style={{ color: "#9ca3af", fontWeight: 400, fontSize: 12 }}>· ① 계정 정보 → ② 사용처·권한</span></div>
           <span style={{ flex: 1 }} />
           <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
         </div>
         <div style={{ fontSize: 11.5, color: "#9ca3af", marginBottom: 12 }}>
-          한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). App Key 발급은 <b>선택</b>이며, 나중에 계정 상세에서 발급할 수 있습니다.
+          한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). App Key 발급은 <b>CasterN 사용처 전용</b>이며 선택 사항입니다 — 나중에 계정 상세에서도 발급할 수 있습니다.
         </div>
 
         {/* ① 계정 정보 */}
@@ -284,49 +413,14 @@ export function AccountNewView() {
           <Field label="HOMEPAGE"><input style={S.input} value={homepage} onChange={(e) => setHomepage(e.target.value)} placeholder="https://" /></Field>
         </div>
 
-        {/* ② 사용처 · 권한 */}
+        {/* ② 사용처 · 권한 — 탭마다 그 서비스의 조건만 노출 */}
         <div style={{ marginTop: 16 }}>
-          <StepHead n={2} t="사용처 · 권한" d="연동 서비스와 CasterN 권한" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="사용처 (연동 서비스) *">
-              <select style={S.input} value={service} onChange={(e) => setService(e.target.value as AccountService)}>
-                {ACCOUNT_SERVICES.map((sv) => <option key={sv.v} value={sv.v}>{sv.label} — {sv.desc}</option>)}
-              </select>
-              <div style={{ fontSize: 10.5, color: "#9ca3af", marginTop: 4, lineHeight: 1.5 }}>
-                계정은 <b>선택한 서비스에서만 로그인</b>됩니다. 서비스는 자기 계정만 관리·인증합니다.
-              </div>
-            </Field>
+          <StepHead n={2} t="사용처 · 권한" d="탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
+          <div style={{ fontSize: 10.5, color: "#9ca3af", marginBottom: 6, lineHeight: 1.5 }}>
+            사용처는 <b>중복 선택</b>할 수 있습니다. 여러 서비스를 선택하면 <b>한 계정으로 각 서비스에 로그인</b>하며, 각 서비스는 자기 계정만 관리·인증합니다.
+            <span style={{ marginLeft: 6 }}>선택 <b>{services.length}</b> / {ACCOUNT_SERVICES.length}</span>
           </div>
-          <div style={{ marginTop: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>CasterN 사용자 권한 <span style={{ fontWeight: 400, color: "#9ca3af" }}>· 개별 또는 모두 선택</span></div>
-            {service === "CASTERN"
-              ? <PermPicker value={perms} onChange={setPerms} />
-              : <div style={{ fontSize: 12, color: "#9ca3af", border: "1px solid #eef0f4", background: "#fafbfc", borderRadius: 10, padding: "9px 12px" }}>사용처가 <b>CasterN</b> 일 때만 권한을 지정합니다.</div>}
-          </div>
-        </div>
-
-        {/* ③ App Key 발급 (선택) */}
-        <div style={{ marginTop: 16 }}>
-          <StepHead n={3} t="App Key 발급" d="선택 — 지금 발급하지 않아도 됩니다" />
-          <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "#374151", cursor: "pointer", marginBottom: 8 }}>
-            <input type="checkbox" checked={withKey} onChange={(e) => setWithKey(e.target.checked)} />
-            이 계정에 <b>App Key도 함께 발급</b>합니다 (SOBP 범위 연동)
-          </label>
-          {withKey && (
-            <>
-              <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={setSobpIdx} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
-                <Field label="만료일 (기간)">
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited} onChange={(e) => setUntil(e.target.value)} />
-                    <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
-                      <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> 무제한
-                    </label>
-                  </div>
-                </Field>
-              </div>
-            </>
-          )}
+          <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} casternExtra={appKeyBlock} />
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
@@ -344,14 +438,15 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const router = useRouter();
   const me = currentUser(useAuth());
   const cast = useCaster();
+  useEffect(() => { hydrateTickets(); }, []);   // App Key 발급분이 Key 발급 목록에 쌓이도록 원장 로드
   const acc = cast.accounts.find((a) => a.id === accountId);
 
   const [name, setName] = useState("");
   const [pwd, setPwd] = useState("");
   const [addr, setAddr] = useState("");
   const [homepage, setHomepage] = useState("");
-  const [service, setService] = useState<AccountService>("CASTERN");
-  const [perms, setPerms] = useState<CasterPerm[]>([]);
+  const [services, setServices] = useState<AccountService[]>([]);
+  const [settings, setSettings] = useState<AccountSettings>({});
   const [loaded, setLoaded] = useState(false);
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [until, setUntil] = useState("");
@@ -363,12 +458,21 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   useEffect(() => {
     if (!acc || loaded) return;
     setName(acc.name); setPwd(acc.pwd); setAddr(acc.addr); setHomepage(acc.homepage);
-    setService(acc.service); setPerms(acc.perms ?? []); setLoaded(true);
+    setServices(acc.services ?? []); setSettings(acc.settings ?? {});
+    setLoaded(true);
   }, [acc, loaded]);
 
   const ranges = useRanges(acc?.companyId ?? 0);
   const range = ranges[sobpIdx];
   const keys = cast.appKeys.filter((k) => k.accountId === accountId);
+  // App Key 발급은 저장된 사용처 기준 — 편집 중인 값이 아니라 실제 연동 상태를 따른다.
+  const keyable = (acc?.services ?? []).includes("CASTERN");
+
+  // 사용처를 새로 켜면 그 서비스의 기본 설정을 채운다.
+  const onServices = (next: AccountService[]) => {
+    setServices(next);
+    if (next.includes("CASTERN") && !settings.CASTERN) setSettings({ ...settings, CASTERN: { perms: [...ALL_PERMS] } });
+  };
 
   if (!acc) {
     return (
@@ -382,20 +486,76 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
   const save = () => {
     if (!pwd.trim()) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
-    caster.updateAccount(acc.id, {
+    if (services.length === 0) { setToast({ ok: false, text: "사용처(연동 서비스)를 1개 이상 선택하세요." }); return; }
+
+    // 사용처에서 빠진 서비스의 키는 연동이 끊긴다 — 지우지 않고 담당자에게 알린다.
+    const dropped = keys.filter((k) => !services.includes(k.service));
+    if (dropped.length && !confirm(`사용처에서 빠지는 서비스로 발급된 App Key ${dropped.length}개는 연동이 끊깁니다.\n(키는 지워지지 않고 「연동 끊김」으로 남습니다)\n\n저장할까요?`)) return;
+
+    const kept: AccountSettings = {};
+    for (const sv of services) if (settings[sv]) kept[sv] = settings[sv];
+
+    const r = caster.updateAccount(acc.id, {
       name: name.trim(), pwd: pwd.trim(), addr: addr.trim(), homepage: homepage.trim(),
-      service, perms: service === "CASTERN" ? perms : [],
+      services, settings: kept,
     });
-    logActivity("ticket", `계정 수정 · ${acc.company} · ${acc.id} · ${accountServiceLabel(service)}`, me?.name);
+    if (!r.ok) { setToast({ ok: false, text: r.msg }); return; }
+    logActivity("ticket", `계정 수정 · ${acc.company} · ${acc.id} · ${services.map(accountServiceLabel).join(" · ")}`, me?.name);
     setToast({ ok: true, text: "계정 정보가 저장되었습니다." });
   };
 
   const addKey = () => {
     if (!range) { setToast({ ok: false, text: "할당된 SOBP 범위를 선택하세요." }); return; }
-    const key = issueAppKey({ ...acc, service }, range, unlimited ? "무제한" : (until || "무제한"), me?.name);
+    if (!keyable) { setToast({ ok: false, text: "App Key 는 CasterN 사용처에만 발급됩니다." }); return; }
+    const key = issueAppKey(acc, range, unlimited ? "무제한" : (until || "무제한"), me?.name);
     setIssued(key);
     setToast({ ok: true, text: "App Key 발급 완료 — 계정과 연동되어 서비스 DB에 등록되었습니다." });
   };
+
+  // App Key 발급 — CasterN 전용 조건이라 ② 의 CasterN 탭 안에서만 노출한다.
+  const appKeyBlock = (
+    <>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
+        App Key 발급 <span style={{ fontWeight: 400, color: "#9ca3af" }}>· SOBP 범위 연동 · 연동된 키 {keys.length}개</span>
+      </div>
+      {!keyable ? (
+        <div style={{ fontSize: 11.5, color: "#9ca3af", lineHeight: 1.6 }}>
+          CasterN 을 사용처로 선택하고 <b>[저장]</b> 하면 여기에서 App Key 를 발급할 수 있습니다.
+        </div>
+      ) : (
+        <>
+          <SobpRangePicker company ranges={ranges} value={sobpIdx} onSelect={setSobpIdx} />
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginTop: 12, flexWrap: "wrap" }}>
+            <div style={{ width: 300 }}>
+              <Field label="만료일 (기간)">
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited} onChange={(e) => setUntil(e.target.value)} />
+                  <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
+                    <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> 무제한
+                  </label>
+                </div>
+              </Field>
+            </div>
+            <span style={{ flex: 1 }} />
+            <button onClick={addKey} disabled={!range} style={{ ...S.primary, ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>App Key 발급</button>
+          </div>
+          {issued && (
+            <div style={{ marginTop: 12, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontSize: 12, color: "#92400e", fontWeight: 700, marginBottom: 6 }}>발급 완료 — App Key (서비스 DB 등록됨)</div>
+              <div style={{ fontSize: 12.5, color: "#111827", lineHeight: 1.9 }}>
+                <div>계정 ID: <code style={{ fontFamily: "ui-monospace,monospace" }}>{acc.id}</code></div>
+                <div>PWD: <code style={{ fontFamily: "ui-monospace,monospace" }}>{pwd}</code></div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  App Key: <code style={{ flex: 1, fontFamily: "ui-monospace,monospace", wordBreak: "break-all" }}>{issued}</code>
+                  <button onClick={() => { try { navigator.clipboard.writeText(`ID: ${acc.id}\nPWD: ${pwd}\nAppKey: ${issued}`); setToast({ ok: true, text: "계정·키 정보가 복사되었습니다." }); } catch { /* */ } }} style={S.smallBtn}>전체 복사</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
 
   return (
     <div style={{ padding: "18px 20px", maxWidth: 900 }}>
@@ -424,25 +584,14 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
           <Field label="HOMEPAGE"><input style={S.input} value={homepage} onChange={(e) => setHomepage(e.target.value)} placeholder="https://" /></Field>
         </div>
 
-        {/* ② 사용처 · 권한 */}
+        {/* ② 사용처 · 권한 — 탭마다 그 서비스의 조건만 노출 */}
         <div style={{ marginTop: 16 }}>
-          <StepHead n={2} t="사용처 · 권한" d="연동 서비스와 CasterN 권한" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="사용처 (연동 서비스) *">
-              <select style={S.input} value={service} onChange={(e) => setService(e.target.value as AccountService)}>
-                {ACCOUNT_SERVICES.map((sv) => <option key={sv.v} value={sv.v}>{sv.label} — {sv.desc}</option>)}
-              </select>
-              <div style={{ fontSize: 10.5, color: "#9ca3af", marginTop: 4, lineHeight: 1.5 }}>
-                사용처를 바꾸면 <b>연동된 App Key의 사용처도 함께</b> 바뀝니다.
-              </div>
-            </Field>
+          <StepHead n={2} t="사용처 · 권한" d="탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
+          <div style={{ fontSize: 10.5, color: "#9ca3af", marginBottom: 6, lineHeight: 1.5 }}>
+            사용처는 <b>중복 선택</b>할 수 있습니다. CasterN 을 빼면 이 계정의 <b>App Key 연동이 끊깁니다</b>(키는 삭제되지 않습니다).
+            <span style={{ marginLeft: 6 }}>선택 <b>{services.length}</b> / {ACCOUNT_SERVICES.length}</span>
           </div>
-          <div style={{ marginTop: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>CasterN 사용자 권한 <span style={{ fontWeight: 400, color: "#9ca3af" }}>· 개별 또는 모두 선택</span></div>
-            {service === "CASTERN"
-              ? <PermPicker value={perms} onChange={setPerms} />
-              : <div style={{ fontSize: 12, color: "#9ca3af", border: "1px solid #eef0f4", background: "#fafbfc", borderRadius: 10, padding: "9px 12px" }}>사용처가 <b>CasterN</b> 일 때만 권한을 지정합니다.</div>}
-          </div>
+          <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} casternExtra={appKeyBlock} />
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
@@ -452,53 +601,29 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
         </div>
         {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: toast.ok ? "#047857" : "#dc2626", textAlign: "right" }}>{toast.text}</div>}
 
-        {/* ③ App Key — 선택적으로 발급 */}
+        {/* ③ App Key 발급 내역 — 발급 UI 는 ② 의 CasterN 탭 안에 있다 */}
         <div style={{ marginTop: 18, borderTop: "1px solid #eef0f4", paddingTop: 14 }}>
-          <StepHead n={3} t="App Key" d={`이 계정에 연동된 키 ${keys.length}개 · 선택 발급`} />
-          <SobpRangePicker company ranges={ranges} value={sobpIdx} onSelect={setSobpIdx} />
-          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginTop: 12, flexWrap: "wrap" }}>
-            <div style={{ width: 300 }}>
-              <Field label="만료일 (기간)">
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited} onChange={(e) => setUntil(e.target.value)} />
-                  <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
-                    <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> 무제한
-                  </label>
-                </div>
-              </Field>
-            </div>
-            <span style={{ flex: 1 }} />
-            <button onClick={addKey} disabled={!range} style={{ ...S.primary, ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>App Key 발급</button>
-          </div>
-
-          {issued && (
-            <div style={{ marginTop: 12, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "12px 14px" }}>
-              <div style={{ fontSize: 12, color: "#92400e", fontWeight: 700, marginBottom: 6 }}>발급 완료 — App Key (서비스 DB 등록됨)</div>
-              <div style={{ fontSize: 12.5, color: "#111827", lineHeight: 1.9 }}>
-                <div>계정 ID: <code style={{ fontFamily: "ui-monospace,monospace" }}>{acc.id}</code></div>
-                <div>PWD: <code style={{ fontFamily: "ui-monospace,monospace" }}>{pwd}</code></div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  App Key: <code style={{ flex: 1, fontFamily: "ui-monospace,monospace", wordBreak: "break-all" }}>{issued}</code>
-                  <button onClick={() => { try { navigator.clipboard.writeText(`ID: ${acc.id}\nPWD: ${pwd}\nAppKey: ${issued}`); setToast({ ok: true, text: "계정·키 정보가 복사되었습니다." }); } catch { /* */ } }} style={S.smallBtn}>전체 복사</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+          <StepHead n={3} t="App Key 발급 내역" d={`연동된 키 ${keys.length}개 · 발급은 ② CasterN 탭에서`} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {keys.length === 0 ? (
-              <div style={{ fontSize: 12, color: "#9ca3af", padding: "6px 0" }}>발급된 App Key가 없습니다. 범위를 고르고 [App Key 발급]을 누르세요.</div>
-            ) : keys.map((k) => (
-              <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid #eef0f4", borderRadius: 9, padding: "8px 10px", fontSize: 11.5, color: "#6b7280", flexWrap: "wrap" }}>
+              <div style={{ fontSize: 12, color: "#9ca3af", padding: "6px 0" }}>
+                {keyable ? "발급된 App Key가 없습니다. ② CasterN 탭에서 발급하세요." : "발급된 App Key가 없습니다."}
+              </div>
+            ) : keys.map((k) => {
+              const linked = (acc.services ?? []).includes(k.service);
+              return (
+              <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${linked ? "#eef0f4" : "#fecaca"}`, background: linked ? "#fff" : "#fff7f7", borderRadius: 9, padding: "8px 10px", fontSize: 11.5, color: "#6b7280", flexWrap: "wrap" }}>
                 <code style={{ fontFamily: "ui-monospace,monospace" }}>{k.key.slice(0, 18)}…</code>
                 <span style={{ ...S.tag, background: k.pt === "PDS3" ? "#eef6ff" : "#fef3c7", color: k.pt === "PDS3" ? "#2563eb" : "#92400e" }}>{k.pt} S{k.section}/O{k.owner}/B{k.bookStart}~{k.bookEnd}</span>
                 <span>{accountServiceLabel(k.service)}</span>
+                {!linked && <span style={{ ...S.tag, background: "#fef2f2", color: "#b91c1c", fontWeight: 700 }} title="계정 사용처에서 이 서비스가 빠져 로그인에 쓸 수 없습니다">연동 끊김</span>}
                 <span>유효 {k.until}</span>
                 <span style={{ flex: 1 }} />
                 <span style={{ fontFamily: "ui-monospace,monospace" }}>{k.createdAt}</span>
                 <button onClick={() => caster.removeAppKey(k.id)} style={{ ...S.linkBtn, color: "#dc2626" }}>키 삭제</button>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

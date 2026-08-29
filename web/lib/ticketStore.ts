@@ -65,12 +65,17 @@ export const daysLeft = (until?: string) => {
 };
 
 let list: Ticket[] = [];
+let hydrated = false;
 let version = 0;
 const subs = new Set<() => void>();
 const notify = () => { version++; subs.forEach((f) => f()); };
 const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* */ } };
 
+// 저장분을 메모리로 1회 로드. 발급 화면(계정 발급 등)이 목록을 거치지 않고 바로 발급해도
+// 원장이 빈 배열 위에 덮어써지지 않도록, 모든 변경 함수가 먼저 이걸 부른다.
 export function hydrateTickets() {
+  if (hydrated || typeof window === "undefined") return;
+  hydrated = true;
   try { list = JSON.parse(localStorage.getItem(KEY) ?? "[]") as Ticket[]; }
   catch { list = []; }
   // 대장(nkey HLP) 시드 1회 주입 — 과거 발급 이력을 목록 뒤에 채운다
@@ -87,8 +92,18 @@ export function hydrateTickets() {
   notify();
 }
 export const allTickets = () => list;
+export const ticketById = (id: number) => list.find((t) => t.id === id);
+
+// 발급 기록 수정 — 발급 내용·Key 정보 항목만 고친다.
+// 발급번호(no)·종류·고객사·발급일시·발급인은 원장 기준값이라 바꾸지 않는다.
+export function updateTicket(id: number, patch: { summary: string; params: Record<string, string | number> }) {
+  hydrateTickets();
+  list = list.map((t) => (t.id === id ? { ...t, ...patch } : t));
+  persist(); notify();
+}
 
 export function addTicket(t: Omit<Ticket, "id" | "no" | "at" | "billing" | "amount">): Ticket {
+  hydrateTickets();
   const id = Math.max(0, ...list.map((x) => x.id)) + 1;
   const no = Math.max(0, ...list.map((x) => x.no)) + 1;
   const rec: Ticket = { ...t, id, no, at: nowKst(), billing: "미정", amount: 0 };
@@ -98,6 +113,7 @@ export function addTicket(t: Omit<Ticket, "id" | "no" | "at" | "billing" | "amou
 }
 
 export function setBilling(id: number, patch: { billing: Billing; amount?: number; billNote?: string; trialUntil?: string; by?: string }) {
+  hydrateTickets();
   list = list.map((t) => {
     if (t.id !== id) return t;
     const billing = patch.billing;
@@ -113,6 +129,7 @@ export function setBilling(id: number, patch: { billing: Billing; amount?: numbe
 }
 
 export function deleteTicket(id: number) {
+  hydrateTickets();
   list = list.filter((t) => t.id !== id);
   persist(); notify();
 }

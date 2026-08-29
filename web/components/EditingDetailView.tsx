@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { S, Field, Modal, AutoTextarea } from "./ui";
+import { useParams, useRouter } from "next/navigation";
+import { S, Field, AutoTextarea } from "./ui";
 import { codeKind, kindMeta, type CodeKind } from "@/lib/codeKind";
 import { SobpChips } from "./sobp";
 import type { WorkKind } from "@/lib/customerData";
@@ -71,9 +71,15 @@ const BOOK_MAX: Record<string, Record<number, number>> = {
 };
 const EMPTY = (o: number): BR => ({ b: 0, s: 0, o, k: "N", pg: 0, t: "", f: "", bytes: 0, ty: "소리펜", sm: zeros(SOUND_N), pm: zeros(PEN_N), m: "", d: "" });
 
-export default function EditingDetailView({ owner: ownerProp, custName, embedded, seedCustomer, ownerFilter, pdsLock, allCustomers }: { owner?: string; custName?: string; embedded?: boolean; seedCustomer?: Cust; ownerFilter?: number | null; pdsLock?: CodeKind | ""; allCustomers?: boolean } = {}) {
+// bookIdx — 교재 편집 화면(모달이 아니라 별도 페이지)에서만 넘어온다.
+//   "new" = 교재(책) 추가 · 숫자 = rows 인덱스의 교재 수정
+export default function EditingDetailView({ owner: ownerProp, custName, embedded, seedCustomer, ownerFilter, pdsLock, allCustomers, bookIdx }: { owner?: string; custName?: string; embedded?: boolean; seedCustomer?: Cust; ownerFilter?: number | null; pdsLock?: CodeKind | ""; allCustomers?: boolean; bookIdx?: string } = {}) {
   const params = useParams();
+  const router = useRouter();
   const owner = String(ownerProp ?? params.owner ?? "");
+  const bookMode = bookIdx != null;
+  const listHref = `/projects/editing/${encodeURIComponent(owner)}`;
+  const bookHref = (i: number | "new") => `${listHref}/book/${i}`;
   const authState = useAuth();
   const staff = authState.users.filter((u) => u.enabled); // 발급인(코드 할당자) 명단
   const me = currentUser(authState);
@@ -270,14 +276,27 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const freeBooks = (k: string, sec: number, own: number, keep?: number) =>
     editableBookNumbers(k, sec, own, BOOK_MAX[k]?.[sec] ?? 4096, 300, keep, allocBooks);
 
-  const openAdd = () => {
-    setKepOpen(true); setLogDraft({ id: null, kind: "요청", content: "" });
-    const a = assignedSO[0];                        // 할당된 S/O 기본값 (수정 불가)
-    const row = EMPTY(Number(owner) || 0);
-    if (a) { row.k = a.k; row.s = a.s; row.o = a.o; row.b = freeBooks(a.k, a.s, a.o)[0] ?? 0; }
-    setEditing({ idx: -1, row });
-  }; // 추가 시 산출물 펼침
-  const openEdit = (idx: number) => { const r = rows[idx]; setKepOpen(bookHasKep(r)); setLogDraft({ id: null, kind: "요청", content: "" }); setEditing({ idx, row: { ...r, sm: [...r.sm], pm: [...r.pm], logs: r.logs ? r.logs.map((l) => ({ ...l })) : [] } }); };
+  // 교재 편집은 별도 페이지 — 목록에서는 이동만 하고, 편집 상태는 그 페이지에서 만든다.
+  const openAdd = () => router.push(bookHref("new"));
+  const openEdit = (idx: number) => router.push(bookHref(idx));
+
+  // 편집 페이지 진입 시 대상 교재를 폼에 올린다 (rows 가 localStorage 로 채워진 뒤)
+  useEffect(() => {
+    if (!bookMode || editing) return;
+    if (bookIdx === "new") {
+      const a = assignedSO[0];                      // 할당된 S/O 기본값 (수정 불가)
+      const row = EMPTY(Number(owner) || 0);
+      if (a) { row.k = a.k; row.s = a.s; row.o = a.o; row.b = freeBooks(a.k, a.s, a.o)[0] ?? 0; }
+      setKepOpen(true); setLogDraft({ id: null, kind: "요청", content: "" });
+      setEditing({ idx: -1, row });
+      return;
+    }
+    const idx = Number(bookIdx);
+    const r = rows[idx];
+    if (!r) return;
+    setKepOpen(bookHasKep(r)); setLogDraft({ id: null, kind: "요청", content: "" });
+    setEditing({ idx, row: { ...r, sm: [...r.sm], pm: [...r.pm], logs: r.logs ? r.logs.map((l) => ({ ...l })) : [] } });
+  }, [bookMode, bookIdx, rows, editing, assignedSO, owner]);   // eslint-disable-line react-hooks/exhaustive-deps
   const setF = <K extends keyof BR>(k: K, v: BR[K]) => setEditing((e) => (e ? { ...e, row: { ...e.row, [k]: v } } : e));
   const setSm = (i: number, v: number) => setEditing((e) => (e ? { ...e, row: { ...e.row, sm: e.row.sm.map((x, j) => (j === i ? v : x)) } } : e));
   const setPm = (i: number, v: number) => setEditing((e) => (e ? { ...e, row: { ...e.row, pm: e.row.pm.map((x, j) => (j === i ? v : x)) } } : e));
@@ -318,10 +337,15 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     if (isSharedRow(r) && (r.cu ?? "").trim()) setBookOverride(r.k, r.s, r.o, r.b, { cu: r.cu!.trim(), ea: 1 });
     if (editing.idx === -1) logActivity("bookAdd", `${cust?.customer ?? owner} · S${editing.row.s}/O${editing.row.o}/B${editing.row.b} · ${editing.row.t || "교재"}`, me?.name);
     else logActivity("bookEdit", `${cust?.customer ?? owner} · S${editing.row.s}/O${editing.row.o}/B${editing.row.b} · ${editing.row.t || "교재"}`, me?.name);
-    flash(editing.idx === -1 ? "추가됨" : "수정됨");
     setEditing(null);
+    router.push(listHref);        // 저장 후 교재 목록으로
   };
-  const delRow = (idx: number) => { if (confirm("이 책(교재) 편집 행을 삭제할까요?")) commit(rows.filter((_, i) => i !== idx)); };
+  const delRow = (idx: number) => {
+    if (!confirm("이 책(교재) 편집 행을 삭제할까요?")) return;
+    commit(rows.filter((_, i) => i !== idx));
+    setEditing(null);
+    if (bookMode) router.push(listHref);
+  };
 
   const selMethods = editing?.row.m ? editing.row.m.split(",").map((s) => s.trim()).filter(Boolean) : [];
   const addMethod = (v: string) => { if (v && !selMethods.includes(v)) setF("m", [...selMethods, v].join(", ")); setPick(""); };
@@ -344,6 +368,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
       </div>
 
       {toast && <div style={S.toast}>{toast}</div>}
+
+      {/* 교재 편집 페이지에서는 목록·KPI·필터를 감춘다 (모달이 아니라 별도 화면) */}
+      {!bookMode && (<>
 
       {/* KPI — 편집량(수량) · 정산(금액) 2묶음 */}
       <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
@@ -579,7 +606,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
             <div style={{ fontSize: 12, color: "#6b7280" }}>
               전체 <b style={{ color: "#111827" }}>{filtered.length.toLocaleString()}</b>건 중 {((curPage - 1) * perPage + 1).toLocaleString()}~{Math.min(curPage * perPage, filtered.length).toLocaleString()} 표시
               <select value={perPage} onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }} style={{ marginLeft: 8, fontSize: 12, padding: "3px 6px", border: "1px solid #e5e7eb", borderRadius: 6 }}>
-                {[50, 100, 200, 500].map((n) => <option key={n} value={n}>{n}건씩</option>)}
+                {[25, 50, 100, 200, 500].map((n) => <option key={n} value={n}>{n}건씩</option>)}
                 <option value={filtered.length || 1}>전체 보기</option>
               </select>
             </div>
@@ -598,8 +625,21 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
         {filtered.length === 0 && <div style={{ padding: 24, textAlign: "center", color: "#9ca3af" }}>결과 없음</div>}
       </div>
 
-      {editing && (
-        <Modal onClose={() => setEditing(null)} title={editing.idx === -1 ? "교재(책) 추가" : "교재(책) 편집 수정"} width={1040}>
+      </>)}
+
+      {bookMode && !editing && (
+        <div style={{ ...S.card, padding: 24, fontSize: 13, color: "#6b7280" }}>
+          교재를 찾을 수 없습니다. <Link href={listHref} style={{ color: "#2563eb" }}>교재 목록으로</Link>
+        </div>
+      )}
+
+      {bookMode && editing && (
+        <div style={{ ...S.card, padding: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{editing.idx === -1 ? "교재(책) 추가" : "교재(책) 편집 수정"}</div>
+            {editing.idx !== -1 && editing.row.t && <span style={{ ...S.tag, background: "#f3f4f6", color: "#6b7280" }}>{editing.row.t}</span>}
+            <span style={{ ...S.tag, fontFamily: "ui-monospace,monospace" }}>S{editing.row.s}/O{editing.row.o}/B{editing.row.b}</span>
+          </div>
           {/* 진행 상태 — 완료 시 아래 내용 전체 잠김 */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", border: "1px solid #eef0f4", borderRadius: 10, padding: "10px 14px", marginBottom: 12, background: "#fafbfc" }}>
             <span style={{ fontSize: 12.5, fontWeight: 700, color: "#374151" }}>진행 상태</span>
@@ -931,15 +971,16 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
           </div>
           </fieldset>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 18, paddingTop: 14, borderTop: "1px solid #eef0f4" }}>
             {editing.idx !== -1 && !locked && (
-              <button onClick={() => { const i = editing.idx; setEditing(null); delRow(i); }}
-                style={{ ...S.ghost, color: "#dc2626", marginRight: "auto" }}>교재 삭제</button>
+              <button onClick={() => delRow(editing.idx)}
+                style={{ ...S.ghost, color: "#dc2626", borderColor: "#fecaca" }}>교재 삭제</button>
             )}
-            <button onClick={() => setEditing(null)} style={S.ghost}>취소</button>
+            <span style={{ flex: 1 }} />
+            <Link href={listHref} style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
             <button onClick={saveRow} style={S.primary}>{editing.idx === -1 ? "추가" : "저장"}</button>
           </div>
-        </Modal>
+        </div>
       )}
     </div>
   );

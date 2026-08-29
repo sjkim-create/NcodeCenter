@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { S, Field, Modal } from "./ui";
+import { S, Field, Modal, BLUE } from "./ui";
 import { useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
@@ -10,7 +12,7 @@ import { codeKind, kindLabel, patternOf, patternTypeParam } from "@/lib/codeKind
 import { codesOfCompany } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import {
-  addTicket, allTickets, deleteTicket, hydrateTickets, setBilling, useTickets,
+  addTicket, allTickets, deleteTicket, hydrateTickets, setBilling, ticketById, updateTicket, useTickets,
   BILLINGS, BILLINGS_FILTER, BILL_COLOR, daysLeft, plusMonth, type Billing, type Ticket,
 } from "@/lib/ticketStore";
 
@@ -23,8 +25,10 @@ const readCompanyId = () => {
   try { return Number(sessionStorage.getItem(CO_KEY)) || 0; } catch { return 0; }
 };
 
-// 티켓 발급 — N Key 발급(물리·오프라인) / Key 발급 정산(발급 목록·과금). 계정 발급은 AccountsView.
-// 발급 메뉴는 사이드바 [티켓 발급] 그룹이며, 각 화면이 이 컴포넌트를 tab 으로 호출한다.
+// Key 관리 (N Key 발급) — [목록 → 등록] 한 쌍. 계정 발급(AccountsView)과 같은 구조다.
+//   · tab="list" → /tickets/nkey      발급·정산 목록 (옛 "Key 발급 정산" 메뉴)
+//   · tab="nkey" → /tickets/nkey/new  N Key 생성 (Caster lite 티켓)
+// 목록에는 N Key(여기서 발급)와 App Key(계정 발급에서 발급)가 함께 쌓인다 — 종류 필터로 구분.
 export default function TicketsView({ tab }: { tab: Tab }) {
   const { companies, projects } = useStore();
   const me = currentUser(useAuth());
@@ -41,7 +45,7 @@ export default function TicketsView({ tab }: { tab: Tab }) {
   return (
     <div style={{ padding: "18px 20px" }}>
       {tab === "nkey" && <div style={{ maxWidth: 900 }}><NKeyForm companies={companies} projects={projects} me={me} companyId={companyId} setCompanyId={setCompanyId} /></div>}
-      {tab === "list" && <TicketListView me={me} />}
+      {tab === "list" && <TicketListView />}
     </div>
   );
 }
@@ -49,7 +53,8 @@ export default function TicketsView({ tab }: { tab: Tab }) {
 /* ── 발급 목록 + 정산(과금) 등록 ── */
 const won = (n: number) => `₩${Math.round(n).toLocaleString()}`;
 
-function TicketListView({ me }: { me: ReturnType<typeof currentUser> }) {
+// 정산 등록·수정은 발급 상세(/tickets/nkey/[id])로 넘긴다 — 목록은 조회·이동만 한다.
+function TicketListView() {
   useTickets();
   const rows = allTickets();
   const [fCo, setFCo] = useState("");
@@ -60,8 +65,22 @@ function TicketListView({ me }: { me: ReturnType<typeof currentUser> }) {
   const [sort, setSort] = useState<{ key: "at" | "company" | "by"; dir: 1 | -1 }>({ key: "at", dir: -1 });   // 기본: 최근순
   const toggleSort = (key: "at" | "company" | "by") =>
     setSort((s) => (s.key === key ? { key, dir: (s.dir === 1 ? -1 : 1) as 1 | -1 } : { key, dir: key === "at" ? -1 : 1 }));
-  const [edit, setEdit] = useState<Ticket | null>(null);
-  const [info, setInfo] = useState<Ticket | null>(null);
+  // 외부 키 파일(.json) 불러오기 — 목록에 없는 키도 내용을 확인한다.
+  const [loadedKey, setLoadedKey] = useState<{ name: string; rows: KV[]; err?: string } | null>(null);
+  const loadKeyFile = (f?: File) => {
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try { setLoadedKey({ name: f.name, rows: toKV(JSON.parse(String(rd.result))) }); }
+      catch { setLoadedKey({ name: f.name, rows: [], err: "JSON 형식의 티켓 파일이 아닙니다. Key 생성으로 내려받은 .json 파일을 선택하세요." }); }
+    };
+    rd.readAsText(f);
+  };
+
+  // 페이지네이션 (고객사 관리 목록과 동일 · 기본 50건씩)
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(50);
+  useEffect(() => { setPage(1); }, [fCo, fKind, fBill, fSrc, q, sort.key, sort.dir]);
 
   const list = rows
     .filter((t) => (fCo ? t.company === fCo : true))
@@ -84,6 +103,11 @@ function TicketListView({ me }: { me: ReturnType<typeof currentUser> }) {
     todo: a.todo + (t.billing === "미정" ? 1 : 0),
     expired: a.expired + (t.billing === "체험" && (daysLeft(t.trialUntil) ?? 0) < 0 ? 1 : 0),
   }), { paid: 0, amount: 0, free: 0, trial: 0, todo: 0, expired: 0 });
+
+  // 요약·정산 합계는 필터 결과(list) 전체 기준, 표만 현재 페이지를 그린다.
+  const totalPages = Math.max(1, Math.ceil(list.length / perPage));
+  const curPage = Math.min(page, totalPages);
+  const pageRows = list.slice((curPage - 1) * perPage, curPage * perPage);
 
   return (
     <div>
@@ -132,6 +156,13 @@ function TicketListView({ me }: { me: ReturnType<typeof currentUser> }) {
         </div>
         <span style={{ flex: 1 }} />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="고객사·내용 검색" style={{ ...S.input, width: 190 }} />
+        <label style={{ ...S.ghost, display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
+          title="발급된 키 파일(.json)을 열어 내용을 확인합니다. 목록에 없는 외부 키도 됩니다.">
+          📂 N Key 불러오기
+          <input type="file" accept=".json,application/json" style={{ display: "none" }}
+            onChange={(e) => { loadKeyFile(e.target.files?.[0]); e.target.value = ""; }} />
+        </label>
+        <Link href="/tickets/nkey/new" style={{ ...S.primary, textDecoration: "none", whiteSpace: "nowrap" }}>＋ N Key 발급</Link>
       </div>
 
       <div style={{ ...S.card, padding: 0, overflow: "auto" }}>
@@ -148,19 +179,23 @@ function TicketListView({ me }: { me: ReturnType<typeof currentUser> }) {
             ))}</tr>
           </thead>
           <tbody>
-            {list.map((t) => {
+            {pageRows.map((t) => {
               const c = BILL_COLOR[t.billing];
               const left = t.billing === "체험" ? daysLeft(t.trialUntil) : null;
               return (
                 <tr key={t.id} style={{ borderTop: "1px solid #eef0f4" }}>
-                  <td style={{ ...S.td, color: "#9ca3af", fontFamily: "ui-monospace,monospace" }}>{t.no}</td>
+                  <td style={{ ...S.td, fontFamily: "ui-monospace,monospace" }}>
+                    <Link href={`/tickets/nkey/${t.id}`} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>{t.no}</Link>
+                  </td>
                   <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", fontSize: 11.5, whiteSpace: "nowrap" }}>{t.at.slice(0, 16).replace("T", " ")}</td>
                   <td style={S.td}><span style={{ ...S.tag, background: t.kind === "APP" ? "#fef3c7" : "#eef6ff", color: t.kind === "APP" ? "#92400e" : "#2563eb" }}>{t.kind === "APP" ? "App Key" : "N Key"}</span></td>
                   <td style={{ ...S.td, fontWeight: 600, textAlign: "left" }}>
                     {t.company}
                     {t.src === "ledger" && <span style={{ ...S.tag, fontSize: 8.5, marginLeft: 5, background: "#f3f4f6", color: "#9ca3af" }} title="nkey(HLP) 발급 대장에서 가져온 과거 이력">대장</span>}
                   </td>
-                  <td style={{ ...S.td, textAlign: "left", fontSize: 11.5, color: "#6b7280", maxWidth: 300 }}>{t.summary}</td>
+                  <td style={{ ...S.td, textAlign: "left", fontSize: 11.5, maxWidth: 300 }}>
+                    <Link href={`/tickets/nkey/${t.id}`} style={{ color: "#6b7280", textDecoration: "none" }} title="클릭하면 상세·수정">{t.summary}</Link>
+                  </td>
                   <td style={{ ...S.td, fontSize: 11.5 }}>{t.by || "-"}</td>
                   <td style={S.td}>
                     <span style={{ ...S.tag, background: c.bg, color: c.fg, fontWeight: 700 }}>{t.billing}</span>
@@ -175,8 +210,8 @@ function TicketListView({ me }: { me: ReturnType<typeof currentUser> }) {
                   </td>
                   <td style={{ ...S.td, textAlign: "left", fontSize: 11, color: "#9ca3af", maxWidth: 160 }}>{t.billNote || "-"}</td>
                   <td style={{ ...S.td, whiteSpace: "nowrap" }}>
-                    <button onClick={() => setEdit(t)} style={S.smallBtn}>정산 등록</button>
-                    <button onClick={() => setInfo(t)} style={{ ...S.linkBtn, marginLeft: 6 }}>Key 정보</button>
+                    <Link href={`/tickets/nkey/${t.id}?tab=bill`} style={{ ...S.smallBtn, textDecoration: "none" }}>정산</Link>
+                    <Link href={`/tickets/nkey/${t.id}`} style={{ ...S.linkBtn, marginLeft: 6, textDecoration: "none" }}>상세</Link>
                     <button onClick={() => { if (confirm(`발급 ${t.no}번 기록을 삭제할까요?`)) deleteTicket(t.id); }} style={{ ...S.linkBtn, marginLeft: 6, color: "#dc2626" }}>삭제</button>
                   </td>
                 </tr>
@@ -184,93 +219,237 @@ function TicketListView({ me }: { me: ReturnType<typeof currentUser> }) {
             })}
             {list.length === 0 && (
               <tr><td colSpan={10} style={{ ...S.td, textAlign: "center", color: "#9ca3af", padding: 30 }}>
-                {rows.length === 0 ? "아직 발급된 티켓이 없습니다. 왼쪽 [티켓 발급] 메뉴의 [N Key 발급] 또는 [계정 발급]에서 발급하세요." : "필터에 맞는 티켓이 없습니다."}
+                {rows.length === 0 ? "아직 발급된 티켓이 없습니다. [＋ N Key 발급] 또는 [계정 발급 (App Key 발급)] 메뉴에서 발급하세요." : "필터에 맞는 티켓이 없습니다."}
               </td></tr>
             )}
           </tbody>
         </table>
+        {list.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderTop: "1px solid #eef0f4", flexWrap: "wrap" }}>
+            <div style={{ fontSize: 12, color: "#6b7280" }}>
+              전체 <b style={{ color: "#111827" }}>{list.length.toLocaleString()}</b>건 중 {((curPage - 1) * perPage + 1).toLocaleString()}~{Math.min(curPage * perPage, list.length).toLocaleString()} 표시
+              <select value={perPage} onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }} style={{ marginLeft: 8, fontSize: 12, padding: "3px 6px", border: "1px solid #e5e7eb", borderRadius: 6 }}>
+                {[25, 50, 100, 200, 500].map((n) => <option key={n} value={n}>{n}건씩</option>)}
+                <option value={list.length || 1}>전체 보기</option>
+              </select>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <button onClick={() => setPage(1)} disabled={curPage === 1} style={pgBtn(false, curPage === 1)}>«</button>
+              <button onClick={() => setPage(curPage - 1)} disabled={curPage === 1} style={pgBtn(false, curPage === 1)}>‹</button>
+              {pageWindow(curPage, totalPages).map((n) => (
+                <button key={n} onClick={() => setPage(n)} style={pgBtn(n === curPage, false)}>{n}</button>
+              ))}
+              <button onClick={() => setPage(curPage + 1)} disabled={curPage === totalPages} style={pgBtn(false, curPage === totalPages)}>›</button>
+              <button onClick={() => setPage(totalPages)} disabled={curPage === totalPages} style={pgBtn(false, curPage === totalPages)}>»</button>
+              <span style={{ fontSize: 11.5, color: "#9ca3af", marginLeft: 6 }}>{curPage} / {totalPages}</span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {edit && <BillingModal t={edit} by={me?.name ?? ""} onClose={() => setEdit(null)} />}
-      {info && <KeyInfoModal current={info.params} onClose={() => setInfo(null)} />}
+      {loadedKey && (
+        <KeyInfoModal
+          title="N Key 불러오기" subtitle={loadedKey.name}
+          source="불러온 파일" all={loadedKey.rows} err={loadedKey.err} onClose={() => setLoadedKey(null)} />
+      )}
     </div>
   );
 }
 
-/* ── 정산 등록 — 유료(금액) / 무료 / 체험용(1달) ── */
-function BillingModal({ t, by, onClose }: { t: Ticket; by: string; onClose: () => void }) {
-  const [billing, setBill] = useState<Billing>(t.billing);
-  const [amount, setAmount] = useState(t.amount);
-  const [note, setNote] = useState(t.billNote ?? "");
-  const [trial, setTrial] = useState(t.trialUntil ?? plusMonth(t.at));
-  // 같은 고객사의 최근 유료 금액 — 업체별 단가 참고용
-  const prev = allTickets().find((x) => x.company === t.company && x.id !== t.id && x.billing === "유료" && x.amount > 0);
+/* ── 발급 상세 · 수정 — 목록에서 발급번호·발급내용을 누르면 열린다 ── */
+export function TicketDetailView({ ticketId }: { ticketId: number }) {
+  const router = useRouter();
+  const me = currentUser(useAuth());
+  useTickets();
 
+  const [ready, setReady] = useState(false);
+  useEffect(() => { hydrateTickets(); setReady(true); }, []);
+
+  const t = ready ? ticketById(ticketId) : undefined;
+
+  // 목록의 [정산] 은 ?tab=bill 로 들어와 정산 정보 탭을 바로 연다.
+  const sp = useSearchParams();
+  const [tab, setTab] = useState<"base" | "bill">(sp.get("tab") === "bill" ? "bill" : "base");
+  // ① 발급 기본정보
+  const [summary, setSummary] = useState("");
+  const [kv, setKv] = useState<{ k: string; v: string; num: boolean }[]>([]);
+  // ② 정산 정보 — 탭이 달라도 [저장] 한 번에 함께 저장한다.
+  const [billing, setBilling2] = useState<Billing>("미정");
+  const [amount, setAmount] = useState(0);
+  const [billNote, setBillNote] = useState("");
+  const [trial, setTrial] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // 티켓 값 주입 (최초 1회 — 편집 중 스토어 변경에 덮이지 않도록)
+  useEffect(() => {
+    if (!t || loaded) return;
+    setSummary(t.summary);
+    setKv(Object.entries(t.params).map(([k, v]) => ({ k, v: String(v), num: typeof v === "number" })));
+    setBilling2(t.billing); setAmount(t.amount); setBillNote(t.billNote ?? ""); setTrial(t.trialUntil ?? plusMonth(t.at));
+    setLoaded(true);
+  }, [t, loaded]);
+
+  if (!ready) return null;
+  if (!t) {
+    return (
+      <div style={{ padding: "18px 20px", maxWidth: 900 }}>
+        <div style={{ ...S.card, padding: 24, fontSize: 13, color: "#6b7280" }}>
+          발급 기록을 찾을 수 없습니다. <Link href="/tickets/nkey" style={{ color: "#2563eb" }}>Key 관리 목록으로</Link>
+        </div>
+      </div>
+    );
+  }
+
+  const kindLabel2 = t.kind === "APP" ? "App Key" : "N Key";
+
+  // 저장 — 탭을 나눠 놨을 뿐이라 [저장]은 두 탭 내용을 함께 기록한다.
   const save = () => {
-    if (billing === "유료" && amount <= 0) { alert("유료는 금액을 입력해야 합니다."); return; }
-    setBilling(t.id, { billing, amount, billNote: note.trim(), trialUntil: trial, by });
-    logActivity("ticket", `정산 등록 · ${t.company} · 발급 ${t.no}번 · ${billing}${billing === "유료" ? ` ${won(amount)}` : billing === "체험" ? ` ~${trial}` : ""}`, by);
-    onClose();
+    if (!summary.trim()) { setTab("base"); setToast({ ok: false, text: "발급 내용을 입력하세요." }); return; }
+    if (billing === "유료" && amount <= 0) { setTab("bill"); setToast({ ok: false, text: "유료는 금액을 입력해야 합니다." }); return; }
+    // 원래 숫자였던 항목은 숫자로 되돌린다 (표시·재사용 시 타입 유지)
+    const params = Object.fromEntries(kv.map((r) => [
+      r.k, r.num && r.v.trim() !== "" && !Number.isNaN(Number(r.v)) ? Number(r.v) : r.v,
+    ]));
+    updateTicket(t.id, { summary: summary.trim(), params });
+    setBilling(t.id, { billing, amount, billNote: billNote.trim(), trialUntil: trial, by: me?.name ?? "" });
+    logActivity("ticket", `발급 수정 · ${t.company} · 발급 ${t.no}번 · ${kindLabel2} · ${billing}`, me?.name);
+    setToast({ ok: true, text: "발급 기본정보와 정산 정보가 저장되었습니다." });
   };
 
+  const TABS = [["base", "발급 기본정보"], ["bill", "정산 정보"]] as const;
+
   return (
-    <Modal onClose={onClose} title={`정산 등록 — 발급 ${t.no}번`} width={620}>
-      <div style={{ background: "#f5f9ff", border: "1px solid #bfdbfe", borderRadius: 9, padding: "10px 12px", fontSize: 12.5, color: "#1e3a8a", marginBottom: 14 }}>
-        <b>{t.company}</b> · {t.kind === "APP" ? "App Key" : "N Key"} · {t.at.slice(0, 16).replace("T", " ")}
-        <div style={{ color: "#6b7280", marginTop: 3 }}>{t.summary}</div>
-      </div>
+    <div style={{ padding: "18px 20px", maxWidth: 900 }}>
+      <div style={{ ...S.card, padding: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>발급 상세 · 수정</div>
+          <span style={{ ...S.tag, background: t.kind === "APP" ? "#fef3c7" : "#eef6ff", color: t.kind === "APP" ? "#92400e" : "#2563eb", fontWeight: 700 }}>{kindLabel2}</span>
+          <code style={{ fontFamily: "ui-monospace,monospace", color: "#374151", fontSize: 12.5 }}>발급 {t.no}번</code>
+          <span style={{ ...S.tag, background: "#f3f4f6", color: "#6b7280" }}>{t.company}</span>
+          {t.src === "ledger" && <span style={{ ...S.tag, background: "#f3f4f6", color: "#9ca3af" }} title="nkey(HLP) 발급 대장에서 가져온 과거 이력">대장</span>}
+        </div>
 
-      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>과금 유형 <span style={{ color: "#9ca3af" }}>· 업체·티켓마다 다르게 등록할 수 있습니다</span></div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
-        {BILLINGS.map((b) => {
-          const on = billing === b; const c = BILL_COLOR[b];
-          return (
-            <button key={b} onClick={() => setBill(b)}
-              style={{ padding: "10px 8px", borderRadius: 9, cursor: "pointer", fontSize: 12.5, fontWeight: on ? 700 : 400,
-                border: `1px solid ${on ? c.fg : "#e5e7eb"}`, background: on ? c.bg : "#fff", color: on ? c.fg : "#6b7280" }}>
-              {b}
-              <div style={{ fontSize: 10, fontWeight: 400, color: on ? c.fg : "#9ca3af", marginTop: 2 }}>
-                {b === "유료" ? "금액 입력" : b === "무료" ? "청구 없음" : b === "체험" ? "1개월" : "미등록"}
+        {/* 탭 — 발급 기본정보 / 정산 정보. 저장은 아래 [저장] 하나로 두 탭 모두 반영된다. */}
+        <div style={{ display: "flex", borderBottom: "1px solid #eef0f4", marginBottom: 14 }}>
+          {TABS.map(([v, l]) => {
+            const on = tab === v;
+            return (
+              <button key={v} onClick={() => setTab(v)}
+                style={{ border: 0, background: "none", padding: "9px 16px", fontSize: 13, cursor: "pointer",
+                  color: on ? "#111827" : "#6b7280", fontWeight: on ? 700 : 400,
+                  borderBottom: `2px solid ${on ? BLUE : "transparent"}`, marginBottom: -1 }}>
+                {l}
+              </button>
+            );
+          })}
+        </div>
+
+        {tab === "base" ? (
+          <>
+            {/* 고객사·일시·발급인은 원장 기준값이라 고정 */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+              <Field label="고객사"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{t.company}</div></Field>
+              <Field label="발급일시"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280", fontFamily: "ui-monospace,monospace" }}>{t.at.slice(0, 16).replace("T", " ")}</div></Field>
+              <Field label="발급인"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{t.by || "-"}</div></Field>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <Field label="발급 내용 (목록 표기) *">
+                <input style={S.input} value={summary} onChange={(e) => setSummary(e.target.value)} />
+              </Field>
+            </div>
+
+            {/* Key 정보 — 발급 당시 파라미터를 값만 수정 */}
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
+                Key 정보 <span style={{ fontWeight: 400, color: "#9ca3af" }}>· {kv.length}개 항목 · 값만 수정합니다</span>
               </div>
-            </button>
-          );
-        })}
-      </div>
+              <div style={{ border: "1px solid #eef0f4", borderRadius: 9, overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+                  <thead>
+                    <tr style={{ background: "#fafbfc" }}>
+                      <th style={{ ...S.th, textAlign: "left", width: 240 }}>Key</th>
+                      <th style={{ ...S.th, textAlign: "left" }}>Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {kv.map((r, i) => (
+                      <tr key={r.k} style={{ borderTop: "1px solid #f3f4f6" }}>
+                        <td style={{ padding: "6px 12px", color: "#374151", fontWeight: 600, fontFamily: "ui-monospace,monospace", wordBreak: "break-all" }}>{r.k}</td>
+                        <td style={{ padding: "5px 10px" }}>
+                          <input style={{ ...S.input, padding: "6px 9px", fontSize: 12.5 }} value={r.v}
+                            onChange={(e) => setKv(kv.map((x, j) => (j === i ? { ...x, v: e.target.value } : x)))} />
+                        </td>
+                      </tr>
+                    ))}
+                    {kv.length === 0 && (
+                      <tr><td colSpan={2} style={{ padding: 24, textAlign: "center", color: "#9ca3af" }}>기록된 Key 항목이 없습니다.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6, lineHeight: 1.6 }}>
+                이미 내려받은 키 파일은 바뀌지 않습니다. 여기 수정은 <b>발급 원장의 기록</b>을 바로잡는 용도입니다.
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>과금 유형 <span style={{ color: "#9ca3af" }}>· 업체·티켓마다 다르게 등록할 수 있습니다</span></div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
+              {BILLINGS.map((b) => {
+                const on = billing === b; const bc = BILL_COLOR[b];
+                return (
+                  <button key={b} onClick={() => setBilling2(b)}
+                    style={{ padding: "10px 8px", borderRadius: 9, cursor: "pointer", fontSize: 12.5, fontWeight: on ? 700 : 400,
+                      border: `1px solid ${on ? bc.fg : "#e5e7eb"}`, background: on ? bc.bg : "#fff", color: on ? bc.fg : "#6b7280" }}>
+                    {b}
+                    <div style={{ fontSize: 10, fontWeight: 400, color: on ? bc.fg : "#9ca3af", marginTop: 2 }}>
+                      {b === "유료" ? "금액 입력" : b === "무료" ? "청구 없음" : b === "체험" ? "1개월" : "미등록"}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
 
-      {billing === "유료" && (
-        <div style={{ maxWidth: 320 }}>
-          <Field label="금액 (원) *">
-            <input type="number" min={0} step={10000} style={S.input} value={amount} onChange={(e) => setAmount(Math.max(0, Math.round(+e.target.value)))} />
-          </Field>
-          {prev && <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 4 }}>
-            {t.company} 최근 유료 발급: <b>{won(prev.amount)}</b>
-            <button onClick={() => setAmount(prev.amount)} style={{ ...S.linkBtn, marginLeft: 6 }}>같은 금액 적용</button>
-          </div>}
+            {billing === "유료" && (
+              <div style={{ maxWidth: 320 }}>
+                <Field label="금액 (원) *">
+                  <input type="number" min={0} step={10000} style={S.input} value={amount} onChange={(e) => setAmount(Math.max(0, Math.round(+e.target.value)))} />
+                </Field>
+              </div>
+            )}
+            {billing === "체험" && (
+              <div style={{ maxWidth: 320 }}>
+                <Field label="체험 만료일 (기본 = 발급일 + 1개월)">
+                  <input type="date" style={S.input} value={trial} onChange={(e) => setTrial(e.target.value)} />
+                </Field>
+                <div style={{ fontSize: 11.5, color: "#92400e", marginTop: 4 }}>만료되면 목록에서 <b>(만료)</b>로 표시되고 상단에 경고가 뜹니다.</div>
+              </div>
+            )}
+            {billing === "무료" && <div style={{ fontSize: 12.5, color: "#166534" }}>청구하지 않는 티켓으로 기록됩니다. (사유는 아래 비고에 남겨 주세요)</div>}
+
+            <div style={{ marginTop: 12 }}>
+              <Field label="비고 (사유·계약 정보)">
+                <input style={S.input} value={billNote} onChange={(e) => setBillNote(e.target.value)} placeholder="예) 2026 연간 계약 포함 · 데모 제공" />
+              </Field>
+            </div>
+
+            {t.billedAt && <div style={{ fontSize: 11.5, color: "#9ca3af", marginTop: 10 }}>최근 등록: {t.billedAt.slice(0, 16).replace("T", " ")} {t.billedBy ? `· ${t.billedBy}` : ""}</div>}
+          </>
+        )}
+
+        {/* 하단 액션 — [목록]은 여기 있다. 저장은 두 탭 내용을 함께 기록한다. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 18, paddingTop: 14, borderTop: "1px solid #eef0f4" }}>
+          <button onClick={() => { if (confirm(`발급 ${t.no}번 기록을 삭제할까요?`)) { deleteTicket(t.id); router.push("/tickets/nkey"); } }}
+            style={{ ...S.ghost, color: "#dc2626", borderColor: "#fecaca" }}>발급 기록 삭제</button>
+          <span style={{ flex: 1 }} />
+          <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
+          <button onClick={save} style={S.primary}>저장</button>
         </div>
-      )}
-      {billing === "체험" && (
-        <div style={{ maxWidth: 320 }}>
-          <Field label="체험 만료일 (기본 = 발급일 + 1개월)">
-            <input type="date" style={S.input} value={trial} onChange={(e) => setTrial(e.target.value)} />
-          </Field>
-          <div style={{ fontSize: 11.5, color: "#92400e", marginTop: 4 }}>만료되면 목록에서 <b>(만료)</b>로 표시되고 상단에 경고가 뜹니다.</div>
-        </div>
-      )}
-      {billing === "무료" && <div style={{ fontSize: 12.5, color: "#166534" }}>청구하지 않는 티켓으로 기록됩니다. (사유는 아래 비고에 남겨 주세요)</div>}
-
-      <div style={{ marginTop: 12 }}>
-        <Field label="비고 (사유·계약 정보)">
-          <input style={S.input} value={note} onChange={(e) => setNote(e.target.value)} placeholder="예) 2026 연간 계약 포함 · 데모 제공" />
-        </Field>
+        {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: toast.ok ? "#047857" : "#dc2626", textAlign: "right" }}>{toast.text}</div>}
       </div>
-
-      {t.billedAt && <div style={{ fontSize: 11.5, color: "#9ca3af", marginTop: 10 }}>최근 등록: {t.billedAt.slice(0, 16).replace("T", " ")} {t.billedBy ? `· ${t.billedBy}` : ""}</div>}
-
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-        <button onClick={onClose} style={S.ghost}>취소</button>
-        <button onClick={save} style={S.primary}>저장</button>
-      </div>
-    </Modal>
+    </div>
   );
 }
 
@@ -306,7 +485,6 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
   const [validUntil, setValidUntil] = useState("");           // YYMMDD 6자리
   const [separate, setSeparate] = useState(false);
   const [toast, setToast] = useState("");
-  const [keyInfo, setKeyInfo] = useState(false);   // 키 정보 확인 모달
   const [cuIdx, setCuIdx] = useState(-1);           // 공통코드 회사의 '사용 고객사' 선택
 
   const company = companies.find((c) => c.id === companyId);
@@ -506,7 +684,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
           <b>Separate each book</b> <span style={{ color: "#9ca3af" }}>(체크: 북코드별 개별 티켓 / 해제: 1개 티켓에 병합)</span>
         </label>
         <span style={{ flex: 1 }} />
-        <button onClick={() => setKeyInfo(true)} style={S.ghost} title="현재 입력값 확인 · 발급된 키 파일 불러오기">🔍 Key 정보 확인</button>
+        <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
         <button onClick={genKey} disabled={!range} style={{ ...S.primary, ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>Key 생성</button>
       </div>
       {range && (
@@ -515,7 +693,6 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
           {bookEnd > range.bookEnd && <span style={{ color: "#dc2626", fontWeight: 700 }}> · ⚠ 할당 범위(B{range.bookEnd}) 초과</span>}
         </div>
       )}
-      {keyInfo && <KeyInfoModal current={ticketParams()} onClose={() => setKeyInfo(false)} />}
       {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: "#2563eb" }}>{toast}</div>}
 
       <div style={{ marginTop: 12, background: "#fafbfc", border: "1px dashed #e5e7eb", borderRadius: 8, padding: "10px 12px", fontSize: 11.5, color: "#6b7280", lineHeight: 1.7 }}>
@@ -525,11 +702,24 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
   );
 }
 
-/* ── Key 정보 확인 — 현재 입력값 / 발급된 키 파일(.json)을 key·value 로 보여준다 ── */
+/* ── 목록 공용 조각 (필터 칩 · 페이지네이션 · Key 항목 표) ── */
 const chip = (on: boolean): React.CSSProperties => ({
   fontSize: 12.5, padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontWeight: on ? 700 : 400,
   border: `1px solid ${on ? "#93c5fd" : "#e5e7eb"}`, background: on ? "#eef6ff" : "#fff", color: on ? "#1d4ed8" : "#6b7280",
 });
+
+// 페이지네이션 — 고객사 관리(CompaniesView)·편집 상세와 동일한 표기
+const pgBtn = (on: boolean, disabled: boolean): React.CSSProperties => ({
+  minWidth: 28, fontSize: 12, padding: "4px 7px", borderRadius: 6, cursor: disabled ? "default" : "pointer",
+  border: `1px solid ${on ? "#93c5fd" : "#e5e7eb"}`, background: on ? "#eef6ff" : "#fff",
+  color: disabled ? "#d1d5db" : on ? "#2563eb" : "#4b5563", fontWeight: on ? 700 : 400,
+});
+function pageWindow(cur: number, total: number): number[] {
+  const size = Math.min(7, total);
+  let start = Math.max(1, cur - Math.floor(size / 2));
+  if (start + size - 1 > total) start = total - size + 1;
+  return Array.from({ length: size }, (_, i) => start + i);
+}
 type KV = { k: string; v: string };
 const toKV = (o: unknown, prefix = ""): KV[] => {
   if (o == null) return [];
@@ -541,50 +731,30 @@ const toKV = (o: unknown, prefix = ""): KV[] => {
   return [{ k: prefix || "value", v: String(o) }];
 };
 
-function KeyInfoModal({ current, onClose }: { current: Record<string, string | number>; onClose: () => void }) {
-  const [src, setSrc] = useState<"current" | "file">("current");
-  const [fileName, setFileName] = useState("");
-  const [loaded, setLoaded] = useState<KV[] | null>(null);
-  const [err, setErr] = useState("");
+// Key 항목 뷰어 — 레코드의 발급 파라미터 / 외부에서 불러온 키 파일을 같은 표로 보여준다.
+// 파일 선택은 이 모달이 아니라 부르는 쪽(목록 툴바)에서 한다.
+function KeyInfoModal({ title, subtitle, source, all, err, onClose }: {
+  title: string; subtitle?: string; source: string; all: KV[]; err?: string; onClose: () => void;
+}) {
   const [q, setQ] = useState("");
-
-  const load = (f?: File) => {
-    if (!f) return;
-    setFileName(f.name); setErr(""); setLoaded(null);
-    const rd = new FileReader();
-    rd.onload = () => {
-      try {
-        const parsed = JSON.parse(String(rd.result));
-        setLoaded(toKV(parsed)); setSrc("file");
-      } catch {
-        setErr("JSON 형식의 티켓 파일이 아닙니다. Key 생성으로 내려받은 .json 파일을 선택하세요.");
-        setSrc("file");
-      }
-    };
-    rd.readAsText(f);
-  };
-
-  const rows = (src === "file" ? loaded ?? [] : toKV(current))
-    .filter((r) => (q ? (r.k + r.v).toLowerCase().includes(q.toLowerCase()) : true));
+  const rows = all.filter((r) => (q ? (r.k + r.v).toLowerCase().includes(q.toLowerCase()) : true));
 
   return (
-    <Modal onClose={onClose} title="Key 정보 확인" width={720}>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-        <button onClick={() => setSrc("current")} style={chip(src === "current")}>현재 입력값</button>
-        <label style={{ ...chip(src === "file"), display: "inline-flex", alignItems: "center", gap: 6 }}>
-          📂 Key 불러오기
-          <input type="file" accept=".json,application/json" style={{ display: "none" }}
-            onChange={(e) => load(e.target.files?.[0])} />
-        </label>
-        {src === "file" && fileName && <span style={{ fontSize: 11.5, color: "#6b7280", fontFamily: "ui-monospace,monospace" }}>{fileName}</span>}
-        <span style={{ flex: 1 }} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="항목 검색" style={{ ...S.input, width: 150 }} />
-      </div>
+    <Modal onClose={onClose} title={title} width={720}>
+      {subtitle && (
+        <div style={{ background: "#f5f9ff", border: "1px solid #bfdbfe", borderRadius: 9, padding: "9px 12px", fontSize: 12.5, color: "#1e3a8a", marginBottom: 12 }}>
+          {subtitle}
+        </div>
+      )}
 
       {err && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", borderRadius: 8, padding: "9px 11px", fontSize: 12.5, marginBottom: 10 }}>⚠ {err}</div>}
 
-      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>
-        Key Info <span style={{ color: "#9ca3af" }}>· {rows.length}개 항목{src === "file" ? " (불러온 파일)" : " (아직 생성 전 · 화면 입력값 기준)"}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <div style={{ fontSize: 12, color: "#6b7280" }}>
+          Key Info <span style={{ color: "#9ca3af" }}>· {rows.length}개 항목 ({source})</span>
+        </div>
+        <span style={{ flex: 1 }} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="항목 검색" style={{ ...S.input, width: 150 }} />
       </div>
       <div style={{ border: "1px solid #eef0f4", borderRadius: 9, overflow: "hidden", maxHeight: 420, overflowY: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
@@ -603,7 +773,7 @@ function KeyInfoModal({ current, onClose }: { current: Record<string, string | n
             ))}
             {rows.length === 0 && (
               <tr><td colSpan={2} style={{ padding: 24, textAlign: "center", color: "#9ca3af" }}>
-                {src === "file" ? "키 파일을 선택하세요." : "표시할 항목이 없습니다."}
+                {all.length === 0 ? "표시할 항목이 없습니다." : `"${q}" 에 맞는 항목이 없습니다.`}
               </td></tr>
             )}
           </tbody>

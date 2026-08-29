@@ -66,12 +66,15 @@ export const MENU: MenuGroup[] = [
     ],
   },
   {
-    // 발급 메뉴(N Key · 계정 발급 · 발급 목록)를 화면 안 좌측 탭이 아니라 사이드바 그룹으로 관리한다.
+    // 발급 메뉴를 화면 안 좌측 탭이 아니라 사이드바 그룹으로 관리한다.
+    // 각 메뉴는 [목록 → 등록] 한 쌍 — 메뉴는 목록을 열고, 등록은 목록의 추가 버튼으로 들어간다.
+    //   · 계정 발급 (App Key 발급) : /tickets/account → /tickets/account/new
+    //   · Key 관리 (N Key 발급)    : /tickets/nkey    → /tickets/nkey/new   (옛 "Key 발급 정산" = 이 목록)
+    // 메뉴명의 괄호 = 그 화면에서 발급하는 키. Key 관리 목록에는 두 종류가 함께 쌓인다.
     group: "티켓 발급",
     items: [
-      { no: 4, label: "계정 발급", path: "/tickets/account", icon: "🔑", ready: true },
-      { label: "N Key 발급", path: "/tickets/nkey", icon: "🧾", ready: true },
-      { label: "Key 발급 정산", path: "/tickets/list", icon: "📒", ready: true },
+      { no: 4, label: "계정 발급 (App Key 발급)", path: "/tickets/account", icon: "🔑", ready: true },
+      { label: "Key 관리 (N Key 발급)", path: "/tickets/nkey", icon: "🧾", ready: true },
     ],
   },
   { group: "서비스 관리", items: serviceItems() },
@@ -95,9 +98,15 @@ export const MENU: MenuGroup[] = [
 export const ALL_ITEMS: MenuItem[] = MENU.flatMap((g) => g.items);
 // 헤더(그룹)와 실제 화면이 같은 경로를 쓰는 경우 실제 화면 이름을 우선 표시
 export const titleOf = (path: string): string => {
-  // 메뉴에 없는 하위 화면(계정 등록·상세)
+  // 메뉴에 없는 하위 화면(등록·상세)
   if (path === "/tickets/account/new") return "계정 등록";
   if (path.startsWith("/tickets/account/")) return "계정 상세 · 수정";
+  if (path === "/tickets/nkey/new") return "N Key 생성";
+  if (path.startsWith("/tickets/nkey/")) return "발급 상세 · 수정";
+  if (path === "/companies/new") return "고객사 등록";
+  if (path.startsWith("/companies/")) return "고객사 상세 · 수정";
+  if (/\/projects\/editing\/[^/]+\/book\/new$/.test(path)) return "교재(책) 추가";
+  if (/\/projects\/editing\/[^/]+\/book\//.test(path)) return "교재(책) 편집 수정";
   if (path.startsWith("/services/")) {
     const key = path.split("/")[2];
     return SERVICE_MENUS.find((s) => s.key === key)?.label ?? "서비스 관리";
