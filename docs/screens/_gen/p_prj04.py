@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
-"""PRJ-04 교재(책) 등록·수정 (교재 삭제 · 업무 메모 포함)"""
+"""PRJ-04 교재(책) 등록·수정 — 모달이 아니라 별도 페이지 2개.
+
+  추가  /projects/editing/{owner}/book/new
+  수정  /projects/editing/{owner}/book/{idx}
+편집 상세(PRJ-03)의 목록·KPI·필터를 감추고 이 폼만 보여준다.
+고객사 머리말은 유지되어 어느 고객사의 교재인지 맥락이 남는다.
+"""
 from shell import page, frame
 from p_tkt01 import sel, field
 
@@ -249,10 +255,11 @@ def content(mode='edit', st='진행중', locked=False, need_date=False, released
             + totals(pen) + '<div style="height:12px"></div>'
             + settle(badge, discount) + '<div style="height:12px"></div>'
             + extra(hi)
-            + '<div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px">'
-              '%s<div class="btn gho">취소</div>'
+            + '<div class="row" style="align-items:center;gap:8px;margin-top:18px;'
+              'padding-top:14px;border-top:1px solid #eef0f4">'
+              '%s<span style="flex:1"></span><div class="btn gho">목록</div>'
               '<div class="btn pri">%s</div></div>'
-            % ('<div class="btn gho" style="color:#dc2626;margin-right:auto">교재 삭제</div>'
+            % ('<div class="btn gho" style="color:#dc2626;border-color:#fecaca">교재 삭제</div>'
                if (mode != 'new' and not locked) else '', save))
 
 
@@ -274,7 +281,7 @@ def build():
         '<b>등록 모드에서는 S/O를 선택</b>할 수 있다. '
         '여기서 입력한 <b>페이지 수와 심볼·기능 수량이 곧 청구액</b>이 되므로, '
         '편집팀 작업 기록이자 정산 입력 화면이다. 대상 단위 = 교재(책) 1권 = S/O/B 좌표 1개.',
-        frame('PRJ-02', '교재(책) 추가',
+        frame('PRJ-03', '교재(책) 추가',
               content(mode='new', empty=True, badge='new', discount=False, mod_date=False),
               height=2100),
         [('진행 상태', '선택', '진행중 / 완료 / 보류', '기본값 <b>진행중</b>'),
@@ -286,13 +293,13 @@ def build():
          ('저장(자동)', '기록', '<code>LOG-01</code>', '등록 = <b>교재 추가</b>'),
          ('저장(자동, 공유 코드)', '반영', '<code>SOB-01</code>', '지도에 사용 고객사·편집 상태 반영'),
          ('사용 가능한 Book이 없을 때', '이동', '<code>SOB-01</code> → <code>SOB-02</code>', '코드 추가 할당'),
-         ('[취소]', '클릭', '<code>PRJ-03</code>', '변경 없음')]))
+         ('[목록]', '클릭', '<code>PRJ-03</code>', '교재 목록으로 · 입력값은 저장되지 않는다')]))
 
     boards.append((
         'S2', '수정 모드 · 교재(책) 편집 수정', '기본',
         '<code>PRJ-03</code>의 <b>교재 행 클릭</b>으로 진입. 화면 제목 <b>교재(책) 편집 수정</b>. '
         'S/O는 <b>(수정 불가)</b>로 표기된다.',
-        frame('PRJ-02', '교재(책) 편집 수정', content(), height=2100),
+        frame('PRJ-03', '교재(책) 편집 수정', content(), height=2100),
         [('S / O', '—', '<b>수정 불가</b>', '수정 모드에서는 변경할 수 없다'),
          ('Book', '선택', '—', '사용 가능한 번호에서'),
          ('펜 모델 · 편집방식', '추가/삭제', '—', '여러 개 선택 가능'),
@@ -304,7 +311,7 @@ def build():
         'S3', '완료 상태 · 내용 잠금', '변형',
         'PRD §4.1 · §5 — <b>완료 처리하려면 ncp2 최종수정 날짜가 필요</b>하고, '
         '완료 상태에서는 <b>내용이 잠긴다</b>.',
-        frame('PRJ-02', '교재(책) 편집 수정',
+        frame('PRJ-03', '교재(책) 편집 수정',
               content(st='완료', locked=True), height=2100),
         [('안내', '표시', '—',
           '<b>🔒 완료 처리되어 내용이 잠겼습니다. 수정하려면 진행중으로 변경하세요.</b>'),
@@ -315,7 +322,7 @@ def build():
     boards.append((
         'S4', '완료 조건 미충족', '오류',
         'PRD §4.1 · §5 — ncp2 최종수정 날짜가 비어 있으면 완료로 바꿀 수 없다.',
-        frame('PRJ-02', '교재(책) 편집 수정',
+        frame('PRJ-03', '교재(책) 편집 수정',
               content(need_date=True, mod_date=False),
               overlay=ovl('완료할 수 없습니다',
                           'ncp2 최종수정 날짜가 비어 있어 완료할 수 없습니다. '
@@ -330,7 +337,7 @@ def build():
         'S5', '완료 해제 이력', '변형',
         'PRD §4.1 — 완료를 해제하면 그때의 ncp2 최종수정 날짜가 <b>이력으로 보관</b>되고'
         '(해제 시각·해제자 포함) 화면에서 확인할 수 있다.',
-        frame('PRJ-02', '교재(책) 편집 수정', content(released=True), height=2100),
+        frame('PRJ-03', '교재(책) 편집 수정', content(released=True), height=2100),
         [('완료 해제 이력', '표시', '—', '<b>· {날짜} (완료 해제 {해제일시} · {해제자})</b>'),
          ('[완료]', '클릭', '재완료', 'ncp2 최종수정 날짜가 있으면 가능')]))
 
@@ -338,7 +345,7 @@ def build():
         'S6', '공유 코드 · 사용 고객사 필수', '오류',
         '<code>P-12</code> — 공유(커먼) 코드 Owner의 교재는 <b>사용 고객사 입력이 필수</b>다. '
         '비우고 저장하면 확인창으로 막는다.',
-        frame('PRJ-02', '교재(책) 편집 수정',
+        frame('PRJ-03', '교재(책) 편집 수정',
               content(share=True, sub_err=True),
               overlay=ovl('저장할 수 없습니다',
                           'S3/O21 는 공유 코드입니다. 사용 고객사를 입력하세요.'),
@@ -354,7 +361,7 @@ def build():
         '고정된 단가와 <b>현재 고객사 단가가 다를 때만</b> '
         '<b>⚠ 고객사 단가 변경됨 — 현재 단가로 갱신</b> 버튼이 나타나며, '
         '누르면 확인 후 <b>이 교재만</b> 현재 단가로 다시 계산한다 <code>PC-027</code>.',
-        frame('PRJ-02', '교재(책) 편집 수정',
+        frame('PRJ-03', '교재(책) 편집 수정',
               content(badge='changed'),
               overlay=ovl('현재 단가로 갱신',
                           '이 교재를 현재 고객사 단가로 다시 계산할까요? (등록 시 단가가 대체됩니다)'),
@@ -370,7 +377,7 @@ def build():
         'PRD §4.4 — 펜 종류에 따라 입력 항목이 갈린다. <b>필기펜</b>은 '
         'none 편집비용 · Custom · action 변경 편집 · 노트서버 업로드 · 교원구몬/KEP. '
         '⚠ <b>Custom · 교원구몬/KEP 단가는 미확정</b>(<code>PC-018</code> 확인 대기).',
-        frame('PRJ-02', '교재(책) 편집 수정',
+        frame('PRJ-03', '교재(책) 편집 수정',
               content(pen='필기펜', discount=False), height=2020),
         [('타입 = 필기펜', '선택', '항목 전환', '소리펜 ⇄ 필기펜'),
          ('Custom · 교원구몬/KEP', '—', '<b>미확정</b>', '⚠ §7 — 단가 확정 대기'),
@@ -380,7 +387,7 @@ def build():
     boards.append((
         'S9', '교재 삭제 확인창', '확인창',
         'PRD §4.7 · §5 — 확인 후 해당 교재 행이 <code>PRJ-03</code> 목록에서 제거된다.',
-        frame('PRJ-02', '교재(책) 편집 수정', content(),
+        frame('PRJ-03', '교재(책) 편집 수정', content(),
               overlay=ovl('교재 삭제', '이 책(교재) 편집 행을 삭제할까요?', danger=True),
               height=2100),
         [('[교재 삭제]', '클릭', '확인창', '<b>이 책(교재) 편집 행을 삭제할까요?</b>'),
@@ -391,7 +398,7 @@ def build():
         'S10', '업무 메모 · 남의 메모 수정 시도', '오류',
         'PRD §4.6 · §5 — 업무 메모는 <b>Enter 기록 · Shift+Enter 줄바꿈</b>이며 '
         '<b>본인이 작성한 메모만</b> 수정·삭제할 수 있다.',
-        frame('PRJ-02', '교재(책) 편집 수정', content(hi='1'),
+        frame('PRJ-03', '교재(책) 편집 수정', content(hi='1'),
               overlay=ovl('수정할 수 없습니다',
                           '박지훈 님이 작성한 메모입니다. 본인 글만 수정할 수 있습니다.'),
               height=2100),
