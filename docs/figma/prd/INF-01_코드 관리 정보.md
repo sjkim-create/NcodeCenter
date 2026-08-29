@@ -11,7 +11,7 @@
 
 ### 개요
 
-코드 발급·편집 업무에 필요한 **참조 정보**를 **밑줄 탭 4개**로 제공한다 — Code Info(Section별 발급 범위 — PDS2·PDS3·PDS4) · 확장 언어 슬롯 · 발급 구조 · OID 관리대장 · 알아야 할 사항. **참조 전용 · 기능 없음**이며 권한은 전 역할(STAFF / ADMIN). 탭 2~4는 각각 `LangSlotView` · `NcodeInfoView` · `NcodeGuideView`를 `embedded`로 불러 쓴다. 기준: `web/components/InfoView.tsx`
+코드 발급·편집 업무에 필요한 **참조 정보**를 **밑줄 탭 4개**로 제공한다 — Code Info(Section별 발급 범위 — PDS2·PDS3·PDS4) · 확장 언어 슬롯 · 발급 구조 · OID 관리대장 · 알아야 할 사항. **참조 전용 · 기능 없음**이며 권한은 전 역할(STAFF / ADMIN). 탭 2~4는 각각 `LangSlotView` · `NcodeInfoView` · `NcodeGuideView`를 `embedded`로 불러 쓴다.
 
 ### 상태 구성
 
@@ -35,7 +35,7 @@
 
 **구분** — 기본
 
-좌측 메뉴 [코드 관리 정보]로 진입하면 이 **Code Info** 탭이 기본이다. 탭은 칩이 아니라 **밑줄 탭**이며 활성 탭만 파란 글씨 + 2px 밑줄이다. 표는 **Section 하나당 4행**(owner · bookcode · page · length)이고 SECTION 칸이 `rowspan=4`로 묶인다. **참조 전용 · 기능 없음** — 검증·오류 메시지가 없다. 기준: `web/components/InfoView.tsx`
+좌측 메뉴 [코드 관리 정보]로 진입하면 이 **Code Info** 탭이 기본이다. 탭은 칩이 아니라 **밑줄 탭**이며 활성 탭만 파란 글씨 + 2px 밑줄이다. 표는 **Section 하나당 4행**(owner · bookcode · page · length)이고 SECTION 칸이 `rowspan=4`로 묶인다. **참조 전용 · 기능 없음** — 검증·오류 메시지가 없다.
 
 | 요소 | 액션 | 결과 · 이동 | 메시지 · 비고 |
 |---|---|---|---|

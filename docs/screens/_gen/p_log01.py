@@ -145,7 +145,7 @@ def build():
         '<b>ADMIN 전용</b> — 좌측 메뉴 [활동 로그] 또는 <code>DSH-01</code>의 [전체 로그]로 진입. '
         '구현은 <b>본문 최대 1000px</b>이며 필터가 <b>드롭다운이 아니라 칩 3줄</b>(월 · 직원 · 활동 종류)이다. '
         '목록은 <b>월 헤더 + 일자 그리드 <code>92px 1fr</code></b> 구조로, 왼쪽에 큰 날짜 숫자, '
-        '오른쪽에 활동 카드가 붙는다. 기준: <code>web/components/ActivityLogView.tsx</code>',
+        '오른쪽에 활동 카드가 붙는다.',
         frame('LOG-01', '활동 로그', content(), height=1160),
         [('월 칩', '클릭', '해당 월만', '전체 + 데이터에 있는 월 · <b>같은 칩 재클릭 = 해제(토글)</b>'),
          ('직원 칩', '클릭', '해당 직원만', '아바타(이름 첫 글자) + 이름 · 토글'),
@@ -221,5 +221,5 @@ def build():
              '<b>ADMIN 전용</b>이며 STAFF는 본문이 🔒 안내로 대체된다. '
              '<b>조회 전용</b>(기록은 각 화면에서 자동 생성) · 한국시간(KST) 기준 · 보관 최근 7일. '
              '필터는 <b>월 · 직원 · 활동 종류</b> 칩 3줄이고 각 칩은 <b>재클릭 시 해제(토글)</b>된다. '
-             '기준: <code>web/components/ActivityLogView.tsx</code>')
+             '')
     return page(CODE, NAME, PRD, intro, boards)

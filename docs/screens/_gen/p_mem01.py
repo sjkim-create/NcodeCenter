@@ -200,7 +200,7 @@ def build():
         '<b>구분 필터 줄</b>이 따로 있고, 표는 <b>11열</b>(No · 업체명 · 담당자/연락처 · 사업자번호 · '
         '은행/계좌 · 커먼 코드 · 편집 단가 · <b>주소</b> · 서류 · 업무 · 작업)이다. '
         '표 하단에 <b>표시 건수 선택 + 페이지네이션</b>이 붙는다. '
-        '기준: <code>web/components/CompaniesView.tsx</code>',
+        '',
         frame('MEM-01', '고객사 관리', content(), height=900),
         BASE + [
             ('커먼 코드 열', '조회', '—',
@@ -315,5 +315,5 @@ def build():
              '<b>모든 코드 발급과 티켓 발급의 선행 조건</b>이며, 여기에 등록되지 않은 업체에는 코드를 할당할 수 없다. '
              '계층은 <code>P-11</code>에 따라 <b>상위 / 하위 / 단독</b> 3분류이고 구분 필터로 거른다. '
              '<b>행을 클릭하면 <code>MEM-02</code> 수정 화면</b>으로 이동한다. '
-             '기준: <code>web/components/CompaniesView.tsx</code>')
+             '')
     return page(CODE, NAME, PRD, intro, boards)

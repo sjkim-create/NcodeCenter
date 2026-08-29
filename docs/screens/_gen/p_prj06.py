@@ -217,7 +217,7 @@ def build():
         '따라서 <b>"할당 미선택" 상태는 실제로 나타나지 않는다</b>. '
         '기본 펼침 상태는 <b>이미지만 펼침</b>, 기능 매핑·원본 시트는 접힘이다. '
         '첫 할당(S3/O52 아이글 출석부)은 정규화된 프로젝트·기능 표가 없어 안내 문구가 보인다. '
-        '기준: <code>web/components/PuiView.tsx</code>',
+        '',
         frame('PRJ-06', 'PUI 코드 (피지컬)', content(), height=900),
         [('상단 요약', '조회', '—', '할당 <b>6</b> · 프로젝트 <b>41</b> · 기능 <b>100</b>'),
          ('좌측 할당 항목', '클릭', '우측 상세 교체', 'S{n}/O{n} + PDS 배지 + 라벨 + 프로젝트/기능 건수'),
@@ -305,5 +305,5 @@ def build():
              '구성은 <b>좌 280px 할당 목록 / 우 상세</b>이며, 상세는 '
              '<b>프로젝트·할당 코드</b> + 접었다 펼치는 <b>🖼 컨트롤러 이미지 · ⚙ 기능 매핑 · 📄 원본 시트</b> 3개 섹션이다. '
              '<b>이 화면에서는 코드를 발급하지 않는다</b>(발급은 <code>SOB-02</code>). '
-             '기준: <code>web/components/PuiView.tsx</code> · <code>data/pui-data.json</code>')
+             ' · 원장 데이터')
     return page(CODE, NAME, PRD, intro, boards)

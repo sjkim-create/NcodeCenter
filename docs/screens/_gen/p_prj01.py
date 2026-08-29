@@ -379,5 +379,5 @@ def build():
              '<b>이 화면에는 프로젝트 등록 기능이 없다</b>(조회·검색 전용 / 수정·삭제만 가능). '
              '실제 구현은 <b>고객사 선택 → 프로젝트 → 발급 구성</b> 3단이며, '
              '좌측에 <b>코드 종류(PDS2/PDS3) · 유형(편집/코드발급) · 사용 서비스</b> 3중 필터가 있다. '
-             '기준: <code>web/components/ProjectsView.tsx</code> (2026-08-27 확인).')
+             ' (2026-08-27 확인).')
     return page(CODE, NAME, PRD, intro, boards)

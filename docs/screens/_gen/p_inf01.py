@@ -277,7 +277,7 @@ def build():
         '활성 탭만 파란 글씨 + 2px 밑줄이다. 표는 <b>Section 하나당 4행</b>'
         '(owner · bookcode · page · length)이고 SECTION 칸이 <code>rowspan=4</code>로 묶인다. '
         '<b>참조 전용 · 기능 없음</b> — 검증·오류 메시지가 없다. '
-        '기준: <code>web/components/InfoView.tsx</code>',
+        '',
         frame('INF-01', '코드 관리 정보', content(0), height=1240),
         [('탭', '클릭', '본문 교체', 'Code Info / 확장 언어 슬롯 / 발급 구조 / OID 관리대장 / 알아야 할 사항'),
          ('length(판형)', '조회', '—',
@@ -348,5 +348,5 @@ def build():
              '<b>참조 전용 · 기능 없음</b>이며 권한은 전 역할(STAFF / ADMIN). '
              '탭 2~4는 각각 <code>LangSlotView</code> · <code>NcodeInfoView</code> · '
              '<code>NcodeGuideView</code>를 <code>embedded</code>로 불러 쓴다. '
-             '기준: <code>web/components/InfoView.tsx</code>')
+             '')
     return page(CODE, NAME, PRD, intro, boards)
