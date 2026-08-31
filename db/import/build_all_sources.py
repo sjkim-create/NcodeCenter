@@ -766,8 +766,10 @@ print("oid-data.json · 업체", len(oid_json["companies"]), "· 항목",
 # ── 공통(커먼) 코드 레지스트리 + 사용 고객사 멤버십(히스토리→시드) → common-members.json ──
 #   코드 정본 = (타입 k: N=PDS3·G=PDS2·A=IDS, section, owner). 사용 고객사(cu)는 엑셀 히스토리에서 자동 시드.
 #   web/lib/commonCodes.ts 의 COMMON_CODES 와 (k,s,o) 가 일치해야 한다.
-COMMON_CODES = [("G", 3, 21), ("N", 0, 27), ("N", 3, 27), ("N", 3, 1012), ("N", 14, 303), ("A", 4, 27),
-                ("N", 3, 1013), ("N", 3, 940), ("G", 3, 37), ("G", 3, 964)]
+#   등록 기준 `PC-044`: 여러 고객사가 함께 쓰는 코드만. 아래 3건은 제외했다 —
+#     N3/O940 NLJ NTT-940(사용 고객사 = 자기 자신 1곳) · N14/O303 딥스원테크-303(자사 1곳) · G3/O37 구몬D-37(이력 0곳)
+COMMON_CODES = [("G", 3, 21), ("N", 0, 27), ("N", 3, 27), ("N", 3, 1012), ("A", 4, 27),
+                ("N", 3, 1013), ("G", 3, 964)]
 _mem = {f"{k}:{s}:{o}": set() for (k, s, o) in COMMON_CODES}
 for r in compact:
     ck = f"{r['k']}:{r['s']}:{r['o']}"

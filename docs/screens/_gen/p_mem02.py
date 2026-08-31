@@ -85,11 +85,12 @@ def basic_card(name_err=False, empty=False, closed=False):
 
 
 def common_card(is_parent=False):
-    items = [('구몬학습 · 공통코드 S0/O10', False, False),
-             ('NeoLAB · COMMON(21)', False, False),
-             ('케이크 · Cake(1009)', False, False)]
+    # 실제 레지스트리(commonCodes.ts) 기준 `PC-044` — 여러 고객사가 함께 쓰는 코드만 올라온다
+    items = [('Common-21 · PDS2 S3/O21', False, False),
+             ('네오노트-3-27 · PDS3 S3/O27', False, False),
+             ('스마트클래스키트-1013 · PDS3 S3/O1013', False, False)]
     if is_parent:
-        items[1] = ('NeoLAB · COMMON(21) <span class="tag">자기 보유 코드</span>', False, True)
+        items[0] = ('Common-21 · PDS2 S3/O21 <span class="tag">자기 보유 코드</span>', False, True)
     li = ''.join('<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;'
                  'padding:7px 2px;color:%s"><input type="checkbox"%s%s> %s</label>'
                  % ('#cbd5e1' if dis else '#374151', ' checked' if ck else '',

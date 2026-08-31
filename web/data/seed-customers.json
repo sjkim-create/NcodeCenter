@@ -6064,18 +6064,6 @@
    "accountNo": "",
    "docs": [],
    "sub": true
-  },
-  {
-   "id": 532,
-   "name": "NLJ NTT",
-   "manager": "",
-   "contact": "",
-   "address": "",
-   "bizNo": "",
-   "bankName": "",
-   "accountNo": "",
-   "docs": [],
-   "sub": true
   }
  ],
  "projects": [
@@ -18792,30 +18780,6 @@
   },
   {
    "id": 510,
-   "name": "NLJ NTT 코드발급 · S3/O940",
-   "companyId": 532,
-   "service": "NONE",
-   "grade": "",
-   "issued": [
-    {
-     "id": 1,
-     "date": "2022-09-30",
-     "codes": 4194304,
-     "used": 0,
-     "section": 3,
-     "owner": 940,
-     "bookStart": 0,
-     "bookEnd": 8191,
-     "pageStart": 0,
-     "pageEnd": 511
-    }
-   ],
-   "editing": false,
-   "editingOwner": 940,
-   "symbols": 0
-  },
-  {
-   "id": 511,
    "name": "비상교육 코드발급 · S3/O941",
    "companyId": 336,
    "service": "NONE",
@@ -18839,7 +18803,7 @@
    "symbols": 0
   },
   {
-   "id": 512,
+   "id": 511,
    "name": "가쿠쇼 코드발급 · S3/O1022",
    "companyId": 427,
    "service": "NONE",
