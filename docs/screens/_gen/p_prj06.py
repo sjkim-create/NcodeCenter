@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""PRJ-06 PUI 코드 (피지컬) — web/components/PuiView.tsx 실제 구현 기준"""
+"""PRJ-06 PUI 코드 (페이퍼) — web/components/PuiView.tsx 실제 구현 기준"""
 from shell import page, frame
 
-CODE, NAME = 'PRJ-06', 'PUI 코드 (피지컬)'
+CODE, NAME = 'PRJ-06', 'PUI 코드 (페이퍼)'
 PRD = 'docs/prd/PRJ-06_PUI 코드.md'
 
 # data/pui-data.json 실제 값 (summary: sheets 6 · projects 41 · funcs 100)
@@ -44,7 +44,7 @@ def head_row():
     return ('<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:12px;'
             'font-size:12.5px;color:#6b7280">'
             '<b style="font-size:14px;color:#111827">PUI 코드 관리</b>'
-            '<span>피지컬 조작(종이 위 컨트롤러) 프로젝트 할당 코드</span>'
+            '<span>종이 위 컨트롤러(Paper UI) 프로젝트 할당 코드</span>'
             '<span>할당 <b style="color:#111827">6</b></span>'
             '<span>프로젝트 <b style="color:#111827">41</b></span>'
             '<span>기능 <b style="color:#2563eb">100</b></span></div>')
@@ -212,13 +212,13 @@ def build():
 
     boards.append((
         'S1', '기본 · 첫 할당 자동 선택', '기본',
-        '좌측 메뉴 [서비스 관리 ▸ CasterN ▸ PUI 코드 (피지컬)]로 진입. '
+        '좌측 메뉴 [서비스 관리 ▸ CasterN ▸ PUI 코드 (페이퍼)]로 진입. '
         '구현은 <b>첫 할당을 자동 선택</b>한다(<code>useState(D.allocations[0].sheet)</code>) — '
         '따라서 <b>"할당 미선택" 상태는 실제로 나타나지 않는다</b>. '
         '기본 펼침 상태는 <b>이미지만 펼침</b>, 기능 매핑·원본 시트는 접힘이다. '
         '첫 할당(S3/O52 아이글 출석부)은 정규화된 프로젝트·기능 표가 없어 안내 문구가 보인다. '
         '',
-        frame('PRJ-06', 'PUI 코드 (피지컬)', content(), height=900),
+        frame('PRJ-06', 'PUI 코드 (페이퍼)', content(), height=900),
         [('상단 요약', '조회', '—', '할당 <b>6</b> · 프로젝트 <b>41</b> · 기능 <b>100</b>'),
          ('좌측 할당 항목', '클릭', '우측 상세 교체', 'S{n}/O{n} + PDS 배지 + 라벨 + 프로젝트/기능 건수'),
          ('프로젝트 표 없음', '표시', '—',
@@ -232,7 +232,7 @@ def build():
         'S2', '프로젝트 · 기능 매핑이 있는 할당', '기본',
         'S3/O1011을 선택한 상태. <b>프로젝트 2건 · 기능 100건</b>이 있어 표가 채워진다. '
         '프로젝트 표는 최소 폭 700px, 기능 매핑 표는 820px로 <b>가로 스크롤</b>된다.',
-        frame('PRJ-06', 'PUI 코드 (피지컬)',
+        frame('PRJ-06', 'PUI 코드 (페이퍼)',
               content(sel='PDS3_S3_O1011', open_func=True), height=1200),
         [('프로젝트 / 할당 코드', '조회', '—',
           '프로젝트 · Book · Page · 제품 · 고객사 · 메모/포함기능 · 부서/발급인 · 비고'),
@@ -246,7 +246,7 @@ def build():
         'PRD §4.2 — 참고 이미지를 등록·확인한다. 카드 격자는 '
         '<code>repeat(auto-fill, minmax(150px, 1fr))</code>이며 클릭하면 확대된다. '
         '⚠ §7 미결 — 보관 위치(현재 브라우저 저장, 용량 제한).',
-        frame('PRJ-06', 'PUI 코드 (피지컬)',
+        frame('PRJ-06', 'PUI 코드 (페이퍼)',
               content(sel='PDS3_S3_O1013', imgs=3), height=1000),
         [('[＋ 이미지 업로드]', '클릭', '파일 선택', '한 번에 최대 <b>8장</b>'),
          ('이미지', '클릭', '확대 보기', '<b>브라우저에 저장 · 클릭하면 크게 보기</b>'),
@@ -258,7 +258,7 @@ def build():
         'S4', '원본 시트 펼침', '분기',
         'PRD §4.2 — 가공 전 엑셀 원본 행을 그대로 확인한다(최대 높이 460px 스크롤). '
         '첫 열은 회색으로 구분된다. ⚠ §7 미결 — 원본 갱신 주기·담당.',
-        frame('PRJ-06', 'PUI 코드 (피지컬)',
+        frame('PRJ-06', 'PUI 코드 (페이퍼)',
               content(sel='PDS3_S3_O1013', open_img=False, open_raw=True), height=900),
         [('📄 원본 시트', '클릭', '펼침/접힘', '<b>{n}행</b> 배지 + <b>· 엑셀 원본 그대로</b>'),
          ('원본 표', '스크롤', '—', '최대 높이 460px'),
@@ -272,7 +272,7 @@ def build():
         'S5', '이미지 저장 실패 (용량 초과)', '오류',
         'PRD §5 메시지 — 브라우저 저장 실패 시 상단에 <b>빨간 토스트</b>로 노출되고 '
         '4초 뒤 사라진다.',
-        frame('PRJ-06', 'PUI 코드 (피지컬)',
+        frame('PRJ-06', 'PUI 코드 (페이퍼)',
               content(sel='PDS3_S3_O1013', imgs=3, toast=err), height=1040),
         [('상단 알림', '표시', '—', '<b>저장 용량 초과 — 이미지 수를 줄여주세요.</b>'),
          ('자동 사라짐', '4초 후', '—', ''),
@@ -292,7 +292,7 @@ def build():
         'S6', '컨트롤러 이미지 확대', '분기',
         '이미지를 클릭하면 <b>화면 전체 위에 크게</b> 열린다. '
         '파일명과 <b>[닫기 ✕]</b> 가 함께 나오고, <b>바깥 어두운 영역을 클릭해도 닫힌다</b>.',
-        frame('PRJ-06', 'PUI 코드 (피지컬)',
+        frame('PRJ-06', 'PUI 코드 (페이퍼)',
               content(sel='PDS3_S3_O1013', imgs=3), overlay=zoom, height=1000),
         [('이미지', '클릭', '확대', '커서가 <b>돋보기(＋)</b> 로 바뀐다'),
          ('[닫기 ✕] · 바깥 영역', '클릭', '닫힘', ''),
@@ -300,8 +300,8 @@ def build():
           '<b>브라우저에 저장</b>된다 — 서버에 올라가지 않는다'),
          ('업로드 개수', '참고', '—', '한 번에 <b>최대 8장</b>')]))
 
-    intro = ('<b>PUI(Physical UI) = 종이 위 컨트롤러</b>에 쓰이는 코드. '
-             '재생·정지·볼륨 같은 <b>피지컬 조작 기능이 어떤 Book/Page에 매핑돼 있는지</b>를 확인하는 참조 화면. '
+    intro = ('<b>PUI(Paper UI) = 종이 위 컨트롤러</b>에 쓰이는 코드. '
+             '재생·정지·볼륨 같은 <b>종이 위 조작 기능이 어떤 Book/Page에 매핑돼 있는지</b>를 확인하는 참조 화면. '
              '구성은 <b>좌 280px 할당 목록 / 우 상세</b>이며, 상세는 '
              '<b>프로젝트·할당 코드</b> + 접었다 펼치는 <b>🖼 컨트롤러 이미지 · ⚙ 기능 매핑 · 📄 원본 시트</b> 3개 섹션이다. '
              '<b>이 화면에서는 코드를 발급하지 않는다</b>(발급은 <code>SOB-02</code>). '

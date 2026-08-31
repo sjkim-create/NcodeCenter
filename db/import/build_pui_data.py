@@ -1,4 +1,4 @@
-# PUI_Ncode_List.xlsx → 피지컬 조작(PUI) 코드 할당 데이터
+# PUI_Ncode_List.xlsx → 종이 위 컨트롤러(PUI · Paper UI) 코드 할당 데이터
 # 시트 = PDS{n}_S{section}_O{owner}[_라벨] · 프로젝트표 + 기능표
 import sys, os, re, json
 sys.stdout.reconfigure(encoding="utf-8")

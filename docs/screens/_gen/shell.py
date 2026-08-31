@@ -220,7 +220,7 @@ MENU = [
     ('grp', '서비스 관리', None, None),
     ('head', 'CasterN 서비스 관리', None, '🎬'),
     ('child', '편집 프로젝트', 'PRJ-02', None),
-    ('child', 'PUI 코드 (피지컬)', 'PRJ-06', None),
+    ('child', 'PUI 코드 (페이퍼)', 'PRJ-06', None),
     ('soon', '폼솔루션 서비스 관리', 'SVC-01', '📄'),
     ('grp', '멤버 관리', None, None),
     ('item', '고객사 관리', 'MEM-01', '👥'),

@@ -26,10 +26,10 @@ export const SERVICE_MENUS: ServiceMenu[] = [
     icon: "🎬",
     ready: true,
     desc: "casterN 편집툴이 쓰는 코드의 프로젝트·편집·정산 현황",
-    features: ["편집 프로젝트·교재별 편집량·정산", "PUI(피지컬) 코드 기능표"],
+    features: ["편집 프로젝트·교재별 편집량·정산", "PUI(페이퍼) 코드 기능표"],
     items: [
       { label: "편집 프로젝트", path: "/projects/editing", icon: "✏️", ready: true },
-      { label: "PUI 코드 (피지컬)", path: "/pui", icon: "🎛️", ready: true },
+      { label: "PUI 코드 (페이퍼)", path: "/pui", icon: "🎛️", ready: true },
     ],
   },
   {

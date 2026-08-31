@@ -48,7 +48,7 @@ export default function PuiView() {
     <div style={{ padding: "18px 20px" }}>
       <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 12, fontSize: 12.5, color: "#6b7280" }}>
         <b style={{ fontSize: 14, color: "#111827" }}>PUI 코드 관리</b>
-        <span>피지컬 조작(종이 위 컨트롤러) 프로젝트 할당 코드</span>
+        <span>종이 위 컨트롤러(Paper UI) 프로젝트 할당 코드</span>
         <span>할당 <b style={{ color: "#111827" }}>{D.summary.sheets}</b></span>
         <span>프로젝트 <b style={{ color: "#111827" }}>{D.summary.projects}</b></span>
         <span>기능 <b style={{ color: "#2563eb" }}>{D.summary.funcs}</b></span>

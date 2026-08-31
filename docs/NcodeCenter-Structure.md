@@ -101,7 +101,7 @@ NcodeCenter
 ├─ [서비스 관리]                              ← 사내 Ncode 사용 서비스별 관리 (확장 축)
 │   ├─ CasterN 서비스 관리                    (구현)
 │   │   ├─ 편집 프로젝트                      PRJ-02   (/projects/editing)
-│   │   └─ PUI 코드 (피지컬)                  PRJ-06   (/pui)
+│   │   └─ PUI 코드 (페이퍼)                  PRJ-06   (/pui)
 │   └─ 폼솔루션 서비스 관리        예정        (/services/formsolution)
 ├─ [멤버 관리]
 │   ├─ 고객사 관리                            MEM-01   (/companies)

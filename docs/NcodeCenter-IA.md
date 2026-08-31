@@ -41,7 +41,7 @@ NcodeCenter
 │   ├─ CasterN 서비스 관리
 │   │   ├─ 편집 프로젝트            PRJ-02   (/projects/editing)
 │   │   │   └─ 편집 프로젝트 상세   PRJ-03   (우측 상세 패널)
-│   │   └─ PUI 코드 (피지컬)        PUI-01   (/pui)
+│   │   └─ PUI 코드 (페이퍼)        PUI-01   (/pui)
 │   └─ 폼솔루션 서비스 관리  예정    SVC-01   (/services/formsolution)
 ├─ [멤버 관리]
 │   ├─ 고객사 관리                  CLI-01   (/companies)
@@ -85,7 +85,7 @@ NcodeCenter
 | **TKT-03** | Key 발급 정산 | 2 | `/tickets/list` | `TicketsView` (`TicketListView`) | Staff/Admin | 발급 티켓 목록·정산, 대장(HLP 발급대장)/신규 발급 필터 |
 | **PRJ-02** | 편집 프로젝트 | 2 | `/projects/editing` | `EditingProjectsView` | Staff/Admin | 편집 고객사 목록, 발급규모(페이지)·편집원가(심볼) 단가 기준 집계·검색·고객사 추가 |
 | **PRJ-03** | 편집 프로젝트 상세 | 2 | `/projects/editing/[owner]` | `EditingDetailView` | Staff/Admin | 오너별 Book·편집 가능 범위·할당 SO·공유 정보 상세 |
-| **PUI-01** | PUI 코드 (피지컬) | 2 | `/pui` | `PuiView` | Staff/Admin | 피지컬 UI 기능표 — 카테고리·기능별 Book/Page·파라미터 참조 |
+| **PUI-01** | PUI 코드 (페이퍼) | 2 | `/pui` | `PuiView` | Staff/Admin | 페이퍼 UI(PUI) 기능표 — 카테고리·기능별 Book/Page·파라미터 참조 |
 | **SVC-01** | 폼솔루션 서비스 관리 | 2 | `/services/formsolution` | `MenuPlaceholder` | Staff/Admin | ⬜ 예정 — 등급별 SO 풀 현황·end-user 자동 배정 내역 |
 | — | **멤버 관리** (그룹) | 1 | — | — | — | 고객사·감사 로그 영역 |
 | **CLI-01** | 고객사 관리 | 2 | `/companies` | `CompaniesView` | Admin | 고객사 CRUD, 서비스유형·등급·전용 owner·커먼 코드 보유 필터·가나다 정렬 |
