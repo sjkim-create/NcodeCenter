@@ -273,17 +273,14 @@ export default function EditingProjectsView() {
                   </p>
                 </div>
               ) : (
+                // 코드 할당은 **SOBP 맵에서만** 한다 — 여기서 Owner/코드 종류를 직접 입력하지 않는다 `PC-045`
                 <div style={{ marginTop: 12 }}>
-                  <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 9, padding: "9px 11px", fontSize: 12, color: "#92400e", marginBottom: 10 }}>
-                    <b>{co?.name}</b> 는 아직 할당된 코드가 없습니다. Owner 코드를 직접 입력하거나, 먼저 <b>SOBP 맵</b>에서 코드를 할당하세요.
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    <Field label="Owner (직접 입력) *"><input style={S.input} value={addForm.owner} onChange={(e) => setAddForm({ ...addForm, owner: e.target.value })} placeholder="예: 1030" /></Field>
-                    <Field label="코드 종류">
-                      <select style={S.input} value={addForm.kind} onChange={(e) => setAddForm({ ...addForm, kind: e.target.value as "N" | "G" })}>
-                        <option value="N">PDS3(Ncode)</option><option value="G">PDS2(Gcode)</option>
-                      </select>
-                    </Field>
+                  <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: "11px 13px", fontSize: 12.5, color: "#991b1b", lineHeight: 1.7 }}>
+                    🚫 <b>{co?.name}</b> 는 아직 <b>할당된 코드가 없습니다.</b>
+                    <div style={{ marginTop: 4, color: "#7f1d1d" }}>
+                      코드 할당은 <b>[SOBP 맵]</b> 에서만 합니다. 먼저 SOBP 맵에서 이 고객사에 코드를 할당한 뒤 다시 추가하세요.
+                    </div>
+                    <a href="/ownership" style={{ display: "inline-block", marginTop: 8, fontSize: 12, fontWeight: 700, color: "#b91c1c" }}>SOBP 맵으로 이동 →</a>
                   </div>
                 </div>
               )

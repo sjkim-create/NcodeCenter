@@ -9,6 +9,8 @@ import { logActivity } from "@/lib/activityStore";
 import { EDIT_BOOKS, projectBooks, rangesFor, ownersFor, usedBookMap, canAllocate, sharedInfo, ownerHolders, isBookEdited, RANGES, type BookRec, type CodeStatus } from "@/lib/codeUsage";
 import { recommendSobp, isExcluded, PAPER_SIZES, maxRecommendLength, type Reco, type Pen, type Pds } from "@/lib/sobpRecommend";
 import { hydrateShared, markShared, useSharedOwners, customShared, BUILT_IN } from "@/lib/sharedOwners";
+import { commonCodeOf } from "@/lib/commonCodes";
+import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { langLabelOfOwner, isLangOwner, LANG_PDS, LANG_SECTION } from "@/lib/languageSlots";
 import { hydrateOverrides, overrideOf, useBookOverrides } from "@/lib/editOverrides";
 import { Sc, SobpChips, KindChip, PenChip } from "./sobp";
@@ -107,8 +109,9 @@ export default function OwnershipMap() {
   const [fAcct, setFAcct] = useState("");
   const [fStat, setFStat] = useState<"전체" | "코드 발급" | "코드 미발급" | "편집" | "공유" | "사용가능">("전체");
   const shVer = useSharedOwners();                     // 공유 OWNER 변경 시 리렌더
+  useCommonMembers();                                  // 공통코드 사용 고객사(하위 등록) 변경 시 리렌더
   useBookOverrides();                                   // 편집 프로젝트의 Book 오버라이드(사용 고객사) 변경 시 리렌더
-  useEffect(() => { hydrateShared(); hydrateOverrides(); }, []);   // 마운트 후 localStorage 로드
+  useEffect(() => { hydrateShared(); hydrateOverrides(); hydrateMembers(); }, []);   // 마운트 후 localStorage 로드
   const [q, setQ] = useState("");
   const [tip, setTip] = useState<{ x: number; y: number; html: string } | null>(null);
   const [oLimit, setOLimit] = useState(PAGE_O);   // Owner 노출 개수
@@ -472,6 +475,13 @@ export default function OwnershipMap() {
         const mixedBlock = mixed.length > 0;
         const allocBooks = projectBooks(projects, companies);
         const nzn = (x: string) => x.replace(/\s+/g, "").replace(/\(.*\)/g, "").toLowerCase();
+        // 공유(커먼) 코드는 **고객사 관리에서 사용 고객사로 등록한 곳**에만 발급한다 `PC-045`
+        //   레지스트리에 있는 공통코드일 때만 검사한다(임의 지정 공유 OWNER 는 대상 아님).
+        const cCode = commonCodeOf(pds, curS, curO);
+        const cMembers = cCode ? membersOf(pds, curS, curO).map((m) => m.name) : [];
+        const commonBlock = !!cCode && !!name
+          && nzn(name) !== nzn(cCode.company)                       // 보유(대표) 고객사는 예외
+          && !cMembers.some((m) => nzn(m) === nzn(name));
         const usedNow = usedBookMap(pds, curS, curO, allocBooks);                 // 실제 등록된 교재
         const otherRanges = rangesFor(pds, curS, curO).filter((r) => nzn(r.account) !== nzn(name));
         const freeBooks: number[] = [];
@@ -501,6 +511,7 @@ export default function OwnershipMap() {
         const save = () => {
           if (!name) { alert("고객사를 선택하세요. (신규 고객사는 고객사 관리에서 등록)"); return; }
           if (locked) { alert(`전용 코드입니다. S${curS}/O${curO} 는 이미 ${others.join(", ")} 에 할당되어 있습니다.`); return; }
+          if (commonBlock) { alert(`${name} 는 공유(커먼) 코드 ${cCode!.name} 의 사용 고객사가 아닙니다.` + "\n" + "[고객사 관리]에서 이 고객사의 [공통코드 사용 고객사(하위 등록)] 에 먼저 체크하세요."); return; }
           if (mixedBlock) { alert(`이 S/O 는 이미 ${mixed.join(" · ")} 로 쓰고 있습니다.` + "\n" + "한 S/O 안에서는 한 종류만 발급합니다. 코드 종류를 맞추거나 다른 Owner 를 고르세요."); return; }
           // 고객사 관리에 등록된 고객사에만 발급 (여기서 신규 생성하지 않음)
           const norm = (x: string) => x.replace(/\s+/g, "").toLowerCase();
@@ -749,6 +760,11 @@ export default function OwnershipMap() {
                 <div style={{ marginTop: 10, fontSize: 12, color: locked ? "#b91c1c" : "#6b7280", lineHeight: 1.65 }}>
                   이 <b>S{curS}/O{curO}</b> 전체를 <b>{name || "선택한 고객사"}</b> 에 발급(점유)합니다. owner 아래 <b>모든 Book 이 &lsquo;사용가능&rsquo;</b> 이 되고, 실제 발급 규모(코드 수)는 <b>편집 시 집계</b>됩니다.
                   {locked && <div style={{ marginTop: 4, fontWeight: 700 }}>⚠ 이미 {others.join(", ")} 전용입니다.</div>}
+                  {commonBlock && (
+                    <div style={{ marginTop: 4, fontWeight: 700, color: "#b91c1c" }}>
+                      🚫 <b>{name}</b> 는 공유(커먼) 코드 <b>{cCode!.name}</b> 의 <b>사용 고객사가 아닙니다</b> — [고객사 관리] 에서 <b>공통코드 사용 고객사(하위 등록)</b> 에 먼저 체크하세요.
+                    </div>
+                  )}
                   {mixedBlock && (
                     <div style={{ marginTop: 4, fontWeight: 700, color: "#b91c1c" }}>
                       🚫 이 S/O 는 이미 <b>{mixed.join(" · ")}</b> 로 사용 중 — <b>한 S/O 안에서는 한 종류만</b> 발급합니다 (과거 혼용 이력은 그대로 표시)
@@ -761,8 +777,8 @@ export default function OwnershipMap() {
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
               <button onClick={() => setAlloc(null)} style={S.ghost}>취소</button>
               {(aMode === "manual" || applied) && (
-                <button onClick={save} disabled={locked || !name || mixedBlock}
-                  style={{ ...S.primary, ...(locked || !name || mixedBlock ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>할당</button>
+                <button onClick={save} disabled={locked || !name || mixedBlock || commonBlock}
+                  style={{ ...S.primary, ...(locked || !name || mixedBlock || commonBlock ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>할당</button>
               )}
             </div>
           </Modal>

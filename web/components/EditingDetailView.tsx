@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { S, Field, AutoTextarea } from "./ui";
 import { codeKind, kindMeta, type CodeKind } from "@/lib/codeKind";
 import { SobpChips } from "./sobp";
@@ -15,6 +15,7 @@ import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers
 import { setBookOverride } from "@/lib/editOverrides";
 import { logActivity } from "@/lib/activityStore";
 import { EDIT_CUSTOMERS } from "@/lib/editingData";
+import { loadCustomCustomers } from "@/lib/editingCustomers";
 import { BASE_RATE, RATE_ITEMS, rateMapOf, settleBook, bookHasDiscount, hasCustomRates, SOUND_QTY, PEN_QTY, type RateMap } from "@/lib/pricing";
 
 const KIND_BG: Record<string, string> = { 요청: "#fef3c7", 처리: "#dcfce7", 메모: "#eef2f7" };
@@ -76,10 +77,17 @@ const EMPTY = (o: number): BR => ({ b: 0, s: 0, o, k: "N", pg: 0, t: "", f: "", 
 export default function EditingDetailView({ owner: ownerProp, custName, embedded, seedCustomer, ownerFilter, pdsLock, allCustomers, bookIdx }: { owner?: string; custName?: string; embedded?: boolean; seedCustomer?: Cust; ownerFilter?: number | null; pdsLock?: CodeKind | ""; allCustomers?: boolean; bookIdx?: string } = {}) {
   const params = useParams();
   const router = useRouter();
+  const sp = useSearchParams();
   const owner = String(ownerProp ?? params.owner ?? "");
+  // 고객사 식별자 — owner 번호는 여러 고객사가 공유할 수 있어(예: 커먼 코드) **고객사명**을 함께 넘긴다 `PC-045`
+  const custKey = custName || (sp.get("c") ?? "");
   const bookMode = bookIdx != null;
-  const listHref = `/projects/editing/${encodeURIComponent(owner)}`;
-  const bookHref = (i: number | "new") => `${listHref}/book/${i}`;
+  const q$ = custKey ? `?c=${encodeURIComponent(custKey)}` : "";
+  const listHref = `/projects/editing/${encodeURIComponent(owner)}${q$}`;
+  const bookHref = (i: number | "new") => `/projects/editing/${encodeURIComponent(owner)}/book/${i}${q$}`;
+  // 편집 프로젝트에서 사용자가 추가한 고객사(시드에 없는) — 교재 페이지에서도 같은 고객사를 찾기 위해 함께 본다
+  const [customCusts, setCustomCusts] = useState<{ customer: string; owner: string; codeKinds: string[] }[]>([]);
+  useEffect(() => { setCustomCusts(loadCustomCustomers()); }, []);
   const authState = useAuth();
   const staff = authState.users.filter((u) => u.enabled); // 발급인(코드 할당자) 명단
   const me = currentUser(authState);
@@ -93,9 +101,16 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     return { customer: "전체 고객사", owner: "", owners: [], codeKinds: [], books: rows2.length,
       pages: 0, symbols: 0, soundSymbols: 0, penSymbols: 0, sizeMB: 0, bookRows: rows2 as BR[] };
   }, [allCustomers]);
+  // 이름이 주어지면 **이름으로만** 찾는다 — owner 번호로 폴백하면 같은 owner 의 다른 고객사가 잡힌다 `PC-045`
+  const customSeed = useMemo<Cust | undefined>(() => {
+    const c = customCusts.find((x) => (custKey ? x.customer === custKey : x.owner === owner));
+    return c ? { customer: c.customer, owner: c.owner, owners: [], codeKinds: c.codeKinds,
+                 books: 0, pages: 0, symbols: 0, soundSymbols: 0, penSymbols: 0, sizeMB: 0, bookRows: [] } as Cust : undefined;
+  }, [customCusts, custKey, owner]);
   const cust = allCust
-    ?? (custName ? D.customers.find((c) => c.customer === custName) : undefined)
-    ?? D.customers.find((c) => c.owner === owner) ?? seedCustomer;
+    ?? (custKey ? D.customers.find((c) => c.customer === custKey) : undefined)
+    ?? (custKey ? undefined : D.customers.find((c) => c.owner === owner))
+    ?? seedCustomer ?? customSeed;
   const st = useStore(); // 코드 프로젝트(발급 내역) — 할당된 S/O 조회용
 
   const key = `ncc-edit12-${cust?.customer ?? owner}`;   // v12: 고객사명 식별(오너 충돌 방지) — 옛 편집 캐시 폐기
@@ -178,10 +193,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const cost = (r: BR) => bill(r).total;                 // 청구액
   const discounted = (r: BR) => bookHasDiscount(r);
 
-  if (!cust) return <div style={{ padding: 24 }}>편집 데이터를 찾을 수 없습니다. (owner {owner}) <Link href="/projects/editing">← 목록</Link></div>;
 
   // 교원구몬/KEP·산출물이 필요한 프로젝트인지 (현재는 구몬학습 등 실제 데이터 있는 곳만)
-  const hasKep = (cust.bookRows ?? []).some((r) => r.det || r.out || r.app || r.use || r.set || (r.pm?.[4] ?? 0) > 0);   // KEP = 필기펜 항목 index 4
+  const hasKep = (cust?.bookRows ?? []).some((r) => r.det || r.out || r.app || r.use || r.set || (r.pm?.[4] ?? 0) > 0);   // KEP = 필기펜 항목 index 4
   const bookHasKep = (r: BR) => !!(r.det || r.out || r.app || r.use || r.set);
 
   // 업무요청 메모 = 교재(책) 단위 (메모1~3 대체). editing.row.logs 에 저장.
@@ -297,6 +311,10 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     setKepOpen(bookHasKep(r)); setLogDraft({ id: null, kind: "요청", content: "" });
     setEditing({ idx, row: { ...r, sm: [...r.sm], pm: [...r.pm], logs: r.logs ? r.logs.map((l) => ({ ...l })) : [] } });
   }, [bookMode, bookIdx, rows, editing, assignedSO, owner]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 훅은 모두 호출한 뒤에 분기한다 — 고객사를 늦게(로컬 저장분) 찾는 경우가 있어 조건부 훅이 되면 안 된다 `PC-045`
+  const custMissing = !cust;
+
   const setF = <K extends keyof BR>(k: K, v: BR[K]) => setEditing((e) => (e ? { ...e, row: { ...e.row, [k]: v } } : e));
   const setSm = (i: number, v: number) => setEditing((e) => (e ? { ...e, row: { ...e.row, sm: e.row.sm.map((x, j) => (j === i ? v : x)) } } : e));
   const setPm = (i: number, v: number) => setEditing((e) => (e ? { ...e, row: { ...e.row, pm: e.row.pm.map((x, j) => (j === i ? v : x)) } } : e));
@@ -354,6 +372,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const selPens = editing?.row.pmdl ? editing.row.pmdl.split(/[/,]/).map((s) => s.trim()).filter(Boolean) : [];
   const addPen = (v: string) => { if (v && !selPens.includes(v)) setF("pmdl", [...selPens, v].join(" / ")); setPenPick(""); };
   const rmPen = (v: string) => setF("pmdl", selPens.filter((x) => x !== v).join(" / "));
+
+  if (custMissing) return <div style={{ padding: 24 }}>편집 데이터를 찾을 수 없습니다. (owner {owner}) <Link href="/projects/editing">← 목록</Link></div>;
 
   return (
     <div style={{ padding: embedded ? "2px 2px 18px" : "20px 22px" }}>

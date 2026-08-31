@@ -3,7 +3,7 @@
 
 PRJ-02 편집 프로젝트 목록의 [＋ 고객사 추가] 로 열리는 창.
 이미 코드를 받은 고객사를 편집 관리 대상으로 올린다. 코드를 새로 할당하지 않는다.
-① 등록된 고객사 선택 → ② Owner 코드 선택(할당 코드가 없으면 직접 입력)
+① 등록된 고객사 선택 → ② Owner 코드 선택(할당 코드가 없으면 추가 불가 · SOBP 맵 안내)
 """
 from shell import page, frame
 from p_tkt01 import sel, field
@@ -48,13 +48,13 @@ def owner_block(picked=None, opts=OPTS):
 
 def manual_block(co='크레버스'):
     return ('<div style="margin-top:12px">'
-            '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:9px;'
-            'padding:9px 11px;font-size:12px;color:#92400e;margin-bottom:10px">'
-            '<b>%s</b> 는 아직 할당된 코드가 없습니다. Owner 코드를 직접 입력하거나, '
-            '먼저 <b>SOBP 맵</b>에서 코드를 할당하세요.</div>'
-            '<div class="g2">%s%s</div></div>'
-            % (co, field('Owner (직접 입력)', '<div class="inp">1030</div>', True),
-               field('코드 종류', sel('PDS3(Ncode)'))))
+            '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:9px;'
+            'padding:11px 13px;font-size:12.5px;color:#991b1b;line-height:1.7">'
+            '🚫 <b>%s</b> 는 아직 <b>할당된 코드가 없습니다.</b>'
+            '<div style="margin-top:4px;color:#7f1d1d">코드 할당은 <b>[SOBP 맵]</b> 에서만 합니다. '
+            '먼저 SOBP 맵에서 이 고객사에 코드를 할당한 뒤 다시 추가하세요.</div>'
+            '<div style="margin-top:8px;font-size:12px;font-weight:700;color:#b91c1c">'
+            'SOBP 맵으로 이동 →</div></div></div>' % co)
 
 
 def modal(company='- 고객사 선택 -', body='', ok=False):
@@ -127,17 +127,17 @@ def build():
           '같은 <b>고객사명 + Owner</b> 가 있으면 새 줄을 만들지 않는다 — PRD §4.5(나)')]))
 
     B.append((
-        'S4', '할당 코드 없음 — 직접 입력', '차단',
-        '그 고객사에 아직 할당된 코드가 없으면 경고가 나오고 <b>직접 입력</b> 칸이 열린다. '
-        '정상 절차는 <code>SOB-02</code> 에서 <b>코드를 먼저 할당</b>하는 것이고, '
-        '직접 입력은 <b>예외 경로</b>다(§7 미결).',
-        F(modal('크레버스', manual_block(), ok=True)),
-        [('경고', '표시', '—',
-          '<b>{고객사} 는 아직 할당된 코드가 없습니다. Owner 코드를 직접 입력하거나, '
-          '먼저 SOBP 맵에서 코드를 할당하세요.</b>'),
-         ('Owner (직접 입력)', '입력', '숫자', '<b>필수</b>'),
-         ('코드 종류', '선택', 'PDS3(Ncode) / PDS2(Gcode)', '기본 PDS3'),
-         ('정상 절차', '—', '<code>SOB-02</code>', '코드 할당 후 다시 시도')] + NAV))
+        'S4', '할당 코드 없음 — 추가 차단', '차단',
+        '그 고객사에 아직 할당된 코드가 없으면 <b>추가할 수 없다</b> <code>PC-045</code>. '
+        '<b>코드 할당은 SOBP 맵에서만</b> 하며, 이 화면에는 Owner·코드 종류를 직접 넣는 칸이 <b>없다</b>. '
+        '먼저 <code>SOB-02</code> 에서 코드를 할당한 뒤 다시 추가한다.',
+        F(modal('크레버스', manual_block(), ok=False)),
+        [('안내', '표시', '—',
+          '🚫 <b>{고객사} 는 아직 할당된 코드가 없습니다.</b> 코드 할당은 <b>[SOBP 맵]</b> 에서만 합니다'),
+         ('Owner 직접 입력', '—', '<b>없음</b>', '입력 칸 자체를 두지 않는다 <code>PC-045</code>'),
+         ('코드 종류 선택', '—', '<b>없음</b>', '좌표 종류는 할당된 코드를 따른다'),
+         ('[추가]', '—', '<b>비활성</b>', 'Owner 가 선택되지 않아 누를 수 없다'),
+         ('SOBP 맵으로 이동 →', '클릭', '<code>SOB-01</code>', '코드 할당 후 다시 시도')] + NAV))
 
     intro = ('이미 코드를 받은 고객사를 <b>편집 관리 대상으로 올리는</b> 창이다. '
              '<b>고객사를 새로 만들거나 코드를 새로 할당하지 않는다</b> — 이미 할당된 코드 중 '
