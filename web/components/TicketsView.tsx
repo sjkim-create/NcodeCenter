@@ -652,8 +652,10 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
             <option value={0}>0</option><option value={1}>1 (기본)</option><option value={2}>2</option>
           </select>
         </Field>
+        {/* 페이지 정원은 **회사에 할당된 SOB(코드 종류·Section)** 를 따른다 `PC-051` */}
         <Field label={`Page 볼륨 ${range ? `· 최대 ${(PAGE_CAP[range.pt]?.[range.section] ?? 0).toLocaleString()}` : "(페이지 가용 범위)"}`}>
-          <input type="number" min={1} style={S.input} value={pageVolume} onChange={(e) => setPageVolume(Math.max(1, +e.target.value))} disabled={!range} />
+          <input type="number" min={1} max={range ? (PAGE_CAP[range.pt]?.[range.section] ?? undefined) : undefined} style={S.input} value={pageVolume}
+            onChange={(e) => { const cap = range ? (PAGE_CAP[range.pt]?.[range.section] ?? Infinity) : Infinity; setPageVolume(Math.max(1, Math.min(cap, +e.target.value))); }} disabled={!range} />
         </Field>
       </div>
 

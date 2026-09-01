@@ -97,7 +97,6 @@ export default function OwnershipMap() {
   const recoPds: Pds = kind === "PDS2" ? "G" : "N";
   const recoTarget = kind === "PDS3" || kind === "PDS2" || kind === "ALL";
   const [alloc, setAlloc] = useState<{ company: string; newCompany: string; bookStart: number; books: number; pages: number; mode: "코드발급" | "편집"; shared: boolean; service: ServiceType; services?: ServiceType[]; svcTouched?: boolean } | null>(null);
-  const [aKindSel, setAKindSel] = useState<CodeKind | null>(null);                    // 할당 모달의 코드 종류(지도 선택과 분리) `PC-046`
   const [selS, setSelS] = useState(0);
   const [selO, setSelO] = useState(1);
   const [selB, setSelB] = useState(0);
@@ -335,7 +334,7 @@ export default function OwnershipMap() {
 
       {/* 코드 할당 진입 — 필터 아래 배치 */}
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-        <button onClick={() => { setAKindSel(null); setAlloc({ company: "", newCompany: "", bookStart: curB, books: 1, pages: Math.min(scale.p, 1000), mode: "코드발급", shared: false, service: "NONE" }); }}
+        <button onClick={() => { setAlloc({ company: "", newCompany: "", bookStart: curB, books: 1, pages: Math.min(scale.p, 1000), mode: "코드발급", shared: false, service: "NONE" }); }}
           style={{ ...S.primary, padding: "9px 18px", fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
           <span style={{ fontSize: 15, lineHeight: 1 }}>＋</span> 직접 코드 할당
         </button>
@@ -471,13 +470,10 @@ export default function OwnershipMap() {
         const soKinds = [...new Set(RECS.filter((r) => r.sec === curS && r.owner === curO)
           .map((r) => codeKind(r.k, r.sec)))].filter((k2) => k2 !== "OID");
         // 이 Section 에서 고를 수 있는 종류 (PDS4 는 Section 44 에만 있다)
-        const kindOpts = ALLOC_KINDS.filter((k2) => (SCALE[k2] ?? {})[curS]);
         // 할당 종류 — **모달 안에서만 바뀌는 값**이라 고르더라도 지도의 S/O 선택은 그대로다 `PC-046`
         //   이미 쓰는 종류가 있으면 그 종류로 고정하고 상태로만 보여 준다 (한 S/O = 한 종류 `PC-041`)
-        const aKind: CodeKind = soKinds.length === 1 ? soKinds[0]
-          : (aKindSel && kindOpts.includes(aKindSel) ? aKindSel
-             : (kind === "ALL" ? (kindOpts.includes("PDS3") ? "PDS3" : kindOpts[0] ?? "PDS3") : kind));
-        const kindFixed = soKinds.length > 0;
+        // 코드 종류는 이 창에서 정하지 않는다 `PC-051` — 좌표(S/O)만 점유하고
+        // 종류(PDS2·PDS3·PDS4)는 **N Key 발급 · App Key 발급 · 편집 프로젝트**에서 지정한다.
         // 과거 혼용 좌표(S3/O42 등)에는 신규 발급하지 않는다 `PC-041`
         const mixedBlock = soKinds.length > 1;
         const allocBooks = projectBooks(projects, companies);
@@ -565,12 +561,13 @@ ${persistError()}`); return; }
           store.upsertProject({
             id: 0, name: `${co.name} 코드발급 · S${curS}/O${curO}`, companyId, service: svcValue.find((x) => x !== "NONE") ?? "NONE", services: svcValue, grade: "",
             editing: svcValue.includes("CASTERN"), editingOwner: curO, symbols: 0,
-            issued: [{ id: 1, date: new Date().toISOString().slice(0, 10), codes: 0, kind: DK[aKind] as "N" | "G" | "A" | "O",
+            // kind 를 넣지 않는다 — 코드 종류 미정 `PC-051`
+            issued: [{ id: 1, date: new Date().toISOString().slice(0, 10), codes: 0,
                        by: me?.name ?? "", section: curS, owner: curO, bookStart: 0, bookEnd: scale.b - 1, pageStart: 1, pageEnd: 1 }],
           });
           // 저장 실패(용량 초과 등) 시 사라진 것처럼 보이지 않도록 즉시 경고
           if (persistError()) { alert(`⚠ 할당이 저장되지 않았습니다.\n${persistError()}`); return; }
-          logActivity("alloc", `${co.name} · ${kindMeta(aKind).short} S${curS}/O${curO} · ${svcValue.map((v) => SERVICE.find((s) => s.v === v)?.label ?? v).join(" · ")} · SO 점유(전체 book 사용가능)`, me?.name);
+          logActivity("alloc", `${co.name} · S${curS}/O${curO} · ${svcValue.map((v) => SERVICE.find((s) => s.v === v)?.label ?? v).join(" · ")} · SO 점유(코드 종류 미정)`, me?.name);
           setSelB(0); setAlloc(null);
         };
         return (
@@ -582,10 +579,10 @@ ${persistError()}`); return; }
                 <span style={{ fontSize: 11.5, fontWeight: 700, color: "#6b7280" }}>발급 대상</span>
                 <Sc k="S" c="#5f8ff0" v={curS} />
                 <Sc k="O" c="#14b8a6" v={curO} />
-                <KindChip kind={aKind} small />
+                {soKinds.map((k2) => <KindChip key={k2} kind={k2} small />)}
                 <span style={{ ...S.tag, fontSize: 9.5, background: stBg, color: stFg, fontWeight: 700 }}>{stLabel2}</span>
                 <span style={{ flex: 1 }} />
-                <span style={{ fontSize: 11, color: "#9ca3af" }}>owner 전체 점유 · 규모는 편집 시 집계</span>
+                <span style={{ fontSize: 11, color: "#9ca3af" }}>owner 전체 점유 · 코드 종류는 발급 때 지정</span>
               </div>
               {blockMsg && <div style={{ marginTop: 7, fontSize: 12, color: "#b91c1c", fontWeight: 700, lineHeight: 1.6 }}>{blockMsg}</div>}
             </div>
@@ -623,27 +620,13 @@ ${persistError()}`); return; }
                     })}
                   </div>
                 </Field>
-                {/* 코드 종류 — 비어 있는 좌표에서만 고른다. 골라도 S/O 는 바뀌지 않는다 `PC-046` */}
+                {/* 코드 종류 — 이 창에서 정하지 않는다 `PC-051` */}
                 <Field label="코드 종류">
-                  {kindFixed ? (
-                    <div style={{ ...S.input, background: "#fafbfc", display: "flex", alignItems: "center", gap: 6 }}>
-                      {soKinds.map((k2) => <KindChip key={k2} kind={k2} small />)}
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", gap: 5 }}>
-                      {kindOpts.map((k2) => {
-                        const on = k2 === aKind;
-                        return (
-                          <button key={k2} onClick={() => setAKindSel(k2)}
-                            style={{ flex: 1, fontSize: 12, borderRadius: 7, padding: "7px 4px", cursor: "pointer", fontWeight: on ? 700 : 400,
-                              border: `1px solid ${on ? kindMeta(k2).color : "#e5e7eb"}`,
-                              background: on ? kindMeta(k2).bg : "#fff", color: on ? kindMeta(k2).color : "#6b7280" }}>
-                            {kindMeta(k2).short}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <div style={{ ...S.input, background: "#fafbfc", display: "flex", alignItems: "center", gap: 6, color: "#9ca3af", fontSize: 11.5 }}>
+                    {soKinds.length
+                      ? soKinds.map((k2) => <KindChip key={k2} kind={k2} small />)
+                      : <span>미정 · 발급 때 지정</span>}
+                  </div>
                 </Field>
               </div>
             </div>
@@ -659,7 +642,7 @@ ${persistError()}`); return; }
                     const on = a.s === curS && a.o === curO;
                     return (
                       <button key={i} title="이 S/O 로 이동"
-                        onClick={() => { setKind(codeKind(a.k as string, a.s)); setSelS(a.s); setSelO(a.o); setSelB(-1); setAKindSel(null); }}
+                        onClick={() => { setKind(codeKind(a.k as string, a.s)); setSelS(a.s); setSelO(a.o); setSelB(-1); }}
                         style={{ display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 8, padding: "4px 8px", fontSize: 11.5, cursor: "pointer",
                           border: on ? "1px solid #93c5fd" : "1px solid #eef0f4", background: on ? "#eef6ff" : "#fff" }}>
                         <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: a.k === "N" ? "#2563eb" : "#d97706", borderRadius: 4, padding: "1px 5px" }}>{a.k === "N" ? "PDS3" : "PDS2"}</span>

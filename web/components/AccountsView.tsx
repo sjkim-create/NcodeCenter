@@ -279,11 +279,11 @@ function BookRangeFields({ range, bookStart, bookVol, onStart, onVol }: {
   const maxVol = Math.max(1, max - bookStart + 1);
   return (
     <>
-      <Field label="Book Start">
+      <Field label={`Start Book ${range ? `· ${min}~${max}` : "(시작 북코드)"}`}>
         <input type="number" style={S.input} value={bookStart} min={min} max={max} disabled={!range}
           onChange={(e) => onStart(Math.max(min, Math.min(max, +e.target.value || 0)))} />
       </Field>
-      <Field label="Book Volume (권수)">
+      <Field label={`Book 볼륨 (권) ${range ? `· 최대 ${maxVol}` : ""}`}>
         <input type="number" style={S.input} value={bookVol} min={1} max={maxVol} disabled={!range}
           onChange={(e) => onVol(Math.max(1, Math.min(maxVol, +e.target.value || 1)))} />
       </Field>
@@ -422,7 +422,7 @@ export function AccountNewView() {
     <div style={{ padding: "18px 20px", maxWidth: 900 }}>
       <div style={{ ...S.card, padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>계정 등록 <span style={{ color: "#9ca3af", fontWeight: 400, fontSize: 12 }}>· ① 계정 정보 → ② 사용처·권한 → ③ App Key</span></div>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>계정 등록 <span style={{ color: "#9ca3af", fontWeight: 400, fontSize: 12 }}>· ① 계정 정보 → ② App Key → ③ 사용처·권한</span></div>
           <span style={{ flex: 1 }} />
           <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
         </div>
@@ -451,20 +451,20 @@ export function AccountNewView() {
           <Field label="HOMEPAGE"><input style={S.input} value={homepage} onChange={(e) => setHomepage(e.target.value)} placeholder="https://" /></Field>
         </div>
 
-        {/* ② 사용처 · 권한 — 탭마다 그 서비스의 조건만 노출 */}
+        {/* ② App Key 발급 — 사용처 전체 공통이라 사용처·권한 **위**에 둔다 `PC-051` */}
+        <div style={{ marginTop: 18, borderTop: "1px solid #eef0f4", paddingTop: 14 }}>
+          <StepHead n={2} t="App Key 발급" d="사용처 전체 공통 · 계정당 1개 · 선택" />
+          {appKeyBlock}
+        </div>
+
+        {/* ③ 사용처 · 권한 — 탭마다 그 서비스의 조건만 노출 */}
         <div style={{ marginTop: 16 }}>
-          <StepHead n={2} t="사용처 · 권한" d="탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
+          <StepHead n={3} t="사용처 · 권한" d="탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
           <div style={{ fontSize: 10.5, color: "#9ca3af", marginBottom: 6, lineHeight: 1.5 }}>
             사용처는 <b>중복 선택</b>할 수 있습니다. 여러 서비스를 선택하면 <b>한 계정으로 각 서비스에 로그인</b>하며, 각 서비스는 자기 계정만 관리·인증합니다.
             <span style={{ marginLeft: 6 }}>선택 <b>{services.length}</b> / {ACCOUNT_SERVICES.length}</span>
           </div>
           <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} />
-        </div>
-
-        {/* ③ App Key 발급 — 사용처 전체 공통이라 탭 밖에 둔다 `PC-050` */}
-        <div style={{ marginTop: 18, borderTop: "1px solid #eef0f4", paddingTop: 14 }}>
-          <StepHead n={3} t="App Key 발급" d="사용처 전체 공통 · 계정당 1개 · 선택" />
-          {appKeyBlock}
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
@@ -634,9 +634,15 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
           <Field label="HOMEPAGE"><input style={S.input} value={homepage} onChange={(e) => setHomepage(e.target.value)} placeholder="https://" /></Field>
         </div>
 
-        {/* ② 사용처 · 권한 — 탭마다 그 서비스의 조건만 노출 */}
+        {/* ② App Key — 사용처·권한 **위** `PC-051` */}
+        <div style={{ marginTop: 18, borderTop: "1px solid #eef0f4", paddingTop: 14 }}>
+          <StepHead n={2} t="App Key 발급" d={`사용처 전체 공통 · 계정당 1개 · 발급된 키 ${keys.length}개`} />
+          {appKeyBlock}
+        </div>
+
+        {/* ③ 사용처 · 권한 — 탭마다 그 서비스의 조건만 노출 */}
         <div style={{ marginTop: 16 }}>
-          <StepHead n={2} t="사용처 · 권한" d="탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
+          <StepHead n={3} t="사용처 · 권한" d="탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
           <div style={{ fontSize: 10.5, color: "#9ca3af", marginBottom: 6, lineHeight: 1.5 }}>
             사용처는 <b>중복 선택</b>할 수 있습니다. App Key 는 <b>사용처 전체에 공통</b>이라 사용처를 바꿔도 키는 그대로입니다 <code>PC-050</code>.
             <span style={{ marginLeft: 6 }}>선택 <b>{services.length}</b> / {ACCOUNT_SERVICES.length}</span>
@@ -653,8 +659,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
         {/* ③ App Key 발급 내역 — 발급 UI 는 ② 의 CasterN 탭 안에 있다 */}
         <div style={{ marginTop: 18, borderTop: "1px solid #eef0f4", paddingTop: 14 }}>
-          <StepHead n={3} t="App Key 발급" d={`사용처 전체 공통 · 계정당 1개 · 발급된 키 ${keys.length}개`} />
-          <div style={{ marginBottom: 12 }}>{appKeyBlock}</div>
+          <StepHead n={4} t="App Key 발급 내역" d={`발급된 키 ${keys.length}개`} />
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {keys.length === 0 ? (
               <div style={{ fontSize: 12, color: "#9ca3af", padding: "6px 0" }}>

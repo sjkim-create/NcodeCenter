@@ -78,8 +78,9 @@ def acct_inputs(edit=False, err=None, empty=True):
 
 def book_fields(start='400', vol='100'):
     """App Key 발급 범위 — Book Start · Book Volume(권수) `PC-050`"""
-    return (field('Book Start', '<div class="inp">%s</div>' % start)
-            + field('Book Volume (권수)', '<div class="inp">%s</div>' % vol))
+    return (field('Start Book · 1~501', '<div class="inp">%s</div>' % start)
+            + field('Book 볼륨 (권) · 최대 %d' % (501 - int(start) + 1),
+                    '<div class="inp">%s</div>' % vol))
 
 
 def until_field(unlimited=True):
@@ -238,7 +239,7 @@ def key_history(broken=False):
                             'border-radius:5px;padding:2px 7px;font-weight:700">연동 끊김',
                             1)
     return ('<div style="margin-top:18px;border-top:1px solid #eef0f4;padding-top:14px">'
-            + step(3, 'App Key 발급', '사용처 전체 공통 · 계정당 1개 · 발급된 키 1개')
+            + step(4, 'App Key 발급 내역', '발급된 키 1개')
             + '<div style="margin-bottom:12px">' + appkey_block('edit', has=True)
             + '</div>'
             + rows + '</div>')
@@ -249,21 +250,21 @@ def new_form(picked=('CasterN',), tab='CasterN', perms=None, withkey=False, rng=
     inner = perms_only(perms)          # App Key 는 탭 밖 ③ 단계 `PC-050`
     panel = svc_panel(tab, tab in picked,
                       dict((n, r) for n, _d, r in SERVICES)[tab], inner)
-    body = (head('계정 등록', '① 계정 정보 → ② 사용처·권한 → ③ App Key')
+    body = (head('계정 등록', '① 계정 정보 → ② App Key → ③ 사용처·권한')
             + '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:12px">'
               '한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). '
               'App Key 는 <b>계정당 1개</b>이며 <b>사용처 전체에 공통</b>으로 쓰입니다 '
               '<code>PC-050</code>.</div>'
             + step(1, '계정 정보', '서비스 로그인 계정') + acct_inputs(err=err, empty=empty)
             + '<div style="margin-top:16px">'
-            + step(2, '사용처 · 권한', '탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다')
+            + step(3, '사용처 · 권한', '탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다')
             + '<div style="font-size:10.5px;color:#9ca3af;margin-bottom:6px;line-height:1.5">'
               '사용처는 <b>중복 선택</b>할 수 있습니다. 여러 서비스를 선택하면 '
               '<b>한 계정으로 각 서비스에 로그인</b>합니다. 선택 <b>'
             + str(len(picked)) + '</b> / 3</div>'
             + svc_tabs(picked, tab, panel) + '</div>'
             + '<div style="margin-top:18px;border-top:1px solid #eef0f4;padding-top:14px">'
-            + step(3, 'App Key 발급', '사용처 전체 공통 · 계정당 1개 · 선택')
+            + step(2, 'App Key 발급', '사용처 전체 공통 · 계정당 1개 · 선택')
             + appkey_block('new', withkey, rng) + '</div>'
             + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'
               '<div class="btn gho">취소</div><div class="btn pri">계정 추가</div></div>')

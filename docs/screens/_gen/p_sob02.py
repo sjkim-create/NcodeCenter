@@ -64,10 +64,12 @@ def notebox(kind, inner):
 
 
 def kind_chips(kind='PDS3', fixed=False):
-    """코드 종류 — PDS2 · PDS3 순 `PC-047`. 이미 쓰는 종류가 있으면 고정 표시 `PC-046`"""
+    """코드 종류 — 이 창에서 고르지 않는다 `PC-051`. 이미 쓰는 종류만 배지로 보여 준다."""
     if fixed:
         return ('<div class="inp" style="background:#fafbfc;display:flex;align-items:center;gap:6px">'
                 '%s</div>' % pbadge(kind))
+    return ('<div class="inp" style="background:#fafbfc;display:flex;align-items:center;'
+            'gap:6px;color:#9ca3af;font-size:11.5px">미정 · 발급 때 지정</div>')
     out = ''
     for k in ('PDS2', 'PDS3'):
         on = (k == kind)
@@ -194,7 +196,7 @@ def build():
           '<code>MEM-01</code> 에 등록된 고객사만 — <b>여기서 신규 고객사를 만들지 않는다</b>'),
          ('사용 서비스', '선택', '아래 안내문 교체',
           'casterN / 폼솔루션 / 서비스 없음 <b>3종</b> <code>PC-026</code>'),
-         ('코드 종류', '칩 선택', '<b>좌표는 그대로</b>',
+         ('코드 종류', '—', '<b>미정 · 발급 때 지정</b>',
           '<b>PDS3 · PDS2 · PDS4</b> 중 하나(단일 선택). 골라도 <b>S/O 가 바뀌지 않는다</b> '
           '<code>PC-046</code>. 이미 쓰는 종류가 있으면 <b>그 종류로 고정</b>되고 문구로만 보여 준다. '
           'OID 는 index 부여라 할당 대상이 아니다 <code>PC-035</code>'),
