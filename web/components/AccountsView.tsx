@@ -196,10 +196,11 @@ function AccTabs({ tab, onTab, badge }: { tab: AccTab; onTab: (v: AccTab) => voi
 }
 
 // 영역 제목 — 번호를 붙이지 않는다. Key 관리 상세(`TKT-05`)와 같은 결 `PC-052`
-function SecHead({ t, d }: { t: string; d?: string }) {
+function SecHead({ t, d, tip }: { t: string; d?: string; tip?: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-      <b style={{ fontSize: 13, color: "#111827" }}>{t}</b>
+      {/* 설명은 본문에 늘어놓지 않고 **제목 툴팁**으로 둔다 `PC-070` */}
+      <b style={{ fontSize: 13, color: "#111827", ...(tip ? { cursor: "help", borderBottom: "1px dotted #c7cdd6" } : {}) }} title={tip}>{t}</b>
       {d && <span style={{ fontSize: 11.5, color: "#9ca3af" }}>{d}</span>}
     </div>
   );
@@ -546,16 +547,13 @@ export function AccountNewView() {
             {company?.name ?? "고객사를 선택하세요"}
           </div>
         </div>
-        <div style={{ fontSize: 11.5, color: "#9ca3af", marginBottom: 12 }}>
-          한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). App Key 는 <b>계정당 1개</b>이며 <b>사용 서비스 전체에 공통</b>으로 쓰입니다 <code>PC-050</code> — 나중에 계정 상세에서도 발급할 수 있습니다.
-        </div>
 
         {/* 탭 3개 — 계정 정보 · 사용 서비스 및 권한 · App Key 발급 `PC-062` */}
         <AccTabs tab={tab} onTab={setTab} badge={{ svc: `${services.length}/${ACCOUNT_SERVICES.length}`, key: withKey ? "발급" : undefined }} />
 
         {/* 계정 정보 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "info" ? "block" : "none" }}>
-        <SecHead t="계정 정보" d="· 서비스 로그인 계정" />
+        <SecHead t="계정 정보" d="· 서비스 로그인 계정" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (사용 서비스 전체 공통)" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="회사정보 (고객사) *">
             <select style={S.input} value={companyId} onChange={(e) => onCompany(+e.target.value)}>
@@ -579,7 +577,7 @@ export function AccountNewView() {
 
         {/* App Key 발급 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
-          <SecHead t="App Key 발급" d="· 사용 서비스 전체 공통 · 계정당 1개 · 선택" />
+          <SecHead t="App Key 발급" d="· 계정당 1개" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (사용 서비스 전체 공통)" />
           {appKeyBlock}
         </div>
 
@@ -764,7 +762,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
         {/* 계정 정보 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "info" ? "block" : "none" }}>
-        <SecHead t="계정 정보" d="· ID(email) · 고객사는 변경할 수 없습니다" />
+        <SecHead t="계정 정보" d="· ID(email) · 고객사는 변경할 수 없습니다" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (사용 서비스 전체 공통)" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="회사정보 (고객사)"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{acc.company}</div></Field>
           <Field label="NAME (담당자/사용자명)"><input style={S.input} value={name} onChange={(e) => setName(e.target.value)} /></Field>
@@ -783,7 +781,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
         {/* App Key 발급 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
-          <SecHead t="App Key 발급" d={`· 사용 서비스 전체 공통 · 계정당 1개 · 발급된 키 ${keys.length}개`} />
+          <SecHead t="App Key 발급" d={`· 계정당 1개 · 발급된 키 ${keys.length}개`} tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (사용 서비스 전체 공통)" />
           {appKeyBlock}
         </div>
 
@@ -800,13 +798,9 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
         {/* 이 계정의 Key 정보 — 계정 : 키 = 1:1 매핑 `PC-059` */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
-          <SecHead t="Key 정보" d="· 이 계정에 발급된 App Key · 계정당 1개" />
-          <div style={{ marginBottom: 12 }}>
-            {/* N Key 는 이 화면에서 발급하지 않는다 — [N Key 관리] 메뉴에서 다룬다 `PC-068` */}
-            <KeyCard title="App Key" params={appTicket?.params} empty="아래에서 발급하세요." />
-          </div>
+          {/* 발급 내역을 먼저 보고, 그 아래에서 Key 정보를 확인한다 `PC-070` */}
           <SecHead t="App Key 발급 내역" d={`· 발급된 키 ${keys.length}개`} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
             {keys.length === 0 ? (
               <div style={{ fontSize: 12, color: "#9ca3af", padding: "6px 0" }}>
                 발급된 App Key가 없습니다.
@@ -827,6 +821,10 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
               );
             })}
           </div>
+
+          <SecHead t="Key 정보" d="· 이 계정에 발급된 App Key · 계정당 1개" />
+          {/* N Key 는 이 화면에서 발급하지 않는다 — [N Key 관리] 메뉴에서 다룬다 `PC-068` */}
+          <KeyCard title="App Key" params={appTicket?.params} empty="위에서 발급하세요." />
         </div>
 
         {/* 이동·저장 버튼은 화면 맨 아래에 모은다 `PC-069` */}

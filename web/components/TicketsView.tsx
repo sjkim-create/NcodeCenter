@@ -35,6 +35,7 @@ export default function TicketsView({ tab }: { tab: Tab }) {
   useTickets();
   useEffect(() => { hydrateTickets(); }, []);
 
+  const [newCompanyId, setNewCompanyId] = useState(0);    // 발급 화면 — 늘 미선택에서 시작 `PC-070`
   const [companyId, setCompanyIdState] = useState(0);     // 회사 선택 → 발급 목록 필터 기준
   useEffect(() => { setCompanyIdState(readCompanyId()); }, []);   // 화면 이동 후에도 고객사 유지
   const setCompanyId = (n: number) => {
@@ -44,7 +45,8 @@ export default function TicketsView({ tab }: { tab: Tab }) {
 
   return (
     <div style={{ padding: "18px 20px" }}>
-      {tab === "nkey" && <div style={{ maxWidth: 900 }}><NKeyForm companies={companies} projects={projects} me={me} companyId={companyId} setCompanyId={setCompanyId} /></div>}
+      {/* 발급 화면은 **고객사를 고르지 않은 상태**로 시작한다 `PC-070` — 목록 필터 값을 물려받지 않는다 */}
+      {tab === "nkey" && <div style={{ maxWidth: 900 }}><NKeyForm companies={companies} projects={projects} me={me} companyId={newCompanyId} setCompanyId={setNewCompanyId} /></div>}
       {tab === "list" && <TicketListView />}
     </div>
   );
@@ -609,7 +611,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
       {/* 제목은 화면(브레드크럼)에 한 번만 두고, 여기서는 **고른 고객사**를 크게 보여 준다 `PC-068` */}
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
         <div style={{ fontSize: 20, fontWeight: 800, color: company ? "#111827" : "#c7cdd6" }}>
-          {company?.name ?? "고객사를 선택하세요"}
+          {company?.name ?? "고객사 —— 아래에서 선택"}
         </div>
         {range && (
           <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>

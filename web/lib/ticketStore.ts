@@ -91,7 +91,21 @@ const normParams = (p?: Ticket["params"]): Ticket["params"] => {
   for (const [k, v] of Object.entries(p)) out[PARAM_ALIAS[k] ?? k] = v;
   return out;
 };
-const normTicket = (t: Ticket): Ticket => ({ ...t, params: normParams(t.params) });
+// Key 정보 표시 순서 — Issued Time 은 Code Type 뒤에 둔다 `PC-070`
+const PARAM_ORDER = [
+  "Company Name", "Account Id", "App Key", "Service", "Usage", "Used Customer",
+  "Section", "Owner", "Book Start", "Book Volume", "Book End",
+  "Page Start", "Page Volume", "Page End",
+  "Code Type", "Issued Time", "Valid Until Time", "Ticket Type", "Ticket Version",
+  "Separate Each Book",
+];
+const orderParams = (p: Ticket["params"]): Ticket["params"] => {
+  const out: Ticket["params"] = {};
+  for (const k of PARAM_ORDER) if (k in p) out[k] = p[k];
+  for (const [k, v] of Object.entries(p)) if (!(k in out)) out[k] = v;   // 목록에 없는 항목은 뒤에
+  return out;
+};
+const normTicket = (t: Ticket): Ticket => ({ ...t, params: orderParams(normParams(t.params)) });
 
 export function hydrateTickets() {
   if (hydrated || typeof window === "undefined") return;
