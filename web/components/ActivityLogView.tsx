@@ -15,16 +15,20 @@ export default function ActivityLogView() {
   // ⚠ 훅은 조건부 return 앞에서 모두 선언 (로그인 전/후 훅 개수 불일치 크래시 방지)
   const [type, setType] = useState<ActivityType | "__ALL__">("__ALL__");
   const [actor, setActor] = useState<string>("__ALL__");
-  const [month, setMonth] = useState<string>("__ALL__");   // YYYY-MM
+  // 기본은 **이번 달**만 본다 — 양이 많아 전체를 한 번에 펼치지 않는다 `PC-069`
+  const thisMonth = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);   // KST
+  const [year, setYear] = useState<string>(thisMonth.slice(0, 4));
+  const [mm, setMm] = useState<string>(thisMonth.slice(5, 7));   // "01"~"12" · "__ALL__" = 그 해 전체
+  const month = year === "__ALL__" ? "__ALL__" : mm === "__ALL__" ? `${year}-` : `${year}-${mm}`;
 
   const actors = useMemo(() => [...new Set(all.map((a) => a.actor))].sort(), [all]);
-  const months = useMemo(() => [...new Set(all.map((a) => ym(a.at)))].sort().reverse(), [all]);
+  const years = useMemo(() => [...new Set(all.map((a) => a.at.slice(0, 4)))].sort().reverse(), [all]);
 
   const filtered = useMemo(
     () => all
       .filter((a) => type === "__ALL__" || a.type === type)
       .filter((a) => actor === "__ALL__" || a.actor === actor)
-      .filter((a) => month === "__ALL__" || ym(a.at) === month)
+      .filter((a) => month === "__ALL__" || (month.endsWith("-") ? a.at.startsWith(month) : ym(a.at) === month))
       .sort((a, b) => (a.at < b.at ? 1 : -1)),
     [all, type, actor, month]
   );
@@ -42,7 +46,7 @@ export default function ActivityLogView() {
     return byMonth;
   }, [filtered]);
 
-  const typeCount = (t: ActivityType) => all.filter((a) => a.type === t && (actor === "__ALL__" || a.actor === actor) && (month === "__ALL__" || ym(a.at) === month)).length;
+  const typeCount = (t: ActivityType) => all.filter((a) => a.type === t && (actor === "__ALL__" || a.actor === actor) && (month === "__ALL__" || (month.endsWith("-") ? a.at.startsWith(month) : ym(a.at) === month))).length;
   const monthLabel = (m: string) => `${m.slice(0, 4)}년 ${+m.slice(5, 7)}월`;
 
   // 활동 로그는 ADMIN 전용 (예: sj.kim) — 모든 훅 선언 이후에 분기
@@ -62,7 +66,7 @@ export default function ActivityLogView() {
     <div style={{ padding: "20px 22px", maxWidth: 1000 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 14px" }}>
         <p style={{ color: "#6b7280", fontSize: 13, margin: 0, flex: 1 }}>
-          내부 직원 활동을 <b>월별 · 일자별</b>로 확인. 활동 종류·직원·월로 필터. · 전체 {all.length.toLocaleString()}건
+          내부 직원 활동을 <b>월별 · 일자별</b>로 확인. 기본은 <b>이번 달</b>이며 연도·월·직원으로 고른다. · 전체 {all.length.toLocaleString()}건
         </p>
         <button
           onClick={() => { if (confirm("활동 로그를 전부 삭제하고 새로 기록하시겠습니까? (되돌릴 수 없습니다)")) activityStore.clear(); }}
@@ -71,20 +75,27 @@ export default function ActivityLogView() {
         </button>
       </div>
 
-      {/* 월 필터 */}
-      <FilterRow label="월">
-        <Chip active={month === "__ALL__"} onClick={() => setMonth("__ALL__")}>전체</Chip>
-        {months.map((m) => <Chip key={m} active={month === m} onClick={() => setMonth(month === m ? "__ALL__" : m)}>{monthLabel(m)}</Chip>)}
-      </FilterRow>
-
-      {/* 직원 필터 */}
-      <FilterRow label="직원">
-        <Chip active={actor === "__ALL__"} onClick={() => setActor("__ALL__")}>전체</Chip>
-        {actors.map((n) => (
-          <Chip key={n} active={actor === n} onClick={() => setActor(actor === n ? "__ALL__" : n)}>
-            <span style={avatar}>{n[0]}</span>{n}
-          </Chip>
-        ))}
+      {/* 기간·직원은 **셀렉트** — 데이터가 많아 목록에서 고르는 편이 낫다 `PC-069` */}
+      <FilterRow label="기간 · 직원">
+        <select value={year} onChange={(e) => setYear(e.target.value)} style={sel} title="연도">
+          <option value="__ALL__">전체 연도</option>
+          {years.map((y) => <option key={y} value={y}>{y}년</option>)}
+          {!years.includes(thisMonth.slice(0, 4)) && <option value={thisMonth.slice(0, 4)}>{thisMonth.slice(0, 4)}년</option>}
+        </select>
+        <select value={mm} onChange={(e) => setMm(e.target.value)} disabled={year === "__ALL__"} style={{ ...sel, ...(year === "__ALL__" ? { background: "#f3f4f6", color: "#9ca3af" } : {}) }} title="월">
+          <option value="__ALL__">전체 월</option>
+          {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map((m) => (
+            <option key={m} value={m}>{+m}월</option>
+          ))}
+        </select>
+        <select value={actor} onChange={(e) => setActor(e.target.value)} style={{ ...sel, minWidth: 130 }} title="직원">
+          <option value="__ALL__">직원 전체</option>
+          {actors.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+        <button onClick={() => { setYear(thisMonth.slice(0, 4)); setMm(thisMonth.slice(5, 7)); setActor("__ALL__"); setType("__ALL__"); }}
+          style={{ fontSize: 12, padding: "5px 11px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#6b7280", cursor: "pointer" }}>
+          이번 달
+        </button>
       </FilterRow>
 
       {/* 활동 종류 필터 */}
@@ -170,6 +181,11 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
     }}>{children}</button>
   );
 }
+
+const sel: React.CSSProperties = {
+  fontSize: 12.5, padding: "5px 10px", borderRadius: 8, border: "1px solid #e5e7eb",
+  background: "#fff", color: "#374151", cursor: "pointer", minWidth: 96,
+};
 
 const avatar: React.CSSProperties = {
   display: "inline-grid", placeItems: "center", width: 16, height: 16, borderRadius: "50%",

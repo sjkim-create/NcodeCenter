@@ -99,8 +99,8 @@ export const ALL_ITEMS: MenuItem[] = MENU.flatMap((g) => g.items);
 // 헤더(그룹)와 실제 화면이 같은 경로를 쓰는 경우 실제 화면 이름을 우선 표시
 export const titleOf = (path: string): string => {
   // 메뉴에 없는 하위 화면(등록·상세)
-  if (path === "/tickets/account/new") return "계정 등록";
-  if (path.startsWith("/tickets/account/")) return "계정 상세 · 수정";
+  if (path === "/tickets/account/new") return "계정 및 App Key 등록";     // `PC-069`
+  if (path.startsWith("/tickets/account/")) return "계정 및 App Key 상세 수정";   // `PC-069`
   if (path === "/tickets/nkey/new") return "N Key 발급";   // `PC-068`
   if (path.startsWith("/tickets/nkey/")) return "발급 상세 · 수정";
   if (path === "/companies/new") return "고객사 등록";

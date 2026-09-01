@@ -540,8 +540,11 @@ export function AccountNewView() {
   return (
     <div style={{ padding: "18px 20px", maxWidth: 900 }}>
       <div style={{ ...S.card, padding: 18 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>계정 등록</div>
+        {/* 제목은 상단에만 — 여기서는 고른 고객사를 크게 `PC-069` */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: company ? "#111827" : "#c7cdd6" }}>
+            {company?.name ?? "고객사를 선택하세요"}
+          </div>
         </div>
         <div style={{ fontSize: 11.5, color: "#9ca3af", marginBottom: 12 }}>
           한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). App Key 는 <b>계정당 1개</b>이며 <b>사용 서비스 전체에 공통</b>으로 쓰입니다 <code>PC-050</code> — 나중에 계정 상세에서도 발급할 수 있습니다.
@@ -750,12 +753,10 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   return (
     <div style={{ padding: "18px 20px", maxWidth: 900 }}>
       <div style={{ ...S.card, padding: 18 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>계정 상세 · 수정</div>
+        {/* 제목은 상단(브레드크럼)에만 두고, 여기서는 **고객사명을 크게** 보여 준다 `PC-069` */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "#111827" }}>{acc.company}</div>
           <code style={{ fontFamily: "ui-monospace,monospace", color: "#374151", fontSize: 12.5 }}>{acc.id}</code>
-          <span style={{ ...S.tag, background: "#f3f4f6", color: "#6b7280" }}>{acc.company}</span>
-          <span style={{ flex: 1 }} />
-          <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
         </div>
 
         {/* 탭 3개 `PC-062` */}
@@ -796,12 +797,6 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
           <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} />
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-          <button onClick={() => { if (confirm("이 계정과 연동 App Key를 삭제할까요?")) { caster.removeAccount(acc.id); router.push("/tickets/account"); } }}
-            style={{ ...S.ghost, color: "#dc2626", borderColor: "#fecaca" }}>계정 삭제</button>
-          <button onClick={save} style={S.primary}>저장</button>
-        </div>
-        {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: toast.ok ? "#047857" : "#dc2626", textAlign: "right" }}>{toast.text}</div>}
 
         {/* 이 계정의 Key 정보 — 계정 : 키 = 1:1 매핑 `PC-059` */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
@@ -833,6 +828,16 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
             })}
           </div>
         </div>
+
+        {/* 이동·저장 버튼은 화면 맨 아래에 모은다 `PC-069` */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
+          <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
+          <span style={{ flex: 1 }} />
+          <button onClick={() => { if (confirm("이 계정과 연동 App Key를 삭제할까요?")) { caster.removeAccount(acc.id); router.push("/tickets/account"); } }}
+            style={{ ...S.ghost, color: "#dc2626", borderColor: "#fecaca" }}>계정 삭제</button>
+          <button onClick={save} style={S.primary}>저장</button>
+        </div>
+        {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: toast.ok ? "#047857" : "#dc2626", textAlign: "right" }}>{toast.text}</div>}
       </div>
     </div>
   );
