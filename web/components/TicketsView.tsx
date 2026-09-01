@@ -572,7 +572,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
     if (books < 1 || bookEnd > range.bookEnd) { setToast(`Book 볼륨은 1~${maxBooks}권이어야 합니다. (B${bookStart}~B${range.bookEnd})`); return; }
     if (pageVolume < 1) { setToast("Page 볼륨은 1 이상이어야 합니다."); return; }
     // 계정 : N Key = 1:1 `PC-059`
-    if (!accountId) { setToast("발급 대상 계정을 고르세요. (계정 발급 메뉴에서 먼저 등록)"); return; }
+    if (!accountId) { setToast("발급 대상 계정을 고르세요. ([App Key 관리] 메뉴에서 먼저 등록)"); return; }
     if (hasNKey(accountId)) { setToast("이 계정에는 이미 N Key 가 발급돼 있습니다. 계정 하나에 N Key 는 1개입니다."); return; }
     if (!untilUnlimited && !/^\d{6}$/.test(validUntil)) { setToast("ValidUntilTime은 6자리(YYMMDD)이거나 무제한이어야 합니다."); return; }
     const ticket = {
@@ -633,7 +633,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
             </Field>
             {companyId > 0 && accounts.length === 0 && (
               <div style={{ fontSize: 11.5, color: "#b45309", marginTop: 4, lineHeight: 1.6 }}>
-                등록된 계정이 없습니다 — <Link href="/tickets/account/new" style={{ color: "#2563eb" }}>계정 발급</Link> 에서 먼저 등록하세요.
+                등록된 계정이 없습니다 — <Link href="/tickets/account/new" style={{ color: "#2563eb" }}>App Key 관리</Link> 에서 먼저 등록하세요.
               </div>
             )}
             {companyId > 0 && accounts.length > 0 && freeAccounts.length === 0 && (
