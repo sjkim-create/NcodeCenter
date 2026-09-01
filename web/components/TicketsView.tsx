@@ -687,14 +687,14 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
         </Field>
       </div>
 
-      {/* 자동/고정 항목 */}
+      {/* 자동/고정 항목 — Key 정보 순서와 같게 Code Type → Issued Time `PC-072` */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 4 }}>
-        <Field label="Issued Time (발급일·고정)"><input style={fixed} value={issuedTime} readOnly /></Field>
         <Field label="Code Type">
           <select style={S.input} value={ctype} disabled={!range} onChange={(e) => setCtype(e.target.value as CodeKind)}>
             {CODE_KINDS.map((k) => <option key={k.v} value={k.v}>{k.short}</option>)}
           </select>
         </Field>
+        <Field label="Issued Time (발급일·고정)"><input style={fixed} value={issuedTime} readOnly /></Field>
         <Field label="Ticket Version"><input style={fixed} value={1} readOnly /></Field>
       </div>
 
