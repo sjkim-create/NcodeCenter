@@ -18,7 +18,7 @@ PERMS = ('프로젝트 생성', '심볼 편집', '리소스 편집', 'Ncode PDF 
 
 # 상세 화면의 App Key 목록 (키, 코드종류, SOBP, 사용처, 유효, 생성일시)
 # 계정당 1개 · 사용처 전체 공통 `PC-050`
-KEYS = (('ncc_live_9f3c1a08b2', 'PDS2', 'S3/O17/B400~499 · 100권',
+KEYS = (('40391278465023719485637201948', 'PDS2', 'S3/O17/B400~499 · 100권',
          'CasterN · 폼솔루션', '2027-12-31', '2026-08-20 14:02'),)
 
 
@@ -131,7 +131,7 @@ def result_box():
             '<div>PWD: <code>Kq7mZ2xR4a</code></div>'
             '<div style="display:flex;gap:8px;align-items:center">App Key: '
             '<code style="flex:1;word-break:break-all">'
-            'ncc_live_9f3c1a08b2d4471e60c8aa35719fbe02c1d6</code>'
+            '40391278465023719485637201948</code>'
             '<div class="btn sm">전체 복사</div></div></div></div>')
 
 

@@ -305,10 +305,13 @@ const genPwdStr = () => {
   (globalThis.crypto ?? window.crypto).getRandomValues(buf);
   return btoa(String.fromCharCode(...buf)).replace(/[+/=]/g, "").slice(0, 10);
 };
+// App Key = **숫자 29자리 난수** `PC-066`
+//   앞자리가 0 이어도 그대로 둔다(문자열이라 자릿수가 줄지 않는다).
+const APP_KEY_LEN = 29;
 const genKeyStr = () => {
-  const buf = new Uint8Array(24);
+  const buf = new Uint32Array(APP_KEY_LEN);
   (globalThis.crypto ?? window.crypto).getRandomValues(buf);
-  return `ncc_live_${Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+  return Array.from(buf, (n) => String(n % 10)).join("");
 };
 
 // 고객사가 할당받은 SOBP 범위 목록
@@ -411,7 +414,7 @@ function issueAppKey(acc: CasterAccount, range: SobpRange, bookStart: number, bo
       "Code Type": ctype,
       "Ticket Type": until === "무제한" ? "Unlimited" : "Period",
     } });
-  logActivity("ticket", `App Key · ${acc.company} · ${summary} · ${key.slice(0, 16)}…`, by);
+  logActivity("ticket", `App Key · ${acc.company} · ${summary} · ${key}`, by);
   return key;
 }
 
@@ -817,7 +820,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
               const linked = (acc.services ?? []).length > 0;   // 키는 사용처 전체 공통 `PC-050`
               return (
               <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${linked ? "#eef0f4" : "#fecaca"}`, background: linked ? "#fff" : "#fff7f7", borderRadius: 9, padding: "8px 10px", fontSize: 11.5, color: "#6b7280", flexWrap: "wrap" }}>
-                <code style={{ fontFamily: "ui-monospace,monospace" }}>{k.key.slice(0, 18)}…</code>
+                <code style={{ fontFamily: "ui-monospace,monospace" }}>{k.key}</code>
                 <span style={{ ...S.tag, background: k.pt === "PDS3" ? "#eef6ff" : "#fef3c7", color: k.pt === "PDS3" ? "#2563eb" : "#92400e" }}>{k.pt} S{k.section}/O{k.owner}/B{k.bookStart}~{k.bookEnd} · {k.bookVol ?? (k.bookEnd - k.bookStart + 1)}권</span>
                 <span>{(k.services ?? []).map(accountServiceLabel).join(" · ") || "미지정"}</span>
                 {!linked && <span style={{ ...S.tag, background: "#fef2f2", color: "#b91c1c", fontWeight: 700 }} title="계정 사용처에서 이 서비스가 빠져 로그인에 쓸 수 없습니다">연동 끊김</span>}
