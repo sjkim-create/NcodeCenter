@@ -51,7 +51,40 @@ export default function NcodeGuideView({ embedded }: { embedded?: boolean } = {}
       </Section>
 
       {/* 5. 실제 견적 단가 */}
-      <Section n="5" title="실제 산출 단가 (견적서 기준)">
+      {/* 5. 티켓 버전 — 발급 항목 구성의 버전 `PC-065` */}
+      <Section n="5" title="Ticket Version — 발급 항목 구성의 버전">
+        <ul style={ul}>
+          <li><b>Ticket Version</b> 은 키를 발급할 때 담는 <b>항목 구성(스펙)의 버전</b>입니다. 발급 건의 순번이나 재발급 횟수가 아닙니다.</li>
+          <li>지금 발급되는 키는 모두 <b>버전 1</b> 로 관리합니다 — 아래 항목 구성이 <b>버전 1</b> 입니다.</li>
+          <li><b>항목이 바뀌면(추가·삭제·의미 변경) 버전 2</b> 로 올려 관리합니다. 이미 발급된 키는 <b>발급 당시 버전 그대로</b> 남습니다.</li>
+          <li>그래서 Key 정보의 <b>Ticket Version</b> 은 <b>고를 수 없는 고정 값</b>으로 보여 줍니다(현재 <b>1</b>).</li>
+        </ul>
+        <table style={{ ...S.table, marginTop: 10 }}>
+          <thead><tr>{["버전", "항목 구성", "상태"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
+          <tbody>
+            <tr>
+              <td style={{ ...td, fontWeight: 700, fontFamily: "ui-monospace,monospace" }}>1</td>
+              <td style={td}>
+                Company Name · Account Id · Issued Time · Valid Until Time · Section · Owner ·
+                Ticket Version · Book Start · Book Volume · Page Start · Page Volume ·
+                Code Type · Ticket Type · Separate Each Book
+              </td>
+              <td style={{ ...td, color: "#047857", fontWeight: 700 }}>사용 중</td>
+            </tr>
+            <tr>
+              <td style={{ ...td, fontWeight: 700, fontFamily: "ui-monospace,monospace", color: "#9ca3af" }}>2</td>
+              <td style={{ ...td, color: "#9ca3af" }}>항목이 바뀌는 시점에 정의 — 예정</td>
+              <td style={{ ...td, color: "#9ca3af" }}>예정</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 8 }}>
+          ※ 항목명 표기는 <b>띄어쓰기 기준</b>입니다 <code>PC-064</code> (Issued Time · Ticket Version …).
+          티켓 파일 안의 키 이름(<code>issuedTime</code> 등)은 프로그램이 읽는 값이라 바뀌지 않습니다.
+        </p>
+      </Section>
+
+      <Section n="6" title="실제 산출 단가 (견적서 기준)">
         <table style={{ ...S.table }}>
           <thead><tr>{["구분", "단위", "단가", "비고"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
           <tbody>
