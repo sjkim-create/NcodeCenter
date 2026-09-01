@@ -12,17 +12,17 @@ SUMMARY = ('고객사 <b>534</b> · 프로젝트 <b>508</b> · 발급 코드 '
 
 # (고객사명, 서비스요약, 코드수, [코드종류], 종료)
 CUSTS = [
-    ('21세기 북스', '서비스 없음', '0', [], False),
-    ('가쿠쇼', '서비스 없음', '4,194,304', [], False),
+    ('21세기 북스', 'SDK 연동', '0', [], False),
+    ('가쿠쇼', 'SDK 연동', '4,194,304', [], False),
     ('가쿠쇼-1022', 'casterN', '0', ['N'], False),
-    ('강효원 과장님', '서비스 없음', '0', [], False),
-    ('고려대학교', '서비스 없음', '0', [], False),
-    ('과학기술정보통신부 / 한국특허전략개발원', '서비스 없음', '0', [], False),
-    ('광동대청', '서비스 없음', '0', [], False),
-    ('교원', '서비스 없음', '0', [], False),
-    ('교원구몬', '서비스 없음', '8,388,608', [], False),
+    ('강효원 과장님', 'SDK 연동', '0', [], False),
+    ('고려대학교', 'SDK 연동', '0', [], False),
+    ('과학기술정보통신부 / 한국특허전략개발원', 'SDK 연동', '0', [], False),
+    ('광동대청', 'SDK 연동', '0', [], False),
+    ('교원', 'SDK 연동', '0', [], False),
+    ('교원구몬', 'SDK 연동', '8,388,608', [], False),
     ('교원구몬-10', 'casterN', '41,419', ['G', 'N'], False),
-    ('신사고-6', '서비스 없음', '29,286', ['N'], False),
+    ('신사고-6', 'SDK 연동', '29,286', ['N'], False),
 ]
 
 
@@ -120,7 +120,7 @@ def col_proj(sel=None, empty=False, cust='신사고-6'):
                  '<span style="display:inline-flex;align-items:center;gap:3px">%s%s%s</span></div>'
                  '<div class="row" style="gap:4px;margin-top:4px;flex-wrap:wrap">'
                  '<span class="tag" style="font-size:9.5px;background:#f3f4f6;color:#6b7280">'
-                 '서비스 없음 (코드만 발급)</span></div>'
+                 'SDK 연동 (코드만 할당)</span></div>'
                  '<div style="font-size:10.5px;color:#9ca3af;margin-top:3px">'
                  '발급 29,286코드 · 1블록</div></div>'
                  % ('#5f8ff0' if on else '#eef0f4', '#eff5ff' if on else '#fff',
@@ -197,7 +197,7 @@ def col_detail(state='none', share=False, cust='신사고-6', closed=False):
             '<div style="font-size:15px;font-weight:700">신사고-6 코드발급</div>'
             '<span class="tag">신사고-6</span>'
             '<span style="display:inline-flex;align-items:center;gap:4px">%s%s%s</span>'
-            '<span class="tag" style="background:#f3f4f6;color:#6b7280">서비스 없음 (코드만 발급)</span>%s'
+            '<span class="tag" style="background:#f3f4f6;color:#6b7280">SDK 연동 (코드만 할당)</span>%s'
             '%s<div style="flex:1"></div>'
             '<span class="btn sm">수정</span>'
             '<span class="btn sm" style="color:#dc2626">삭제</span></div>'
@@ -304,7 +304,7 @@ def build():
         '<div class="inp" style="display:flex;justify-content:space-between">신사고-6'
         '<span style="color:#9ca3af;font-size:10px">▾</span></div></div>'
         '<div class="fld"><span class="lbl">사용 서비스</span>'
-        '<div class="inp" style="display:flex;justify-content:space-between">서비스 없음 (코드만 발급)'
+        '<div class="inp" style="display:flex;justify-content:space-between">SDK 연동 (코드만 할당)'
         '<span style="color:#9ca3af;font-size:10px">▾</span></div>'
         '<div style="font-size:11px;color:#9ca3af;margin-top:3px">'
         '표시·변경 가능하나 <b>정본 지정은 <code>SOB-02</code></b> <code>PC-011</code></div></div>'

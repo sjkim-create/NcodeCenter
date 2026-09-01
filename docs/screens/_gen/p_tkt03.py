@@ -57,7 +57,7 @@ def bar(company='고객사 전체', service='사용처 전체', q='', count=5):
             '<span class="btn pri">＋ 계정 추가</span></div>')
 
 
-HEADS = ('고객사', 'ID (EMAIL)', '이름', '사용처', 'CasterN 권한', 'App Key', '등록일', '')
+HEADS = ('고객사', 'ID (EMAIL)', '이름', '사용처', 'App Key', '등록일', '')
 
 
 def perm_cell(services, n):
@@ -97,7 +97,6 @@ def table(rows=None, empty=None):
                  + '</span></td>'
                  '<td style="text-align:left">' + (nm or '—') + '</td>'
                  '<td style="white-space:nowrap">' + svc_tag + '</td>'
-                 '<td>' + perm_cell(svc, perms) + '</td>'
                  '<td>' + key_tag + '</td>'
                  '<td style="font-family:ui-monospace,monospace;color:#6b7280">' + at
                  + '</td>'
@@ -145,9 +144,10 @@ def build():
          ('요약 4칸', '표시', '—', '등록 계정 · App Key 연동 · App Key 없음 · 발급 App Key'),
          ('사용처 칸', '표시', '—',
           '계정이 가진 서비스를 <b>모두</b> 배지로 — 조건 미정의 서비스는 <b>준비중</b> 표기'),
-         ('CasterN 권한 칸', '표시', '—',
-          '사용처에 <b>CasterN 이 있을 때만</b> — <b>전체 7</b> / <b>{n} / 7</b> / '
-          '<b>미지정</b>. 없으면 <b>—</b>'),
+         ('레코드(행)', '클릭', '<code>TKT-02</code>',
+          '<b>행 어디를 눌러도 계정 상세로 간다</b> <code>PC-053</code> · 행 안의 [상세]·[삭제]는 분리'),
+         ('~~CasterN 권한 칸~~', '—', '<b>삭제</b>',
+          '권한은 <b>계정 상세</b>에서 본다 <code>PC-053</code>'),
          ('App Key 칸', '표시', '—', '이 계정에 연동된 키 개수 · 0이면 회색')] + NAV))
 
     B.append((

@@ -25,6 +25,7 @@ const accountHref = (id: string) => `/tickets/account/${encodeURIComponent(id)}`
 
 /* ── TKT-03 계정 목록 ───────────────────────────────────────────── */
 export function AccountsListView() {
+  const router = useRouter();          // 레코드 클릭 → 상세 `PC-053`
   const { companies } = useStore();
   const cast = useCaster();
   const [fCo, setFCo] = useState(0);
@@ -75,7 +76,7 @@ export function AccountsListView() {
       <div style={{ ...S.card, padding: 0, overflowX: "auto" }}>
         <table style={{ ...S.table, minWidth: 980 }}>
           <thead>
-            <tr>{["고객사", "ID (EMAIL)", "이름", "사용처", "CasterN 권한", "App Key", "등록일", ""].map((h) => (
+            <tr>{["고객사", "ID (EMAIL)", "이름", "사용처", "App Key", "등록일", ""].map((h) => (
               <th key={h} style={S.th}>{h}</th>
             ))}</tr>
           </thead>
@@ -83,13 +84,12 @@ export function AccountsListView() {
             {rows.map((a) => {
               const keys = keysOf(a.id);
               const svcs = a.services ?? [];
-              const perms = casternPerms(a);
               return (
-                <tr key={a.id} style={{ borderTop: "1px solid #eef0f4" }}>
+                // 레코드를 누르면 상세로 간다 `PC-053`
+                <tr key={a.id} onClick={() => router.push(accountHref(a.id))} title="클릭하면 상세·수정"
+                  style={{ borderTop: "1px solid #eef0f4", cursor: "pointer" }}>
                   <td style={S.td}>{a.company}</td>
-                  <td style={S.td}>
-                    <Link href={accountHref(a.id)} style={{ fontFamily: "ui-monospace,monospace", color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>{a.id}</Link>
-                  </td>
+                  <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#2563eb", fontWeight: 600 }}>{a.id}</td>
                   <td style={S.td}>{a.name || "—"}</td>
                   <td style={S.td}>
                     {svcs.length === 0
@@ -104,16 +104,10 @@ export function AccountsListView() {
                         </span>}
                   </td>
                   <td style={S.td}>
-                    {!hasService(a, "CASTERN") ? <span style={{ color: "#9ca3af" }}>—</span>
-                      : perms.length === 0 ? <span style={{ color: "#dc2626" }}>미지정</span>
-                      : perms.length === ALL_PERMS.length ? <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>전체 {perms.length}</span>
-                      : <span title={perms.map(permLabel).join(" · ")}>{perms.length} / {ALL_PERMS.length}</span>}
-                  </td>
-                  <td style={S.td}>
                     <span style={{ ...S.tag, background: keys.length ? "#eef6ff" : "#f3f4f6", color: keys.length ? "#2563eb" : "#9ca3af" }}>{keys.length}</span>
                   </td>
                   <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#6b7280" }}>{a.createdAt?.slice(0, 10)}</td>
-                  <td style={{ ...S.td, textAlign: "right", whiteSpace: "nowrap" }}>
+                  <td style={{ ...S.td, textAlign: "right", whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
                     <Link href={accountHref(a.id)} style={{ ...S.linkBtn, textDecoration: "none" }}>상세</Link>
                     <button onClick={() => { if (confirm("이 계정과 연동 App Key를 삭제할까요?")) caster.removeAccount(a.id); }} style={{ ...S.linkBtn, color: "#dc2626" }}>삭제</button>
                   </td>

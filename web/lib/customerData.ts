@@ -2,17 +2,17 @@
 // DB 연결 시 customers / projects / work_logs / allocations 테이블에 매핑
 
 // ── 네오랩 서비스 (프로젝트가 사용하는 서비스) ─────────
-// "서비스 없음" = 서비스는 안 쓰고 코드만 발급받는 프로젝트
+// "SDK 연동(코드만 할당)" = 네오랩 서비스를 쓰지 않고 코드만 받아 직접 연동하는 프로젝트 `PC-053`
 // casterN 서비스 코드는 [편집 프로젝트] 메뉴에서 관리한다.
 export type ServiceType =
   | "CASTERN" | "FORMSOLUTION" | "NONE";
 export const SERVICE: { v: ServiceType; label: string }[] = [
   { v: "CASTERN", label: "casterN (편집툴)" },
   { v: "FORMSOLUTION", label: "폼솔루션" },
-  { v: "NONE", label: "서비스 없음 (코드만 발급)" },
+  { v: "NONE", label: "SDK 연동 (코드만 할당)" },
 ];
 export const serviceLabel = (v: ServiceType) => SERVICE.find((s) => s.v === v)?.label ?? v;
-export const serviceShort = (v: ServiceType) => (v === "CASTERN" ? "casterN" : v === "FORMSOLUTION" ? "폼솔루션" : "서비스 없음");
+export const serviceShort = (v: ServiceType) => (v === "CASTERN" ? "casterN" : v === "FORMSOLUTION" ? "폼솔루션" : "SDK 연동");
 export const GRADES = ["a", "b", "c"];
 
 // ── 고객사(업체) 마스터 ─────────────────────────────

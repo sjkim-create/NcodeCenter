@@ -14,7 +14,7 @@ PRD = 'docs/prd/SOB-02_직접 코드 할당.md'
 SC_C = {'S': '#5f8ff0', 'O': '#14b8a6', 'B': '#8b5cf6', 'P': '#f59e0b'}
 
 SERVICES = (
-    ('NONE', '서비스 없음 (코드만 발급)', '코드만 발급 — 자체 서비스 미사용(사용량 모니터링 불가).'),
+    ('NONE', 'SDK 연동 (코드만 할당)', '코드만 발급 — 자체 서비스 미사용(사용량 모니터링 불가).'),
     ('CASTERN', 'casterN (편집툴)', 'casterN 편집툴 — [편집 프로젝트]에서 관리·모니터링.'),
     ('FORMSOLUTION', '폼솔루션', '자체 서비스 — 코드 사용량이 모니터링됩니다.'),
 )
@@ -86,7 +86,7 @@ def svc_chips(svc='NONE'):
     """사용 서비스 — 복수 선택 `PC-049`. 서비스 없음은 단독 선택"""
     on_set = svc if isinstance(svc, (list, tuple)) else [svc]
     out = ''
-    for v, short in (('CASTERN', 'casterN'), ('FORMSOLUTION', '폼솔루션'), ('NONE', '서비스 없음')):
+    for v, short in (('CASTERN', 'casterN'), ('FORMSOLUTION', '폼솔루션'), ('NONE', 'SDK 연동')):
         on = v in on_set
         out += ('<span style="flex:1;text-align:center;font-size:11.5px;border-radius:7px;'
                 'padding:7px 4px;font-weight:%s;border:1px solid %s;background:%s;color:%s">%s</span>'
@@ -190,7 +190,7 @@ def build():
         '<code>PC-046</code> — ① <b>발급 대상</b>(좌표·종류·상태를 <b>보여 주기만</b> 한다) '
         '② <b>발급 정보</b>(고객사 · 사용 서비스 · 코드 종류) ③ <b>보유 코드</b>(고객사를 고르면 나온다). '
         '좌표(Section · Owner)는 <b>지도에서 고른 값</b>이라 모달에서 바꾸지 않는다. '
-        '<b>[할당]</b> 은 고객사를 고르기 전에는 눌리지 않고, 사용 서비스 기본값은 <b>서비스 없음</b>.',
+        '<b>[할당]</b> 은 고객사를 고르기 전에는 눌리지 않고, 사용 서비스 기본값은 <b>SDK 연동</b>.',
         scr(modal(T, detail('') + cust_svc('', 'NONE') + owned(''), save_off=True)),
         [('고객사 *', '목록 선택 또는 직접 입력(검색)', '기존 보유 코드 영역 표시',
           '<code>MEM-01</code> 에 등록된 고객사만 — <b>여기서 신규 고객사를 만들지 않는다</b>'),
@@ -247,14 +247,14 @@ def build():
         'S5', '사용 서비스 — 복수 선택', '분기',
         '<code>PC-026</code> — 지정할 수 있는 서비스는 3종뿐이고, '
         '<b>여러 서비스를 함께 고를 수 있다</b> <code>PC-049</code>. '
-        '<b>서비스 없음</b> 은 단독 선택이라 고르면 나머지가 해제된다. '
+        '<b>SDK 연동</b> 은 단독 선택이라 고르면 나머지가 해제된다. '
         '그 외 용도(Ncode 프린터 등)의 코드는 <b>서비스 없음(코드만 발급)</b> 으로 할당한다.',
         scr(modal(T, detail('웅진씽크빅')
                   + cust_svc('웅진씽크빅', ['CASTERN', 'FORMSOLUTION'])
                   + owned('웅진씽크빅', OWN2))),
         [('사용 서비스', '복수 선택', '칩 다중 활성',
           'casterN · 폼솔루션 을 함께 지정할 수 있다 <code>PC-049</code>'),
-         ('서비스 없음', '선택', '나머지 해제', '단독 선택 항목'),
+         ('SDK 연동', '선택', '나머지 해제', '단독 선택 항목'),
          ('[할당]', '성공', '<code>LOG-01</code>',
           '<b>{고객사} · PDS3 S{n}/O{n} · casterN (편집툴) · 폼솔루션 · SO 점유</b>')] + CLOSE))
 

@@ -27,7 +27,7 @@ const KIND_BY_NAME: Record<string, CodeKind[]> = EDIT_BOOKS.reduce((m, r) => {
 const PDS_FILTERS = [{ v: "ALL" as const, label: "전체" },
   ...CODE_KINDS.map((k) => ({ v: k.v, label: k.label }))];
 // 고객사 카드 부제용 짧은 사용 서비스명
-const SHORT_SVC: Record<string, string> = { CASTERN: "casterN", FORMSOLUTION: "폼솔루션", NONE: "서비스 없음" };
+const SHORT_SVC: Record<string, string> = { CASTERN: "casterN", FORMSOLUTION: "폼솔루션", NONE: "SDK 연동" };   // `PC-053`
 const shortSvc = (v: string) => SHORT_SVC[v] ?? serviceLabel(v as ServiceType);
 
 export default function ProjectsView() {
@@ -167,7 +167,7 @@ export default function ProjectsView() {
                   </div>
                   <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
                     <span title={`프로젝트 ${ps.length}건`}>
-                      {ps.length === 0 ? "서비스 없음" : svcs.map(shortSvc).join(" · ")} · 코드 {codes.toLocaleString()}
+                      {ps.length === 0 ? "코드 없음" : svcs.map(shortSvc).join(" · ")} · 코드 {codes.toLocaleString()}
                     </span>
                     {kindsOf(c.name).map((k) => (
                       <span key={k} style={{ ...S.tag, fontSize: 9.5, background: CODE_KINDS.find((x) => x.v === k)?.bg, color: CODE_KINDS.find((x) => x.v === k)?.color, fontWeight: 700 }}>{k}</span>

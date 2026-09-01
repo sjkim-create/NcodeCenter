@@ -17,7 +17,7 @@ export type AccountService = "CASTERN" | "FORMSOLUTION" | "SDK";
 export const ACCOUNT_SERVICES: { v: AccountService; label: string; desc: string; ready: boolean }[] = [
   { v: "CASTERN", label: "CasterN", desc: "Caster U 웹 편집툴 · 계정 로그인", ready: true },
   { v: "FORMSOLUTION", label: "폼솔루션", desc: "폼솔루션 서비스 · 계정 로그인", ready: false },
-  { v: "SDK", label: "SDK 연동", desc: "id/pwd + SOBP 직접 사용", ready: false },
+  { v: "SDK", label: "SDK 연동 (코드만 할당)", desc: "네오랩 서비스 없이 코드만 받아 직접 연동 · id/pwd + SOBP", ready: false },
 ];
 export const accountServiceLabel = (v?: string) => ACCOUNT_SERVICES.find((s) => s.v === v)?.label ?? "미지정";
 // 권한·설정 화면이 준비된 서비스인지 — false면 등록 화면에서 「준비중」으로 노출한다.
