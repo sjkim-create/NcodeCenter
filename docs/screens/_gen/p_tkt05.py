@@ -17,16 +17,16 @@ BILL = {'미정': ('#f3f4f6', '#6b7280'), '유료': ('#eef6ff', '#1d4ed8'),
 KINDS = (('미정', '미등록'), ('유료', '금액 입력'), ('무료', '청구 없음'), ('체험', '1개월'))
 
 # 발급 당시 파라미터 — 종류에 따라 항목 구성이 다르다
-NKEY_ROWS = (('CompanyName', '웅진씽크빅'), ('IssuedTime', '20260827'),
-             ('ValidUntilTime', '99999999 (무제한)'), ('Section', '3'), ('Owner', '17'),
-             ('TicketVersion', '1'), ('BookStart', '400'), ('BookVolume', '100'),
-             ('PageStart', '1'), ('PageVolume', '4096'), ('PatternType', 'PDS2'),
-             ('TicketType', 'Unlimited'), ('SeparateEachBook', 'N (1개 티켓 병합)'))
-APP_ROWS = (('CompanyName', '대교'), ('AccountId', 'daekyo_edit@daekyo.com'),
+NKEY_ROWS = (('Company Name', '웅진씽크빅'), ('Issued Time', '20260827'),
+             ('Valid Until Time', '99999999 (무제한)'), ('Section', '3'), ('Owner', '17'),
+             ('Ticket Version', '1'), ('Book Start', '400'), ('Book Volume', '100'),
+             ('Page Start', '1'), ('Page Volume', '4096'), ('Code Type', 'PDS2'),
+             ('TicketType', 'Unlimited'), ('Separate Each Book', 'N (1개 티켓 병합)'))
+APP_ROWS = (('Company Name', '대교'), ('Account Id', 'daekyo_edit@daekyo.com'),
             ('Service', 'CasterN'), ('Usage', 'CasterN'),
-            ('AppKey', 'ncc_live_8f3a1c…'), ('PatternType', 'PDS3'),
-            ('Section', '3'), ('Owner', '212'), ('BookStart', '0'), ('BookEnd', '99'),
-            ('PageStart', '1'), ('PageEnd', '4096'), ('ValidUntil', '무제한'),
+            ('AppKey', 'ncc_live_8f3a1c…'), ('Code Type', 'PDS3'),
+            ('Section', '3'), ('Owner', '212'), ('Book Start', '0'), ('Book End', '99'),
+            ('Page Start', '1'), ('Page End', '4096'), ('ValidUntil', '무제한'),
             ('IssuedAt', '2026-08-26 16:40'))
 
 
@@ -200,7 +200,7 @@ def build():
         F(form(summary='PDS2 S3/O17/B400~499 · Book 100권 · P1~4096 · 병합 1장 · 유효 261231')),
         [('Value 칸', '입력', '값 수정', '항목명(Key)은 고칠 수 없다'),
          ('항목 추가·삭제', '—', '<b>불가</b>', '발급 시 기록된 구성을 유지한다'),
-         ('숫자 항목', '저장', '숫자로 복원', 'Section · Owner · BookStart 등'),
+         ('숫자 항목', '저장', '숫자로 복원', 'Section · Owner · Book Start 등'),
          ('키 파일', '—', '<b>바뀌지 않음</b>', '발급 시점에 이미 내려받았다')]))
 
     B.append((
@@ -283,7 +283,7 @@ def build():
         '탭 구성과 저장 방식은 동일하다.',
         F(form(kind='App Key', no=141), h=1220),
         [('종류 표기', '표시', '<b>App Key</b>', 'N Key 와 구분'),
-         ('Key 정보', '조회', '14개 항목', 'AccountId · Service · AppKey 포함'),
+         ('Key 정보', '조회', '14개 항목', 'Account Id · Service · AppKey 포함'),
          ('발급 출처', '—', '<code>TKT-02</code>', '계정 등록·수정의 CasterN 탭에서 발급'),
          ('탭 · 저장', '—', '동일', 'N Key 와 같은 방식')]))
 

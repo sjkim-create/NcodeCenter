@@ -122,7 +122,7 @@ def form(state='ready', sep=False, unlimited=True, err=None, over=False,
     else:
         right = ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">'
                  '할당된 SOBP 범위 <span style="color:#dc2626">*</span> '
-                 '<span style="color:#9ca3af">(선택 시 Section·Owner·Book·PatternType 자동)</span>'
+                 '<span style="color:#9ca3af">(선택 시 Section·Owner·Book·Code Type 자동)</span>'
                  '</div>' + picker('open' if state == 'open' else 'closed'))
 
     head = ('<div style="display:grid;grid-template-columns:1fr 1.4fr;gap:12px;'
@@ -151,19 +151,19 @@ def form(state='ready', sep=False, unlimited=True, err=None, over=False,
                    '2027-12-31' if not unlimited else 'yyyy-mm-dd',
                    ' checked' if unlimited else ''))
     row_valid = ('<div class="g4" style="margin-top:4px">%s</div>'
-                 % field('ValidUntilTime (사용 기한)', date_box))
+                 % field('Valid Until Time (사용 기한)', date_box))
 
     row_auto = ('<div class="g3" style="margin-top:4px">'
-                + field('IssuedTime (발급일·고정)', '<div class="inp ro">20260827</div>')
-                + field('PatternType',
+                + field('Issued Time (발급일·고정)', '<div class="inp ro">20260827</div>')
+                + field('Code Type (선택)',
                         '<div class="inp ro">%s</div>' % ('Ncode_PDS2' if ready else dash))
-                + field('TicketVersion', '<div class="inp ro">1</div>')
+                + field('Ticket Version', '<div class="inp ro">1</div>')
                 + '</div>')
 
     btns = ('<div style="display:flex;align-items:center;gap:12px;margin-top:12px;'
             'padding-top:12px;border-top:1px solid #eef0f4">'
             '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#374151">'
-            '<input type="checkbox"%s> <b>Separate each book</b> '
+            '<input type="checkbox"%s> <b>Separate Each Book</b> '
             '<span style="color:#9ca3af">(체크: 북코드별 개별 티켓 / 해제: 1개 티켓에 병합)</span>'
             '</label><span style="flex:1"></span>'
             '<div class="btn gho">목록</div>'
@@ -200,11 +200,11 @@ def content(**kw):
 
 
 # ── TKT-02 Key 정보 확인 (TKT-03 도 사용) ──────────────────────────
-KEYROWS = (('CompanyName', '웅진씽크빅'), ('IssuedTime', '20260827'),
-           ('ValidUntilTime', '99999999 (무제한)'), ('Section', '3'), ('Owner', '17'),
-           ('TicketVersion', '1'), ('BookStart', '400'), ('BookVolume', '100'),
-           ('PageStart', '1'), ('PageVolume', '4096'), ('PatternType', 'Ncode_PDS2'),
-           ('TicketType', 'Unlimited'), ('SeparateEachBook', 'N (1개 티켓 병합)'))
+KEYROWS = (('Company Name', '웅진씽크빅'), ('Issued Time', '20260827'),
+           ('Valid Until Time', '99999999 (무제한)'), ('Section', '3'), ('Owner', '17'),
+           ('Ticket Version', '1'), ('Book Start', '400'), ('Book Volume', '100'),
+           ('Page Start', '1'), ('Page Volume', '4096'), ('Code Type', 'PDS2'),
+           ('TicketType', 'Unlimited'), ('Separate Each Book', 'N (1개 티켓 병합)'))
 
 
 def tkt02(mode='input', err=None, empty=False, fname=None):
@@ -286,7 +286,7 @@ def build():
     B.append((
         'S3', '범위 선택 완료 — 발급 준비', '기본',
         '범위를 고르면 <b>Start Book · Book 볼륨 · Page 볼륨</b> 이 자동으로 채워지고 '
-        'PatternType 이 확정된다 <code>P-02</code>(PDS3→Ncode_PDS3 · PDS2→Ncode_PDS2 · PDS4→Scode · OID→OID). 버튼 아래에 <b>발급 예정</b> 요약이 나온다.',
+        'Code Type 이 확정된다 <code>P-02</code>(PDS3→Ncode_PDS3 · PDS2→Ncode_PDS2 · PDS4→Scode · OID→OID). 버튼 아래에 <b>발급 예정</b> 요약이 나온다.',
         scr(state='ready'),
         [('할당된 SOBP 범위', '클릭', 'S4 (목록 펼침)', '접힌 상태에서는 선택된 범위만 칩으로 표시'),
          ('자동 채움', '—', 'Start Book / Book 볼륨 / Page 볼륨',
@@ -323,12 +323,12 @@ def build():
         + MENU_ACTS))
 
     B.append((
-        'S6', 'Separate each book 체크', '분기',
+        'S6', 'Separate Each Book 체크', '분기',
         '체크하면 <b>북코드마다 티켓 파일이 1개씩</b> 만들어지고, 해제하면 <b>1개 티켓으로 병합</b>된다. '
         '요약줄의 티켓 장수가 바로 바뀐다.',
         scr(state='ready', sep=True),
-        [('Separate each book', '체크', '요약 갱신', '<b>개별 티켓 100장</b>'),
-         ('Separate each book', '해제', '요약 갱신', '<b>병합 티켓 1장</b>'),
+        [('Separate Each Book', '체크', '요약 갱신', '<b>개별 티켓 100장</b>'),
+         ('Separate Each Book', '해제', '요약 갱신', '<b>병합 티켓 1장</b>'),
          ('zip 구성', '발급 시', '—',
           '체크 = Book 하나당 파일 1개 / 해제 = 병합 파일 1개 (zip 은 항상 1개)')] + MENU_ACTS))
 
@@ -340,7 +340,7 @@ def build():
         [('무제한', '체크', '날짜 잠금', '티켓에 <code>99999999</code> 로 기록'),
          ('무제한', '해제', '달력 활성', '날짜를 고르면 6자리로 변환되어 기록'),
          ('형식 오류', '[Key 생성]', '인라인 메시지',
-          '<b>ValidUntilTime은 6자리(YYMMDD)이거나 무제한이어야 합니다.</b>')] + MENU_ACTS))
+          '<b>Valid Until Time은 6자리(YYMMDD)이거나 무제한이어야 합니다.</b>')] + MENU_ACTS))
 
     B.append((
         'S8', '할당 범위 초과 경고', '경고',
@@ -369,7 +369,7 @@ def build():
           '<b>Book 볼륨은 1~{최대}권이어야 합니다. (B{시작}~B{끝})</b>'),
          ('⑥ Page 볼륨 오류', '검사', '중단', '<b>Page 볼륨은 1 이상이어야 합니다.</b>'),
          ('⑦ 사용 기한 형식', '검사', '중단',
-          '<b>ValidUntilTime은 6자리(YYMMDD)이거나 무제한이어야 합니다.</b>')] + MENU_ACTS))
+          '<b>Valid Until Time은 6자리(YYMMDD)이거나 무제한이어야 합니다.</b>')] + MENU_ACTS))
 
     B.append((
         'S10', 'Key 생성 성공', '완료',

@@ -96,7 +96,7 @@ TKT-04:S02 할당된 SOBP 범위 없음
 TKT-04:S03 범위 선택 완료 — 발급 준비
 TKT-04:S04 SOBP 범위 목록 펼침
 TKT-04:S05 공통코드 고객사 — 사용 고객사 지정
-TKT-04:S06 Separate each book 체크
+TKT-04:S06 Separate Each Book 체크
 TKT-04:S07 사용 기한 지정 (무제한 해제)
 TKT-04:S08 할당 범위 초과 경고
 TKT-04:S09 검증 실패 — 인라인 메시지

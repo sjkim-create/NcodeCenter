@@ -8,7 +8,7 @@ import { useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { makeZip } from "@/lib/zip";
-import { codeKind, kindLabel, patternOf, patternTypeParam } from "@/lib/codeKind";
+import { codeKind, kindLabel, patternOf, patternTypeParam, CODE_KINDS, type CodeKind } from "@/lib/codeKind";
 import { codesOfCompany } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import {
@@ -449,6 +449,8 @@ export function TicketDetailView({ ticketId }: { ticketId: number }) {
 const PATTERNS = ["OID", "PDS2", "PDS3", "Scode"] as const;
 type Pattern = (typeof PATTERNS)[number];
 // 패턴·섹션별 Page 가용 범위(자동 채움 참고값)
+// 범위의 pt(PDS3·PDS2·Scode·OID) → 코드 종류 `PC-064`
+const CT_OF: Record<string, CodeKind> = { PDS3: "PDS3", PDS2: "PDS2", Scode: "PDS4", OID: "OID" };
 const PAGE_CAP: Partial<Record<Pattern, Record<number, number>>> = {
   PDS3: { 0: 4096, 3: 512, 5: 4096, 10: 1024, 11: 512, 14: 32, 15: 512 },
   PDS2: { 0: 1024, 3: 4096, 14: 1024 },
@@ -479,6 +481,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
   const [toast, setToast] = useState("");
   const [cuIdx, setCuIdx] = useState(-1);           // 공통코드 회사의 '사용 고객사' 선택
   const [accountId, setAccountId] = useState("");  // 발급 대상 계정 — 계정 : N Key = 1:1 `PC-059`
+  const [ctype, setCtype] = useState<CodeKind>("PDS3");   // Code Type — 직접 고른다 `PC-064`
   const cast = useCaster();
   useEffect(() => { hydrateTickets(); }, []);
   // 그 고객사의 계정 중 **아직 N Key 가 없는 계정**만 발급 대상이다 `PC-059`
@@ -528,6 +531,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
     setSobpIdx(i); const r = ranges[i]; if (!r) return;
     setBookStart(r.bookStart);
     setBooks(r.bookCount);
+    setCtype(CT_OF[r.pt] ?? "PDS3");        // 범위의 종류를 기본값으로 `PC-064`
     setPageVolume(PAGE_CAP[r.pt]?.[r.section] ?? pageVolume);
   };
   // 공통코드 회사: '사용 고객사' 선택 → 그 고객사가 쓰는 공통코드(타입·섹션·오너)를 자동으로 범위 지정
@@ -542,21 +546,21 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
 
   // 발급 파라미터 — 화면 표시·키 생성·정보 확인이 같은 값을 쓴다
   const ticketParams = () => ({
-    CompanyName: company?.name ?? "-",
-    AccountId: accountId || "-",
-    IssuedTime: issuedTime,
-    ValidUntilTime: untilUnlimited ? "99999999 (무제한)" : validValue,
+    "Company Name": company?.name ?? "-",
+    "Account Id": accountId || "-",
+    "Issued Time": issuedTime,
+    "Valid Until Time": untilUnlimited ? "99999999 (무제한)" : validValue,
     Section: range?.section ?? "-",
     Owner: range?.owner ?? "-",
-    TicketVersion: 1,
-    BookStart: bookStart,
-    BookVolume: books,
-    PageStart: pageStart,
-    PageVolume: pageVolume,
-    PatternType: range ? patternTypeParam(range.pt) : "-",
-    TicketType: "Unlimited",
-    SeparateEachBook: separate ? "Y (북코드별 개별 티켓)" : "N (1개 티켓 병합)",
-    ...(isCommon ? { UsedCustomer: selCu?.cu ?? "-" } : {}),   // 공통코드: 사용 고객사
+    "Ticket Version": 1,
+    "Book Start": bookStart,
+    "Book Volume": books,
+    "Page Start": pageStart,
+    "Page Volume": pageVolume,
+    "Code Type": ctype,
+    "Ticket Type": "Unlimited",
+    "Separate Each Book": separate ? "Y (북코드별 개별 티켓)" : "N (1개 티켓 병합)",
+    ...(isCommon ? { "Used Customer": selCu?.cu ?? "-" } : {}),   // 공통코드: 사용 고객사
   });
 
   // 6자리(YYMMDD) ↔ 달력(YYYY-MM-DD)
@@ -574,13 +578,13 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
     // 계정 : N Key = 1:1 `PC-059`
     if (!accountId) { setToast("발급 대상 계정을 고르세요. ([App Key 관리] 메뉴에서 먼저 등록)"); return; }
     if (hasNKey(accountId)) { setToast("이 계정에는 이미 N Key 가 발급돼 있습니다. 계정 하나에 N Key 는 1개입니다."); return; }
-    if (!untilUnlimited && !/^\d{6}$/.test(validUntil)) { setToast("ValidUntilTime은 6자리(YYMMDD)이거나 무제한이어야 합니다."); return; }
+    if (!untilUnlimited && !/^\d{6}$/.test(validUntil)) { setToast("Valid Until Time 은 6자리(YYMMDD)이거나 무제한이어야 합니다."); return; }
     const ticket = {
       companyName: company.name, issuedTime, validUntilTime: validValue,
       ...(selCu ? { usedCustomer: selCu.cu } : {}),   // 공통코드: 사용 고객사
       section: range.section, owner: range.owner, ticketVersion: 1,
       bookStart, bookVolume: books, pageStart, pageVolume,
-      patternType: range.pt, ticketType: "Unlimited", separateEachBook: separate,
+      patternType: patternTypeParam(patternOf(ctype)), ticketType: "Unlimited", separateEachBook: separate,
     };
     // 생성된 키는 폴더로 관리 → zip 하나로 다운로드 (폴더 안에 티켓 파일들).
     // 개별 파일명 = zip 파일명 그대로, B 숫자만 증가. (공통코드는 사용 고객사명 포함)
@@ -658,7 +662,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
             </>
           ) : (
             <>
-              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>할당된 SOBP 범위 * <span style={{ color: "#9ca3af" }}>(선택 시 Section·Owner·Book·PatternType 자동)</span></div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>할당된 SOBP 범위 * <span style={{ color: "#9ca3af" }}>(선택 시 Section·Owner·Book·Code Type 자동)</span></div>
               <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={onRange} />
             </>
           )}
@@ -687,7 +691,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 4 }}>
-        <Field label="ValidUntilTime (사용 기한)" full>
+        <Field label="Valid Until Time (사용 기한)" full>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input type="date" style={{ ...S.input, maxWidth: 190, opacity: untilUnlimited ? 0.5 : 1 }} disabled={untilUnlimited}
               value={sixToDate(validUntil)} onChange={(e) => setValidUntil(dateToSix(e.target.value))} title="달력에서 선택" />
@@ -700,15 +704,19 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
 
       {/* 자동/고정 항목 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 4 }}>
-        <Field label="IssuedTime (발급일·고정)"><input style={fixed} value={issuedTime} readOnly /></Field>
-        <Field label="PatternType"><input style={fixed} value={range ? patternTypeParam(range.pt) : "-"} readOnly /></Field>
-        <Field label="TicketVersion"><input style={fixed} value={1} readOnly /></Field>
+        <Field label="Issued Time (발급일·고정)"><input style={fixed} value={issuedTime} readOnly /></Field>
+        <Field label="Code Type">
+          <select style={S.input} value={ctype} disabled={!range} onChange={(e) => setCtype(e.target.value as CodeKind)}>
+            {CODE_KINDS.map((k) => <option key={k.v} value={k.v}>{k.short}</option>)}
+          </select>
+        </Field>
+        <Field label="Ticket Version"><input style={fixed} value={1} readOnly /></Field>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12, paddingTop: 12, borderTop: "1px solid #eef0f4" }}>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#374151", cursor: "pointer" }}>
           <input type="checkbox" checked={separate} onChange={(e) => setSeparate(e.target.checked)} />
-          <b>Separate each book</b> <span style={{ color: "#9ca3af" }}>(체크: 북코드별 개별 티켓 / 해제: 1개 티켓에 병합)</span>
+          <b>Separate Each Book</b> <span style={{ color: "#9ca3af" }}>(체크: 북코드별 개별 티켓 / 해제: 1개 티켓에 병합)</span>
         </label>
         <span style={{ flex: 1 }} />
         <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>

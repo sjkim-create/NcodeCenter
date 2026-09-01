@@ -193,11 +193,11 @@ def pager(total=142, per=50, cur=1):
 
 
 # ── N Key 불러오기 (외부 .json 확인) ─────────────────────────────
-KEYROWS = (('CompanyName', '웅진씽크빅'), ('IssuedTime', '20260827'),
-           ('ValidUntilTime', '99999999 (무제한)'), ('Section', '3'), ('Owner', '17'),
-           ('TicketVersion', '1'), ('BookStart', '400'), ('BookVolume', '100'),
-           ('PageStart', '1'), ('PageVolume', '4096'), ('PatternType', 'PDS2'),
-           ('TicketType', 'Unlimited'), ('SeparateEachBook', 'N (1개 티켓 병합)'))
+KEYROWS = (('Company Name', '웅진씽크빅'), ('Issued Time', '20260827'),
+           ('Valid Until Time', '99999999 (무제한)'), ('Section', '3'), ('Owner', '17'),
+           ('Ticket Version', '1'), ('Book Start', '400'), ('Book Volume', '100'),
+           ('Page Start', '1'), ('Page Volume', '4096'), ('Code Type', 'PDS2'),
+           ('TicketType', 'Unlimited'), ('Separate Each Book', 'N (1개 티켓 병합)'))
 
 
 def keyload(err=False, fname='Ticket_웅진씽크빅_S3O17_B400-499.json'):

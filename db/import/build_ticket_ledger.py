@@ -53,15 +53,15 @@ def add(sec, pt, owner, bs, be, project, gubun, issuer, pages, date, per):
               (f" · Book {bvol}권" if bvol else "") + \
               (f" · P0~{pages-1}" if pages else "") + f" · 기간 {per}"
     # 현재 N Key 발급이 기록하는 항목 순서와 맞춘다
-    params = {"CompanyName": project, "IssuedTime": (date or "").replace("-", "") or "-",
-              "ValidUntilTime": valid, "Section": sec, "Owner": owner, "TicketVersion": 1}
-    if bs is not None: params["BookStart"] = bs
-    if bvol: params["BookVolume"] = bvol
-    params["PageStart"] = 0
-    if pages: params["PageVolume"] = pages
-    params["PatternType"] = pt
-    params["TicketType"] = "Unlimited"
-    params["SeparateEachBook"] = "N (1개 티켓 병합)"
+    params = {"Company Name": project, "Issued Time": (date or "").replace("-", "") or "-",
+              "Valid Until Time": valid, "Section": sec, "Owner": owner, "Ticket Version": 1}
+    if bs is not None: params["Book Start"] = bs
+    if bvol: params["Book Volume"] = bvol
+    params["Page Start"] = 0
+    if pages: params["Page Volume"] = pages
+    params["Code Type"] = pt
+    params["Ticket Type"] = "Unlimited"
+    params["Separate Each Book"] = "N (1개 티켓 병합)"
     if gubun: params["구분(대장)"] = gubun
     if issuer: params["담당(대장)"] = issuer
     tickets.append({
