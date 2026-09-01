@@ -385,7 +385,12 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   return (
     <div style={{ padding: embedded ? "2px 2px 18px" : "20px 22px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-        {!embedded && <Link href="/projects/editing" style={{ ...S.ghost, textDecoration: "none", padding: "6px 12px" }}>목록</Link>}   {/* `PC-055` */}
+        {!embedded && (
+          // 교재 등록·상세에서는 **그 고객사 교재 목록**으로, 교재 목록 화면에서는 편집 프로젝트로 `PC-056`
+          <Link href={bookMode ? listHref : "/projects/editing"} style={{ ...S.ghost, textDecoration: "none", padding: "6px 12px" }}>
+            {bookMode ? "목록" : "편집 프로젝트"}
+          </Link>
+        )}
         <div style={{ fontSize: 18, fontWeight: 700 }}>{cust.customer}</div>
         <span style={{ ...S.tag, fontFamily: "ui-monospace,monospace" }}>owner {cust.owners && cust.owners.length ? cust.owners.join("·") : owner}</span>
         {[...new Set((cust.bookRows ?? []).map((r) => codeKind(r.k, r.s)))].map((k) => <span key={k} style={{ ...S.tag, background: kindMeta(k).bg, color: kindMeta(k).color, fontWeight: 700 }}>{kindMeta(k).short}</span>)}
@@ -1060,7 +1065,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                 style={{ ...S.ghost, color: "#dc2626", borderColor: "#fecaca" }}>교재 삭제</button>
             )}
             <span style={{ flex: 1 }} />
-            <Link href={listHref} style={{ ...S.ghost, textDecoration: "none" }}>교재 목록</Link>
+            <Link href={listHref} style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
             <button onClick={saveRow} style={S.primary}>{editing.idx === -1 ? "추가" : "저장"}</button>
           </div>
         </div>
