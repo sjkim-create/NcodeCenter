@@ -315,7 +315,7 @@ def bar(label, value, width, bg, fg):
 
 def page_col(in_use=True, shared=False, edited=False, sec=0, own=10, book=0,
              pmax=4096, total=1636, cust='교원구몬', proj='교원구몬 코드발급',
-             pds='N', tip=False):
+             pds='N', tip=False, caps=None):
     REC = min(1000, pmax)
     remain = max(0, pmax - total)
     pv = lambda v: round(v * 1000.0 / pmax) / 10.0
@@ -359,7 +359,16 @@ def page_col(in_use=True, shared=False, edited=False, sec=0, own=10, book=0,
              + stat('권장 사용량 (기준 1,000p)', '{:,}'.format(REC), pv(REC), '#b45309')
              + stat('실 사용 Page', '{:,}'.format(total), pv(total), '#2563eb',
                     ('권장 대비 %d%%' % vs_rec) if in_use else None)
-             + stat('잔여 (발급 가능)', '{:,}'.format(remain), pv(remain), '#166534'))
+             + (stat('잔여 (발급 가능)', '{:,}'.format(remain), pv(remain), '#166534')
+                if not caps else
+                ('<div style="background:#fff;border:1px solid #eef0f4;border-radius:12px;'
+                 'padding:10px 12px">'
+                 '<div style="font-size:11px;color:#6b7280">잔여 (발급 가능) · 종류별</div>'
+                 '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:3px">%s</div></div>'
+                 % ''.join('<span style="display:inline-flex;align-items:center;gap:4px">%s'
+                           '<b style="font-size:15px;color:#166534">%s</b></span>'
+                           % (pds_chip('G' if k == 'PDS2' else 'N'), '{:,}p'.format(v))
+                           for k, v in caps))))
 
     bars = (bar('전체 사용 가능', '{:,}p · 100%'.format(pmax), 100, '#eef1f6', '#374151')
             + bar('권장 사용량 (기준 1,000p)', '{:,}p · {}%'.format(REC, pv(REC)),
@@ -660,19 +669,25 @@ def build():
     B.append((
         'S14', 'Page 용량 — 미사용(발급 가능)', '빈 상태',
         '선택한 S/O/B 에 쓰는 프로젝트가 없는 경우. 고객사 박스가 회색 안내로 바뀌고 '
-        '<b>실 사용 0p</b> 가 되며 <b>사용 구간</b> 줄이 사라진다.',
+        '<b>실 사용 0p</b> 가 되며 <b>사용 구간</b> 줄이 사라진다. '
+        '아직 <b>코드 종류가 정해지지 않은 좌표</b>라 잔여 페이지를 '
+        '<b>PDS2 · PDS3 로 나눠</b> 보여 준다 <code>PC-049</code>.',
         frame('SOB-01', 'SOBP 맵',
               content(sel_s=0, sel_o=4, sel_b=0,
                       own_rows=tuple(r for r in OWN_S0 if r[1] == '미사용'),
                       own_more=None,
                       book_rows=((b, '미사용', '', False) for b in range(4)),
                       book_more='16,379',
-                      page_kw=dict(in_use=False, total=0, own=4)),
+                      page_kw=dict(in_use=False, total=0, own=4,
+                                   caps=(('PDS2', 1024), ('PDS3', 4096)))),
               height=1060),
         [('고객사 박스', '표시', '—',
           '<b>미사용 (발급 가능) — 이 S/O/B에는 사용 중인 프로젝트가 없습니다.</b>'),
          ('실 사용 Page', '표시', '—', '<b>0p · 0%</b> · 보조 문구 없음'),
-         ('잔여 (발급 가능)', '표시', '—', '<b>4,096p · 100%</b>'),
+         ('잔여 (발급 가능)', '표시', '<b>종류별</b>',
+          '아직 코드 종류가 정해지지 않은 좌표라 <b>PDS2 · PDS3 를 나눠</b> 보여 준다 '
+          '<code>PC-049</code> (예: PDS2 <b>1,024p</b> · PDS3 <b>4,096p</b>). '
+          '이미 발급된 좌표는 정해진 종류의 <b>잔여 페이지 하나</b>만 나온다'),
          ('사용 구간', '—', '<b>표시 안 됨</b>', '사용 중일 때만 나온다')]))
 
     B.append((

@@ -16,7 +16,7 @@ import { langLabelOfOwner, isLangOwner, LANG_PDS, LANG_SECTION } from "@/lib/lan
 import { hydrateOverrides, overrideOf, useBookOverrides } from "@/lib/editOverrides";
 import { Sc, SobpChips, KindChip, PenChip } from "./sobp";
 import { codeKind, CODE_KINDS, kindMeta, type CodeKind } from "@/lib/codeKind";
-import { SERVICE, type ServiceType } from "@/lib/customerData";
+import { SERVICE, serviceShort, projectServices, type ServiceType } from "@/lib/customerData";
 
 // 좌표(SOBP) 정원 — 코드 종류·섹션별 owner/book/page 최대치 (코드 관리 정보 기준)
 //   좌표가 먼저이고 종류는 좌표의 속성이다. PDS4 = Section 44(S-code) · OID = index 전용(옛 IDS 포함).
@@ -96,7 +96,7 @@ export default function OwnershipMap() {
   // 자동 추천(SOBP 추천)은 PDS3·PDS2 만 대상 — PDS4(Section 44)·OID 는 직접 선택으로 다룬다.
   const recoPds: Pds = kind === "PDS2" ? "G" : "N";
   const recoTarget = kind === "PDS3" || kind === "PDS2" || kind === "ALL";
-  const [alloc, setAlloc] = useState<{ company: string; newCompany: string; bookStart: number; books: number; pages: number; mode: "코드발급" | "편집"; shared: boolean; service: ServiceType; svcTouched?: boolean } | null>(null);
+  const [alloc, setAlloc] = useState<{ company: string; newCompany: string; bookStart: number; books: number; pages: number; mode: "코드발급" | "편집"; shared: boolean; service: ServiceType; services?: ServiceType[]; svcTouched?: boolean } | null>(null);
   const [aKindSel, setAKindSel] = useState<CodeKind | null>(null);                    // 할당 모달의 코드 종류(지도 선택과 분리) `PC-046`
   const [selS, setSelS] = useState(0);
   const [selO, setSelO] = useState(1);
@@ -137,6 +137,7 @@ export default function OwnershipMap() {
   const curS = secs.includes(selS) ? selS : secs[0];
   // 고객사 목록 — 공유 코드의 실제 사용 고객사(cu)도 포함해 검색·필터에서 찾을 수 있게 한다
   const accounts = useMemo(() => [...new Set(RECS.flatMap((r) => [r.cu, r.cust]).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, "ko")), [RECS]);
+
 
   const secRecs = useMemo(
     () => RECS.filter((r) => r.sec === curS && (kind === "ALL" || codeKind(r.k, r.sec) === kind)),
@@ -209,6 +210,11 @@ export default function OwnershipMap() {
   const clearFilters = () => { setFStat("전체"); setFAcct(""); setQ(""); setOFrom(""); setBFrom(""); setOLimit(PAGE_O); setBLimit(PAGE_B); };
 
   const curO = selO >= 0 && ownerNums.includes(selO) ? selO : (ownerNums[0] ?? 0);
+  // 이 S/O 가 이미 발급됐는지 · 이 Section 에서 종류별 페이지 정원 `PC-049`
+  const soUsed = useMemo(() => RECS.some((r) => r.sec === curS && r.owner === curO), [RECS, curS, curO]);
+  const capsOf = (sec: number) => ALLOC_KINDS
+    .filter((k2) => (SCALE[k2] ?? {})[sec])
+    .map((k2) => ({ k: k2, p: (SCALE[k2] ?? {})[sec].p }));
   const ownRecs = secRecs.filter((r) => r.owner === curO && !r.nb);
   // book 을 나누지 않은 행(OID) — Book 카드 없이 목록으로 안내한다 `PC-036`
   const noBookRecs = secRecs.filter((r) => r.owner === curO && r.nb);
@@ -453,7 +459,8 @@ export default function OwnershipMap() {
 
         {/* Page 그리드맵 */}
         <div style={{ ...S.card, padding: 16 }}>
-          <PageView sec={curS} owner={curO} book={curB} recs={bookRecs} pmax={scale.p} dk={pds} setTip={setTip} />
+          <PageView sec={curS} owner={curO} book={curB} recs={bookRecs} pmax={scale.p} dk={pds} setTip={setTip}
+            soUsed={soUsed} caps={capsOf(curS)} />
         </div>
       </div>
 
@@ -502,8 +509,17 @@ export default function OwnershipMap() {
         // 이미 한 업체가 쓰는 좌표 — 고객사는 고르는 값이 아니라 **상태**다 `PC-048`
         const usedSO = !shared && holders.length > 0;
         const soProj = projects.find((pr) => pr.issued.some((b) => b.section === curS && b.owner === curO));
-        const svcCur: ServiceType = soProj?.service ?? "NONE";
-        const svcValue: ServiceType = alloc.svcTouched ? alloc.service : svcCur;
+        // 사용 서비스는 **다중 선택** `PC-049` — 서비스 없음은 단독 선택
+        const svcCur: ServiceType[] = soProj ? projectServices(soProj) : ["NONE"];
+        const svcValue: ServiceType[] = alloc.svcTouched ? (alloc.services ?? ["NONE"]) : svcCur;
+        const svcKey = (a: ServiceType[]) => [...a].sort().join(",");
+        const toggleSvc = (v: ServiceType) => {
+          const cur = svcValue;
+          const next = v === "NONE" ? ["NONE" as ServiceType]
+            : cur.includes(v) ? cur.filter((x) => x !== v && x !== "NONE")
+            : [...cur.filter((x) => x !== "NONE"), v];
+          setAlloc({ ...alloc, services: next.length ? next : ["NONE"], service: (next.find((x) => x !== "NONE") ?? "NONE"), svcTouched: true });
+        };
         const lockIn = (s: React.CSSProperties): React.CSSProperties =>
           locked ? { ...s, background: "#f3f4f6", color: "#9ca3af", cursor: "not-allowed" } : s;
         // 선택 고객사가 이미 보유한 코드(S/O/Book/Page)
@@ -514,13 +530,13 @@ export default function OwnershipMap() {
             bs: b.bookStart, be: b.bookEnd, ps: b.pageStart, pe: b.pageEnd, codes: b.codes })))
           .sort((a, b) => a.s - b.s || a.o - b.o);
         // 이미 발급된 좌표에서는 **사용 서비스만** 바꿔 저장한다 `PC-048`
-        const svcDirty = usedSO && !!soProj && svcValue !== svcCur;
+        const svcDirty = usedSO && !!soProj && svcKey(svcValue) !== svcKey(svcCur);
         const saveService = () => {
           if (!soProj) return;
-          store.upsertProject({ ...soProj, service: svcValue, editing: svcValue === "CASTERN" ? true : soProj.editing });
+          store.upsertProject({ ...soProj, service: svcValue.find((x) => x !== "NONE") ?? "NONE", services: svcValue, editing: svcValue.includes("CASTERN") ? true : soProj.editing });
           if (persistError()) { alert(`⚠ 저장되지 않았습니다.
 ${persistError()}`); return; }
-          logActivity("alloc", `${holders.join(" · ")} · S${curS}/O${curO} 사용 서비스 → ${SERVICE.find((s) => s.v === svcValue)?.label ?? "서비스 없음"}`, me?.name);
+          logActivity("alloc", `${holders.join(" · ")} · S${curS}/O${curO} 사용 서비스 → ${svcValue.map((v) => SERVICE.find((s) => s.v === v)?.label ?? v).join(" · ")}`, me?.name);
           setAlloc(null);
         };
         // 좌표 상태 한 줄 — 셀렉트 없이 상태만 보여 준다 `PC-046`
@@ -547,14 +563,14 @@ ${persistError()}`); return; }
           // 직접 코드 할당 = SO 단위. owner 전체를 점유(모든 book 사용가능)하되,
           // 실제 발급 규모(codes)는 편집 시 집계 → 여기서는 codes 0 (점유만).
           store.upsertProject({
-            id: 0, name: `${co.name} 코드발급 · S${curS}/O${curO}`, companyId, service: svcValue, grade: "",
-            editing: svcValue === "CASTERN", editingOwner: curO, symbols: 0,
+            id: 0, name: `${co.name} 코드발급 · S${curS}/O${curO}`, companyId, service: svcValue.find((x) => x !== "NONE") ?? "NONE", services: svcValue, grade: "",
+            editing: svcValue.includes("CASTERN"), editingOwner: curO, symbols: 0,
             issued: [{ id: 1, date: new Date().toISOString().slice(0, 10), codes: 0, kind: DK[aKind] as "N" | "G" | "A" | "O",
                        by: me?.name ?? "", section: curS, owner: curO, bookStart: 0, bookEnd: scale.b - 1, pageStart: 1, pageEnd: 1 }],
           });
           // 저장 실패(용량 초과 등) 시 사라진 것처럼 보이지 않도록 즉시 경고
           if (persistError()) { alert(`⚠ 할당이 저장되지 않았습니다.\n${persistError()}`); return; }
-          logActivity("alloc", `${co.name} · ${kindMeta(aKind).short} S${curS}/O${curO} · ${SERVICE.find((s) => s.v === svcValue)?.label ?? "서비스 없음"} · SO 점유(전체 book 사용가능)`, me?.name);
+          logActivity("alloc", `${co.name} · ${kindMeta(aKind).short} S${curS}/O${curO} · ${svcValue.map((v) => SERVICE.find((s) => s.v === v)?.label ?? v).join(" · ")} · SO 점유(전체 book 사용가능)`, me?.name);
           setSelB(0); setAlloc(null);
         };
         return (
@@ -593,11 +609,19 @@ ${persistError()}`); return; }
                     </>
                   )}
                 </Field>
-                <Field label="사용 서비스">
-                  <select style={S.input} value={svcValue}
-                    onChange={(e) => setAlloc({ ...alloc, service: e.target.value as ServiceType, svcTouched: true })}>
-                    {SERVICE.map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
-                  </select>
+                <Field label="사용 서비스 (복수 선택)">
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                    {SERVICE.map((s) => {
+                      const on = svcValue.includes(s.v);
+                      return (
+                        <button key={s.v} onClick={() => toggleSvc(s.v)} title={s.label}
+                          style={{ flex: 1, minWidth: 62, fontSize: 11.5, borderRadius: 7, padding: "7px 4px", cursor: "pointer", fontWeight: on ? 700 : 400,
+                            border: `1px solid ${on ? "#93c5fd" : "#e5e7eb"}`, background: on ? "#eef6ff" : "#fff", color: on ? "#2563eb" : "#6b7280" }}>
+                          {serviceShort(s.v)}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </Field>
                 {/* 코드 종류 — 비어 있는 좌표에서만 고른다. 골라도 S/O 는 바뀌지 않는다 `PC-046` */}
                 <Field label="코드 종류">
@@ -699,7 +723,7 @@ function Bar({ h, label, value, width, bg, fg, tip, setTip }: { h: number; label
   );
 }
 
-function PageView({ sec, owner, book, recs, pmax, dk, setTip }: { sec: number; owner: number; book: number; recs: Rec[]; pmax: number; dk?: string; setTip: (t: { x: number; y: number; html: string } | null) => void }) {
+function PageView({ sec, owner, book, recs, pmax, dk, setTip, soUsed, caps }: { sec: number; owner: number; book: number; recs: Rec[]; pmax: number; dk?: string; setTip: (t: { x: number; y: number; html: string } | null) => void; soUsed?: boolean; caps?: { k: CodeKind; p: number }[] }) {
   const r = recs[0];
   const k = r?.k ?? dk ?? "N";
   const shared = !!sharedInfo(sec, owner, k);               // 공유(커먼) 코드 여부
@@ -751,7 +775,22 @@ function PageView({ sec, owner, book, recs, pmax, dk, setTip }: { sec: number; o
         <Stat label="전체 사용 가능" value={pmax} pct={100} color="#111827" />
         <Stat label={`권장 사용량 (기준 ${RECOMMEND_PAGES.toLocaleString()}p)`} value={rec} pct={pct(rec)} color="#b45309" />
         <Stat label="실 사용 Page" value={total} pct={pct(total)} color="#2563eb" sub={inUse ? `권장 대비 ${rec ? Math.round((total / rec) * 100) : 0}%` : undefined} />
-        <Stat label="잔여 (발급 가능)" value={remain} pct={pct(remain)} color="#166534" />
+        {/* 미발급 좌표는 코드 종류가 정해지지 않아 **종류별 발급 가능 페이지**를 함께 보여 준다 `PC-049` */}
+        {!soUsed && caps && caps.length > 1 ? (
+          <div style={{ ...S.card, padding: "10px 12px" }}>
+            <div style={{ fontSize: 11, color: "#6b7280" }}>잔여 (발급 가능) · 종류별</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 3 }}>
+              {caps.map((c2) => (
+                <span key={c2.k} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <KindChip kind={c2.k} small />
+                  <b style={{ fontSize: 15, fontWeight: 700, color: "#166534" }}>{c2.p.toLocaleString()}p</b>
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <Stat label="잔여 (발급 가능)" value={remain} pct={pct(remain)} color="#166534" />
+        )}
       </div>
 
       {/* 용량 맵 — 행 높이 50px 고정, 폭(width)만 페이지 비율로 조절 */}

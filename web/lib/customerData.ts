@@ -12,6 +12,7 @@ export const SERVICE: { v: ServiceType; label: string }[] = [
   { v: "NONE", label: "서비스 없음 (코드만 발급)" },
 ];
 export const serviceLabel = (v: ServiceType) => SERVICE.find((s) => s.v === v)?.label ?? v;
+export const serviceShort = (v: ServiceType) => (v === "CASTERN" ? "casterN" : v === "FORMSOLUTION" ? "폼솔루션" : "서비스 없음");
 export const GRADES = ["a", "b", "c"];
 
 // ── 고객사(업체) 마스터 ─────────────────────────────
@@ -51,7 +52,8 @@ export type Project = {
   id: number;
   name: string;            // 프로젝트명
   companyId: number;       // 고객사(업체) 참조
-  service: ServiceType;    // 사용 서비스 (NONE = 코드만 발급)
+  service: ServiceType;    // 사용 서비스 대표값 (services 의 첫 값 — 옛 데이터 호환)
+  services?: ServiceType[];// 사용 서비스 (다중) — 한 좌표를 여러 서비스가 함께 쓸 수 있다 `PC-049`
   grade: string;           // 폼솔루션만
   issued: IssuedSOBP[];    // 발급 SOBP 내역 (0건이면 미발급)
   editingOwner?: number;   // 편집 프로젝트 연결 owner (엑셀 시트)
@@ -62,6 +64,12 @@ export type Project = {
   editLinkOwner?: number;  // 예외: 이 코드의 편집 실적이 다른 owner에 귀속 → [편집] 칩으로 이동
   editLinkLabel?: string;  // [편집] 칩에 표시할 대상 라벨
 };
+// 사용 서비스 목록 — 옛 데이터(service 단일)도 함께 읽는다 `PC-049`
+export const projectServices = (p: { service: ServiceType; services?: ServiceType[] }): ServiceType[] =>
+  p.services && p.services.length ? p.services : [p.service];
+export const usesService = (p: { service: ServiceType; services?: ServiceType[] }, v: ServiceType) =>
+  projectServices(p).includes(v);
+
 export const projectCodes = (p: Project) => p.issued.reduce((s, b) => s + b.codes, 0);       // 발급 규모(B×P)
 export const projectUsed = (p: Project) => p.issued.reduce((s, b) => s + (b.used ?? 0), 0);   // 실등록 페이지
 

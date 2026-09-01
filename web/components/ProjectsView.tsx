@@ -8,7 +8,7 @@ import { codeKind, CODE_KINDS, kindLabel, type CodeKind } from "@/lib/codeKind";
 import { store, useStore } from "@/lib/store";
 import {
   Project, ServiceType,
-  SERVICE, serviceLabel, GRADES, projectCodes, projectUsed,
+  SERVICE, serviceLabel, GRADES, projectCodes, projectUsed, projectServices, usesService,
 } from "@/lib/customerData";
 import { EDIT_BOOKS } from "@/lib/codeUsage";
 import { codesOfCompany, isCommonCodeCompany, type CommonCode } from "@/lib/commonCodes";
@@ -83,7 +83,7 @@ export default function ProjectsView() {
   const kindsOf = (name: string) => KIND_BY_NAME[name] ?? [];
   // 편집 플래그 = casterN 서비스와 동일 기준(편집 데이터/심볼 보유) — 뱃지⇔사용서비스 일치
   const isEditing = (p: Project) =>
-    p.service === "CASTERN" || !!p.editing || (p.symbols ?? 0) > 0;
+    usesService(p, "CASTERN") || !!p.editing || (p.symbols ?? 0) > 0;
   // 공통(커먼)코드 대장 프로젝트 → 이 프로젝트가 대표하는 공통코드 (하위 사용 고객사 노출용)
   const commonCodeOfProject = (p: Project): CommonCode | undefined => {
     const iss = p.issued[0];
@@ -97,7 +97,7 @@ export default function ProjectsView() {
   const matchProject = (p: Project) =>
     (pds === "ALL" || projKind(p) === pds) &&
     (flag === "ALL" || (flag === "편집" ? isEditing(p) : !isEditing(p))) &&
-    (svc === "ALL" || p.service === svc);
+    (svc === "ALL" || usesService(p, svc));
   const projectsOf = (cid: number) => projects.filter((p) => p.companyId === cid && matchProject(p));
 
   const coList = companies
@@ -158,7 +158,7 @@ export default function ProjectsView() {
             {coList.map((c) => {
               const ps = projectsOf(c.id);
               const codes = ps.reduce((s2, p) => s2 + projectCodes(p), 0);
-              const svcs = [...new Set(ps.map((p) => p.service))].sort((a, b) => (a === "NONE" ? 1 : 0) - (b === "NONE" ? 1 : 0));
+              const svcs = [...new Set(ps.flatMap((p) => projectServices(p)))].sort((a, b) => (a === "NONE" ? 1 : 0) - (b === "NONE" ? 1 : 0));
               const on = c.id === (curCo?.id ?? -1);
               return (
                 <button key={c.id} onClick={() => { setSelCo(c.id); setSelP(null); }} style={{ ...cardBtn(on), ...(c.closed ? { opacity: 0.6 } : {}) }}>
@@ -202,7 +202,7 @@ export default function ProjectsView() {
                     {p.issued.length === 0 && <span style={{ fontSize: 10.5, color: "#d1d5db" }}>미발급</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
-                    <span style={{ ...S.tag, fontSize: 9.5, ...(p.service === "NONE" ? { background: "#f3f4f6", color: "#6b7280" } : {}) }}>{serviceLabel(p.service)}</span>
+                    {projectServices(p).map((v) => <span key={v} style={{ ...S.tag, fontSize: 9.5, marginRight: 3, ...(v === "NONE" ? { background: "#f3f4f6", color: "#6b7280" } : {}) }}>{serviceLabel(v)}</span>)}
                     {isEditing(p) && <span style={{ ...S.tag, fontSize: 9.5, background: "#ecfdf5", color: "#047857" }}>편집</span>}
                     {p.shared && <span style={{ ...S.tag, fontSize: 9.5, background: "#f3e8ff", color: "#7e22ce", fontWeight: 700 }} title="여러 고객사가 함께 쓰는 공유(커먼) 코드">공유</span>}
                   </div>
@@ -239,7 +239,7 @@ export default function ProjectsView() {
                     <Sc k="O" name="Owner" v={a.o} c="#14b8a6" />
                   </span>
                 ))}
-                <span style={{ ...S.tag, ...(proj.service === "NONE" ? { background: "#f3f4f6", color: "#6b7280" } : {}) }}>{serviceLabel(proj.service)}</span>
+                {projectServices(proj).map((v) => <span key={v} style={{ ...S.tag, marginRight: 3, ...(v === "NONE" ? { background: "#f3f4f6", color: "#6b7280" } : {}) }}>{serviceLabel(v)}</span>)}
                 {proj.shared && <span style={{ ...S.tag, background: "#f3e8ff", color: "#7e22ce", fontWeight: 700 }} title="여러 고객사가 함께 쓰는 공유(커먼) 코드">공유 코드</span>}
                 {proj.service === "FORMSOLUTION" && proj.grade && <span style={S.tag}>{proj.grade}등급</span>}
                 {isEditing(proj) && proj.editingOwner != null && (

@@ -80,10 +80,22 @@ def kind_chips(kind='PDS3', fixed=False):
     return '<div style="display:flex;gap:5px">%s</div>' % out
 
 
+def svc_chips(svc='NONE'):
+    """사용 서비스 — 복수 선택 `PC-049`. 서비스 없음은 단독 선택"""
+    on_set = svc if isinstance(svc, (list, tuple)) else [svc]
+    out = ''
+    for v, short in (('CASTERN', 'casterN'), ('FORMSOLUTION', '폼솔루션'), ('NONE', '서비스 없음')):
+        on = v in on_set
+        out += ('<span style="flex:1;text-align:center;font-size:11.5px;border-radius:7px;'
+                'padding:7px 4px;font-weight:%s;border:1px solid %s;background:%s;color:%s">%s</span>'
+                % ('700' if on else '400', '#93c5fd' if on else '#e5e7eb',
+                   '#eef6ff' if on else '#fff', '#2563eb' if on else '#6b7280', short))
+    return '<div style="display:flex;gap:5px">%s</div>' % out
+
+
 def cust_svc(cust='', svc='NONE', kind='PDS3', kind_fixed=False, used=False):
     """고객사 · 사용 서비스 · 코드 종류 — 한 행 `PC-047`.
     이미 발급된 좌표(used)면 고객사는 **상태 표시**, 사용 서비스만 바꿀 수 있다 `PC-048`"""
-    label = [l for v, l, _d in SERVICES if v == svc][0]
     if used:
         co = ('<div class="inp" style="background:#fafbfc;display:flex;align-items:center;gap:6px">'
               '<b>%s</b><span style="font-size:11px;color:#9ca3af">보유</span></div>' % cust)
@@ -93,7 +105,7 @@ def cust_svc(cust='', svc='NONE', kind='PDS3', kind_fixed=False, used=False):
             'align-items:start;margin-top:10px;border:1px solid #eef0f4;border-radius:10px;'
             'padding:12px 13px">%s%s%s</div>'
             % (field('고객사', co, not used),
-               field('사용 서비스', sel(label)),
+               field('사용 서비스 (복수 선택)', svc_chips(svc)),
                field('코드 종류', kind_chips(kind, kind_fixed))))
 
 
@@ -230,13 +242,19 @@ def build():
         + CLOSE))
 
     B.append((
-        'S5', '사용 서비스 = 폼솔루션', '분기',
-        '<code>PC-026</code> — 지정할 수 있는 서비스는 3종뿐이다. '
+        'S5', '사용 서비스 — 복수 선택', '분기',
+        '<code>PC-026</code> — 지정할 수 있는 서비스는 3종뿐이고, '
+        '<b>여러 서비스를 함께 고를 수 있다</b> <code>PC-049</code>. '
+        '<b>서비스 없음</b> 은 단독 선택이라 고르면 나머지가 해제된다. '
         '그 외 용도(Ncode 프린터 등)의 코드는 <b>서비스 없음(코드만 발급)</b> 으로 할당한다.',
-        scr(modal(T, detail('웅진씽크빅') + cust_svc('웅진씽크빅', 'FORMSOLUTION')
+        scr(modal(T, detail('웅진씽크빅')
+                  + cust_svc('웅진씽크빅', ['CASTERN', 'FORMSOLUTION'])
                   + owned('웅진씽크빅', OWN2))),
-        [('사용 서비스', '선택', '안내문 교체',
-          '<b>자체 서비스 — 코드 사용량이 모니터링됩니다.</b>')] + CLOSE))
+        [('사용 서비스', '복수 선택', '칩 다중 활성',
+          'casterN · 폼솔루션 을 함께 지정할 수 있다 <code>PC-049</code>'),
+         ('서비스 없음', '선택', '나머지 해제', '단독 선택 항목'),
+         ('[할당]', '성공', '<code>LOG-01</code>',
+          '<b>{고객사} · PDS3 S{n}/O{n} · casterN (편집툴) · 폼솔루션 · SO 점유</b>')] + CLOSE))
 
     B.append((
         'S6', '전용 코드 — 입력 잠금', '차단',
