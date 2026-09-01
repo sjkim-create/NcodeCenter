@@ -66,6 +66,7 @@ export const casternPerms = (a?: CasterAccount): CasterPerm[] =>
   a && a.services?.includes("CASTERN") ? a.settings?.CASTERN?.perms ?? [] : [];
 export const hasService = (a: CasterAccount | undefined, s: AccountService) => !!a?.services?.includes(s);
 // App Key — **한 계정에 1개**만 발급하고, 그 계정의 **사용처 전체에 공통**으로 쓴다 `PC-050`
+//   좌표는 **고객사가 가진 S/O** 안에서 **B·P 영역만 계정마다 다르게** 잡는다 `PC-059`.
 export type AppKey = {
   id: number;
   key: string;         // 발급 App Key (ncc_live_...)
@@ -75,6 +76,7 @@ export type AppKey = {
   pt: string; section: number; owner: number; bookStart: number; bookEnd: number;
   bookVol: number;     // Book Volume — 발급 권수 (bookEnd = bookStart + bookVol - 1)
   pageStart: number; pageEnd: number;
+  pageVol?: number;    // Page Volume — 발급 페이지 수 (pageEnd = pageStart + pageVol - 1) `PC-059`
   until: string;       // 만료(YYYY-MM-DD) / "무제한"
   createdAt: string;
   /** @deprecated 사용처별 키였던 시절 필드 — hydrate 에서 services 로 옮긴다 */

@@ -27,6 +27,7 @@ export type Ticket = {
   kind: TicketKind;
   companyId: number;
   company: string;
+  accountId?: string;         // 연결 계정(email) — 계정 : 키 = **1:1** `PC-059`
   at: string;                 // 발급 일시 (KST, ISO)
   by: string;                 // 발급인
   summary: string;            // 한 줄 요약
@@ -110,6 +111,15 @@ export function addTicket(t: Omit<Ticket, "id" | "no" | "at" | "billing" | "amou
   list = [rec, ...list];
   persist(); notify();
   return rec;
+}
+
+// 그 계정에 발급된 키 — 계정 : App Key = 1:1 · 계정 : N Key = 1:1 `PC-059`
+export function ticketsOfAccount(accountId: string): Ticket[] {
+  hydrateTickets();
+  return list.filter((t) => t.accountId === accountId);
+}
+export function hasNKey(accountId: string): boolean {
+  return ticketsOfAccount(accountId).some((t) => t.kind === "N");
 }
 
 export function setBilling(id: number, patch: { billing: Billing; amount?: number; billNote?: string; trialUntil?: string; by?: string }) {

@@ -12,9 +12,10 @@ import { codeKind, kindLabel, patternOf, patternTypeParam } from "@/lib/codeKind
 import { codesOfCompany } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import {
-  addTicket, allTickets, deleteTicket, hydrateTickets, setBilling, ticketById, updateTicket, useTickets,
+  addTicket, allTickets, deleteTicket, hydrateTickets, setBilling, ticketById, updateTicket, useTickets, hasNKey,
   BILLINGS, BILLINGS_FILTER, BILL_COLOR, daysLeft, plusMonth, type Billing, type Ticket,
 } from "@/lib/ticketStore";
+import { useCaster } from "@/lib/accountStore";
 
 type Tab = "nkey" | "list";
 
@@ -484,6 +485,13 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
   const [separate, setSeparate] = useState(false);
   const [toast, setToast] = useState("");
   const [cuIdx, setCuIdx] = useState(-1);           // 공통코드 회사의 '사용 고객사' 선택
+  const [accountId, setAccountId] = useState("");  // 발급 대상 계정 — 계정 : N Key = 1:1 `PC-059`
+  const cast = useCaster();
+  useEffect(() => { hydrateTickets(); }, []);
+  // 그 고객사의 계정 중 **아직 N Key 가 없는 계정**만 발급 대상이다 `PC-059`
+  const tks = useTickets();          // 발급되면 후보 목록이 즉시 줄어든다 `PC-059`
+  const accounts = useMemo(() => cast.accounts.filter((a) => a.companyId === companyId), [cast.accounts, companyId]);
+  const freeAccounts = useMemo(() => accounts.filter((a) => !hasNKey(a.id)), [accounts, tks]);
 
   const company = companies.find((c) => c.id === companyId);
   const issuedTime = yyyymmdd();
@@ -522,7 +530,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
   }, [isCommon, commonCodes]);
   const selCu = cuCandidates[cuIdx];
 
-  const onCompany = (id: number) => { setCompanyId(id); setSobpIdx(-1); setBooks(1); setPageStart(1); setBookStart(0); setCuIdx(-1); };
+  const onCompany = (id: number) => { setCompanyId(id); setSobpIdx(-1); setBooks(1); setPageStart(1); setBookStart(0); setCuIdx(-1); setAccountId(""); };
   const onRange = (i: number) => {
     setSobpIdx(i); const r = ranges[i]; if (!r) return;
     setBookStart(r.bookStart);
@@ -542,6 +550,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
   // 발급 파라미터 — 화면 표시·키 생성·정보 확인이 같은 값을 쓴다
   const ticketParams = () => ({
     CompanyName: company?.name ?? "-",
+    AccountId: accountId || "-",
     IssuedTime: issuedTime,
     ValidUntilTime: untilUnlimited ? "99999999 (무제한)" : validValue,
     Section: range?.section ?? "-",
@@ -569,6 +578,9 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
     if (bookStart < range.bookStart || bookStart > range.bookEnd) { setToast(`Start Book은 ${range.bookStart}~${range.bookEnd} 범위여야 합니다.`); return; }
     if (books < 1 || bookEnd > range.bookEnd) { setToast(`Book 볼륨은 1~${maxBooks}권이어야 합니다. (B${bookStart}~B${range.bookEnd})`); return; }
     if (pageVolume < 1) { setToast("Page 볼륨은 1 이상이어야 합니다."); return; }
+    // 계정 : N Key = 1:1 `PC-059`
+    if (!accountId) { setToast("발급 대상 계정을 고르세요. (계정 발급 메뉴에서 먼저 등록)"); return; }
+    if (hasNKey(accountId)) { setToast("이 계정에는 이미 N Key 가 발급돼 있습니다. 계정 하나에 N Key 는 1개입니다."); return; }
     if (!untilUnlimited && !/^\d{6}$/.test(validUntil)) { setToast("ValidUntilTime은 6자리(YYMMDD)이거나 무제한이어야 합니다."); return; }
     const ticket = {
       companyName: company.name, issuedTime, validUntilTime: validValue,
@@ -597,7 +609,8 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 
     const summary = `${selCu ? `[사용 고객사: ${selCu.cu}] ` : ""}${range.pt} S${range.section}/O${range.owner}/B${bookStart}~${bookEnd} · Book ${books}권 · P${pageStart}~${pageStart + pageVolume - 1} · ${separate ? "개별티켓 " + books + "장" : "병합 1장"} · 유효 ${untilUnlimited ? "무제한" : validValue}`;
-    addTicket({ kind: "N", companyId: company.id, company: company.name, by: me?.name ?? "", summary, params: ticketParams() });
+    addTicket({ kind: "N", companyId: company.id, company: company.name, accountId: accountId || undefined,
+                by: me?.name ?? "", summary, params: ticketParams() });
     logActivity("ticket", `N Key · ${company.name} · ${summary}`, me?.name);
     setToast(`Key 생성됨 · 티켓 ${separate ? books + "개(개별 파일)" : "1장(병합)"} · B${bookStart}~${bookEnd} — zip(${folder}.zip)으로 다운로드됩니다.`);
   };
@@ -610,12 +623,33 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
 
       {/* 회사이름 + 할당된 SOBP 범위 (나란히) */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 12, alignItems: "start" }}>
-        <Field label="회사이름 (고객사) *">
-          <select style={S.input} value={companyId} onChange={(e) => onCompany(+e.target.value)}>
-            <option value={0}>- 선택 -</option>
-            {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </Field>
+        <div>
+          <Field label="회사이름 (고객사) *">
+            <select style={S.input} value={companyId} onChange={(e) => onCompany(+e.target.value)}>
+              <option value={0}>- 선택 -</option>
+              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Field>
+          {/* 계정 : N Key = **1:1** `PC-059` — 이미 발급된 계정은 목록에 없다 */}
+          <div style={{ marginTop: 10 }}>
+            <Field label={`발급 대상 계정 * ${companyId ? `· ${freeAccounts.length}/${accounts.length}개 발급 가능` : ""}`}>
+              <select style={S.input} value={accountId} disabled={!companyId} onChange={(e) => setAccountId(e.target.value)}>
+                <option value="">- 계정 선택 -</option>
+                {freeAccounts.map((a) => <option key={a.id} value={a.id}>{a.id}{a.name ? ` (${a.name})` : ""}</option>)}
+              </select>
+            </Field>
+            {companyId > 0 && accounts.length === 0 && (
+              <div style={{ fontSize: 11.5, color: "#b45309", marginTop: 4, lineHeight: 1.6 }}>
+                등록된 계정이 없습니다 — <Link href="/tickets/account/new" style={{ color: "#2563eb" }}>계정 발급</Link> 에서 먼저 등록하세요.
+              </div>
+            )}
+            {companyId > 0 && accounts.length > 0 && freeAccounts.length === 0 && (
+              <div style={{ fontSize: 11.5, color: "#b91c1c", marginTop: 4, lineHeight: 1.6 }}>
+                이 고객사의 계정은 모두 N Key 가 발급돼 있습니다 — <b>계정 하나에 N Key 는 1개</b>입니다 <code>PC-059</code>.
+              </div>
+            )}
+          </div>
+        </div>
         <div>
           {isCommon ? (
             <>
@@ -685,7 +719,8 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
         </label>
         <span style={{ flex: 1 }} />
         <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
-        <button onClick={genKey} disabled={!range} style={{ ...S.primary, ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>Key 생성</button>
+        <button onClick={genKey} disabled={!range || !accountId}
+          style={{ ...S.primary, ...(!range || !accountId ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>Key 생성</button>
       </div>
       {range && (
         <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
