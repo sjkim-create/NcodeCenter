@@ -66,8 +66,8 @@ def perm_cell(services, n):
         return '<span style="color:#9ca3af">—</span>'
     if n == 0:
         return '<span style="color:#dc2626">미지정</span>'
-    if n == 7:
-        return tag('전체 7', '#eef6ff', '#2563eb')
+    if n == 6:
+        return tag('전체 6', '#eef6ff', '#2563eb')
     return '<span>' + str(n) + ' / 7</span>'
 
 
@@ -206,7 +206,7 @@ def build():
              '계정은 <b>고객사당 여러 개</b>(제한 없음)를 둘 수 있고 ID(email)만 전체에서 '
              '유일하면 된다 <code>PC-029</code>. <b>App Key 발급은 선택</b>이라 '
              '계정만 먼저 만들어 두었다가 나중에 상세 화면에서 키를 붙일 수 있다.<br>'
-             'CasterN 계정은 <b>권한 7종</b>(프로젝트 생성 · 심볼 편집 · 리소스 편집 · '
-             'Ncode PDF 내보내기 · NCP2 내보내기 · App용 패키지 내보내기 · '
-             'App 페이지 설정)을 개별 또는 모두 지정한다 <code>PC-031</code>.')
+             'CasterN 계정은 <b>권한 6종</b>(프로젝트 생성 · 심볼 편집 · 리소스 편집 · '
+             'Ncode PDF 내보내기 · NCP2 내보내기 · App용 패키지 내보내기)을 '
+             '개별 또는 모두 지정한다 <code>PC-031</code> <code>PC-058</code>.')
     return page(CODE, NAME, PRD, intro, B)

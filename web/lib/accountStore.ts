@@ -23,10 +23,11 @@ export const accountServiceLabel = (v?: string) => ACCOUNT_SERVICES.find((s) => 
 // 권한·설정 화면이 준비된 서비스인지 — false면 등록 화면에서 「준비중」으로 노출한다.
 export const accountServiceReady = (v?: string) => ACCOUNT_SERVICES.find((s) => s.v === v)?.ready ?? false;
 
-// CasterN 사용자 권한 7종 — 계정마다 개별 선택 또는 모두 선택한다. (사용처에 CasterN 이 포함될 때만 의미)
+// CasterN 사용자 권한 6종 — 계정마다 개별 선택 또는 모두 선택한다. (사용처에 CasterN 이 포함될 때만 의미)
+//   ※ 「App 페이지 설정」 은 권한 항목에서 뺐다 `PC-058` — 옛 데이터에 남아 있어도 화면에 나오지 않는다.
 export type CasterPerm =
   | "PROJECT_CREATE" | "SYMBOL_EDIT" | "RESOURCE_EDIT"
-  | "EXPORT_NCODE_PDF" | "EXPORT_NCP2" | "EXPORT_APP_PACKAGE" | "APP_PAGE_CONFIG";
+  | "EXPORT_NCODE_PDF" | "EXPORT_NCP2" | "EXPORT_APP_PACKAGE";
 export const CASTERN_PERMS: { v: CasterPerm; label: string; desc: string }[] = [
   { v: "PROJECT_CREATE", label: "프로젝트 생성", desc: "편집 프로젝트를 새로 만든다" },
   { v: "SYMBOL_EDIT", label: "심볼 편집", desc: "심볼(코드 영역) 편집" },
@@ -34,13 +35,12 @@ export const CASTERN_PERMS: { v: CasterPerm; label: string; desc: string }[] = [
   { v: "EXPORT_NCODE_PDF", label: "Ncode PDF 내보내기", desc: "Ncode가 입혀진 PDF 출력" },
   { v: "EXPORT_NCP2", label: "NCP2 내보내기", desc: "NCP2 파일 내보내기" },
   { v: "EXPORT_APP_PACKAGE", label: "App용 패키지 내보내기", desc: "App에서 쓰는 패키지 내보내기" },
-  { v: "APP_PAGE_CONFIG", label: "App 페이지 설정", desc: "App 페이지 구성·설정" },
 ];
 export const ALL_PERMS: CasterPerm[] = CASTERN_PERMS.map((p) => p.v);
 export const permLabel = (v: string) => CASTERN_PERMS.find((p) => p.v === v)?.label ?? v;
 
 // 서비스별 설정 — 서비스마다 지정 항목이 다르다.
-// CasterN: 사용자 권한 7종. 나머지 서비스는 아직 정의된 항목이 없다(준비중).
+// CasterN: 사용자 권한 6종. 나머지 서비스는 아직 정의된 항목이 없다(준비중).
 export type ServiceSettings = { perms?: CasterPerm[] };
 export type AccountSettings = Partial<Record<AccountService, ServiceSettings>>;
 

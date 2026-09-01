@@ -140,7 +140,7 @@ function SecHead({ t, d }: { t: string; d?: string }) {
 // 영역 묶음 — 항목을 카드로 구분한다 `PC-052`
 const SEC: React.CSSProperties = { border: "1px solid #eef0f4", borderRadius: 10, padding: "14px 16px", marginTop: 12 };
 
-// CasterN 권한 7종 — 개별 선택 / [모두 선택]·[모두 해제]
+// CasterN 권한 6종 — 개별 선택 / [모두 선택]·[모두 해제] `PC-058`
 function PermPicker({ value, onChange }: { value: CasterPerm[]; onChange: (v: CasterPerm[]) => void }) {
   const all = value.length === ALL_PERMS.length;
   const toggle = (p: CasterPerm) => onChange(value.includes(p) ? value.filter((x) => x !== p) : [...value, p]);

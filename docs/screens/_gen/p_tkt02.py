@@ -11,9 +11,10 @@ from p_tkt01 import sel, field, picker
 CODE, NAME = 'TKT-02', '계정 등록·수정'
 PRD = 'docs/prd/TKT-02_계정 등록·수정.md'
 
-# lib/accountStore.ts CASTERN_PERMS — CasterN 사용자 권한 7종
+# lib/accountStore.ts CASTERN_PERMS — CasterN 사용자 권한 6종
+# CasterN 권한 6종 — 「App 페이지 설정」 은 뺐다 `PC-058`
 PERMS = ('프로젝트 생성', '심볼 편집', '리소스 편집', 'Ncode PDF 내보내기',
-         'NCP2 내보내기', 'App용 패키지 내보내기', 'App 페이지 설정')
+         'NCP2 내보내기', 'App용 패키지 내보내기')
 
 # 상세 화면의 App Key 목록 (키, 코드종류, SOBP, 사용처, 유효, 생성일시)
 # 계정당 1개 · 사용처 전체 공통 `PC-050`
@@ -169,7 +170,7 @@ def svc_panel(name, on, ready, inner=''):
 
 
 def perms_only(selected=None):
-    """CasterN 사용자 권한 7종"""
+    """CasterN 사용자 권한 6종"""
     sel_set = set(PERMS if selected is None else selected)
     cells = ''
     for p in PERMS:
@@ -188,7 +189,7 @@ def perms_only(selected=None):
              '사용자 권한 <span style="font-weight:400;color:#9ca3af">'
              '· 개별 또는 모두 선택</span></div>')
     bar = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
-           '<span style="font-size:11.5px;color:#6b7280">선택 ' + str(n) + ' / 7</span>'
+           '<span style="font-size:11.5px;color:#6b7280">선택 ' + str(n) + ' / 6</span>'
            '<span style="flex:1"></span><div class="btn sm">'
            + ('모두 해제' if n == 7 else '모두 선택') + '</div></div>')
     return (title + bar + '<div style="display:grid;grid-template-columns:repeat(3,1fr);'
@@ -328,13 +329,13 @@ def build():
         'S1', '계정 등록 — 진입', '기본',
         '등록은 <b>2단계</b>다 — ① 계정 정보 → ② 사용처·권한. '
         '⚠ 옛 ③ App Key 단계는 폐기되어 <b>CasterN 탭 안</b>으로 들어갔다. '
-        '사용처 기본값은 <b>CasterN</b> 이고 권한은 <b>7종 모두 선택</b>된 상태로 시작한다.',
+        '사용처 기본값은 <b>CasterN</b> 이고 권한은 <b>6종 모두 선택</b>된 상태로 시작한다.',
         scr_new(),
         [('① 회사정보', '선택', 'ADDR 자동 입력', '<code>MEM-01</code> 등록 고객사'),
          ('① ID (EMAIL)', '입력', '이메일 형식', '전체에서 <b>유일</b>'),
          ('① PWD [임의 생성]', '클릭', '10자리 자동', '비밀번호 미요청 고객사'),
          ('② 탭 바', '조회', '서비스 3종', '선택된 서비스에 <b>✓</b> · 준비중 표기'),
-         ('② CasterN 권한', '기본', '<b>7 / 7</b>', '모두 선택된 상태'),
+         ('② CasterN 권한', '기본', '<b>7 / 6</b>', '모두 선택된 상태'),
          ('[계정 추가]', '클릭', '<code>TKT-01</code>', '목록으로 이동')] + NAV))
 
     B.append((
@@ -350,12 +351,12 @@ def build():
 
     B.append((
         'S3', 'CasterN 탭 — 권한 개별 선택', '분기',
-        '권한은 개별로 켜고 끈다. 선택 수가 <b>선택 {n} / 7</b> 로 표시되고 '
+        '권한은 개별로 켜고 끈다. 선택 수가 <b>선택 {n} / 6</b> 로 표시되고 '
         '버튼 라벨이 <b>[모두 선택]</b> ⇄ <b>[모두 해제]</b> 로 바뀐다. '
         '권한 0개로 저장해도 되며 목록에는 <b>미지정</b>으로 나온다.',
         scr_new(perms=PERMS[:3]),
         [('권한 항목', '클릭', '개별 on/off', ''),
-         ('선택 수', '표시', '<b>선택 3 / 7</b>', ''),
+         ('선택 수', '표시', '<b>선택 3 / 6</b>', ''),
          ('[모두 선택]', '클릭', '7개 일괄', '전부 선택되면 <b>[모두 해제]</b> 로 바뀐다'),
          ('권한 0개', '저장', '허용', '<code>TKT-01</code> 목록에 <b>미지정</b>')]))
 
