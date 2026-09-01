@@ -69,7 +69,7 @@ export const hasService = (a: CasterAccount | undefined, s: AccountService) => !
 //   좌표는 **고객사가 가진 S/O** 안에서 **B·P 영역만 계정마다 다르게** 잡는다 `PC-059`.
 export type AppKey = {
   id: number;
-  key: string;         // 발급 App Key — **숫자 29자리 난수** `PC-066`
+  key: string;         // 발급 App Key — **영문·숫자 29자 난수** `PC-066`
   accountId: string;   // 연동 계정(email)
   services: AccountService[];   // 사용처 — 계정의 사용처 전체(공통)
   company: string;

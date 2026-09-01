@@ -125,7 +125,7 @@ export default function NcodeInfoView({ embedded }: { embedded?: boolean } = {})
             <tr><td style={{ ...td, fontWeight: 700 }}>전달 방식</td><td style={td}>티켓 파일을 <b>TicketFolder</b>에 생성 → nproj 폴더 또는 <code>문서 &gt; NeoLAB &gt; CodeTickets</code>에 복사</td><td style={td}>발급 즉시 <b>서비스 DB(datastore)</b>에 등록 — 별도 파일 전달 없음</td></tr>
             <tr><td style={{ ...td, fontWeight: 700 }}>계정 연동</td><td style={td}>없음 (파일만 있으면 사용)</td><td style={{ ...td, fontWeight: 700, color: "#2563eb" }}>있음 — 계정과 연동되는 것이 특징</td></tr>
             <tr><td style={{ ...td, fontWeight: 700 }}>사용 흐름</td><td style={td}>티켓 파일 배치 → 편집툴에서 파일 정보 입력 시 해당 SOBP 사용</td><td style={td}>웹: <b>발급된 계정으로 로그인</b> → 연동 App Key의 SOBP로 작업<br />SDK: <b>id/pwd + App Key</b>로 SOBP 사용</td></tr>
-            <tr><td style={{ ...td, fontWeight: 700 }}>주요 항목</td><td style={td}>회사이름 · Issued Time · Valid Until Time · Section/Owner · Book Start/Volume · Page Start/Volume · Code Type · Ticket Type · Separate Each Book</td><td style={td}>계정(ID) · 고객사 · 할당 SOBP 범위 · 만료일 · 발급 키(<b>숫자 29자리</b>)</td></tr>
+            <tr><td style={{ ...td, fontWeight: 700 }}>주요 항목</td><td style={td}>회사이름 · Issued Time · Valid Until Time · Section/Owner · Book Start/Volume · Page Start/Volume · Code Type · Ticket Type · Separate Each Book</td><td style={td}>계정(ID) · 고객사 · 할당 SOBP 범위 · 만료일 · 발급 키(<b>영문·숫자 29자</b>)</td></tr>
           </tbody>
         </table>
 

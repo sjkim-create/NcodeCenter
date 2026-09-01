@@ -6,7 +6,7 @@
 // ② 는 서비스 탭 구조 — 사용처는 중복 선택하고, 조건은 선택한 탭의 서비스 것만 보인다.
 // App Key 는 CasterN 전용 조건이라 CasterN 탭 안에서만 노출한다.
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { S, Field, BLUE } from "./ui";
 import { useStore } from "@/lib/store";
@@ -22,7 +22,8 @@ import {
   type AccountService, type CasterPerm, type CasterAccount, type AccountSettings,
 } from "@/lib/accountStore";
 
-const accountHref = (id: string) => `/tickets/account/${encodeURIComponent(id)}`;
+const accountHref = (id: string, tab?: AccTab) =>
+  `/tickets/account/${encodeURIComponent(id)}${tab && tab !== "info" ? `?tab=${tab}` : ""}`;
 const PAGE_DEFAULT = 512;   // Page 볼륨 기본값 — N Key 발급과 같은 값 `PC-059`
 // 범위의 pt → 코드 종류 `PC-064`
 const CT_OF: Record<string, CodeKind> = { PDS3: "PDS3", PDS2: "PDS2", Scode: "PDS4", OID: "OID" };
@@ -78,7 +79,7 @@ export function AccountsListView() {
 
       {/* 목록 */}
       <div style={{ ...S.card, padding: 0, overflowX: "auto" }}>
-        <table style={{ ...S.table, minWidth: 980 }}>
+        <table style={{ ...S.table, minWidth: 1120 }}>
           <thead>
             <tr>{["고객사", "ID (EMAIL)", "이름", "사용 서비스", "App Key", "등록일", ""].map((h) => (
               <th key={h} style={S.th}>{h}</th>
@@ -89,13 +90,15 @@ export function AccountsListView() {
               const keys = keysOf(a.id);
               const svcs = a.services ?? [];
               return (
-                // 레코드를 누르면 상세로 간다 `PC-053`
-                <tr key={a.id} onClick={() => router.push(accountHref(a.id))} title="클릭하면 상세·수정"
+                // 레코드를 누르면 상세로 간다 `PC-053` — 항목마다 그 항목의 탭으로 `PC-067`
+                <tr key={a.id} onClick={() => router.push(accountHref(a.id))} title="클릭하면 계정 정보"
                   style={{ borderTop: "1px solid #eef0f4", cursor: "pointer" }}>
                   <td style={S.td}>{a.company}</td>
                   <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#2563eb", fontWeight: 600 }}>{a.id}</td>
                   <td style={S.td}>{a.name || "—"}</td>
-                  <td style={S.td}>
+                  {/* 사용 서비스 → [사용 서비스 및 권한] 탭 `PC-067` */}
+                  <td style={S.td} title="클릭하면 사용 서비스 및 권한"
+                    onClick={(e) => { e.stopPropagation(); router.push(accountHref(a.id, "svc")); }}>
                     {svcs.length === 0
                       ? <span style={{ ...S.tag, background: "#fef2f2", color: "#b91c1c", fontWeight: 700 }}>미지정</span>
                       : <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
@@ -107,8 +110,12 @@ export function AccountsListView() {
                           ))}
                         </span>}
                   </td>
-                  <td style={S.td}>
-                    <span style={{ ...S.tag, background: keys.length ? "#eef6ff" : "#f3f4f6", color: keys.length ? "#2563eb" : "#9ca3af" }}>{keys.length}</span>
+                  {/* App Key → [App Key 발급] 탭 · 키 값을 그대로 보여 준다 `PC-067` */}
+                  <td style={{ ...S.td, textAlign: "left" }} title="클릭하면 App Key 발급"
+                    onClick={(e) => { e.stopPropagation(); router.push(accountHref(a.id, "key")); }}>
+                    {keys.length === 0
+                      ? <span style={{ ...S.tag, background: "#f3f4f6", color: "#9ca3af" }}>미발급</span>
+                      : <code style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, color: "#2563eb", wordBreak: "break-all" }}>{keys[0].key}</code>}
                   </td>
                   <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#6b7280" }}>{a.createdAt?.slice(0, 10)}</td>
                   <td style={{ ...S.td, textAlign: "right", whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
@@ -149,7 +156,7 @@ function KeyCard({ title, params, empty, href }: {
       {rows.length === 0 ? (
         <div style={{ padding: "14px 12px", fontSize: 11.5, color: "#9ca3af" }}>{empty}</div>
       ) : (
-        <div style={{ maxHeight: 260, overflowY: "auto" }}>
+        <div>
           {rows.map(([k, v]) => (
             <div key={k} style={{ display: "flex", gap: 8, padding: "5px 11px", fontSize: 11.5, borderTop: "1px solid #f6f7f9" }}>
               <span style={{ color: "#6b7280", minWidth: 108, fontFamily: "ui-monospace,monospace" }}>{k}</span>
@@ -305,13 +312,14 @@ const genPwdStr = () => {
   (globalThis.crypto ?? window.crypto).getRandomValues(buf);
   return btoa(String.fromCharCode(...buf)).replace(/[+/=]/g, "").slice(0, 10);
 };
-// App Key = **숫자 29자리 난수** `PC-066`
-//   앞자리가 0 이어도 그대로 둔다(문자열이라 자릿수가 줄지 않는다).
+// App Key = **영문·숫자 29자 난수** `PC-066`
+//   접두어(ncc_live_ 등) 없이 [0-9A-Za-z] 에서 고른 29자다.
 const APP_KEY_LEN = 29;
+const APP_KEY_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const genKeyStr = () => {
   const buf = new Uint32Array(APP_KEY_LEN);
   (globalThis.crypto ?? window.crypto).getRandomValues(buf);
-  return Array.from(buf, (n) => String(n % 10)).join("");
+  return Array.from(buf, (n) => APP_KEY_CHARS[n % APP_KEY_CHARS.length]).join("");
 };
 
 // 고객사가 할당받은 SOBP 범위 목록
@@ -617,7 +625,9 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const [services, setServices] = useState<AccountService[]>([]);
   const [settings, setSettings] = useState<AccountSettings>({});
   const [loaded, setLoaded] = useState(false);
-  const [tab, setTab] = useState<AccTab>("info");              // 화면 탭 `PC-062`
+  const sp = useSearchParams();
+  const tab0 = (sp.get("tab") as AccTab) || "info";            // 목록에서 누른 항목의 탭 `PC-067`
+  const [tab, setTab] = useState<AccTab>(tab0);                // 화면 탭 `PC-062`
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [bStart, setBStart] = useState<number | null>(null);   // App Key Book Start `PC-050`
   const [bVol, setBVol] = useState<number | null>(null);       // App Key Book Volume(권수)

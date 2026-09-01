@@ -24,7 +24,7 @@ NKEY_ROWS = (('Company Name', '웅진씽크빅'), ('Issued Time', '20260827'),
              ('TicketType', 'Unlimited'), ('Separate Each Book', 'N (1개 티켓 병합)'))
 APP_ROWS = (('Company Name', '대교'), ('Account Id', 'daekyo_edit@daekyo.com'),
             ('Service', 'CasterN'), ('Usage', 'CasterN'),
-            ('App Key', '40391278465023719485637201948'), ('Code Type', 'PDS3'),
+            ('App Key', '7Kq3xF9dR2mA8pZ1vT6bN4sJ0wG5c'), ('Code Type', 'PDS3'),
             ('Section', '3'), ('Owner', '212'), ('Book Start', '0'), ('Book End', '99'),
             ('Page Start', '1'), ('Page End', '4096'), ('ValidUntil', '무제한'),
             ('IssuedAt', '2026-08-26 16:40'))
