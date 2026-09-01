@@ -390,8 +390,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
         <span style={{ ...S.tag, fontFamily: "ui-monospace,monospace" }}>owner {cust.owners && cust.owners.length ? cust.owners.join("·") : owner}</span>
         {[...new Set((cust.bookRows ?? []).map((r) => codeKind(r.k, r.s)))].map((k) => <span key={k} style={{ ...S.tag, background: kindMeta(k).bg, color: kindMeta(k).color, fontWeight: 700 }}>{kindMeta(k).short}</span>)}
         <div style={{ flex: 1 }} />
-        {!readOnly && <button onClick={() => { if (confirm("엑셀 시드로 초기화할까요?")) { commit(base); flash("초기화됨"); } }} style={{ ...S.ghost, marginRight: 8 }}>초기화</button>}
-        {!readOnly && <button onClick={openAdd} style={S.primary}>＋ 교재(책) 추가</button>}
+        {/* 목록용 버튼 — 교재 편집 화면에서는 숨긴다 `PC-054` */}
+        {!readOnly && !bookMode && <button onClick={() => { if (confirm("엑셀 시드로 초기화할까요?")) { commit(base); flash("초기화됨"); } }} style={{ ...S.ghost, marginRight: 8 }}>초기화</button>}
+        {!readOnly && !bookMode && <button onClick={openAdd} style={S.primary}>＋ 교재(책) 추가</button>}
       </div>
 
       {toast && <div style={S.toast}>{toast}</div>}
@@ -568,16 +569,23 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               {/* Book(B) 필터 — 낮은순 · 높은순 · 직접 입력 `PC-052` */}
               <th style={filterTh}>
                 <div style={{ display: "flex", gap: 4, alignItems: "center", justifyContent: "center" }}>
-                  <select value={bMode} onChange={(e) => { const v = e.target.value as BMode; setBMode(v); setFB(null); setSort(v === "asc" || v === "desc" ? { key: "b", dir: v === "asc" ? 1 : -1 } : { key: null, dir: 1 }); setPage(1); }}
-                    style={{ ...fSel, minWidth: 74 }} title="Book 정렬 · 찾기">
-                    <option value="">B 전체</option>
-                    <option value="asc">B 낮은순</option>
-                    <option value="desc">B 높은순</option>
-                    <option value="num">B 직접 입력</option>
-                  </select>
-                  {bMode === "num" && (
-                    <input type="number" value={fB ?? ""} placeholder="B" onChange={(e) => { const v = e.target.value; setFB(v === "" ? null : Math.max(0, +v)); setPage(1); }}
-                      style={{ ...fSel, width: 62 }} title="Book 번호로 찾기" />
+                  {bMode === "num" ? (
+                    // 셀렉트 자리에서 바로 번호를 입력한다 `PC-054`
+                    <>
+                      <input type="number" autoFocus value={fB ?? ""} placeholder="B 번호 입력"
+                        onChange={(e) => { const v = e.target.value; setFB(v === "" ? null : Math.max(0, +v)); setPage(1); }}
+                        style={{ ...fSel, minWidth: 74 }} title="Book 번호로 찾기" />
+                      <button type="button" onClick={() => { setBMode(""); setFB(null); setPage(1); }}
+                        style={{ border: 0, background: "none", color: "#9ca3af", cursor: "pointer", fontSize: 12, padding: 0 }} title="B 전체로">✕</button>
+                    </>
+                  ) : (
+                    <select value={bMode} onChange={(e) => { const v = e.target.value as BMode; setBMode(v); setFB(null); setSort(v === "asc" || v === "desc" ? { key: "b", dir: v === "asc" ? 1 : -1 } : { key: null, dir: 1 }); setPage(1); }}
+                      style={{ ...fSel, minWidth: 74 }} title="Book 정렬 · 찾기">
+                      <option value="">B 전체</option>
+                      <option value="asc">B 낮은순</option>
+                      <option value="desc">B 높은순</option>
+                      <option value="num">B 직접 입력</option>
+                    </select>
                   )}
                 </div>
               </th>
@@ -734,7 +742,26 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                       </div>
                     )}
                   </Field>
-                  {/* 코드 종류 — 좌표 할당에서는 정하지 않으므로 여기서 지정한다 `PC-051` */}
+                  {/* Book — 사용 가능한 번호. 목록 끝의 [＋ 더 보기] 도 셀렉트 안에 둔다 `PC-054` */}
+                  {(() => {
+                    const keepB = editing.idx === -1 ? undefined : editing.row.b;
+                    const probe = freeBooks(editing.row.k, editing.row.s, editing.row.o, keepB, bookLimit + 1);
+                    const more = probe.length > bookLimit;
+                    const list = more ? probe.slice(0, bookLimit) : probe;
+                    return (
+                      <Field label={`Book (사용 가능 번호${more ? ` · ${list.length}개 표시` : ` ${list.length}개`})`}>
+                        <select style={{ ...S.input, background: "#fff" }} value={editing.row.b}
+                          onChange={(e) => {
+                            if (e.target.value === "__more__") { setBookLimit((v) => v + BOOK_STEP); return; }
+                            setF("b", +e.target.value);
+                          }}>
+                          {list.map((b) => <option key={b} value={b}>B{b}</option>)}
+                          {more && <option value="__more__">＋ {BOOK_STEP}개 더 보기 …</option>}
+                        </select>
+                      </Field>
+                    );
+                  })()}
+                  {/* 코드 종류 — Book 다음에 둔다 `PC-054`. 좌표 할당에서는 정하지 않는다 `PC-051` */}
                   {(() => {
                     const isP4 = editing.row.s === 44;
                     const opts: { v: CodeKind; k: string }[] = isP4
@@ -752,25 +779,6 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                           }}>
                           {opts.map((o) => <option key={o.v} value={o.v}>{kindMeta(o.v).short}</option>)}
                         </select>
-                      </Field>
-                    );
-                  })()}
-                  {(() => {
-                    const keepB = editing.idx === -1 ? undefined : editing.row.b;
-                    const probe = freeBooks(editing.row.k, editing.row.s, editing.row.o, keepB, bookLimit + 1);
-                    const more = probe.length > bookLimit;
-                    const list = more ? probe.slice(0, bookLimit) : probe;
-                    return (
-                      <Field label={`Book (사용 가능 번호${more ? ` · ${list.length}개 표시` : ` ${list.length}개`})`}>
-                        <select style={{ ...S.input, background: "#fff" }} value={editing.row.b} onChange={(e) => setF("b", +e.target.value)}>
-                          {list.map((b) => <option key={b} value={b}>B{b}</option>)}
-                        </select>
-                        {more && (
-                          <button type="button" onClick={() => setBookLimit((v) => v + BOOK_STEP)}
-                            style={{ marginTop: 4, fontSize: 11, color: "#2563eb", background: "none", border: 0, padding: 0, cursor: "pointer" }}>
-                            ＋ {BOOK_STEP}개 더 보기
-                          </button>
-                        )}
                       </Field>
                     );
                   })()}
