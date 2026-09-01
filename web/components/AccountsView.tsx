@@ -65,7 +65,7 @@ export function AccountsListView() {
           {coOpts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <select value={fSvc} onChange={(e) => setFSvc(e.target.value as AccountService | "")} style={{ ...S.input, width: 170 }}>
-          <option value="">사용처 전체</option>
+          <option value="">사용 서비스 전체</option>
           {ACCOUNT_SERVICES.map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
         </select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ID(email) · 이름 · 고객사 검색" style={{ ...S.input, width: 240 }} />
@@ -78,7 +78,7 @@ export function AccountsListView() {
       <div style={{ ...S.card, padding: 0, overflowX: "auto" }}>
         <table style={{ ...S.table, minWidth: 980 }}>
           <thead>
-            <tr>{["고객사", "ID (EMAIL)", "이름", "사용처", "App Key", "등록일", ""].map((h) => (
+            <tr>{["고객사", "ID (EMAIL)", "이름", "사용 서비스", "App Key", "등록일", ""].map((h) => (
               <th key={h} style={S.th}>{h}</th>
             ))}</tr>
           </thead>
@@ -156,6 +156,32 @@ function KeyCard({ title, params, empty, href }: {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// 화면 탭 — 계정 정보 · 사용 서비스 및 권한 · App Key 발급 `PC-062`
+export type AccTab = "info" | "svc" | "key";
+const ACC_TABS: { v: AccTab; label: string }[] = [
+  { v: "info", label: "계정 정보" },
+  { v: "svc", label: "사용 서비스 및 권한" },
+  { v: "key", label: "App Key 발급" },
+];
+function AccTabs({ tab, onTab, badge }: { tab: AccTab; onTab: (v: AccTab) => void; badge?: Partial<Record<AccTab, string>> }) {
+  return (
+    <div style={{ display: "flex", borderBottom: "1px solid #eef0f4", marginBottom: 14 }}>
+      {ACC_TABS.map(({ v, label }) => {
+        const on = tab === v;
+        return (
+          <button key={v} onClick={() => onTab(v)}
+            style={{ border: 0, background: "none", padding: "9px 16px", fontSize: 13, cursor: "pointer",
+              color: on ? "#111827" : "#6b7280", fontWeight: on ? 700 : 400,
+              borderBottom: `2px solid ${on ? "#5f8ff0" : "transparent"}`, marginBottom: -1 }}>
+            {label}
+            {badge?.[v] && <span style={{ ...S.tag, fontSize: 9.5, marginLeft: 5, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>{badge[v]}</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -247,7 +273,7 @@ function ServiceTabs({ services, settings, onServices, onSettings, casternExtra 
 
         <div style={{ marginTop: 10 }}>
           {!on ? (
-            <div style={{ fontSize: 11.5, color: "#9ca3af" }}>사용처로 선택하면 이 서비스의 조건을 설정할 수 있습니다.</div>
+            <div style={{ fontSize: 11.5, color: "#9ca3af" }}>사용 서비스로 선택하면 이 서비스의 조건을 설정할 수 있습니다.</div>
           ) : tab === "CASTERN" ? (
             <>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
@@ -263,7 +289,7 @@ function ServiceTabs({ services, settings, onServices, onSettings, casternExtra 
             </>
           ) : (
             <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.6, border: "1px solid #eef0f4", background: "#fafbfc", borderRadius: 9, padding: "10px 12px" }}>
-              <b style={{ color: "#c2410c" }}>준비중</b> — 이 서비스의 권한·설정 항목은 아직 정의되지 않았습니다. 사용처 연동만 등록됩니다.
+              <b style={{ color: "#c2410c" }}>준비중</b> — 이 서비스의 권한·설정 항목은 아직 정의되지 않았습니다. 사용 서비스 연동만 등록됩니다.
             </div>
           )}
         </div>
@@ -399,7 +425,8 @@ export function AccountNewView() {
   const [homepage, setHomepage] = useState("");
   const [services, setServices] = useState<AccountService[]>(["CASTERN"]);
   const [settings, setSettings] = useState<AccountSettings>({ CASTERN: { perms: [...ALL_PERMS] } });
-  const [withKey, setWithKey] = useState(false);          // ③ App Key 발급 — 선택 (사용처 공통 `PC-050`)
+  const [tab, setTab] = useState<AccTab>("info");        // 화면 탭 `PC-062`
+  const [withKey, setWithKey] = useState(false);          // App Key 발급 — 선택 (사용 서비스 공통 `PC-050`)
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [bStart, setBStart] = useState<number | null>(null);
   const [bVol, setBVol] = useState<number | null>(null);
@@ -439,7 +466,7 @@ export function AccountNewView() {
     if (!company) { setToast({ ok: false, text: "회사(고객사)를 선택하세요." }); return; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(id.trim())) { setToast({ ok: false, text: "계정 ID는 이메일 형식이어야 합니다." }); return; }
     if (!pwd.trim()) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
-    if (services.length === 0) { setToast({ ok: false, text: "사용처(연동 서비스)를 1개 이상 선택하세요." }); return; }
+    if (services.length === 0) { setToast({ ok: false, text: "사용 서비스를 1개 이상 선택하세요." }); return; }
     // App Key 는 CasterN 전용 — 사용처에서 CasterN 이 빠졌으면 함께 발급하지 않는다.
     const wantKey = withKey;   // App Key 는 사용처 공통 `PC-050`
     if (wantKey && !range) { setToast({ ok: false, text: "할당된 SOBP 범위를 선택하세요." }); return; }
@@ -503,16 +530,19 @@ export function AccountNewView() {
     <div style={{ padding: "18px 20px", maxWidth: 900 }}>
       <div style={{ ...S.card, padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>계정 등록 <span style={{ color: "#9ca3af", fontWeight: 400, fontSize: 12 }}>· 계정 정보 · App Key · 사용처 권한</span></div>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>계정 등록</div>
           <span style={{ flex: 1 }} />
           <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
         </div>
         <div style={{ fontSize: 11.5, color: "#9ca3af", marginBottom: 12 }}>
-          한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). App Key 는 <b>계정당 1개</b>이며 <b>사용처 전체에 공통</b>으로 쓰입니다 <code>PC-050</code> — 나중에 계정 상세에서도 발급할 수 있습니다.
+          한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). App Key 는 <b>계정당 1개</b>이며 <b>사용 서비스 전체에 공통</b>으로 쓰입니다 <code>PC-050</code> — 나중에 계정 상세에서도 발급할 수 있습니다.
         </div>
 
+        {/* 탭 3개 — 계정 정보 · 사용 서비스 및 권한 · App Key 발급 `PC-062` */}
+        <AccTabs tab={tab} onTab={setTab} badge={{ svc: `${services.length}/${ACCOUNT_SERVICES.length}`, key: withKey ? "발급" : undefined }} />
+
         {/* 계정 정보 */}
-        <div style={SEC}>
+        <div style={{ ...SEC, marginTop: 0, display: tab === "info" ? "block" : "none" }}>
         <SecHead t="계정 정보" d="· 서비스 로그인 계정" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="회사정보 (고객사) *">
@@ -535,17 +565,17 @@ export function AccountNewView() {
 
         </div>
 
-        {/* App Key 발급 — 사용처 전체 공통이라 사용처·권한 위에 둔다 `PC-051` */}
-        <div style={SEC}>
-          <SecHead t="App Key 발급" d="· 사용처 전체 공통 · 계정당 1개 · 선택" />
+        {/* App Key 발급 */}
+        <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
+          <SecHead t="App Key 발급" d="· 사용 서비스 전체 공통 · 계정당 1개 · 선택" />
           {appKeyBlock}
         </div>
 
-        {/* 사용처 · 권한 — 탭마다 그 서비스의 조건만 노출 */}
-        <div style={SEC}>
-          <SecHead t="사용처 · 권한" d="· 탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
+        {/* 사용 서비스 및 권한 — 서비스마다 그 조건만 노출 */}
+        <div style={{ ...SEC, marginTop: 0, display: tab === "svc" ? "block" : "none" }}>
+          <SecHead t="사용 서비스 및 권한" d="· 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
           <div style={{ fontSize: 10.5, color: "#9ca3af", marginBottom: 6, lineHeight: 1.5 }}>
-            사용처는 <b>중복 선택</b>할 수 있습니다. 여러 서비스를 선택하면 <b>한 계정으로 각 서비스에 로그인</b>하며, 각 서비스는 자기 계정만 관리·인증합니다.
+            사용 서비스는 <b>중복 선택</b>할 수 있습니다. 여러 서비스를 선택하면 <b>한 계정으로 각 서비스에 로그인</b>하며, 각 서비스는 자기 계정만 관리·인증합니다.
             <span style={{ marginLeft: 6 }}>선택 <b>{services.length}</b> / {ACCOUNT_SERVICES.length}</span>
           </div>
           <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} />
@@ -576,6 +606,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const [services, setServices] = useState<AccountService[]>([]);
   const [settings, setSettings] = useState<AccountSettings>({});
   const [loaded, setLoaded] = useState(false);
+  const [tab, setTab] = useState<AccTab>("info");              // 화면 탭 `PC-062`
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [bStart, setBStart] = useState<number | null>(null);   // App Key Book Start `PC-050`
   const [bVol, setBVol] = useState<number | null>(null);       // App Key Book Volume(권수)
@@ -658,7 +689,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
         </div>
       ) : (acc?.services ?? []).length === 0 ? (
         <div style={{ fontSize: 11.5, color: "#9ca3af", lineHeight: 1.6 }}>
-          사용처(연동 서비스)를 1개 이상 고르고 <b>[저장]</b> 하면 App Key 를 발급할 수 있습니다.
+          사용 서비스를 1개 이상 고르고 <b>[저장]</b> 하면 App Key 를 발급할 수 있습니다.
         </div>
       ) : (
         <>
@@ -713,8 +744,11 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
           <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
         </div>
 
+        {/* 탭 3개 `PC-062` */}
+        <AccTabs tab={tab} onTab={setTab} badge={{ svc: `${services.length}/${ACCOUNT_SERVICES.length}`, key: keys.length ? "1" : undefined }} />
+
         {/* 계정 정보 */}
-        <div style={SEC}>
+        <div style={{ ...SEC, marginTop: 0, display: tab === "info" ? "block" : "none" }}>
         <SecHead t="계정 정보" d="· ID(email) · 고객사는 변경할 수 없습니다" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="회사정보 (고객사)"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{acc.company}</div></Field>
@@ -732,17 +766,17 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
         </div>
 
-        {/* App Key — 사용처·권한 위 `PC-051` */}
-        <div style={SEC}>
-          <SecHead t="App Key 발급" d={`· 사용처 전체 공통 · 계정당 1개 · 발급된 키 ${keys.length}개`} />
+        {/* App Key 발급 */}
+        <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
+          <SecHead t="App Key 발급" d={`· 사용 서비스 전체 공통 · 계정당 1개 · 발급된 키 ${keys.length}개`} />
           {appKeyBlock}
         </div>
 
-        {/* 사용처 · 권한 — 탭마다 그 서비스의 조건만 노출 */}
-        <div style={SEC}>
-          <SecHead t="사용처 · 권한" d="· 탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
+        {/* 사용 서비스 및 권한 */}
+        <div style={{ ...SEC, marginTop: 0, display: tab === "svc" ? "block" : "none" }}>
+          <SecHead t="사용 서비스 및 권한" d="· 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
           <div style={{ fontSize: 10.5, color: "#9ca3af", marginBottom: 6, lineHeight: 1.5 }}>
-            사용처는 <b>중복 선택</b>할 수 있습니다. App Key 는 <b>사용처 전체에 공통</b>이라 사용처를 바꿔도 키는 그대로입니다 <code>PC-050</code>.
+            사용 서비스는 <b>중복 선택</b>할 수 있습니다. App Key 는 <b>사용 서비스 전체에 공통</b>이라 서비스를 바꿔도 키는 그대로입니다 <code>PC-050</code>.
             <span style={{ marginLeft: 6 }}>선택 <b>{services.length}</b> / {ACCOUNT_SERVICES.length}</span>
           </div>
           <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} />
@@ -756,7 +790,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
         {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: toast.ok ? "#047857" : "#dc2626", textAlign: "right" }}>{toast.text}</div>}
 
         {/* 이 계정의 Key 정보 — 계정 : 키 = 1:1 매핑 `PC-059` */}
-        <div style={SEC}>
+        <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
           <SecHead t="Key 정보" d="· 이 계정에 매핑된 키 · App Key 1개 · N Key 1개" />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
             <KeyCard title="App Key" params={appTicket?.params} empty="아래에서 발급하세요." />
