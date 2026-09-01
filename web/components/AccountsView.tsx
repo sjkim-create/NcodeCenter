@@ -133,15 +133,17 @@ export function AccountsListView() {
 }
 
 /* ── 공용 조각 ─────────────────────────────────────────────────── */
-function StepHead({ n, t, d }: { n: number; t: string; d?: string }) {
+// 영역 제목 — 번호를 붙이지 않는다. Key 관리 상세(`TKT-05`)와 같은 결 `PC-052`
+function SecHead({ t, d }: { t: string; d?: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-      <span style={{ background: "#5f8ff0", color: "#fff", fontWeight: 700, fontSize: 11, borderRadius: "50%", width: 20, height: 20, display: "grid", placeItems: "center" }}>{n}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
       <b style={{ fontSize: 13, color: "#111827" }}>{t}</b>
-      {d && <span style={{ fontSize: 11.5, color: "#9ca3af" }}>· {d}</span>}
+      {d && <span style={{ fontSize: 11.5, color: "#9ca3af" }}>{d}</span>}
     </div>
   );
 }
+// 영역 묶음 — 항목을 카드로 구분한다 `PC-052`
+const SEC: React.CSSProperties = { border: "1px solid #eef0f4", borderRadius: 10, padding: "14px 16px", marginTop: 12 };
 
 // CasterN 권한 7종 — 개별 선택 / [모두 선택]·[모두 해제]
 function PermPicker({ value, onChange }: { value: CasterPerm[]; onChange: (v: CasterPerm[]) => void }) {
@@ -395,6 +397,7 @@ export function AccountNewView() {
       </label>
       {withKey && (
         <div style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 5 }}>SOBP 맵에서 발급된 S / O * <span style={{ color: "#9ca3af" }}>(고르면 Book 범위가 따라옵니다)</span></div>
           <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); }} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: 12, marginTop: 12 }}>
             <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} onStart={setBStart} onVol={setBVol} />
@@ -422,7 +425,7 @@ export function AccountNewView() {
     <div style={{ padding: "18px 20px", maxWidth: 900 }}>
       <div style={{ ...S.card, padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>계정 등록 <span style={{ color: "#9ca3af", fontWeight: 400, fontSize: 12 }}>· ① 계정 정보 → ② App Key → ③ 사용처·권한</span></div>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>계정 등록 <span style={{ color: "#9ca3af", fontWeight: 400, fontSize: 12 }}>· 계정 정보 · App Key · 사용처 권한</span></div>
           <span style={{ flex: 1 }} />
           <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
         </div>
@@ -430,8 +433,9 @@ export function AccountNewView() {
           한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). App Key 는 <b>계정당 1개</b>이며 <b>사용처 전체에 공통</b>으로 쓰입니다 <code>PC-050</code> — 나중에 계정 상세에서도 발급할 수 있습니다.
         </div>
 
-        {/* ① 계정 정보 */}
-        <StepHead n={1} t="계정 정보" d="서비스 로그인 계정" />
+        {/* 계정 정보 */}
+        <div style={SEC}>
+        <SecHead t="계정 정보" d="· 서비스 로그인 계정" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="회사정보 (고객사) *">
             <select style={S.input} value={companyId} onChange={(e) => onCompany(+e.target.value)}>
@@ -451,15 +455,17 @@ export function AccountNewView() {
           <Field label="HOMEPAGE"><input style={S.input} value={homepage} onChange={(e) => setHomepage(e.target.value)} placeholder="https://" /></Field>
         </div>
 
-        {/* ② App Key 발급 — 사용처 전체 공통이라 사용처·권한 **위**에 둔다 `PC-051` */}
-        <div style={{ marginTop: 18, borderTop: "1px solid #eef0f4", paddingTop: 14 }}>
-          <StepHead n={2} t="App Key 발급" d="사용처 전체 공통 · 계정당 1개 · 선택" />
+        </div>
+
+        {/* App Key 발급 — 사용처 전체 공통이라 사용처·권한 위에 둔다 `PC-051` */}
+        <div style={SEC}>
+          <SecHead t="App Key 발급" d="· 사용처 전체 공통 · 계정당 1개 · 선택" />
           {appKeyBlock}
         </div>
 
-        {/* ③ 사용처 · 권한 — 탭마다 그 서비스의 조건만 노출 */}
-        <div style={{ marginTop: 16 }}>
-          <StepHead n={3} t="사용처 · 권한" d="탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
+        {/* 사용처 · 권한 — 탭마다 그 서비스의 조건만 노출 */}
+        <div style={SEC}>
+          <SecHead t="사용처 · 권한" d="· 탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
           <div style={{ fontSize: 10.5, color: "#9ca3af", marginBottom: 6, lineHeight: 1.5 }}>
             사용처는 <b>중복 선택</b>할 수 있습니다. 여러 서비스를 선택하면 <b>한 계정으로 각 서비스에 로그인</b>하며, 각 서비스는 자기 계정만 관리·인증합니다.
             <span style={{ marginLeft: 6 }}>선택 <b>{services.length}</b> / {ACCOUNT_SERVICES.length}</span>
@@ -570,6 +576,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
         </div>
       ) : (
         <>
+          <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 5 }}>SOBP 맵에서 발급된 S / O * <span style={{ color: "#9ca3af" }}>(고르면 Book 범위가 따라옵니다)</span></div>
           <SobpRangePicker company ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); }} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr auto", gap: 12, alignItems: "end", marginTop: 12 }}>
             <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} onStart={setBStart} onVol={setBVol} />
@@ -618,8 +625,9 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
           <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
         </div>
 
-        {/* ① 계정 정보 — ID·고객사는 고정 */}
-        <StepHead n={1} t="계정 정보" d="ID(email) · 고객사는 변경할 수 없습니다" />
+        {/* 계정 정보 */}
+        <div style={SEC}>
+        <SecHead t="계정 정보" d="· ID(email) · 고객사는 변경할 수 없습니다" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="회사정보 (고객사)"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{acc.company}</div></Field>
           <Field label="NAME (담당자/사용자명)"><input style={S.input} value={name} onChange={(e) => setName(e.target.value)} /></Field>
@@ -634,15 +642,17 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
           <Field label="HOMEPAGE"><input style={S.input} value={homepage} onChange={(e) => setHomepage(e.target.value)} placeholder="https://" /></Field>
         </div>
 
-        {/* ② App Key — 사용처·권한 **위** `PC-051` */}
-        <div style={{ marginTop: 18, borderTop: "1px solid #eef0f4", paddingTop: 14 }}>
-          <StepHead n={2} t="App Key 발급" d={`사용처 전체 공통 · 계정당 1개 · 발급된 키 ${keys.length}개`} />
+        </div>
+
+        {/* App Key — 사용처·권한 위 `PC-051` */}
+        <div style={SEC}>
+          <SecHead t="App Key 발급" d={`· 사용처 전체 공통 · 계정당 1개 · 발급된 키 ${keys.length}개`} />
           {appKeyBlock}
         </div>
 
-        {/* ③ 사용처 · 권한 — 탭마다 그 서비스의 조건만 노출 */}
-        <div style={{ marginTop: 16 }}>
-          <StepHead n={3} t="사용처 · 권한" d="탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
+        {/* 사용처 · 권한 — 탭마다 그 서비스의 조건만 노출 */}
+        <div style={SEC}>
+          <SecHead t="사용처 · 권한" d="· 탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
           <div style={{ fontSize: 10.5, color: "#9ca3af", marginBottom: 6, lineHeight: 1.5 }}>
             사용처는 <b>중복 선택</b>할 수 있습니다. App Key 는 <b>사용처 전체에 공통</b>이라 사용처를 바꿔도 키는 그대로입니다 <code>PC-050</code>.
             <span style={{ marginLeft: 6 }}>선택 <b>{services.length}</b> / {ACCOUNT_SERVICES.length}</span>
@@ -658,8 +668,8 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
         {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: toast.ok ? "#047857" : "#dc2626", textAlign: "right" }}>{toast.text}</div>}
 
         {/* ③ App Key 발급 내역 — 발급 UI 는 ② 의 CasterN 탭 안에 있다 */}
-        <div style={{ marginTop: 18, borderTop: "1px solid #eef0f4", paddingTop: 14 }}>
-          <StepHead n={4} t="App Key 발급 내역" d={`발급된 키 ${keys.length}개`} />
+        <div style={SEC}>
+          <SecHead t="App Key 발급 내역" d={`· 발급된 키 ${keys.length}개`} />
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {keys.length === 0 ? (
               <div style={{ fontSize: 12, color: "#9ca3af", padding: "6px 0" }}>

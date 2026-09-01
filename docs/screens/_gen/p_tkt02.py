@@ -22,11 +22,9 @@ KEYS = (('ncc_live_9f3c1a08b2', 'PDS2', 'S3/O17/B400~499 · 100권',
 
 
 def step(n, title, desc=''):
+    """영역 제목 — 번호를 붙이지 않는다 `PC-052`. n 은 호출부 호환용으로만 받는다."""
     d = ('<span style="font-size:11.5px;color:#9ca3af">· ' + desc + '</span>') if desc else ''
-    return ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
-            '<span style="background:#5f8ff0;color:#fff;font-weight:700;font-size:11px;'
-            'border-radius:50%;width:20px;height:20px;display:grid;place-items:center">'
-            + str(n) + '</span>'
+    return ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
             '<b style="font-size:13px;color:#111827">' + title + '</b>' + d + '</div>')
 
 
@@ -250,7 +248,7 @@ def new_form(picked=('CasterN',), tab='CasterN', perms=None, withkey=False, rng=
     inner = perms_only(perms)          # App Key 는 탭 밖 ③ 단계 `PC-050`
     panel = svc_panel(tab, tab in picked,
                       dict((n, r) for n, _d, r in SERVICES)[tab], inner)
-    body = (head('계정 등록', '① 계정 정보 → ② App Key → ③ 사용처·권한')
+    body = (head('계정 등록', '계정 정보 · App Key · 사용처 권한')
             + '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:12px">'
               '한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). '
               'App Key 는 <b>계정당 1개</b>이며 <b>사용처 전체에 공통</b>으로 쓰입니다 '

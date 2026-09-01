@@ -141,7 +141,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   useSharedOwners();                                   // 공유 OWNER 변경 시 리렌더
   useEffect(() => { hydrateShared(); hydrateMembers(); }, []);
   useCommonMembers();
-  const [sort, setSort] = useState<{ key: "t" | "d" | null; dir: 1 | -1 }>({ key: null, dir: 1 });   // 교재명·발급일 정렬
+  const [sort, setSort] = useState<{ key: "t" | "d" | "b" | null; dir: 1 | -1 }>({ key: null, dir: 1 });   // 교재명·발급일·Book 정렬
+  type BMode = "" | "asc" | "desc" | "num";
+  const [bMode, setBMode] = useState<BMode>("");     // Book 필터 방식 `PC-052`
   // 고객사 단가 — 고객사 관리에 입력된 값. 없으면 기본 단가(500/1,000)
   const nzc = (x: string) => x.replace(/\s+/g, "").replace(/\(.*\)/g, "").toLowerCase();
   const myCompany = useMemo(
@@ -254,7 +256,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     .filter(([r]) => (fCu ? (r.cu ?? "") === fCu : true))
     .filter(([r]) => (q ? `${r.t ?? ""} ${r.cu ?? ""}`.toLowerCase().includes(q.toLowerCase()) : true));   // 교재명·사용고객사 검색
   // 교재명(가나다) / 발급일(날짜) 정렬 — 값 없는 행은 항상 뒤로
-  if (sort.key) {
+  if (sort.key === "b") {
+    filtered.sort(([a], [b]) => (a.b - b.b) * sort.dir);
+  } else if (sort.key) {
     const k = sort.key;
     filtered.sort(([a], [b]) => {
       const va = (k === "t" ? a.t : a.d) ?? "", vb = (k === "t" ? b.t : b.d) ?? "";
@@ -279,7 +283,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   }, { books: 0, pages: 0, sound: 0, pen: 0, sym: 0, bytes: 0, cost: 0, listed: 0, dc: 0, pageAmt: 0, symAmt: 0, dcBooks: 0 });
   const aggPct = agg.listed > 0 ? Math.round((agg.dc / agg.listed) * 1000) / 10 : 0;
   const isFiltered = fS != null || fO != null || fB != null || !!fM || !!fT || !!fK || !!fSt || !!fCu || !!fOwnerCust || !!q;
-  const clearFilters = () => { setFS(null); setFO(null); setFB(null); setFM(""); setFT(""); setFK(""); setFSt(""); setFCu(""); setFOwnerCust(""); setQ(""); setPage(1); };
+  const clearFilters = () => { setFS(null); setFO(null); setFB(null); setBMode(""); setFM(""); setFT(""); setFK(""); setFSt(""); setFCu(""); setFOwnerCust(""); setQ(""); setSort({ key: null, dir: 1 }); setPage(1); };
 
   // 할당된 S/O (수정 불가) — 편집 데이터 + 소유권 데이터 + 코드 프로젝트 발급 내역
   const allocBooks = useMemo(() => projectBooks(st.projects, st.companies), [st]);
@@ -561,8 +565,22 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   {typeOpts.map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
               </th>
-              {/* S/O/B 필터 제거 — 대장 기준 1고객사=1오너라 필터 불필요 */}
-              <th style={filterTh} />
+              {/* Book(B) 필터 — 낮은순 · 높은순 · 직접 입력 `PC-052` */}
+              <th style={filterTh}>
+                <div style={{ display: "flex", gap: 4, alignItems: "center", justifyContent: "center" }}>
+                  <select value={bMode} onChange={(e) => { const v = e.target.value as BMode; setBMode(v); setFB(null); setSort(v === "asc" || v === "desc" ? { key: "b", dir: v === "asc" ? 1 : -1 } : { key: null, dir: 1 }); setPage(1); }}
+                    style={{ ...fSel, minWidth: 74 }} title="Book 정렬 · 찾기">
+                    <option value="">B 전체</option>
+                    <option value="asc">B 낮은순</option>
+                    <option value="desc">B 높은순</option>
+                    <option value="num">B 직접 입력</option>
+                  </select>
+                  {bMode === "num" && (
+                    <input type="number" value={fB ?? ""} placeholder="B" onChange={(e) => { const v = e.target.value; setFB(v === "" ? null : Math.max(0, +v)); setPage(1); }}
+                      style={{ ...fSel, width: 62 }} title="Book 번호로 찾기" />
+                  )}
+                </div>
+              </th>
               {/* 페이지 · 합계 */}
               {Array.from({ length: 2 }, (_, i) => <th key={i} style={filterTh} />)}
               {/* 편집방식 */}
@@ -697,9 +715,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                     ? <span style={{ ...S.tag, background: "#a855f7", color: "#fff", fontWeight: 700 }} title={sh.note}>공유 코드 · 여러 고객사 사용</span>
                     : <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>전용 코드 · {cust.customer}</span>}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: sh ? "1.4fr 1fr 1.2fr" : "1.4fr 1fr", gap: 10 }}>
-                  <Field label={`할당된 S / O${editing.idx === -1 && assignedSO.length > 1 ? " (선택)" : " (수정 불가)"}`}>
-                    {editing.idx === -1 && assignedSO.length > 1 ? (
+                <div style={{ display: "grid", gridTemplateColumns: sh ? "1.3fr 0.9fr 0.9fr 1.1fr" : "1.3fr 0.9fr 0.9fr", gap: 10 }}>
+                  <Field label={`할당된 S / O${editing.idx === -1 && assignedSO.length > 0 ? " (선택)" : " (수정 불가)"}`}>
+                    {editing.idx === -1 && assignedSO.length > 0 ? (
                       <select style={S.input} value={`${editing.row.k}/${editing.row.s}/${editing.row.o}`}
                         onChange={(e) => { const [k, sv, ov] = e.target.value.split("/"); setBookLimit(BOOK_STEP); setEditing((ed) => (ed ? { ...ed, row: { ...ed.row, k, s: +sv, o: +ov, b: freeBooks(k, +sv, +ov, undefined, BOOK_STEP)[0] ?? 0 } } : ed)); }}>
                         {assignedSO.map((a) => (
@@ -716,6 +734,27 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                       </div>
                     )}
                   </Field>
+                  {/* 코드 종류 — 좌표 할당에서는 정하지 않으므로 여기서 지정한다 `PC-051` */}
+                  {(() => {
+                    const isP4 = editing.row.s === 44;
+                    const opts: { v: CodeKind; k: string }[] = isP4
+                      ? [{ v: "PDS4", k: "N" }]
+                      : [{ v: "PDS2", k: "G" }, { v: "PDS3", k: "N" }, { v: "OID", k: "O" }];
+                    const cur = codeKind(editing.row.k, editing.row.s);
+                    return (
+                      <Field label="코드 종류">
+                        <select style={{ ...S.input, background: "#fff" }} value={cur} disabled={isP4 || editing.idx !== -1}
+                          onChange={(e) => {
+                            const hit = opts.find((o) => o.v === (e.target.value as CodeKind));
+                            if (!hit) return;
+                            setBookLimit(BOOK_STEP);
+                            setEditing((ed) => (ed ? { ...ed, row: { ...ed.row, k: hit.k, b: freeBooks(hit.k, ed.row.s, ed.row.o, undefined, BOOK_STEP)[0] ?? 0 } } : ed));
+                          }}>
+                          {opts.map((o) => <option key={o.v} value={o.v}>{kindMeta(o.v).short}</option>)}
+                        </select>
+                      </Field>
+                    );
+                  })()}
                   {(() => {
                     const keepB = editing.idx === -1 ? undefined : editing.row.b;
                     const probe = freeBooks(editing.row.k, editing.row.s, editing.row.o, keepB, bookLimit + 1);
