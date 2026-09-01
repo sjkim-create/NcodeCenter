@@ -26,10 +26,10 @@ const readCompanyId = () => {
   try { return Number(sessionStorage.getItem(CO_KEY)) || 0; } catch { return 0; }
 };
 
-// Key 관리 (N Key 발급) — [목록 → 등록] 한 쌍. 계정 발급(AccountsView)과 같은 구조다.
+// N Key 관리 — [목록 → 등록] 한 쌍. 계정 발급(AccountsView)과 같은 구조다.
 //   · tab="list" → /tickets/nkey      발급·정산 목록 (옛 "Key 발급 정산" 메뉴)
 //   · tab="nkey" → /tickets/nkey/new  N Key 생성 (Caster lite 티켓)
-// 목록에는 N Key(여기서 발급)와 App Key(계정 발급에서 발급)가 함께 쌓인다 — 종류 필터로 구분.
+// 목록은 **N Key 만** 다룬다 `PC-061`. App Key 는 계정 단위라 **계정 발급(계정 상세)** 에서 본다.
 export default function TicketsView({ tab }: { tab: Tab }) {
   const { companies, projects } = useStore();
   const me = currentUser(useAuth());
@@ -60,7 +60,7 @@ function TicketListView() {
   useTickets();
   const rows = allTickets();
   const [fCo, setFCo] = useState("");
-  const [fKind, setFKind] = useState<"" | "N" | "APP">("");
+
   const [fBill, setFBill] = useState<"" | Billing>("");
   const [fSrc, setFSrc] = useState<"" | "ledger" | "new">("");
   const [q, setQ] = useState("");
@@ -82,11 +82,11 @@ function TicketListView() {
   // 페이지네이션 (고객사 관리 목록과 동일 · 기본 50건씩)
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
-  useEffect(() => { setPage(1); }, [fCo, fKind, fBill, fSrc, q, sort.key, sort.dir]);
+  useEffect(() => { setPage(1); }, [fCo, fBill, fSrc, q, sort.key, sort.dir]);
 
   const list = rows
     .filter((t) => (fCo ? t.company === fCo : true))
-    .filter((t) => (fKind ? t.kind === fKind : true))
+    .filter((t) => t.kind === "N")      // N Key 만 — App Key 는 계정 발급에서 본다 `PC-061`
     .filter((t) => (fBill ? t.billing === fBill : true))
     .filter((t) => (fSrc === "ledger" ? t.src === "ledger" : fSrc === "new" ? t.src !== "ledger" : true))
     .filter((t) => (q ? (t.summary + " " + t.by).toLowerCase().includes(q.toLowerCase()) : true))   // 발급내용·발급인 검색
@@ -141,12 +141,6 @@ function TicketListView() {
           {coOpts.map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
         <div style={{ display: "flex", gap: 4 }}>
-          {([["", "전체"], ["N", "N Key"], ["APP", "App Key"]] as const).map(([v, l]) => (
-            <button key={v} onClick={() => setFKind(v)} style={chip(fKind === v)}>{l}</button>
-          ))}
-        </div>
-        <span style={{ color: "#d1d5db" }}>|</span>
-        <div style={{ display: "flex", gap: 4 }}>
           <button onClick={() => setFBill("")} style={chip(fBill === "")}>정산 전체</button>
           {BILLINGS_FILTER.map((b) => <button key={b} onClick={() => setFBill(b)} style={chip(fBill === b)}>{b}</button>)}
         </div>
@@ -171,7 +165,7 @@ function TicketListView() {
         <table style={{ ...S.table, textAlign: "center", minWidth: 1040 }}>
           <thead>
             <tr>{([
-              ["No", null], ["발급일시", "at"], ["종류", null], ["고객사", "company"], ["발급 내용", null],
+              ["No", null], ["발급일시", "at"], ["고객사", "company"], ["발급 내용", null],
               ["발급인", "by"], ["정산", null], ["금액", null], ["비고", null], ["작업", null],
             ] as const).map(([h, k]) => (
               <th key={h} style={{ ...S.th, textAlign: "center", cursor: k ? "pointer" : "default", userSelect: "none" }}
@@ -189,7 +183,6 @@ function TicketListView() {
                   style={{ borderTop: "1px solid #eef0f4", cursor: "pointer" }}>
                   <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#2563eb", fontWeight: 600 }}>{t.no}</td>
                   <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", fontSize: 11.5, whiteSpace: "nowrap" }}>{t.at.slice(0, 16).replace("T", " ")}</td>
-                  <td style={S.td}><span style={{ ...S.tag, background: t.kind === "APP" ? "#fef3c7" : "#eef6ff", color: t.kind === "APP" ? "#92400e" : "#2563eb" }}>{t.kind === "APP" ? "App Key" : "N Key"}</span></td>
                   <td style={{ ...S.td, fontWeight: 600, textAlign: "left" }}>
                     {t.company}
                     {t.src === "ledger" && <span style={{ ...S.tag, fontSize: 8.5, marginLeft: 5, background: "#f3f4f6", color: "#9ca3af" }} title="nkey(HLP) 발급 대장에서 가져온 과거 이력">대장</span>}
@@ -218,7 +211,7 @@ function TicketListView() {
             })}
             {list.length === 0 && (
               <tr><td colSpan={10} style={{ ...S.td, textAlign: "center", color: "#9ca3af", padding: 30 }}>
-                {rows.length === 0 ? "아직 발급된 티켓이 없습니다. [＋ N Key 발급] 또는 [계정 발급 (App Key 발급)] 메뉴에서 발급하세요." : "필터에 맞는 티켓이 없습니다."}
+                {rows.length === 0 ? "아직 발급된 N Key 가 없습니다. [＋ N Key 발급] 으로 발급하세요." : "필터에 맞는 N Key 가 없습니다."}
               </td></tr>
             )}
           </tbody>
@@ -294,7 +287,7 @@ export function TicketDetailView({ ticketId }: { ticketId: number }) {
     return (
       <div style={{ padding: "18px 20px", maxWidth: 900 }}>
         <div style={{ ...S.card, padding: 24, fontSize: 13, color: "#6b7280" }}>
-          발급 기록을 찾을 수 없습니다. <Link href="/tickets/nkey" style={{ color: "#2563eb" }}>Key 관리 목록으로</Link>
+          발급 기록을 찾을 수 없습니다. <Link href="/tickets/nkey" style={{ color: "#2563eb" }}>N Key 관리 목록으로</Link>
         </div>
       </div>
     );

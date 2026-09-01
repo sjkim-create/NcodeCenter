@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""TKT-03 Key 관리 — 실제 화면 구조 그대로.
+"""TKT-03 N Key 관리 — 실제 화면 구조 그대로. (App Key 는 계정 발급에서 본다 `PC-061`)
 
 요약 5칸 → (체험 만료 배너) → 도구 막대 → 10열 표 → 페이지네이션.
 정산 등록·Key 정보 모달은 폐기되어 발급 상세(TKT-02)의 탭으로 이동했다.
@@ -8,7 +8,7 @@
 from shell import page, frame
 from p_tkt01 import sel, field
 
-CODE, NAME = 'TKT-03', 'Key 관리'
+CODE, NAME = 'TKT-03', 'N Key 관리'
 PRD = 'docs/prd/TKT-03_Key 관리.md'
 
 # lib/ticketStore.ts BILL_COLOR
@@ -20,8 +20,8 @@ ROWS = (
     (142, '2026-08-27 10:12', 'N Key', '웅진씽크빅', False,
      'PDS2 S3/O17/B400~499 · Book 100권 · P1~4096 · 병합 1장 · 유효 무제한',
      '김순정', '미정', None, None, None),
-    (141, '2026-08-26 16:40', 'App Key', '대교', False,
-     '계정 daekyo_edit@daekyo.com · CasterN · PDS3 S3/O212/B0~99 · 무제한',
+    (141, '2026-08-26 16:40', 'N Key', '대교', False,
+     'PDS3 S3/O212/B0~99 · Book 100권 · P1~4096 · 병합 1장 · 유효 무제한',
      '김순정', '유료', None, '₩3,500,000', '2026 연간 계약 포함'),
     (140, '2026-08-25 11:05', 'N Key', '아이스크림에듀', False,
      'PDS3 S5/O88/B0~9 · Book 10권 · P1~4096 · 개별티켓 10장 · 유효 261231',
@@ -32,8 +32,8 @@ ROWS = (
     (138, '2025-12-11 00:00', 'N Key', '교원구몬', True,
      'PDS3 S0/O10/B0~63 · Book 64권 · 유효 무제한',
      '', '무료', None, None, '데모 제공'),
-    (137, '2025-11-03 14:26', 'App Key', '웅진씽크빅', True,
-     '계정 wj_old@wjthinkbig.com · 미지정 · PDS3 S3/O17/B0~99 · 무제한',
+    (137, '2025-11-03 14:26', 'N Key', '웅진씽크빅', True,
+     'PDS3 S3/O17/B0~99 · Book 100권 · 유효 무제한',
      '', '유료', None, '₩4,800,000', None),
 )
 
@@ -82,16 +82,15 @@ def bar(kind='전체', bill='정산 전체', src='전체', q=''):
             % ('' if q else ' ph', q or '고객사·내용 검색'))
     return ('<div class="card" style="padding:10px 12px;margin-bottom:10px;display:flex;'
             'gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px">'
-            '%s%s%s%s%s%s<span style="flex:1"></span>%s'
+            '%s%s%s%s<span style="flex:1"></span>%s'
             '<span class="btn gho" style="white-space:nowrap">📂 N Key 불러오기</span>'
             '<span class="btn pri" style="white-space:nowrap">＋ N Key 발급</span></div>'
             % (sel('고객사 전체', w=180),
-               g(('전체', 'N Key', 'App Key'), kind), div,
                g(('정산 전체', '미정', '유료', '무료'), bill), div,
                g(('전체', '대장', '신규발급'), src), srch))
 
 
-HEADS = (('No', None), ('발급일시', 'at'), ('종류', None), ('고객사', 'company'),
+HEADS = (('No', None), ('발급일시', 'at'), ('고객사', 'company'),
          ('발급 내용', None), ('발급인', 'by'), ('정산', None), ('금액', None),
          ('비고', None), ('작업', None))
 
@@ -110,14 +109,11 @@ def table(rows=None, empty=None, sort=('at', -1), pg=''):
                % ('cursor:pointer' if k else '', h, mark))
     body = ''
     if empty:
-        msg = ('아직 발급된 티켓이 없습니다. [＋ N Key 발급] 또는 '
-               '[계정 발급 (App Key 발급)] 메뉴에서 발급하세요.'
-               if empty == 'none' else '필터에 맞는 티켓이 없습니다.')
-        body = ('<tr><td colspan="10" style="text-align:center;color:#9ca3af;'
+        msg = ('아직 발급된 N Key 가 없습니다. [＋ N Key 발급] 으로 발급하세요.'
+               if empty == 'none' else '필터에 맞는 N Key 가 없습니다.')
+        body = ('<tr><td colspan="9" style="text-align:center;color:#9ca3af;'
                 'padding:30px">%s</td></tr>' % msg)
     for (no, at, kind, cust, led, desc, by, bill, tr, amt, memo) in (rows or ()):
-        kb = tag(kind, '#fef3c7' if kind == 'App Key' else '#eef6ff',
-                 '#92400e' if kind == 'App Key' else '#2563eb', bold=False)
         ledb = (' ' + tag('대장', '#f3f4f6', '#9ca3af', '8.5px', False)) if led else ''
         bg, fg = BILL[bill]
         bc = tag(bill, bg, fg)
@@ -131,7 +127,6 @@ def table(rows=None, empty=None, sort=('at', -1), pg=''):
                  '<span style="color:#2563eb;font-weight:600">%d</span></td>'
                  '<td style="font-family:ui-monospace,monospace;font-size:11.5px;'
                  'white-space:nowrap">%s</td>'
-                 '<td>%s</td>'
                  '<td style="font-weight:600;text-align:left">%s%s</td>'
                  '<td style="text-align:left;font-size:11.5px;color:#6b7280;'
                  'max-width:300px">%s</td>'
@@ -144,7 +139,7 @@ def table(rows=None, empty=None, sort=('at', -1), pg=''):
                  '<span class="lnk" style="margin-left:6px">상세</span>'
                  '<span class="lnk" style="margin-left:6px;color:#dc2626">삭제</span></td>'
                  '</tr>'
-                 % (no, at, kb, cust, ledb, desc, by or '-', bc,
+                 % (no, at, cust, ledb, desc, by or '-', bc,
                     '#1d4ed8' if amt else '#d1d5db', amt or '-', memo or '-'))
     return ('<div class="card" style="padding:0;overflow:auto">'
             '<table style="text-align:center;min-width:1040px"><tr>%s</tr>%s</table>%s</div>'
@@ -265,13 +260,13 @@ def build():
     B = []
 
     def F(inner, h=H, overlay=''):
-        return frame('TKT-03', 'Key 관리', inner, height=h, overlay=overlay)
+        return frame('TKT-03', 'N Key 관리', inner, height=h, overlay=overlay)
 
     B.append((
         'S1', '기본 목록 · 최근순', '기본',
-        '요약 5칸 → 도구 막대 → 10열 표 → 페이지네이션 순서다. 목록에는 '
-        '<b>N Key 와 App Key 가 함께</b> 쌓인다 — N Key 는 이 메뉴에서, App Key 는 '
-        '계정 등록·수정 화면에서 발급된다. 기본 정렬은 <b>발급일시 내림차순</b>이다. '
+        '요약 5칸 → 도구 막대 → 9열 표 → 페이지네이션 순서다. 목록은 '
+        '<b>N Key 만</b> 다룬다 <code>PC-061</code> — <b>App Key 는 계정 단위</b>라 '
+        '<code>TKT-02</code> 계정 상세의 [Key 정보] 에서 본다. 기본 정렬은 <b>발급일시 내림차순</b>이다. '
         '⚠ <b>정산 등록·Key 정보 모달은 폐기</b>되어 발급 상세의 탭으로 이동했다.',
         F(content()),
         [('요약 5칸', '조회', '—',
@@ -296,18 +291,18 @@ def build():
          ('대장 이력', '참고', '—', '발급인이 비어 있어 <b>-</b> 로 표시된다')] + NAV))
 
     B.append((
-        'S3', '필터 — 종류 · 정산 · 출처', '필터',
+        'S3', '필터 — 고객사 · 정산 · 출처', '필터',
         '필터는 한 줄에 이어지고 구분선(<b>|</b>)으로 묶음이 나뉜다. '
         '⚠ <b>정산 필터에는 「체험」이 없다</b> — 정산 전체 · 미정 · 유료 · 무료 4개뿐이다. '
         '고객사 목록에는 <b>발급 이력이 있는 고객사만</b> 나온다. '
         '필터가 바뀌면 <b>1페이지로 되돌아간다</b>.',
-        F(content(kind='App Key', bill='유료', src='신규발급', rows=(ROWS[1],),
+        F(content(bill='유료', src='신규발급', rows=(ROWS[1],),
                   kpi=(('발급 티켓', '1', '#111827'), ('유료 합계', '₩3,500,000', '#1d4ed8'),
                        ('유료 건수', '1건', '#2563eb'), ('무료 / 체험', '0 / 0건', '#166534'),
                        ('정산 미등록', '0건', '#9ca3af')), total=1),
           h=H - 220),
         [('고객사', '선택', '해당 고객사만', '기본 <b>고객사 전체</b>'),
-         ('종류', '클릭', '전체 / N Key / App Key', ''),
+         ('~~종류~~', '—', '<b>삭제</b>', 'N Key 만 다루므로 종류 필터·열이 없다 <code>PC-061</code>'),
          ('정산', '클릭', '정산 전체 / 미정 / 유료 / 무료', '<b>체험은 필터로 고를 수 없다</b>'),
          ('출처', '클릭', '전체 / 대장 / 신규발급', ''),
          ('검색', '입력', '발급 내용 + 발급인', '<b>고객사·내용 검색</b>'),
@@ -323,7 +318,7 @@ def build():
         [('발급일시', '클릭', '오름 ⇄ 내림', '기본값은 <b>내림차순(최근순)</b>'),
          ('고객사', '클릭', '가나다순', '한국어 정렬'),
          ('발급인', '클릭', '가나다순', ''),
-         ('No · 종류 · 금액 등', '클릭', '<b>동작 없음</b>', '정렬 대상이 아니다')] + NAV))
+         ('No · 금액 등', '클릭', '<b>동작 없음</b>', '정렬 대상이 아니다')] + NAV))
 
     B.append((
         'S5', '필터 결과 없음', '빈 상태',

@@ -214,7 +214,7 @@ export default function DashboardView() {
       </Card>
 
       {/* ③ 정산 */}
-      <SectionHead title="정산" note="편집 청구액과 Key 발급 과금" href="/tickets/nkey" action="Key 관리" />
+      <SectionHead title="정산" note="편집 청구액과 Key 발급 과금" href="/tickets/nkey" action="N Key 관리" />
       <div style={S.kpi3}>
         <Kpi icon="💰" label="편집 비용 청구액" value={won(edit.cost)}
           sub={edit.listed > edit.cost ? `정가 ${won(edit.listed)} · 할인 −${won(edit.listed - edit.cost)}` : "할인 없음"}

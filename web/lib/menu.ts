@@ -69,12 +69,12 @@ export const MENU: MenuGroup[] = [
     // 발급 메뉴를 화면 안 좌측 탭이 아니라 사이드바 그룹으로 관리한다.
     // 각 메뉴는 [목록 → 등록] 한 쌍 — 메뉴는 목록을 열고, 등록은 목록의 추가 버튼으로 들어간다.
     //   · 계정 발급 (App Key 발급) : /tickets/account → /tickets/account/new
-    //   · Key 관리 (N Key 발급)    : /tickets/nkey    → /tickets/nkey/new   (옛 "Key 발급 정산" = 이 목록)
-    // 메뉴명의 괄호 = 그 화면에서 발급하는 키. Key 관리 목록에는 두 종류가 함께 쌓인다.
+    //   · N Key 관리               : /tickets/nkey    → /tickets/nkey/new   (옛 "Key 발급 정산" = 이 목록)
+    // N Key 관리 목록은 **N Key 만** 다룬다 `PC-061`. App Key 는 계정 단위라 계정 발급에서 본다.
     group: "티켓 발급",
     items: [
       { no: 4, label: "계정 발급 (App Key 발급)", path: "/tickets/account", icon: "🔑", ready: true },
-      { label: "Key 관리 (N Key 발급)", path: "/tickets/nkey", icon: "🧾", ready: true },
+      { label: "N Key 관리", path: "/tickets/nkey", icon: "🧾", ready: true },
     ],
   },
   { group: "서비스 관리", items: serviceItems() },
