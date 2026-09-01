@@ -74,22 +74,42 @@ const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(list)); }
 
 // 저장분을 메모리로 1회 로드. 발급 화면(계정 발급 등)이 목록을 거치지 않고 바로 발급해도
 // 원장이 빈 배열 위에 덮어써지지 않도록, 모든 변경 함수가 먼저 이걸 부른다.
+// Key 정보 항목명 — 옛 붙여쓰기 표기를 띄어쓰기로 바꾼다 `PC-064`
+//   이미 발급돼 저장된 티켓도 화면에서 같은 이름으로 보이게 한다.
+const PARAM_ALIAS: Record<string, string> = {
+  CompanyName: "Company Name", AccountId: "Account Id",
+  IssuedTime: "Issued Time", ValidUntilTime: "Valid Until Time",
+  TicketVersion: "Ticket Version", TicketType: "Ticket Type",
+  BookStart: "Book Start", BookVolume: "Book Volume", BookEnd: "Book End",
+  PageStart: "Page Start", PageVolume: "Page Volume", PageEnd: "Page End",
+  PatternType: "Code Type", SeparateEachBook: "Separate Each Book",
+  UsedCustomer: "Used Customer", AppKey: "App Key",
+};
+const normParams = (p?: Ticket["params"]): Ticket["params"] => {
+  if (!p) return {};
+  const out: Ticket["params"] = {};
+  for (const [k, v] of Object.entries(p)) out[PARAM_ALIAS[k] ?? k] = v;
+  return out;
+};
+const normTicket = (t: Ticket): Ticket => ({ ...t, params: normParams(t.params) });
+
 export function hydrateTickets() {
   if (hydrated || typeof window === "undefined") return;
   hydrated = true;
-  try { list = JSON.parse(localStorage.getItem(KEY) ?? "[]") as Ticket[]; }
+  try { list = (JSON.parse(localStorage.getItem(KEY) ?? "[]") as Ticket[]).map(normTicket); }
   catch { list = []; }
   // 대장(nkey HLP) 시드 1회 주입 — 과거 발급 이력을 목록 뒤에 채운다
   try {
     if (!localStorage.getItem(SEED_KEY)) {
       const mine = list.filter((t) => t.src !== "ledger");   // 직접 발급분은 유지, 이전 대장분은 교체
       let id = Math.max(0, ...mine.map((x) => x.id));
-      const seeded: Ticket[] = LEDGER.map((r) => ({ ...r, id: ++id }));
+      const seeded: Ticket[] = LEDGER.map((r) => normTicket({ ...r, id: ++id } as Ticket));
       list = [...mine, ...seeded];
       localStorage.setItem(SEED_KEY, "1");
       persist();
     }
   } catch { /* */ }
+  persist();        // 정리한 항목명을 저장해 둔다 `PC-064`
   notify();
 }
 export const allTickets = () => list;
@@ -107,7 +127,7 @@ export function addTicket(t: Omit<Ticket, "id" | "no" | "at" | "billing" | "amou
   hydrateTickets();
   const id = Math.max(0, ...list.map((x) => x.id)) + 1;
   const no = Math.max(0, ...list.map((x) => x.no)) + 1;
-  const rec: Ticket = { ...t, id, no, at: nowKst(), billing: "미정", amount: 0 };
+  const rec: Ticket = normTicket({ ...t, id, no, at: nowKst(), billing: "미정", amount: 0 } as Ticket);
   list = [rec, ...list];
   persist(); notify();
   return rec;
