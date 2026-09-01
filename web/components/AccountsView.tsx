@@ -299,6 +299,27 @@ function useRanges(companyId: number): SobpRange[] {
 // App Key 발급 — 계정 등록·상세에서 공용으로 쓴다.
 // App Key 는 CasterN 서비스에만 해당한다(SOBP 범위를 편집툴에 연동하는 키).
 // App Key 발급 범위 입력 — 할당 SOBP 안에서 **Book Start · Book Volume(권수)** 를 정한다 `PC-050`
+// 자동·고정 항목 — 값은 고르는 게 아니라 선택 결과로 정해진다(N Key 발급과 같은 구성) `PC-060`
+function FixedKeyFields({ range, unlimited }: { range?: SobpRange; unlimited: boolean }) {
+  const fixed: React.CSSProperties = { ...S.input, background: "#f3f4f6", color: "#6b7280" };
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 10 }}>
+      <Field label="Section · Owner (자동)">
+        <div style={fixed}>{range ? `S${range.section} / O${range.owner}` : "-"}</div>
+      </Field>
+      <Field label="PatternType (자동)">
+        <div style={fixed}>{range ? patternTypeParam(range.pt as TicketPattern) : "-"}</div>
+      </Field>
+      <Field label="TicketType (자동)">
+        <div style={fixed}>{unlimited ? "Unlimited" : "Period"}</div>
+      </Field>
+      <Field label="TicketVersion (고정)">
+        <div style={fixed}>1</div>
+      </Field>
+    </div>
+  );
+}
+
 function BookRangeFields({ range, bookStart, bookVol, pageStart, pageVol, onStart, onVol, onPStart, onPVol }: {
   range?: SobpRange; bookStart: number; bookVol: number; pageStart: number; pageVol: number;
   onStart: (v: number) => void; onVol: (v: number) => void;
@@ -348,11 +369,15 @@ function issueAppKey(acc: CasterAccount, range: SobpRange, bookStart: number, bo
   addTicket({ kind: "APP", companyId: acc.companyId, company: acc.company, accountId: acc.id, by: by ?? "", summary,
     params: {
       CompanyName: acc.company, AccountId: acc.id, Service: svcText, Usage: svcText,
-      AppKey: key, PatternType: patternTypeParam(range.pt as TicketPattern),
+      AppKey: key,
+      IssuedTime: new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, ""),
+      ValidUntilTime: until === "무제한" ? "99999999 (무제한)" : until.replace(/-/g, ""),
       Section: range.section, Owner: range.owner,
+      TicketVersion: 1,
       BookStart: bs, BookVolume: bookVol, BookEnd: be,
       PageStart: pageStart, PageVolume: pageVol, PageEnd: pageStart + pageVol - 1,
-      ValidUntil: until, IssuedAt: new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 16).replace("T", " "),
+      PatternType: patternTypeParam(range.pt as TicketPattern),
+      TicketType: until === "무제한" ? "Unlimited" : "Period",
     } });
   logActivity("ticket", `App Key · ${acc.company} · ${summary} · ${key.slice(0, 16)}…`, by);
   return key;
@@ -462,6 +487,7 @@ export function AccountNewView() {
               </div>
             </Field>
           </div>
+          <FixedKeyFields range={range} unlimited={unlimited || !until} />
           {range && (
             <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 6 }}>
               발급 범위 <b>{range.pt} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권 · <b>P{pStart}~{pStart + keyPVol - 1}</b>
@@ -651,6 +677,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
             </Field>
             <button onClick={addKey} disabled={!range} style={{ ...S.primary, ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>App Key 발급</button>
           </div>
+          <FixedKeyFields range={range} unlimited={unlimited || !until} />
           {range && (
             <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 6 }}>
               발급 범위 <b>{range.pt} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권 · <b>P{pStart}~{pStart + keyPVol - 1}</b>
