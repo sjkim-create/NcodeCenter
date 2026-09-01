@@ -71,6 +71,51 @@ const BOOK_MAX: Record<string, Record<number, number>> = {
   G: { 0: 8192, 3: 4096, 14: 4096 },
 };
 const BOOK_STEP = 100;   // Book 번호 노출 단위 `PC-046`
+
+// Book 선택기 — 목록을 **닫지 않고** 100개씩 이어 본다 `PC-057`
+//   네이티브 <select> 는 항목을 고르면 닫혀서 [＋더 보기] 를 넣을 수 없다.
+function BookPicker({ value, list, more, step, onPick, onMore }: {
+  value: number; list: number[]; more: boolean; step: number;
+  onPick: (b: number) => void; onMore: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: "relative" }}>
+      <button type="button" onClick={() => setOpen((v) => !v)}
+        style={{ ...S.input, background: "#fff", textAlign: "left", cursor: "pointer", display: "flex", alignItems: "center" }}>
+        <span style={{ fontFamily: "ui-monospace,monospace" }}>B{value}</span>
+        <span style={{ flex: 1 }} />
+        <span style={{ color: "#9ca3af", fontSize: 10 }}>{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 19 }} />
+          <div style={{ position: "absolute", left: 0, right: 0, top: "calc(100% + 4px)", zIndex: 20,
+            background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,.12)",
+            maxHeight: 260, overflowY: "auto" }}>
+            {list.map((b) => (
+              <button key={b} type="button" onClick={() => { onPick(b); setOpen(false); }}
+                style={{ display: "block", width: "100%", textAlign: "left", border: 0, cursor: "pointer",
+                  padding: "6px 10px", fontSize: 12.5, fontFamily: "ui-monospace,monospace",
+                  background: b === value ? "#eef6ff" : "#fff", color: b === value ? "#2563eb" : "#374151", fontWeight: b === value ? 700 : 400 }}>
+                B{b}
+              </button>
+            ))}
+            {more && (
+              // 목록을 닫지 않고 아래로 100개를 더 붙인다
+              <button type="button" onClick={(e) => { e.stopPropagation(); onMore(); }}
+                style={{ display: "block", width: "100%", textAlign: "center", border: 0, borderTop: "1px solid #eef0f4",
+                  cursor: "pointer", padding: "8px 10px", fontSize: 12, background: "#fafbfc", color: "#2563eb", fontWeight: 700,
+                  position: "sticky", bottom: 0 }}>
+                ＋ {step}개 더 보기
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 const EMPTY = (o: number): BR => ({ b: 0, s: 0, o, k: "N", pg: 0, t: "", f: "", bytes: 0, ty: "소리펜", sm: zeros(SOUND_N), pm: zeros(PEN_N), m: "", d: "" });
 
 // bookIdx — 교재 편집 화면(모달이 아니라 별도 페이지)에서만 넘어온다.
@@ -142,8 +187,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   useEffect(() => { hydrateShared(); hydrateMembers(); }, []);
   useCommonMembers();
   const [sort, setSort] = useState<{ key: "t" | "d" | "b" | null; dir: 1 | -1 }>({ key: null, dir: 1 });   // 교재명·발급일·Book 정렬
-  type BMode = "" | "asc" | "desc" | "num";
-  const [bMode, setBMode] = useState<BMode>("");     // Book 필터 방식 `PC-052`
+  const [bText, setBText] = useState("");            // Book 필터 입력값(번호 또는 낮은순/높은순) `PC-057`
   // 고객사 단가 — 고객사 관리에 입력된 값. 없으면 기본 단가(500/1,000)
   const nzc = (x: string) => x.replace(/\s+/g, "").replace(/\(.*\)/g, "").toLowerCase();
   const myCompany = useMemo(
@@ -283,7 +327,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   }, { books: 0, pages: 0, sound: 0, pen: 0, sym: 0, bytes: 0, cost: 0, listed: 0, dc: 0, pageAmt: 0, symAmt: 0, dcBooks: 0 });
   const aggPct = agg.listed > 0 ? Math.round((agg.dc / agg.listed) * 1000) / 10 : 0;
   const isFiltered = fS != null || fO != null || fB != null || !!fM || !!fT || !!fK || !!fSt || !!fCu || !!fOwnerCust || !!q;
-  const clearFilters = () => { setFS(null); setFO(null); setFB(null); setBMode(""); setFM(""); setFT(""); setFK(""); setFSt(""); setFCu(""); setFOwnerCust(""); setQ(""); setSort({ key: null, dir: 1 }); setPage(1); };
+  const clearFilters = () => { setFS(null); setFO(null); setFB(null); setBText(""); setFM(""); setFT(""); setFK(""); setFSt(""); setFCu(""); setFOwnerCust(""); setQ(""); setSort({ key: null, dir: 1 }); setPage(1); };
 
   // 할당된 S/O (수정 불가) — 편집 데이터 + 소유권 데이터 + 코드 프로젝트 발급 내역
   const allocBooks = useMemo(() => projectBooks(st.projects, st.companies), [st]);
@@ -573,24 +617,26 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               </th>
               {/* Book(B) 필터 — 낮은순 · 높은순 · 직접 입력 `PC-052` */}
               <th style={filterTh}>
+                {/* 입력칸을 눌러 **번호를 직접 치거나** 목록에서 정렬을 고른다 `PC-057` */}
                 <div style={{ display: "flex", gap: 4, alignItems: "center", justifyContent: "center" }}>
-                  {bMode === "num" ? (
-                    // 셀렉트 자리에서 바로 번호를 입력한다 `PC-054`
-                    <>
-                      <input type="number" autoFocus value={fB ?? ""} placeholder="B 번호 입력"
-                        onChange={(e) => { const v = e.target.value; setFB(v === "" ? null : Math.max(0, +v)); setPage(1); }}
-                        style={{ ...fSel, minWidth: 74 }} title="Book 번호로 찾기" />
-                      <button type="button" onClick={() => { setBMode(""); setFB(null); setPage(1); }}
-                        style={{ border: 0, background: "none", color: "#9ca3af", cursor: "pointer", fontSize: 12, padding: 0 }} title="B 전체로">✕</button>
-                    </>
-                  ) : (
-                    <select value={bMode} onChange={(e) => { const v = e.target.value as BMode; setBMode(v); setFB(null); setSort(v === "asc" || v === "desc" ? { key: "b", dir: v === "asc" ? 1 : -1 } : { key: null, dir: 1 }); setPage(1); }}
-                      style={{ ...fSel, minWidth: 74 }} title="Book 정렬 · 찾기">
-                      <option value="">B 전체</option>
-                      <option value="asc">B 낮은순</option>
-                      <option value="desc">B 높은순</option>
-                      <option value="num">B 직접 입력</option>
-                    </select>
+                  <input list="ncc-bfilter" value={bText} placeholder="B 전체" title="Book 번호를 입력하거나 낮은순·높은순을 고르세요"
+                    onChange={(e) => {
+                      const v = e.target.value.trim();
+                      setBText(v);
+                      if (v === "낮은순" || v === "높은순") { setFB(null); setSort({ key: "b", dir: v === "낮은순" ? 1 : -1 }); }
+                      else if (v === "") { setFB(null); setSort({ key: null, dir: 1 }); }
+                      else if (/^\d+$/.test(v)) { setFB(+v); }
+                      else { setFB(null); }
+                      setPage(1);
+                    }}
+                    style={{ ...fSel, minWidth: 86 }} />
+                  <datalist id="ncc-bfilter">
+                    <option value="낮은순" />
+                    <option value="높은순" />
+                  </datalist>
+                  {bText && (
+                    <button type="button" onClick={() => { setBText(""); setFB(null); setSort({ key: null, dir: 1 }); setPage(1); }}
+                      style={{ border: 0, background: "none", color: "#9ca3af", cursor: "pointer", fontSize: 12, padding: 0 }} title="B 전체로">✕</button>
                   )}
                 </div>
               </th>
@@ -747,7 +793,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                       </div>
                     )}
                   </Field>
-                  {/* Book — 사용 가능한 번호. 목록 끝의 [＋ 더 보기] 도 셀렉트 안에 둔다 `PC-054` */}
+                  {/* Book — 목록을 **열어 둔 채** 100개씩 이어 볼 수 있어야 해서 직접 만든 드롭다운을 쓴다 `PC-057` */}
                   {(() => {
                     const keepB = editing.idx === -1 ? undefined : editing.row.b;
                     const probe = freeBooks(editing.row.k, editing.row.s, editing.row.o, keepB, bookLimit + 1);
@@ -755,14 +801,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                     const list = more ? probe.slice(0, bookLimit) : probe;
                     return (
                       <Field label={`Book (사용 가능 번호${more ? ` · ${list.length}개 표시` : ` ${list.length}개`})`}>
-                        <select style={{ ...S.input, background: "#fff" }} value={editing.row.b}
-                          onChange={(e) => {
-                            if (e.target.value === "__more__") { setBookLimit((v) => v + BOOK_STEP); return; }
-                            setF("b", +e.target.value);
-                          }}>
-                          {list.map((b) => <option key={b} value={b}>B{b}</option>)}
-                          {more && <option value="__more__">＋ {BOOK_STEP}개 더 보기 …</option>}
-                        </select>
+                        <BookPicker value={editing.row.b} list={list} more={more} step={BOOK_STEP}
+                          onPick={(b) => setF("b", b)} onMore={() => setBookLimit((v) => v + BOOK_STEP)} />
                       </Field>
                     );
                   })()}

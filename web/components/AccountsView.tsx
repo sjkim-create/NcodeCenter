@@ -14,6 +14,7 @@ import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { addTicket, hydrateTickets } from "@/lib/ticketStore";
 import { SobpRangePicker, type SobpRange } from "./TicketsView";
+import { servicesOfCompany } from "@/lib/serviceCustomers";
 import { codeKind, patternOf, patternTypeParam, type TicketPattern } from "@/lib/codeKind";
 import {
   caster, useCaster, ACCOUNT_SERVICES, accountServiceLabel, accountServiceReady,
@@ -338,6 +339,7 @@ export function AccountNewView() {
 
   const company = companies.find((c) => c.id === companyId);
   const ranges = useRanges(companyId);
+  const { projects } = useStore();
   const range = ranges[sobpIdx];
 
   const hasCastern = services.includes("CASTERN");
@@ -352,6 +354,13 @@ export function AccountNewView() {
     setCompanyId(cid); setSobpIdx(-1);
     const c = companies.find((x) => x.id === cid);
     if (c) setAddr(c.address || "");        // 고객사 주소 자동 입력
+    // 사용처는 **SOBP 맵에서 지정한 사용 서비스**를 그대로 체크한다 `PC-057`
+    //   casterN → CasterN · 폼솔루션 → 폼솔루션 · SDK 연동(코드만 할당) → SDK
+    const map: Record<string, AccountService> = { CASTERN: "CASTERN", FORMSOLUTION: "FORMSOLUTION", NONE: "SDK" };
+    const next = [...new Set(servicesOfCompany(cid, projects).map((v) => map[v]).filter(Boolean))] as AccountService[];
+    if (!next.length) return;
+    setServices(next);
+    setSettings(next.includes("CASTERN") ? { CASTERN: { perms: [...ALL_PERMS] } } : {});
   };
 
   const submit = () => {

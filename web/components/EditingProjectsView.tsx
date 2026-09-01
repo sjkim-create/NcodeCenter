@@ -7,6 +7,7 @@ import { codeKind, CODE_KINDS, kindMeta, type CodeKind } from "@/lib/codeKind";
 import { store, useStore } from "@/lib/store";
 import EditingDetailView from "./EditingDetailView";
 import { EditCustomer, loadCustomCustomers, saveCustomCustomers } from "@/lib/editingCustomers";
+import { customersOfService } from "@/lib/serviceCustomers";
 import { EDIT_CUSTOMERS, EDIT_SUMMARY } from "@/lib/editingData";
 import { rateOf, settle, BASE_RATE, won } from "@/lib/pricing";
 import { Sc } from "./sobp";
@@ -94,6 +95,8 @@ export default function EditingProjectsView() {
   const selCust = all.find((c) => uidOf(c) === sel) ?? all.find((c) => c.owner === sel);
 
   const openAdd = () => setAddForm({ companyId: 0, owner: "", kind: "N" });
+  // 편집(casterN) 대상 고객사 — SOBP 맵의 사용 서비스 지정을 따른다 `PC-057`
+  const casternCos = useMemo(() => customersOfService("CASTERN", st.companies, st.projects), [st.companies, st.projects]);
   // 선택한 고객사가 보유한 코드의 Owner 목록 (코드 프로젝트 발급 내역 기준)
   const ownerOptsOf = (companyId: number) => {
     const m = new Map<string, { owner: number; kind: "N" | "G"; section: number }>();
@@ -237,11 +240,17 @@ export default function EditingProjectsView() {
         const co = st.companies.find((c) => c.id === addForm.companyId);
         return (
           <Modal onClose={() => setAddForm(null)} title="편집 고객사 추가">
-            <Field label="등록된 고객사 * (고객사 관리)">
+            {/* SOBP 맵에서 **사용 서비스 = casterN** 으로 지정한 고객사만 후보다 `PC-057` */}
+            <Field label={`casterN 고객사 * (SOBP 맵에서 사용 서비스 지정)`}>
               <select style={S.input} value={addForm.companyId} onChange={(e) => onPickCompany(+e.target.value)}>
-                <option value={0}>- 고객사 선택 -</option>
-                {st.companies.slice().sort((a, b) => a.name.localeCompare(b.name, "ko")).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <option value={0}>- 고객사 선택 ({casternCos.length}곳) -</option>
+                {casternCos.map((c) => <option key={c.company.id} value={c.company.id}>{c.company.name}</option>)}
               </select>
+              {casternCos.length === 0 && (
+                <div style={{ fontSize: 11.5, color: "#b45309", marginTop: 5, lineHeight: 1.6 }}>
+                  casterN 으로 지정된 고객사가 없습니다 — <b>SOBP 맵 ▸ 직접 코드 할당</b> 에서 사용 서비스를 <b>casterN</b> 으로 지정하세요.
+                </div>
+              )}
             </Field>
 
             {addForm.companyId > 0 && (
