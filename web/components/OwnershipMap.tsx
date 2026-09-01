@@ -32,7 +32,7 @@ const SCALE: Partial<Record<CodeKind, Record<number, { o: number; b: number; p: 
 //   OID 는 데이터 k="O" 와 옛 IDS 표기 k="A" 를 함께 본다 (동일 용어, PC-035).
 const DK: Record<CodeKind, string> = { PDS3: "N", PDS2: "G", PDS4: "N", OID: "O" };
 // 직접 코드 할당에서 고를 수 있는 종류 — OID 는 index 부여라 좌표 할당 대상이 아니다.
-const ALLOC_KINDS: CodeKind[] = ["PDS3", "PDS2", "PDS4"];
+const ALLOC_KINDS: CodeKind[] = ["PDS2", "PDS3", "PDS4"];
 const hue = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; };
 
 // 사용 중: 편집 데이터(교재) + 소유권 데이터(범위) + 코드 프로젝트(신규 할당)
@@ -468,7 +468,8 @@ export default function OwnershipMap() {
         // 할당 종류 — **모달 안에서만 바뀌는 값**이라 고르더라도 지도의 S/O 선택은 그대로다 `PC-046`
         //   이미 쓰는 종류가 있으면 그 종류로 고정하고 상태로만 보여 준다 (한 S/O = 한 종류 `PC-041`)
         const aKind: CodeKind = soKinds.length === 1 ? soKinds[0]
-          : (aKindSel && kindOpts.includes(aKindSel) ? aKindSel : (kind === "ALL" ? (kindOpts[0] ?? "PDS3") : kind));
+          : (aKindSel && kindOpts.includes(aKindSel) ? aKindSel
+             : (kind === "ALL" ? (kindOpts.includes("PDS3") ? "PDS3" : kindOpts[0] ?? "PDS3") : kind));
         const kindFixed = soKinds.length > 0;
         // 과거 혼용 좌표(S3/O42 등)에는 신규 발급하지 않는다 `PC-041`
         const mixedBlock = soKinds.length > 1;
@@ -542,7 +543,7 @@ export default function OwnershipMap() {
           setSelB(0); setAlloc(null);
         };
         return (
-          <Modal onClose={() => setAlloc(null)} title={`코드 할당 — S${curS}/O${curO}`} width={720}>
+          <Modal onClose={() => setAlloc(null)} title="코드 할당" width={720}>
             {/* 1. 발급 대상 — 좌표는 지도에서 고른다. 여기서는 **상태만** 보여 준다 `PC-046` */}
             <div style={{ border: `1px solid ${blockMsg ? "#fecaca" : "#e5e7eb"}`, background: blockMsg ? "#fef2f2" : "#fafbfc",
               borderRadius: 10, padding: "11px 13px" }}>
@@ -560,7 +561,8 @@ export default function OwnershipMap() {
 
             {/* 2. 발급 정보 */}
             <div style={{ marginTop: 10, border: "1px solid #eef0f4", borderRadius: 10, padding: "12px 13px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {/* 고객사 · 사용 서비스 · 코드 종류 — 한 행 `PC-047` */}
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1.1fr", gap: 12, alignItems: "start" }}>
                 <Field label="고객사 *">
                   <input list="ncc-alloc-acct" style={S.input} value={alloc.company}
                     placeholder="고객사 선택 또는 검색"
@@ -572,26 +574,29 @@ export default function OwnershipMap() {
                     {SERVICE.map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
                   </select>
                 </Field>
-              </div>
-
-              {/* 코드 종류 — 비어 있는 좌표에서만 고른다. 골라도 S/O 는 바뀌지 않는다 `PC-046` */}
-              <div style={{ marginTop: 11, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 11.5, color: "#6b7280", fontWeight: 700, minWidth: 58 }}>코드 종류</span>
-                {kindFixed ? (
-                  <span style={{ fontSize: 12, color: "#6b7280" }}>
-                    이 S/O 는 <b style={{ color: kindMeta(aKind).color }}>{soKinds.join(" · ")}</b> 로 사용 중 — 같은 종류로 발급합니다.
-                  </span>
-                ) : kindOpts.map((k2) => {
-                  const on = k2 === aKind;
-                  return (
-                    <button key={k2} onClick={() => setAKindSel(k2)}
-                      style={{ fontSize: 12, borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontWeight: on ? 700 : 400,
-                        border: `1px solid ${on ? kindMeta(k2).color : "#e5e7eb"}`,
-                        background: on ? kindMeta(k2).bg : "#fff", color: on ? kindMeta(k2).color : "#6b7280" }}>
-                      {kindMeta(k2).short}
-                    </button>
-                  );
-                })}
+                {/* 코드 종류 — 비어 있는 좌표에서만 고른다. 골라도 S/O 는 바뀌지 않는다 `PC-046` */}
+                <Field label="코드 종류">
+                  {kindFixed ? (
+                    <div style={{ ...S.input, background: "#fafbfc", display: "flex", alignItems: "center", gap: 6 }}>
+                      <KindChip kind={aKind} small />
+                      <span style={{ fontSize: 11, color: "#9ca3af" }}>사용 중 · 같은 종류로 발급</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", gap: 5 }}>
+                      {kindOpts.map((k2) => {
+                        const on = k2 === aKind;
+                        return (
+                          <button key={k2} onClick={() => setAKindSel(k2)}
+                            style={{ flex: 1, fontSize: 12, borderRadius: 7, padding: "7px 4px", cursor: "pointer", fontWeight: on ? 700 : 400,
+                              border: `1px solid ${on ? kindMeta(k2).color : "#e5e7eb"}`,
+                              background: on ? kindMeta(k2).bg : "#fff", color: on ? kindMeta(k2).color : "#6b7280" }}>
+                            {kindMeta(k2).short}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Field>
               </div>
             </div>
 

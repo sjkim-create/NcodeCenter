@@ -63,17 +63,33 @@ def notebox(kind, inner):
             'margin-bottom:12px">%s</div>' % (c[1], c[0], c[2], inner))
 
 
-def cust_svc(cust='', svc='NONE'):
-    desc = [d for v, _l, d in SERVICES if v == svc][0]
+def kind_chips(kind='PDS3', fixed=False):
+    """코드 종류 — PDS2 · PDS3 순 `PC-047`. 이미 쓰는 종류가 있으면 고정 표시 `PC-046`"""
+    if fixed:
+        return ('<div class="inp" style="background:#fafbfc;display:flex;align-items:center;gap:6px">'
+                '%s<span style="font-size:11px;color:#9ca3af">사용 중 · 같은 종류로 발급</span></div>'
+                % pbadge(kind))
+    out = ''
+    for k in ('PDS2', 'PDS3'):
+        on = (k == kind)
+        out += ('<span style="flex:1;text-align:center;font-size:12px;border-radius:7px;'
+                'padding:7px 4px;font-weight:%s;border:1px solid %s;background:%s;color:%s">%s</span>'
+                % ('700' if on else '400',
+                   KIND_C[k] if on else '#e5e7eb',
+                   ('#fef3c7' if k == 'PDS2' else '#eef6ff') if on else '#fff',
+                   KIND_C[k] if on else '#6b7280', k))
+    return '<div style="display:flex;gap:5px">%s</div>' % out
+
+
+def cust_svc(cust='', svc='NONE', kind='PDS3', kind_fixed=False):
+    """고객사 · 사용 서비스 · 코드 종류 — 한 행 `PC-047`"""
     label = [l for v, l, _d in SERVICES if v == svc][0]
-    return ('<div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">'
-            '<div style="flex:1 1 280px;max-width:320px">%s</div>'
-            '<div style="flex:0 1 240px;min-width:200px">%s'
-            '<div style="font-size:10.5px;color:#9ca3af;margin-top:4px;line-height:1.5">%s</div>'
-            '</div></div>'
-            % (field('고객사', sel(cust or '고객사 선택 또는 직접 입력(검색)',
-                                ph=not cust), True),
-               field('사용 서비스', sel(label)), desc))
+    return ('<div style="display:grid;grid-template-columns:1.2fr 1fr 1.1fr;gap:12px;'
+            'align-items:start;margin-top:10px;border:1px solid #eef0f4;border-radius:10px;'
+            'padding:12px 13px">%s%s%s</div>'
+            % (field('고객사', sel(cust or '고객사 선택 또는 검색', ph=not cust), True),
+               field('사용 서비스', sel(label)),
+               field('코드 종류', kind_chips(kind, kind_fixed))))
 
 
 def owned(cust='웅진씽크빅', rows=None):
@@ -107,11 +123,12 @@ def owned(cust='웅진씽크빅', rows=None):
     return '<div style="margin-top:10px">%s%s</div>' % (head, body)
 
 
-def detail(cust='웅진씽크빅', sec=3, own=17, locked=None, cross=False, kind='PDS3'):
+def detail(cust='웅진씽크빅', sec=3, own=17, locked=None, cross=False, kind='PDS3', shared=False):
     """발급 대상 — 좌표는 지도에서 고른다. 모달에서는 상태만 보여 준다 `PC-046`"""
     lk = bool(locked)
     st = ('🔒 전용 · 추가 발급 불가', '#fee2e2', '#991b1b') if lk else (
-         ('사용 중 · 이어서 발급', '#ccfbf1', '#0f766e') if cross else ('미발급 · 신규 발급', '#eef6ff', '#2563eb'))
+         ('공유 OWNER · Book 만 배타', '#f3e8ff', '#6b21a8') if shared else (
+         ('사용 중 · 이어서 발급', '#ccfbf1', '#0f766e') if cross else ('미발급 · 신규 발급', '#eef6ff', '#2563eb')))
     bar = '<span style="font-size:11.5px;color:#6b7280;font-weight:700">발급 대상</span>'
     bar += sc('S', sec) + sc('O', own) + pbadge(kind) + tag(st[0], st[1], st[2])
     bar += ('<span style="flex:1"></span>'
@@ -133,10 +150,7 @@ def modal(title, body, save_off=False):
             % (title, body, ' style="opacity:.5"' if save_off else ''))
 
 
-T = '코드 할당 — S3/O17 · PDS3'
-BASE = notebox('base', '<b>S3/O17</b> 에 발급합니다.'
-               + help_i('기존 고객사에는 추가 발급됩니다. '
-                        '신규 고객사는 [고객사 관리]에서 먼저 등록해야 합니다.'))
+T = '코드 할당'
 OWN2 = [('N', 3, 17, '0~99', '', True), ('G', 0, 212, '111~199', '1~4,095', False)]
 
 CLOSE = [('[취소] · ✕', '클릭', '<code>SOB-01</code>', '변경 없이 복귀')]
@@ -158,7 +172,7 @@ def build():
         '② <b>발급 정보</b>(고객사 · 사용 서비스 · 코드 종류) ③ <b>보유 코드</b>(고객사를 고르면 나온다). '
         '좌표(Section · Owner)는 <b>지도에서 고른 값</b>이라 모달에서 바꾸지 않는다. '
         '<b>[할당]</b> 은 고객사를 고르기 전에는 눌리지 않고, 사용 서비스 기본값은 <b>서비스 없음</b>.',
-        scr(modal(T, BASE + cust_svc('', 'NONE') + owned('') + detail(''), save_off=True)),
+        scr(modal(T, detail('') + cust_svc('', 'NONE') + owned(''), save_off=True)),
         [('고객사 *', '목록 선택 또는 직접 입력(검색)', '기존 보유 코드 영역 표시',
           '<code>MEM-01</code> 에 등록된 고객사만 — <b>여기서 신규 고객사를 만들지 않는다</b>'),
          ('사용 서비스', '선택', '아래 안내문 교체',
@@ -178,8 +192,8 @@ def build():
         'S2', '고객사 선택 · 보유 코드 없음', '분기',
         '이 고객사가 아직 받은 코드가 없는 경우. 안내 한 줄만 나온다 — '
         '<b>보유한 코드가 없습니다 — 새 S/O로 발급됩니다.</b>',
-        scr(modal(T, BASE + cust_svc('아이스크림에듀', 'NONE')
-                  + owned('아이스크림에듀', []) + detail('아이스크림에듀'))),
+        scr(modal(T, detail('아이스크림에듀') + cust_svc('아이스크림에듀', 'NONE')
+                  + owned('아이스크림에듀', []))),
         [('[할당]', '클릭', '<code>SOB-01</code> 복귀', '지도 갱신 · 선택 Book 초기화'),
          ('미등록 고객사', '[할당]', '확인창 → <code>MEM-02</code>',
           '<b>고객사 관리에 등록된 고객사가 아닙니다. 먼저 고객사 관리에서 등록하세요.</b>')]
@@ -190,8 +204,8 @@ def build():
         '이 고객사가 이미 받은 코드를 <b>2열</b> 로 보여준다(많으면 영역 안에서 스크롤). '
         '지금 보고 있는 코드 종류·S·O 와 같은 칸만 <b>파랑으로 강조</b>된다. '
         'Page 범위는 <b>지정된 코드에만</b> 붙는다.',
-        scr(modal(T, BASE + cust_svc('웅진씽크빅', 'NONE')
-                  + owned('웅진씽크빅', OWN2) + detail('웅진씽크빅'))),
+        scr(modal(T, detail('웅진씽크빅') + cust_svc('웅진씽크빅', 'NONE')
+                  + owned('웅진씽크빅', OWN2))),
         [('보유 코드', '클릭', '그 S/O 로 이동',
           '지도 선택이 함께 바뀌고 <b>시작 Book 이 가장 빠른 빈 번호</b> 로 자동 설정된다'),
          ('보유 코드', '클릭 — 빈 Book 없음', '인라인 오류',
@@ -202,8 +216,8 @@ def build():
         '<code>P-14</code> — casterN 으로 지정하면 그 코드는 '
         '<b>편집 프로젝트(<code>PRJ-02</code>) 관리 대상</b> 이 된다. '
         '이후 편집 진행과 정산은 <code>PRJ-03</code> 에서 이어진다.',
-        scr(modal(T, BASE + cust_svc('웅진씽크빅', 'CASTERN')
-                  + owned('웅진씽크빅', OWN2) + detail('웅진씽크빅'))),
+        scr(modal(T, detail('웅진씽크빅') + cust_svc('웅진씽크빅', 'CASTERN')
+                  + owned('웅진씽크빅', OWN2))),
         [('사용 서비스 = casterN', '선택', '<code>PRJ-02</code> → <code>PRJ-03</code>',
           '이 코드가 편집 대상으로 표시된다'),
          ('[할당]', '성공', '<code>LOG-01</code>',
@@ -214,8 +228,8 @@ def build():
         'S5', '사용 서비스 = 폼솔루션', '분기',
         '<code>PC-026</code> — 지정할 수 있는 서비스는 3종뿐이다. '
         '그 외 용도(Ncode 프린터 등)의 코드는 <b>서비스 없음(코드만 발급)</b> 으로 할당한다.',
-        scr(modal(T, BASE + cust_svc('웅진씽크빅', 'FORMSOLUTION')
-                  + owned('웅진씽크빅', OWN2) + detail('웅진씽크빅'))),
+        scr(modal(T, detail('웅진씽크빅') + cust_svc('웅진씽크빅', 'FORMSOLUTION')
+                  + owned('웅진씽크빅', OWN2))),
         [('사용 서비스', '선택', '안내문 교체',
           '<b>자체 서비스 — 코드 사용량이 모니터링됩니다.</b>')] + CLOSE))
 
@@ -224,13 +238,9 @@ def build():
         '<code>P-05</code> 무겹침 — 이 S/O 를 <b>다른 고객사가 전용으로 쓰고 있는</b> 경우. '
         '상단 안내가 빨강으로 바뀌고, 발급 대상에 <b>🔒 전용 · 할당 불가</b> 가 붙고, '
         '<b>발급 입력 전체가 잠긴다</b>.',
-        scr(modal(T,
-                  notebox('lock', '⚠ <b>전용 코드</b> — S3/O17 는 이미 <b>대교</b> 에 '
-                          '할당되어 있습니다. 발급 입력이 잠깁니다.'
-                          + help_i('한 업체 전용 S/O 라 다른 업체에 추가 발급할 수 없습니다.\n'
-                                   '· 해당 업체를 고객사로 선택하면 이어서 발급할 수 있습니다.'))
-                  + cust_svc('웅진씽크빅', 'NONE') + owned('웅진씽크빅', OWN2)
-                  + detail('웅진씽크빅', locked='대교'), save_off=True)),
+        scr(modal(T, detail('웅진씽크빅', locked='대교')
+                  + cust_svc('웅진씽크빅', 'NONE', kind_fixed=True)
+                  + owned('웅진씽크빅', OWN2), save_off=True)),
         [('발급 입력', '—', '잠금(회색)', '값을 바꿀 수 없다'),
          ('[할당]', '강제 실행', '확인창',
           '<b>전용 코드입니다. S3/O17 는 이미 대교 에 할당되어 있습니다.</b>'),
@@ -245,14 +255,9 @@ def build():
         '<code>P-07</code> 의 예외 · <code>P-12</code> — 미리 <b>공유(커먼) 코드로 지정된 Owner</b>. '
         '여러 고객사가 같은 Owner 를 쓸 수 있고 <b>Book 번호만 겹치지 않으면 된다</b>. '
         '전용 잠금이 걸리지 않는다.',
-        scr(modal('코드 할당 — S3/O964 · PDS2',
-                  notebox('share', '✅ <b>공유 OWNER</b> · S3/O964 — 여러 고객사 사용 가능 '
-                          '(Book 번호만 배타)'
-                          + help_i('COMMON-21 언어 확장 슬롯\n'
-                                   '현재 사용: 웅진씽크빅, 대교, 天津新学\n\n'
-                                   '공유 OWNER는 Book 번호만 겹치지 않으면 됩니다.'))
-                  + cust_svc('웅진씽크빅', 'NONE') + owned('웅진씽크빅', OWN2)
-                  + detail('웅진씽크빅', sec=3, own=964))),
+        scr(modal(T, detail('웅진씽크빅', sec=3, own=964, shared=True)
+                  + cust_svc('웅진씽크빅', 'NONE', kind='PDS2')
+                  + owned('웅진씽크빅', OWN2))),
         [('공유 판정', '자동', '보라 안내', '공유로 지정된 Owner 면 항상 이 상태'),
          ('현재 사용 고객사', '안내 아이콘', '툴팁', '공유 사유 + 실사용 고객사 목록'),
          ('사용 고객사 검사', '고객사 선택', '<b>차단</b>',
@@ -267,9 +272,9 @@ def build():
         '같은 <b>S/O</b> 안에서 <b>Book 을 나눠</b> PDS2·PDS3 를 함께 쓰는 <b>과거 이력 3건</b>'
         '(S3/O42 · S3/O44 · S3/O1020)은 그대로 보여 준다. '
         '다만 <b>신규 발급은 한 S/O 에 한 종류만</b> 하므로 이 화면에서는 막는다 <code>PC-041</code>.',
-        scr(modal(T, BASE + cust_svc('웅진씽크빅', 'NONE')
-                  + owned('웅진씽크빅', OWN2)
-                  + detail('웅진씽크빅', cross=True), save_off=True)),
+        scr(modal(T, detail('웅진씽크빅', cross=True)
+                  + cust_svc('웅진씽크빅', 'NONE', kind_fixed=True)
+                  + owned('웅진씽크빅', OWN2), save_off=True)),
         [('종류 배타', '—', '폐지', '<b>🚫 영역 할당됨</b> 배지·차단·확인창을 모두 없앴다'),
          ('코드 종류', '선택', '용도 표시',
           '할당한 좌표가 <b>PDS2 / PDS3 / PDS4</b> 중 무엇으로 쓰이는지만 기록한다'),
@@ -282,8 +287,8 @@ def build():
         'S9', '저장 실패 — 확인창', '오류',
         '[할당] 을 누르면 아래 순서로 확인하고, 하나라도 걸리면 <b>확인창을 띄우고 멈춘다</b>. '
         '창은 닫히지 않아 값을 고쳐 다시 시도할 수 있다.',
-        scr(modal(T, BASE + cust_svc('웅진씽크빅', 'NONE')
-                  + owned('웅진씽크빅', OWN2) + detail('웅진씽크빅')
+        scr(modal(T, detail('웅진씽크빅') + cust_svc('웅진씽크빅', 'NONE')
+                  + owned('웅진씽크빅', OWN2)
                   + '<div class="toast err" style="margin:12px 0 0">'
                     '⚠ 할당이 저장되지 않았습니다.<br>저장 용량을 초과했습니다.</div>')),
         [('① 고객사 미선택', '확인창', '중단',
