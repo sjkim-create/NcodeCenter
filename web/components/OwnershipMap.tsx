@@ -96,7 +96,7 @@ export default function OwnershipMap() {
   // 자동 추천(SOBP 추천)은 PDS3·PDS2 만 대상 — PDS4(Section 44)·OID 는 직접 선택으로 다룬다.
   const recoPds: Pds = kind === "PDS2" ? "G" : "N";
   const recoTarget = kind === "PDS3" || kind === "PDS2" || kind === "ALL";
-  const [alloc, setAlloc] = useState<{ company: string; newCompany: string; bookStart: number; books: number; pages: number; mode: "코드발급" | "편집"; shared: boolean; service: ServiceType } | null>(null);
+  const [alloc, setAlloc] = useState<{ company: string; newCompany: string; bookStart: number; books: number; pages: number; mode: "코드발급" | "편집"; shared: boolean; service: ServiceType; svcTouched?: boolean } | null>(null);
   const [aKindSel, setAKindSel] = useState<CodeKind | null>(null);                    // 할당 모달의 코드 종류(지도 선택과 분리) `PC-046`
   const [selS, setSelS] = useState(0);
   const [selO, setSelO] = useState(1);
@@ -499,6 +499,11 @@ export default function OwnershipMap() {
         // 전용(비공유) 코드가 이미 다른 업체에 할당된 S/O → 발급 상세 입력 전체 잠금 (공유 체크 시 해제)
         const others = holders.filter((h) => nzn(h) !== nzn(name));
         const locked = !shared && others.length > 0;
+        // 이미 한 업체가 쓰는 좌표 — 고객사는 고르는 값이 아니라 **상태**다 `PC-048`
+        const usedSO = !shared && holders.length > 0;
+        const soProj = projects.find((pr) => pr.issued.some((b) => b.section === curS && b.owner === curO));
+        const svcCur: ServiceType = soProj?.service ?? "NONE";
+        const svcValue: ServiceType = alloc.svcTouched ? alloc.service : svcCur;
         const lockIn = (s: React.CSSProperties): React.CSSProperties =>
           locked ? { ...s, background: "#f3f4f6", color: "#9ca3af", cursor: "not-allowed" } : s;
         // 선택 고객사가 이미 보유한 코드(S/O/Book/Page)
@@ -508,6 +513,16 @@ export default function OwnershipMap() {
           .flatMap((p) => p.issued.map((b) => ({ k: b.kind ?? "N", s: b.section, o: b.owner,
             bs: b.bookStart, be: b.bookEnd, ps: b.pageStart, pe: b.pageEnd, codes: b.codes })))
           .sort((a, b) => a.s - b.s || a.o - b.o);
+        // 이미 발급된 좌표에서는 **사용 서비스만** 바꿔 저장한다 `PC-048`
+        const svcDirty = usedSO && !!soProj && svcValue !== svcCur;
+        const saveService = () => {
+          if (!soProj) return;
+          store.upsertProject({ ...soProj, service: svcValue, editing: svcValue === "CASTERN" ? true : soProj.editing });
+          if (persistError()) { alert(`⚠ 저장되지 않았습니다.
+${persistError()}`); return; }
+          logActivity("alloc", `${holders.join(" · ")} · S${curS}/O${curO} 사용 서비스 → ${SERVICE.find((s) => s.v === svcValue)?.label ?? "서비스 없음"}`, me?.name);
+          setAlloc(null);
+        };
         // 좌표 상태 한 줄 — 셀렉트 없이 상태만 보여 준다 `PC-046`
         const stLabel2 = locked ? `🔒 전용 · 추가 발급 불가`
           : shared ? "공유 OWNER · Book 만 배타"
@@ -515,7 +530,7 @@ export default function OwnershipMap() {
           : "미발급 · 신규 발급";
         const stBg = locked ? "#fee2e2" : shared ? "#f3e8ff" : soKinds.length ? "#ccfbf1" : "#eef6ff";
         const stFg = locked ? "#991b1b" : shared ? "#6b21a8" : soKinds.length ? "#0f766e" : "#2563eb";
-        const blockMsg = locked ? `이미 ${others.join(", ")} 전용입니다 — 추가 발급 대상이 아닙니다.`
+        const blockMsg = locked ? `“${others.join(", ")}” 전용으로 추가 발급이 불가`
           : mixedBlock ? `이 S/O 는 ${soKinds.join(" · ")} 가 함께 쓰인 과거 이력 좌표입니다 — 신규 발급은 다른 Owner 를 고르세요.`
           : commonBlock ? `${name} 는 공유 코드 ${cCode!.name} 의 사용 고객사가 아닙니다 — [고객사 관리] 에서 하위 등록하세요.`
           : "";
@@ -532,14 +547,14 @@ export default function OwnershipMap() {
           // 직접 코드 할당 = SO 단위. owner 전체를 점유(모든 book 사용가능)하되,
           // 실제 발급 규모(codes)는 편집 시 집계 → 여기서는 codes 0 (점유만).
           store.upsertProject({
-            id: 0, name: `${co.name} 코드발급 · S${curS}/O${curO}`, companyId, service: alloc.service, grade: "",
-            editing: alloc.service === "CASTERN", editingOwner: curO, symbols: 0,
+            id: 0, name: `${co.name} 코드발급 · S${curS}/O${curO}`, companyId, service: svcValue, grade: "",
+            editing: svcValue === "CASTERN", editingOwner: curO, symbols: 0,
             issued: [{ id: 1, date: new Date().toISOString().slice(0, 10), codes: 0, kind: DK[aKind] as "N" | "G" | "A" | "O",
                        by: me?.name ?? "", section: curS, owner: curO, bookStart: 0, bookEnd: scale.b - 1, pageStart: 1, pageEnd: 1 }],
           });
           // 저장 실패(용량 초과 등) 시 사라진 것처럼 보이지 않도록 즉시 경고
           if (persistError()) { alert(`⚠ 할당이 저장되지 않았습니다.\n${persistError()}`); return; }
-          logActivity("alloc", `${co.name} · ${kindMeta(aKind).short} S${curS}/O${curO} · ${SERVICE.find((s) => s.v === alloc.service)?.label ?? "서비스 없음"} · SO 점유(전체 book 사용가능)`, me?.name);
+          logActivity("alloc", `${co.name} · ${kindMeta(aKind).short} S${curS}/O${curO} · ${SERVICE.find((s) => s.v === svcValue)?.label ?? "서비스 없음"} · SO 점유(전체 book 사용가능)`, me?.name);
           setSelB(0); setAlloc(null);
         };
         return (
@@ -563,14 +578,24 @@ export default function OwnershipMap() {
             <div style={{ marginTop: 10, border: "1px solid #eef0f4", borderRadius: 10, padding: "12px 13px" }}>
               {/* 고객사 · 사용 서비스 · 코드 종류 — 한 행 `PC-047` */}
               <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1.1fr", gap: 12, alignItems: "start" }}>
-                <Field label="고객사 *">
-                  <input list="ncc-alloc-acct" style={S.input} value={alloc.company}
-                    placeholder="고객사 선택 또는 검색"
-                    onChange={(e) => setAlloc({ ...alloc, company: e.target.value })} />
-                  <datalist id="ncc-alloc-acct">{companies.map((c) => <option key={c.id} value={c.name} />)}</datalist>
+                <Field label={usedSO ? "고객사" : "고객사 *"}>
+                  {usedSO ? (
+                    <div style={{ ...S.input, background: "#fafbfc", display: "flex", alignItems: "center", gap: 6, color: "#374151" }}>
+                      <b>{holders.join(" · ")}</b>
+                      <span style={{ fontSize: 11, color: "#9ca3af" }}>보유</span>
+                    </div>
+                  ) : (
+                    <>
+                      <input list="ncc-alloc-acct" style={S.input} value={alloc.company}
+                        placeholder="고객사 선택 또는 검색"
+                        onChange={(e) => setAlloc({ ...alloc, company: e.target.value })} />
+                      <datalist id="ncc-alloc-acct">{companies.map((c) => <option key={c.id} value={c.name} />)}</datalist>
+                    </>
+                  )}
                 </Field>
                 <Field label="사용 서비스">
-                  <select style={S.input} value={alloc.service} onChange={(e) => setAlloc({ ...alloc, service: e.target.value as ServiceType })}>
+                  <select style={S.input} value={svcValue}
+                    onChange={(e) => setAlloc({ ...alloc, service: e.target.value as ServiceType, svcTouched: true })}>
                     {SERVICE.map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
                   </select>
                 </Field>
@@ -578,8 +603,7 @@ export default function OwnershipMap() {
                 <Field label="코드 종류">
                   {kindFixed ? (
                     <div style={{ ...S.input, background: "#fafbfc", display: "flex", alignItems: "center", gap: 6 }}>
-                      <KindChip kind={aKind} small />
-                      <span style={{ fontSize: 11, color: "#9ca3af" }}>사용 중 · 같은 종류로 발급</span>
+                      {soKinds.map((k2) => <KindChip key={k2} kind={k2} small />)}
                     </div>
                   ) : (
                     <div style={{ display: "flex", gap: 5 }}>
@@ -626,7 +650,10 @@ export default function OwnershipMap() {
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
               <button onClick={() => setAlloc(null)} style={S.ghost}>취소</button>
-              {true && (
+              {usedSO ? (
+                <button onClick={saveService} disabled={!svcDirty}
+                  style={{ ...S.primary, ...(!svcDirty ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>사용 서비스 저장</button>
+              ) : (
                 <button onClick={save} disabled={locked || !name || mixedBlock || commonBlock}
                   style={{ ...S.primary, ...(locked || !name || mixedBlock || commonBlock ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>할당</button>
               )}

@@ -67,8 +67,7 @@ def kind_chips(kind='PDS3', fixed=False):
     """코드 종류 — PDS2 · PDS3 순 `PC-047`. 이미 쓰는 종류가 있으면 고정 표시 `PC-046`"""
     if fixed:
         return ('<div class="inp" style="background:#fafbfc;display:flex;align-items:center;gap:6px">'
-                '%s<span style="font-size:11px;color:#9ca3af">사용 중 · 같은 종류로 발급</span></div>'
-                % pbadge(kind))
+                '%s</div>' % pbadge(kind))
     out = ''
     for k in ('PDS2', 'PDS3'):
         on = (k == kind)
@@ -81,13 +80,19 @@ def kind_chips(kind='PDS3', fixed=False):
     return '<div style="display:flex;gap:5px">%s</div>' % out
 
 
-def cust_svc(cust='', svc='NONE', kind='PDS3', kind_fixed=False):
-    """고객사 · 사용 서비스 · 코드 종류 — 한 행 `PC-047`"""
+def cust_svc(cust='', svc='NONE', kind='PDS3', kind_fixed=False, used=False):
+    """고객사 · 사용 서비스 · 코드 종류 — 한 행 `PC-047`.
+    이미 발급된 좌표(used)면 고객사는 **상태 표시**, 사용 서비스만 바꿀 수 있다 `PC-048`"""
     label = [l for v, l, _d in SERVICES if v == svc][0]
+    if used:
+        co = ('<div class="inp" style="background:#fafbfc;display:flex;align-items:center;gap:6px">'
+              '<b>%s</b><span style="font-size:11px;color:#9ca3af">보유</span></div>' % cust)
+    else:
+        co = sel(cust or '고객사 선택 또는 검색', ph=not cust)
     return ('<div style="display:grid;grid-template-columns:1.2fr 1fr 1.1fr;gap:12px;'
             'align-items:start;margin-top:10px;border:1px solid #eef0f4;border-radius:10px;'
             'padding:12px 13px">%s%s%s</div>'
-            % (field('고객사', sel(cust or '고객사 선택 또는 검색', ph=not cust), True),
+            % (field('고객사', co, not used),
                field('사용 서비스', sel(label)),
                field('코드 종류', kind_chips(kind, kind_fixed))))
 
@@ -136,18 +141,18 @@ def detail(cust='웅진씽크빅', sec=3, own=17, locked=None, cross=False, kind
     msg = ''
     if lk:
         msg = ('<div style="margin-top:7px;font-size:12px;color:#b91c1c;font-weight:700">'
-               '이미 %s 전용입니다 — 추가 발급 대상이 아닙니다.</div>' % locked)
+               '“%s” 전용으로 추가 발급이 불가</div>' % locked)
     return ('<div style="border:1px solid %s;background:%s;border-radius:10px;padding:11px 13px">'
             '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">%s</div>%s</div>'
             % ('#fecaca' if lk else '#e5e7eb', '#fef2f2' if lk else '#fafbfc', bar, msg))
 
 
-def modal(title, body, save_off=False):
+def modal(title, body, save_off=False, save='할당'):
     return ('<div class="ovl"><div class="mdl xw">'
             '<div class="mh"><div class="mt">%s</div><div class="mx">✕</div></div>'
             '%s<div class="mf"><div class="btn gho">취소</div>'
-            '<div class="btn pri"%s>할당</div></div></div></div>'
-            % (title, body, ' style="opacity:.5"' if save_off else ''))
+            '<div class="btn pri"%s>%s</div></div></div></div>'
+            % (title, body, ' style="opacity:.5"' if save_off else '', save))
 
 
 T = '코드 할당'
@@ -236,19 +241,21 @@ def build():
     B.append((
         'S6', '전용 코드 — 입력 잠금', '차단',
         '<code>P-05</code> 무겹침 — 이 S/O 를 <b>다른 고객사가 전용으로 쓰고 있는</b> 경우. '
-        '상단 안내가 빨강으로 바뀌고, 발급 대상에 <b>🔒 전용 · 할당 불가</b> 가 붙고, '
-        '<b>발급 입력 전체가 잠긴다</b>.',
+        '발급 대상이 빨강으로 바뀌고 <b>🔒 전용 · 추가 발급 불가</b> 배지와 '
+        '<b>“{업체명}” 전용으로 추가 발급이 불가</b> 한 줄이 나온다 <code>PC-048</code>. '
+        '고객사는 <b>보유 업체 상태 표시</b>(입력 칸이 아니다), 코드 종류도 배지로만 보여 주며, '
+        '바꿀 수 있는 것은 <b>사용 서비스</b> 하나다.',
         scr(modal(T, detail('웅진씽크빅', locked='대교')
-                  + cust_svc('웅진씽크빅', 'NONE', kind_fixed=True)
-                  + owned('웅진씽크빅', OWN2), save_off=True)),
-        [('발급 입력', '—', '잠금(회색)', '값을 바꿀 수 없다'),
-         ('[할당]', '강제 실행', '확인창',
-          '<b>전용 코드입니다. S3/O17 는 이미 대교 에 할당되어 있습니다.</b>'),
-         ('해제', '고객사를 <b>대교</b> 로 변경', '잠금 해제',
-          '그 고객사로 <b>이어서 추가 발급</b>할 수 있다'),
-         ('해제', '공유 OWNER 지정', '<b>미구현</b>',
-          '⚠ 안내 문구는 [공유 OWNER] 체크를 권하지만 <b>화면에 그 체크박스가 없다</b> — '
-          '현재는 <b>미리 공유로 지정된 Owner</b>(S7)만 공유로 동작한다')] + CLOSE))
+                  + cust_svc('대교', 'NONE', kind_fixed=True, used=True)
+                  + owned('대교', OWN2), save_off=True, save='사용 서비스 저장')),
+        [('고객사', '—', '<b>상태 표시</b>', '보유 업체명 + <b>보유</b> — 고르는 값이 아니다 <code>PC-048</code>'),
+         ('코드 종류', '—', '<b>상태 표시</b>', '쓰고 있는 종류를 배지로만 보여 준다'),
+         ('사용 서비스', '선택', '<b>[사용 서비스 저장]</b> 활성',
+          '현재 지정된 값이 그대로 뜨고, 바꾸면 저장 버튼이 열린다 <code>PC-048</code>'),
+         ('[사용 서비스 저장]', '클릭', '<code>SOB-01</code> 복귀',
+          '그 좌표의 <b>사용 서비스만</b> 바꾼다 — 코드는 새로 발급하지 않는다'),
+         ('추가 발급', '—', '<b>불가</b>',
+          'SO 단위 점유라 이미 발급된 좌표에는 다시 발급하지 않는다 <code>P-05</code>')] + CLOSE))
 
     B.append((
         'S7', '공유 OWNER', '분기',
@@ -273,7 +280,7 @@ def build():
         '(S3/O42 · S3/O44 · S3/O1020)은 그대로 보여 준다. '
         '다만 <b>신규 발급은 한 S/O 에 한 종류만</b> 하므로 이 화면에서는 막는다 <code>PC-041</code>.',
         scr(modal(T, detail('웅진씽크빅', cross=True)
-                  + cust_svc('웅진씽크빅', 'NONE', kind_fixed=True)
+                  + cust_svc('웅진씽크빅', 'NONE', kind_fixed=True, used=True)
                   + owned('웅진씽크빅', OWN2), save_off=True)),
         [('종류 배타', '—', '폐지', '<b>🚫 영역 할당됨</b> 배지·차단·확인창을 모두 없앴다'),
          ('코드 종류', '선택', '용도 표시',
