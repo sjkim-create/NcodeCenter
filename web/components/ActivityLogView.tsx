@@ -15,6 +15,7 @@ export default function ActivityLogView() {
   // ⚠ 훅은 조건부 return 앞에서 모두 선언 (로그인 전/후 훅 개수 불일치 크래시 방지)
   const [type, setType] = useState<ActivityType | "__ALL__">("__ALL__");
   const [actor, setActor] = useState<string>("__ALL__");
+  const [day, setDay] = useState<string>("__ALL__");      // YYYY-MM-DD · 하루씩 본다 `PC-071`
   // 기본은 **이번 달**만 본다 — 양이 많아 전체를 한 번에 펼치지 않는다 `PC-069`
   const thisMonth = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);   // KST
   const [year, setYear] = useState<string>(thisMonth.slice(0, 4));
@@ -24,13 +25,27 @@ export default function ActivityLogView() {
   const actors = useMemo(() => [...new Set(all.map((a) => a.actor))].sort(), [all]);
   const years = useMemo(() => [...new Set(all.map((a) => a.at.slice(0, 4)))].sort().reverse(), [all]);
 
-  const filtered = useMemo(
+  // 기간·직원·종류까지 거른 결과 — 일자 목록은 여기서 뽑는다 `PC-071`
+  const inRange = useMemo(
     () => all
       .filter((a) => type === "__ALL__" || a.type === type)
       .filter((a) => actor === "__ALL__" || a.actor === actor)
       .filter((a) => month === "__ALL__" || (month.endsWith("-") ? a.at.startsWith(month) : ym(a.at) === month))
       .sort((a, b) => (a.at < b.at ? 1 : -1)),
     [all, type, actor, month]
+  );
+  // 활동이 있는 날짜만 최신순 — 없는 날은 고를 수 없다
+  const days = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of inRange) m.set(ymd(a.at), (m.get(ymd(a.at)) ?? 0) + 1);
+    return [...m.entries()].sort((x, y) => (x[0] < y[0] ? 1 : -1));
+  }, [inRange]);
+  // 고른 날짜가 목록에 없으면 가장 최근 날짜를 본다
+  const curDay = day !== "__ALL__" && days.some(([d]) => d === day) ? day : "__ALL__";
+  const dayIdx = days.findIndex(([d]) => d === curDay);
+  const filtered = useMemo(
+    () => (curDay === "__ALL__" ? inRange : inRange.filter((a) => ymd(a.at) === curDay)),
+    [inRange, curDay]
   );
 
   // 월 → 일자 → 활동 그룹
@@ -92,10 +107,25 @@ export default function ActivityLogView() {
           <option value="__ALL__">직원 전체</option>
           {actors.map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
-        <button onClick={() => { setYear(thisMonth.slice(0, 4)); setMm(thisMonth.slice(5, 7)); setActor("__ALL__"); setType("__ALL__"); }}
+        <button onClick={() => { setYear(thisMonth.slice(0, 4)); setMm(thisMonth.slice(5, 7)); setActor("__ALL__"); setType("__ALL__"); setDay("__ALL__"); }}
           style={{ fontSize: 12, padding: "5px 11px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#6b7280", cursor: "pointer" }}>
           이번 달
         </button>
+      </FilterRow>
+
+      {/* 일자 — 하루씩 넘겨 본다. 활동이 있는 날짜만 나온다 `PC-071` */}
+      <FilterRow label="일자">
+        <button onClick={() => { const n = days[dayIdx + 1]; if (n) setDay(n[0]); }} disabled={curDay === "__ALL__" || dayIdx >= days.length - 1}
+          style={{ ...navBtn, ...(curDay === "__ALL__" || dayIdx >= days.length - 1 ? navOff : {}) }} title="이전 날">‹</button>
+        <select value={curDay} onChange={(e) => setDay(e.target.value)} style={{ ...sel, minWidth: 168 }} title="일자">
+          <option value="__ALL__">이 기간 전체 ({inRange.length.toLocaleString()}건 · {days.length}일)</option>
+          {days.map(([d, n]) => <option key={d} value={d}>{d} ({WEEK[new Date(d).getDay()]}) · {n}건</option>)}
+        </select>
+        <button onClick={() => { const p2 = days[dayIdx - 1]; if (p2) setDay(p2[0]); }} disabled={curDay === "__ALL__" || dayIdx <= 0}
+          style={{ ...navBtn, ...(curDay === "__ALL__" || dayIdx <= 0 ? navOff : {}) }} title="다음 날">›</button>
+        {curDay === "__ALL__" && days.length > 0 && (
+          <button onClick={() => setDay(days[0][0])} style={{ ...navBtn, width: "auto", padding: "5px 11px" }}>하루씩 보기</button>
+        )}
       </FilterRow>
 
       {/* 활동 종류 필터 */}
@@ -181,6 +211,12 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
     }}>{children}</button>
   );
 }
+
+const navBtn: React.CSSProperties = {
+  fontSize: 13, width: 28, height: 28, borderRadius: 8, border: "1px solid #e5e7eb",
+  background: "#fff", color: "#374151", cursor: "pointer", lineHeight: 1,
+};
+const navOff: React.CSSProperties = { color: "#d1d5db", cursor: "not-allowed" };
 
 const sel: React.CSSProperties = {
   fontSize: 12.5, padding: "5px 10px", borderRadius: 8, border: "1px solid #e5e7eb",

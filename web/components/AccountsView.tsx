@@ -332,27 +332,22 @@ function useRanges(companyId: number): SobpRange[] {
 // App Key 발급 — 계정 등록·상세에서 공용으로 쓴다.
 // App Key 는 CasterN 서비스에만 해당한다(SOBP 범위를 편집툴에 연동하는 키).
 // App Key 발급 범위 입력 — 할당 SOBP 안에서 **Book Start · Book Volume(권수)** 를 정한다 `PC-050`
-// Key 정보 항목 — Code Type 만 고르고 나머지는 선택 결과로 정해진다 `PC-060` `PC-064`
-function FixedKeyFields({ range, unlimited, ctype, onCtype }: {
-  range?: SobpRange; unlimited: boolean; ctype: CodeKind; onCtype: (v: CodeKind) => void;
-}) {
-  const fixed: React.CSSProperties = { ...S.input, background: "#f3f4f6", color: "#6b7280" };
+// 고정 값은 입력칸이 아니라 **한 줄 요약**으로 모아 보여 준다 `PC-071`
+//   (Code Type · 만료일은 고르는 값이라 위쪽 입력 줄에 있다)
+function FixedKeyFields({ range, unlimited }: { range?: SobpRange; unlimited: boolean }) {
+  const item = (k: string, v: string) => (
+    <span key={k} style={{ display: "inline-flex", alignItems: "baseline", gap: 5 }}>
+      <span style={{ color: "#9ca3af" }}>{k}</span>
+      <b style={{ color: "#374151", fontFamily: "ui-monospace,monospace" }}>{v}</b>
+    </span>
+  );
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 10 }}>
-      <Field label="Section · Owner (자동)">
-        <div style={fixed}>{range ? `S${range.section} / O${range.owner}` : "-"}</div>
-      </Field>
-      <Field label="Code Type">
-        <select style={S.input} value={ctype} disabled={!range} onChange={(e) => onCtype(e.target.value as CodeKind)}>
-          {CODE_KINDS.map((k) => <option key={k.v} value={k.v}>{k.short}</option>)}
-        </select>
-      </Field>
-      <Field label="Ticket Type (자동)">
-        <div style={fixed}>{unlimited ? "Unlimited" : "Period"}</div>
-      </Field>
-      <Field label="Ticket Version (고정)">
-        <div style={fixed}>1</div>
-      </Field>
+    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "baseline",
+      marginTop: 10, padding: "8px 11px", background: "#fafbfc", border: "1px solid #eef0f4", borderRadius: 9, fontSize: 11.5 }}>
+      <span style={{ color: "#6b7280", fontWeight: 700 }}>자동·고정</span>
+      {item("Section · Owner", range ? `S${range.section} / O${range.owner}` : "-")}
+      {item("Ticket Type", unlimited ? "Unlimited" : "Period")}
+      {item("Ticket Version", "1")}
     </div>
   );
 }
@@ -437,7 +432,6 @@ export function AccountNewView() {
   const [services, setServices] = useState<AccountService[]>(["CASTERN"]);
   const [settings, setSettings] = useState<AccountSettings>({ CASTERN: { perms: [...ALL_PERMS] } });
   const [tab, setTab] = useState<AccTab>("info");        // 화면 탭 `PC-062`
-  const [withKey, setWithKey] = useState(false);          // App Key 발급 — 선택 (사용 서비스 공통 `PC-050`)
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [bStart, setBStart] = useState<number | null>(null);
   const [bVol, setBVol] = useState<number | null>(null);
@@ -480,8 +474,7 @@ export function AccountNewView() {
     if (!pwd.trim()) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
     if (services.length === 0) { setToast({ ok: false, text: "사용 서비스를 1개 이상 선택하세요." }); return; }
     // App Key 는 CasterN 전용 — 사용처에서 CasterN 이 빠졌으면 함께 발급하지 않는다.
-    const wantKey = withKey;   // App Key 는 사용처 공통 `PC-050`
-    if (wantKey && !range) { setToast({ ok: false, text: "할당된 SOBP 범위를 선택하세요." }); return; }
+    const wantKey = !!range;   // 범위를 골랐으면 함께 발급한다 `PC-071`
 
     // 선택하지 않은 사용처의 설정은 저장하지 않는다.
     const kept: AccountSettings = {};
@@ -503,39 +496,39 @@ export function AccountNewView() {
   const keyBS = bStart ?? range?.bookStart ?? 0;
   const keyVol = Math.max(1, Math.min(bVol ?? (range?.bookCount ?? 1), range ? range.bookEnd - keyBS + 1 : 1));
   const keyPVol = Math.max(1, pVol ?? PAGE_DEFAULT);
+  // 체크박스 없이 **탭을 열면 바로 입력**한다 — 범위를 고르면 발급, 안 고르면 계정만 등록 `PC-071`
   const appKeyBlock = (
-    <>
-      <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "#374151", cursor: "pointer" }}>
-        <input type="checkbox" checked={withKey} onChange={(e) => setWithKey(e.target.checked)} />
-        이 계정에 <b>App Key도 함께 발급</b>합니다
-        <span style={{ color: "#9ca3af" }}>· 사용처 전체 공통 · 계정당 1개 · 선택</span>
-      </label>
-      {withKey && (
-        <div style={{ marginTop: 10 }}>
-          <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 5 }}>SOBP 맵에서 발급된 S / O * <span style={{ color: "#9ca3af" }}>(고르면 Book 범위가 따라옵니다)</span></div>
-          <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = ranges[i]; if (r) setCtype(CT_OF[r.pt] ?? "PDS3"); }} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1.4fr", gap: 10, marginTop: 12 }}>
-            <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
-                              onStart={setBStart} onVol={setBVol} onPStart={setPStart} onPVol={setPVol} />
-            <Field label="만료일 (기간)">
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited} onChange={(e) => setUntil(e.target.value)} />
-                <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
-                  <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> 무제한
-                </label>
-              </div>
-            </Field>
+    <div>
+      <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 5 }}>SOBP 맵에서 발급된 S / O <span style={{ color: "#9ca3af" }}>(고르면 Book 범위가 따라옵니다 · 고르지 않으면 계정만 등록)</span></div>
+      <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = ranges[i]; if (r) setCtype(CT_OF[r.pt] ?? "PDS3"); }} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 12 }}>
+        <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
+                          onStart={setBStart} onVol={setBVol} onPStart={setPStart} onPVol={setPVol} />
+      </div>
+      {/* 고르는 값 — Code Type · 만료일 `PC-071` */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 10, marginTop: 10 }}>
+        <Field label="Code Type">
+          <select style={S.input} value={ctype} disabled={!range} onChange={(e) => setCtype(e.target.value as CodeKind)}>
+            {CODE_KINDS.map((k) => <option key={k.v} value={k.v}>{k.short}</option>)}
+          </select>
+        </Field>
+        <Field label="만료일 (기간)">
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited} onChange={(e) => setUntil(e.target.value)} />
+            <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
+              <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> 무제한
+            </label>
           </div>
-          <FixedKeyFields range={range} unlimited={unlimited || !until} ctype={ctype} onCtype={setCtype} />
-          {range && (
-            <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 6 }}>
-              발급 범위 <b>{range.pt} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권 · <b>P{pStart}~{pStart + keyPVol - 1}</b>
-              <span style={{ color: "#9ca3af" }}> (할당 B{range.bookStart}~{range.bookEnd})</span>
-            </div>
-          )}
+        </Field>
+      </div>
+      <FixedKeyFields range={range} unlimited={unlimited || !until} />
+      {range && (
+        <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 6 }}>
+          발급 범위 <b>{range.pt} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권 · <b>P{pStart}~{pStart + keyPVol - 1}</b>
+          <span style={{ color: "#9ca3af" }}> (할당 B{range.bookStart}~{range.bookEnd})</span>
         </div>
       )}
-    </>
+    </div>
   );
 
   return (
@@ -549,7 +542,7 @@ export function AccountNewView() {
         </div>
 
         {/* 탭 3개 — 계정 정보 · 사용 서비스 및 권한 · App Key 발급 `PC-062` */}
-        <AccTabs tab={tab} onTab={setTab} badge={{ svc: `${services.length}/${ACCOUNT_SERVICES.length}`, key: withKey ? "발급" : undefined }} />
+        <AccTabs tab={tab} onTab={setTab} badge={{ svc: `${services.length}/${ACCOUNT_SERVICES.length}`, key: range ? "발급" : undefined }} />
 
         {/* 계정 정보 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "info" ? "block" : "none" }}>
@@ -699,9 +692,8 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const appKeyBlock = (
     <>
       {myKey ? (
-        <div style={{ fontSize: 11.5, color: "#6b7280", lineHeight: 1.7 }}>
-          이 계정에는 이미 App Key 가 발급돼 있습니다 — <b>계정당 1개</b>입니다. 범위를 바꾸려면 아래에서 <b>키를 삭제</b>한 뒤 다시 발급하세요.
-        </div>
+        // 안내는 제목 툴팁으로 옮겼다 `PC-071` — 발급 폼 자리에는 아무것도 두지 않는다
+        null
       ) : (acc?.services ?? []).length === 0 ? (
         <div style={{ fontSize: 11.5, color: "#9ca3af", lineHeight: 1.6 }}>
           사용 서비스를 1개 이상 고르고 <b>[저장]</b> 하면 App Key 를 발급할 수 있습니다.
@@ -710,9 +702,17 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
         <>
           <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 5 }}>SOBP 맵에서 발급된 S / O * <span style={{ color: "#9ca3af" }}>(고르면 Book 범위가 따라옵니다)</span></div>
           <SobpRangePicker company ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = ranges[i]; if (r) setCtype(CT_OF[r.pt] ?? "PDS3"); }} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1.4fr auto", gap: 10, alignItems: "end", marginTop: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 12 }}>
             <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
                               onStart={setBStart} onVol={setBVol} onPStart={setPStart} onPVol={setPVol} />
+          </div>
+          {/* 고르는 값 — Code Type · 만료일 `PC-071` */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr auto", gap: 10, alignItems: "end", marginTop: 10 }}>
+            <Field label="Code Type">
+              <select style={S.input} value={ctype} disabled={!range} onChange={(e) => setCtype(e.target.value as CodeKind)}>
+                {CODE_KINDS.map((k) => <option key={k.v} value={k.v}>{k.short}</option>)}
+              </select>
+            </Field>
             <Field label="만료일 (기간)">
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited} onChange={(e) => setUntil(e.target.value)} />
@@ -723,7 +723,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
             </Field>
             <button onClick={addKey} disabled={!range} style={{ ...S.primary, ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>App Key 발급</button>
           </div>
-          <FixedKeyFields range={range} unlimited={unlimited || !until} ctype={ctype} onCtype={setCtype} />
+          <FixedKeyFields range={range} unlimited={unlimited || !until} />
           {range && (
             <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 6 }}>
               발급 범위 <b>{range.pt} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권 · <b>P{pStart}~{pStart + keyPVol - 1}</b>
@@ -781,7 +781,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
         {/* App Key 발급 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
-          <SecHead t="App Key 발급" d={`· 계정당 1개 · 발급된 키 ${keys.length}개`} tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (사용 서비스 전체 공통)" />
+          <SecHead t="App Key 발급" d={`· 계정당 1개 · 발급된 키 ${keys.length}개`} tip={myKey ? "이 계정에는 이미 App Key 가 발급돼 있습니다 — 계정당 1개입니다. 범위를 바꾸려면 발급 내역에서 키를 삭제한 뒤 다시 발급하세요." : "고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (사용 서비스 전체 공통)"} />
           {appKeyBlock}
         </div>
 
