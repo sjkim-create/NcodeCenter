@@ -70,6 +70,7 @@ const BOOK_MAX: Record<string, Record<number, number>> = {
   N: { 0: 16384, 3: 8192, 5: 4096, 10: 4096, 11: 8192, 14: 8192, 15: 4096 },
   G: { 0: 8192, 3: 4096, 14: 4096 },
 };
+const BOOK_STEP = 100;   // Book 번호 노출 단위 `PC-046`
 const EMPTY = (o: number): BR => ({ b: 0, s: 0, o, k: "N", pg: 0, t: "", f: "", bytes: 0, ty: "소리펜", sm: zeros(SOUND_N), pm: zeros(PEN_N), m: "", d: "" });
 
 // bookIdx — 교재 편집 화면(모달이 아니라 별도 페이지)에서만 넘어온다.
@@ -158,6 +159,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const [kepOpen, setKepOpen] = useState(false);
   const [logDraft, setLogDraft] = useState<{ id: number | null; kind: WorkKind; content: string }>({ id: null, kind: "요청", content: "" });
   const [toast, setToast] = useState("");
+  const [bookLimit, setBookLimit] = useState(BOOK_STEP);   // Book 번호 노출 개수 (＋100씩) `PC-046`
 
   // 고객사(owner) 전환 시 해당 고객사 데이터로 재로드 (localStorage 우선, 없으면 시드)
   useEffect(() => {
@@ -287,8 +289,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   );
 
   // 사용 가능한 Book 번호 — 발급된 SO 아래 편집 안 된(사용 가능) Book 을 노출 (편집된 Book 만 제외)
-  const freeBooks = (k: string, sec: number, own: number, keep?: number) =>
-    editableBookNumbers(k, sec, own, BOOK_MAX[k]?.[sec] ?? 4096, 300, keep, allocBooks);
+  //   한 번에 다 그리면 느려서 **100개씩** 보여 주고 [더 보기] 로 100씩 늘린다 `PC-046`
+  const freeBooks = (k: string, sec: number, own: number, keep?: number, limit = bookLimit) =>
+    editableBookNumbers(k, sec, own, BOOK_MAX[k]?.[sec] ?? 4096, limit, keep, allocBooks);
 
   // 교재 편집은 별도 페이지 — 목록에서는 이동만 하고, 편집 상태는 그 페이지에서 만든다.
   const openAdd = () => router.push(bookHref("new"));
@@ -698,7 +701,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   <Field label={`할당된 S / O${editing.idx === -1 && assignedSO.length > 1 ? " (선택)" : " (수정 불가)"}`}>
                     {editing.idx === -1 && assignedSO.length > 1 ? (
                       <select style={S.input} value={`${editing.row.k}/${editing.row.s}/${editing.row.o}`}
-                        onChange={(e) => { const [k, sv, ov] = e.target.value.split("/"); setEditing((ed) => (ed ? { ...ed, row: { ...ed.row, k, s: +sv, o: +ov, b: freeBooks(k, +sv, +ov)[0] ?? 0 } } : ed)); }}>
+                        onChange={(e) => { const [k, sv, ov] = e.target.value.split("/"); setBookLimit(BOOK_STEP); setEditing((ed) => (ed ? { ...ed, row: { ...ed.row, k, s: +sv, o: +ov, b: freeBooks(k, +sv, +ov, undefined, BOOK_STEP)[0] ?? 0 } } : ed)); }}>
                         {assignedSO.map((a) => (
                           <option key={`${a.k}/${a.s}/${a.o}`} value={`${a.k}/${a.s}/${a.o}`}>
                             {a.k === "N" ? "N(PDS3)" : "G(PDS2)"} · S{a.s} / O{a.o}{sharedInfo(a.s, a.o, a.k) ? " · 공유" : ""}
@@ -713,12 +716,25 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                       </div>
                     )}
                   </Field>
-                  <Field label="Book (사용 가능 번호)">
-                    <select style={{ ...S.input, background: "#fff" }} value={editing.row.b} onChange={(e) => setF("b", +e.target.value)}>
-                      {freeBooks(editing.row.k, editing.row.s, editing.row.o, editing.idx === -1 ? undefined : editing.row.b)
-                        .map((b) => <option key={b} value={b}>B{b}</option>)}
-                    </select>
-                  </Field>
+                  {(() => {
+                    const keepB = editing.idx === -1 ? undefined : editing.row.b;
+                    const probe = freeBooks(editing.row.k, editing.row.s, editing.row.o, keepB, bookLimit + 1);
+                    const more = probe.length > bookLimit;
+                    const list = more ? probe.slice(0, bookLimit) : probe;
+                    return (
+                      <Field label={`Book (사용 가능 번호${more ? ` · ${list.length}개 표시` : ` ${list.length}개`})`}>
+                        <select style={{ ...S.input, background: "#fff" }} value={editing.row.b} onChange={(e) => setF("b", +e.target.value)}>
+                          {list.map((b) => <option key={b} value={b}>B{b}</option>)}
+                        </select>
+                        {more && (
+                          <button type="button" onClick={() => setBookLimit((v) => v + BOOK_STEP)}
+                            style={{ marginTop: 4, fontSize: 11, color: "#2563eb", background: "none", border: 0, padding: 0, cursor: "pointer" }}>
+                            ＋ {BOOK_STEP}개 더 보기
+                          </button>
+                        )}
+                      </Field>
+                    );
+                  })()}
                   {sh && (() => {
                     const cands = commonCandidates(editing.row.k, editing.row.s, editing.row.o);
                     const cur = editing.row.cu ?? "";

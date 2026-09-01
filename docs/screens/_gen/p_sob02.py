@@ -108,39 +108,21 @@ def owned(cust='웅진씽크빅', rows=None):
 
 
 def detail(cust='웅진씽크빅', sec=3, own=17, locked=None, cross=False, kind='PDS3'):
+    """발급 대상 — 좌표는 지도에서 고른다. 모달에서는 상태만 보여 준다 `PC-046`"""
     lk = bool(locked)
-    bar = ('<span style="font-size:11.5px;color:%s;font-weight:700">발급 대상</span>'
-           % ('#991b1b' if lk else '#1e3a8a'))
+    st = ('🔒 전용 · 추가 발급 불가', '#fee2e2', '#991b1b') if lk else (
+         ('사용 중 · 이어서 발급', '#ccfbf1', '#0f766e') if cross else ('미발급 · 신규 발급', '#eef6ff', '#2563eb'))
+    bar = '<span style="font-size:11.5px;color:#6b7280;font-weight:700">발급 대상</span>'
+    bar += sc('S', sec) + sc('O', own) + pbadge(kind) + tag(st[0], st[1], st[2])
+    bar += ('<span style="flex:1"></span>'
+            '<span style="font-size:11px;color:#9ca3af">owner 전체 점유 · 규모는 편집 시 집계</span>')
+    msg = ''
     if lk:
-        bar += tag('🔒 전용 · 할당 불가', '#fee2e2', '#991b1b')
-    bar += pbadge(kind) + sc('S', sec) + sc('O', own)
-    bar += tag('owner 전체', '#eef6ff', '#2563eb')
-    note = ('이 <b>S%s/O%s</b> 전체를 <b>%s</b> 에 발급(점유)합니다. owner 아래 '
-            '<b>모든 Book 이 &lsquo;사용가능&rsquo;</b> 이 되고, 실제 발급 규모(코드 수)는 '
-            '<b>편집 시 집계</b>됩니다.' % (sec, own, cust or '선택한 고객사'))
-    if lk:
-        note += ('<div style="margin-top:4px;font-weight:700">⚠ 이미 %s 전용입니다.</div>'
-                 % locked)
-    if cross:
-        note += ('<div style="margin-top:4px;color:#0f766e">'
-                 'ℹ 이 S/O 는 다른 코드 종류로도 쓰이고 있습니다 — '
-                 '<b>Book 을 나눠 함께 사용</b>할 수 있습니다 (PC-039)</div>')
-    # 들어온 뒤에도 대상을 다시 고를 수 있다 — 각각 단일 선택 (PC-035)
-    repick = ('<div class="g3" style="margin-top:8px">'
-              + field('코드 종류', sel(kind + ' (' + {'PDS3': 'Ncode', 'PDS2': 'Gcode',
-                                                     'PDS4': 'S-code'}[kind] + ')'), True)
-              + field('Section', sel('S%s' % sec), True)
-              + field('Owner', '<div class="inp">%s</div>' % own, True)
-              + '</div>'
-                '<div style="font-size:10.5px;color:#6b7280;margin-top:6px">'
-                'Owner 는 0 ~ 정원-1 범위. 바꾸면 왼쪽 지도 선택도 함께 이동합니다.</div>')
-    return ('<div style="margin-top:12px;padding:10px 12px;border:1px solid %s;background:%s;'
-            'border-radius:9px">'
-            '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;'
-            'margin-bottom:8px">%s</div>%s</div>'
-            '<div style="margin-top:10px;font-size:12px;color:%s;line-height:1.65">%s</div>'
-            % ('#fecaca' if lk else '#bfdbfe', '#fef2f2' if lk else '#f5f9ff', bar, repick,
-               '#b91c1c' if lk else '#6b7280', note))
+        msg = ('<div style="margin-top:7px;font-size:12px;color:#b91c1c;font-weight:700">'
+               '이미 %s 전용입니다 — 추가 발급 대상이 아닙니다.</div>' % locked)
+    return ('<div style="border:1px solid %s;background:%s;border-radius:10px;padding:11px 13px">'
+            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">%s</div>%s</div>'
+            % ('#fecaca' if lk else '#e5e7eb', '#fef2f2' if lk else '#fafbfc', bar, msg))
 
 
 def modal(title, body, save_off=False):
@@ -171,25 +153,24 @@ def build():
 
     B.append((
         'S1', '진입 직후 — 고객사 미선택', '기본',
-        '<code>SOB-01</code> 의 <b>[＋ 직접 코드 할당]</b> 으로 열린다. '
-        '제목에 <b>발급 대상 S·O·코드 종류</b> 가 들어간다. '
-        '발급 대상(코드 종류 · Section · Owner)은 <b>모달 안에서 다시 고를 수 있다</b> '
-        '<code>PC-035</code>. '
-        '고객사를 고르기 전에는 <b>기존 보유 코드 영역이 아예 나오지 않고</b>, '
-        '<b>[할당]</b> 도 눌리지 않는다. 사용 서비스 기본값은 <b>서비스 없음</b>.',
+        '<code>SOB-01</code> 의 <b>[＋ 직접 코드 할당]</b> 으로 열린다. 구성은 세 묶음이다 '
+        '<code>PC-046</code> — ① <b>발급 대상</b>(좌표·종류·상태를 <b>보여 주기만</b> 한다) '
+        '② <b>발급 정보</b>(고객사 · 사용 서비스 · 코드 종류) ③ <b>보유 코드</b>(고객사를 고르면 나온다). '
+        '좌표(Section · Owner)는 <b>지도에서 고른 값</b>이라 모달에서 바꾸지 않는다. '
+        '<b>[할당]</b> 은 고객사를 고르기 전에는 눌리지 않고, 사용 서비스 기본값은 <b>서비스 없음</b>.',
         scr(modal(T, BASE + cust_svc('', 'NONE') + owned('') + detail(''), save_off=True)),
         [('고객사 *', '목록 선택 또는 직접 입력(검색)', '기존 보유 코드 영역 표시',
           '<code>MEM-01</code> 에 등록된 고객사만 — <b>여기서 신규 고객사를 만들지 않는다</b>'),
          ('사용 서비스', '선택', '아래 안내문 교체',
           'casterN / 폼솔루션 / 서비스 없음 <b>3종</b> <code>PC-026</code>'),
-         ('코드 종류 *', '선택', 'Section 목록 재구성',
-          '<b>PDS3 · PDS2 · PDS4</b> 중 하나 — <b>단일 선택</b>(다중 선택 없음). '
+         ('코드 종류', '칩 선택', '<b>좌표는 그대로</b>',
+          '<b>PDS3 · PDS2 · PDS4</b> 중 하나(단일 선택). 골라도 <b>S/O 가 바뀌지 않는다</b> '
+          '<code>PC-046</code>. 이미 쓰는 종류가 있으면 <b>그 종류로 고정</b>되고 문구로만 보여 준다. '
           'OID 는 index 부여라 할당 대상이 아니다 <code>PC-035</code>'),
-         ('Section * · Owner *', '선택·입력', '발급 대상 변경',
-          '지도에서 고르고 들어와도 <b>모달 안에서 다시 고를 수 있다</b>. '
-          '바꾸면 왼쪽 지도 선택도 함께 이동한다'),
+         ('Section · Owner', '—', '<b>상태 표시</b>',
+          '지도에서 고른 좌표를 <b>보여 주기만</b> 한다 — 셀렉트·입력 칸을 두지 않는다 <code>PC-046</code>'),
          ('[할당]', '—', '비활성',
-          '고객사 미선택 · 전용 잠금 · 반대 코드 종류 선점 중 하나라도 걸리면 잠긴다'),
+          '고객사 미선택 · 전용 · 과거 혼용 좌표 · 공유 코드 미사용 고객사 중 하나라도 걸리면 잠긴다'),
          ('[할당]', '강제 실행', '확인창',
           '<b>고객사를 선택하세요. (신규 고객사는 고객사 관리에서 등록)</b>')] + CLOSE))
 

@@ -62,7 +62,8 @@ def coord(mode='edit', share=False, sub_err=False):
     return ('<div class="card"><div class="hd">코드 좌표</div><div class="bd">'
             '<div class="g3">%s%s%s</div></div></div>'
             % (field('할당된 S / O', so, True, None, hint),
-               field('Book', sel('B431'), True, None, '<b>사용 가능한 번호</b>에서만 선택'), sub))
+               field('Book (사용 가능 번호 · 100개 표시)', sel('B431'), True, None,
+                     '<b>사용 가능한 번호</b>에서만 선택 · <b>＋ 100개 더 보기</b> <code>PC-046</code>'), sub))
 
 
 def info(empty=False, mod_date=True):
@@ -286,7 +287,8 @@ def build():
               height=2100),
         [('진행 상태', '선택', '진행중 / 완료 / 보류', '기본값 <b>진행중</b>'),
          ('할당된 S / O', '선택 (필수)', '—', '할당된 S/O가 여러 개면 선택'),
-         ('Book', '선택 (필수)', '—', '<b>사용 가능한 번호</b>에서만 <code>P-01</code>'),
+         ('Book', '선택 (필수)', '—', '<b>사용 가능한 번호</b>에서만 <code>P-01</code>. '
+          '한 번에 <b>100개</b>만 그리고 <b>[＋ 100개 더 보기]</b> 로 100씩 늘린다 <code>PC-046</code>'),
          ('Total Page', '입력', '적용비 계산', '<b>적용비 계산 기준(페이지 수)</b>'),
          ('심볼·기능 수량', '입력', '편집·기능비 계산', '각 항목 <b>수량 × 단가</b>'),
          ('[추가]', '클릭', '<code>PRJ-03</code> 갱신', '상단 알림 <b>추가됨</b>'),

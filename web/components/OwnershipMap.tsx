@@ -7,7 +7,8 @@ import { store, useStore, persistError } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { EDIT_BOOKS, projectBooks, rangesFor, ownersFor, usedBookMap, canAllocate, sharedInfo, ownerHolders, isBookEdited, RANGES, type BookRec, type CodeStatus } from "@/lib/codeUsage";
-import { recommendSobp, isExcluded, PAPER_SIZES, maxRecommendLength, type Reco, type Pen, type Pds } from "@/lib/sobpRecommend";
+// 자동 추천(SOBP 추천)은 폐기 `PC-028` — 추천 제외 섹션 표시에만 쓴다
+import { isExcluded, type Pds } from "@/lib/sobpRecommend";
 import { hydrateShared, markShared, useSharedOwners, customShared, BUILT_IN } from "@/lib/sharedOwners";
 import { commonCodeOf } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
@@ -96,13 +97,7 @@ export default function OwnershipMap() {
   const recoPds: Pds = kind === "PDS2" ? "G" : "N";
   const recoTarget = kind === "PDS3" || kind === "PDS2" || kind === "ALL";
   const [alloc, setAlloc] = useState<{ company: string; newCompany: string; bookStart: number; books: number; pages: number; mode: "코드발급" | "편집"; shared: boolean; service: ServiceType } | null>(null);
-  const [aMode, setAMode] = useState<"auto" | "manual">("auto");                       // 자동 추천 / 직접 선택
-  const [reco, setReco] = useState<{ lengthMm: number; pages: number; books: number }>({ lengthMm: 297, pages: 100, books: 10 });
-  const [paper, setPaper] = useState<string>("A4 (210×297)");   // 판형 선택 · "__CUSTOM__" = 직접 입력
-  const [pen, setPen] = useState<Pen>("소리펜");                 // 용도(펜 종류)
-  const [pdsAuto, setPdsAuto] = useState(true);                  // PDS 타입도 추천에 맡김
-  const [recoRes, setRecoRes] = useState<Reco | { ok: false; reason: string } | null>(null);
-  const [applied, setApplied] = useState(false);   // 추천 적용 → 발급 상세 단계
+  const [aKindSel, setAKindSel] = useState<CodeKind | null>(null);                    // 할당 모달의 코드 종류(지도 선택과 분리) `PC-046`
   const [selS, setSelS] = useState(0);
   const [selO, setSelO] = useState(1);
   const [selB, setSelB] = useState(0);
@@ -334,7 +329,7 @@ export default function OwnershipMap() {
 
       {/* 코드 할당 진입 — 필터 아래 배치 */}
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-        <button onClick={() => { setAMode("manual"); setRecoRes(null); setApplied(false); setAlloc({ company: "", newCompany: "", bookStart: curB, books: 1, pages: Math.min(scale.p, 1000), mode: "코드발급", shared: false, service: "NONE" }); }}
+        <button onClick={() => { setAKindSel(null); setAlloc({ company: "", newCompany: "", bookStart: curB, books: 1, pages: Math.min(scale.p, 1000), mode: "코드발급", shared: false, service: "NONE" }); }}
           style={{ ...S.primary, padding: "9px 18px", fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
           <span style={{ fontSize: 15, lineHeight: 1 }}>＋</span> 직접 코드 할당
         </button>
@@ -465,14 +460,18 @@ export default function OwnershipMap() {
       {/* 코드 할당 — 신규 업체 최초 할당 / 기존 업체 추가 발급 */}
       {alloc && (() => {
         const name = alloc.company.trim();
-        // 할당 대상 종류 — 전체 보기에서는 기본 PDS3 (모달에서 다시 고를 수 있다)
-        const aKind: CodeKind = kind === "ALL" ? "PDS3" : kind;
         // 이 S/O 가 이미 쓰는 코드 종류 (OID 는 index 부여라 제외)
         const soKinds = [...new Set(RECS.filter((r) => r.sec === curS && r.owner === curO)
           .map((r) => codeKind(r.k, r.sec)))].filter((k2) => k2 !== "OID");
-        // 정책 `PC-041`: **신규 발급은 한 S/O 안에서 한 종류만**. 과거 혼용 이력(S3/O42·O44 등)은 그대로 두고 표시만 한다.
-        const mixed = soKinds.filter((k2) => k2 !== aKind);
-        const mixedBlock = mixed.length > 0;
+        // 이 Section 에서 고를 수 있는 종류 (PDS4 는 Section 44 에만 있다)
+        const kindOpts = ALLOC_KINDS.filter((k2) => (SCALE[k2] ?? {})[curS]);
+        // 할당 종류 — **모달 안에서만 바뀌는 값**이라 고르더라도 지도의 S/O 선택은 그대로다 `PC-046`
+        //   이미 쓰는 종류가 있으면 그 종류로 고정하고 상태로만 보여 준다 (한 S/O = 한 종류 `PC-041`)
+        const aKind: CodeKind = soKinds.length === 1 ? soKinds[0]
+          : (aKindSel && kindOpts.includes(aKindSel) ? aKindSel : (kind === "ALL" ? (kindOpts[0] ?? "PDS3") : kind));
+        const kindFixed = soKinds.length > 0;
+        // 과거 혼용 좌표(S3/O42 등)에는 신규 발급하지 않는다 `PC-041`
+        const mixedBlock = soKinds.length > 1;
         const allocBooks = projectBooks(projects, companies);
         const nzn = (x: string) => x.replace(/\s+/g, "").replace(/\(.*\)/g, "").toLowerCase();
         // 공유(커먼) 코드는 **고객사 관리에서 사용 고객사로 등록한 곳**에만 발급한다 `PC-045`
@@ -508,11 +507,22 @@ export default function OwnershipMap() {
           .flatMap((p) => p.issued.map((b) => ({ k: b.kind ?? "N", s: b.section, o: b.owner,
             bs: b.bookStart, be: b.bookEnd, ps: b.pageStart, pe: b.pageEnd, codes: b.codes })))
           .sort((a, b) => a.s - b.s || a.o - b.o);
+        // 좌표 상태 한 줄 — 셀렉트 없이 상태만 보여 준다 `PC-046`
+        const stLabel2 = locked ? `🔒 전용 · 추가 발급 불가`
+          : shared ? "공유 OWNER · Book 만 배타"
+          : soKinds.length ? "사용 중 · 이어서 발급"
+          : "미발급 · 신규 발급";
+        const stBg = locked ? "#fee2e2" : shared ? "#f3e8ff" : soKinds.length ? "#ccfbf1" : "#eef6ff";
+        const stFg = locked ? "#991b1b" : shared ? "#6b21a8" : soKinds.length ? "#0f766e" : "#2563eb";
+        const blockMsg = locked ? `이미 ${others.join(", ")} 전용입니다 — 추가 발급 대상이 아닙니다.`
+          : mixedBlock ? `이 S/O 는 ${soKinds.join(" · ")} 가 함께 쓰인 과거 이력 좌표입니다 — 신규 발급은 다른 Owner 를 고르세요.`
+          : commonBlock ? `${name} 는 공유 코드 ${cCode!.name} 의 사용 고객사가 아닙니다 — [고객사 관리] 에서 하위 등록하세요.`
+          : "";
         const save = () => {
           if (!name) { alert("고객사를 선택하세요. (신규 고객사는 고객사 관리에서 등록)"); return; }
-          if (locked) { alert(`전용 코드입니다. S${curS}/O${curO} 는 이미 ${others.join(", ")} 에 할당되어 있습니다.`); return; }
-          if (commonBlock) { alert(`${name} 는 공유(커먼) 코드 ${cCode!.name} 의 사용 고객사가 아닙니다.` + "\n" + "[고객사 관리]에서 이 고객사의 [공통코드 사용 고객사(하위 등록)] 에 먼저 체크하세요."); return; }
-          if (mixedBlock) { alert(`이 S/O 는 이미 ${mixed.join(" · ")} 로 쓰고 있습니다.` + "\n" + "한 S/O 안에서는 한 종류만 발급합니다. 코드 종류를 맞추거나 다른 Owner 를 고르세요."); return; }
+          if (locked) { alert(blockMsg); return; }
+          if (commonBlock) { alert(blockMsg); return; }
+          if (mixedBlock) { alert(blockMsg); return; }
           // 고객사 관리에 등록된 고객사에만 발급 (여기서 신규 생성하지 않음)
           const norm = (x: string) => x.replace(/\s+/g, "").toLowerCase();
           const co = companies.find((c) => norm(c.name) === norm(name));
@@ -523,7 +533,7 @@ export default function OwnershipMap() {
           store.upsertProject({
             id: 0, name: `${co.name} 코드발급 · S${curS}/O${curO}`, companyId, service: alloc.service, grade: "",
             editing: alloc.service === "CASTERN", editingOwner: curO, symbols: 0,
-            issued: [{ id: 1, date: new Date().toISOString().slice(0, 10), codes: 0, kind: pds as "N" | "G" | "A" | "O",
+            issued: [{ id: 1, date: new Date().toISOString().slice(0, 10), codes: 0, kind: DK[aKind] as "N" | "G" | "A" | "O",
                        by: me?.name ?? "", section: curS, owner: curO, bookStart: 0, bookEnd: scale.b - 1, pageStart: 1, pageEnd: 1 }],
           });
           // 저장 실패(용량 초과 등) 시 사라진 것처럼 보이지 않도록 즉시 경고
@@ -532,251 +542,86 @@ export default function OwnershipMap() {
           setSelB(0); setAlloc(null);
         };
         return (
-          <Modal onClose={() => setAlloc(null)} title={aMode === "auto" && !applied ? "자동 코드 할당 — 조건으로 SOBP 추천" : `코드 할당 — S${curS}/O${curO} · ${kindMeta(aKind).short}`} width={900}>
-            {/* 상태 안내 — 한 줄 */}
-            {(() => {
-              if (aMode === "auto" && !applied) return null;      // 추천 단계에선 S/O가 미정이라 숨김
-              if (locked) return (
-                <div style={{ ...noteBox, background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" }}>
-                  ⚠ <b>전용 코드</b> — S{curS}/O{curO} 는 이미 <b>{others.join(", ")}</b> 에 할당되어 있습니다. 발급 입력이 잠깁니다.
-                  <Help t={"한 업체 전용 S/O 라 다른 업체에 추가 발급할 수 없습니다.\n· 해당 업체를 고객사로 선택하면 이어서 발급할 수 있습니다.\n· 여러 고객사가 함께 쓰는 코드라면 아래 [공유 OWNER]를 체크하세요.\n· 그 외에는 [자동 코드 할당]으로 비어 있는 S/O를 추천받으세요."} />
-                </div>
-              );
-              if (shared) return (
-                <div style={{ ...noteBox, background: "#faf5ff", borderColor: "#e9d5ff", color: "#6b21a8" }}>
-                  ✅ <b>공유 OWNER</b> · S{curS}/O{curO} — 여러 고객사 사용 가능 (Book 번호만 배타)
-                  <Help t={`${shared.note}${holders.length ? `\n현재 사용: ${holders.join(", ")}` : ""}\n\n공유 OWNER는 Book 번호만 겹치지 않으면 됩니다.`} />
-                </div>
-              );
-              return (
-                <div style={{ ...noteBox, background: "#f5f9ff", borderColor: "#bfdbfe", color: "#1e3a8a" }}>
-                  <b>S{curS}/O{curO}</b> 에 발급합니다.
-                  <Help t="기존 고객사에는 추가 발급됩니다. 신규 고객사는 [고객사 관리]에서 먼저 등록해야 합니다." />
-                </div>
-              );
-            })()}
+          <Modal onClose={() => setAlloc(null)} title={`코드 할당 — S${curS}/O${curO}`} width={720}>
+            {/* 1. 발급 대상 — 좌표는 지도에서 고른다. 여기서는 **상태만** 보여 준다 `PC-046` */}
+            <div style={{ border: `1px solid ${blockMsg ? "#fecaca" : "#e5e7eb"}`, background: blockMsg ? "#fef2f2" : "#fafbfc",
+              borderRadius: 10, padding: "11px 13px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: "#6b7280" }}>발급 대상</span>
+                <Sc k="S" c="#5f8ff0" v={curS} />
+                <Sc k="O" c="#14b8a6" v={curO} />
+                <KindChip kind={aKind} small />
+                <span style={{ ...S.tag, fontSize: 9.5, background: stBg, color: stFg, fontWeight: 700 }}>{stLabel2}</span>
+                <span style={{ flex: 1 }} />
+                <span style={{ fontSize: 11, color: "#9ca3af" }}>owner 전체 점유 · 규모는 편집 시 집계</span>
+              </div>
+              {blockMsg && <div style={{ marginTop: 7, fontSize: 12, color: "#b91c1c", fontWeight: 700, lineHeight: 1.6 }}>{blockMsg}</div>}
+            </div>
 
-            {/* 1. 고객사 + 사용 서비스 — 목록 선택 + 직접 입력(검색) 겸용 */}
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
-              <div style={{ flex: "1 1 280px", maxWidth: 320 }}>
+            {/* 2. 발급 정보 */}
+            <div style={{ marginTop: 10, border: "1px solid #eef0f4", borderRadius: 10, padding: "12px 13px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <Field label="고객사 *">
                   <input list="ncc-alloc-acct" style={S.input} value={alloc.company}
-                    placeholder="고객사 선택 또는 직접 입력(검색)"
-                    onChange={(e) => { setAlloc({ ...alloc, company: e.target.value }); setRecoRes(null); }} />
+                    placeholder="고객사 선택 또는 검색"
+                    onChange={(e) => setAlloc({ ...alloc, company: e.target.value })} />
                   <datalist id="ncc-alloc-acct">{companies.map((c) => <option key={c.id} value={c.name} />)}</datalist>
                 </Field>
-              </div>
-              <div style={{ flex: "0 1 240px", minWidth: 200 }}>
                 <Field label="사용 서비스">
                   <select style={S.input} value={alloc.service} onChange={(e) => setAlloc({ ...alloc, service: e.target.value as ServiceType })}>
                     {SERVICE.map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
                   </select>
                 </Field>
-                <div style={{ fontSize: 10.5, color: "#9ca3af", marginTop: 4, lineHeight: 1.5 }}>
-                  {alloc.service === "NONE"
-                    ? "코드만 발급 — 자체 서비스 미사용(사용량 모니터링 불가)."
-                    : alloc.service === "CASTERN"
-                      ? "casterN 편집툴 — [편집 프로젝트]에서 관리·모니터링."
-                      : "자체 서비스 — 코드 사용량이 모니터링됩니다."}
-                </div>
+              </div>
+
+              {/* 코드 종류 — 비어 있는 좌표에서만 고른다. 골라도 S/O 는 바뀌지 않는다 `PC-046` */}
+              <div style={{ marginTop: 11, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11.5, color: "#6b7280", fontWeight: 700, minWidth: 58 }}>코드 종류</span>
+                {kindFixed ? (
+                  <span style={{ fontSize: 12, color: "#6b7280" }}>
+                    이 S/O 는 <b style={{ color: kindMeta(aKind).color }}>{soKinds.join(" · ")}</b> 로 사용 중 — 같은 종류로 발급합니다.
+                  </span>
+                ) : kindOpts.map((k2) => {
+                  const on = k2 === aKind;
+                  return (
+                    <button key={k2} onClick={() => setAKindSel(k2)}
+                      style={{ fontSize: 12, borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontWeight: on ? 700 : 400,
+                        border: `1px solid ${on ? kindMeta(k2).color : "#e5e7eb"}`,
+                        background: on ? kindMeta(k2).bg : "#fff", color: on ? kindMeta(k2).color : "#6b7280" }}>
+                      {kindMeta(k2).short}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* 선택 고객사의 기존 보유 코드 */}
-            {name && (
+            {/* 3. 선택 고객사가 이미 가진 코드 — 클릭하면 그 좌표로 이동 */}
+            {name && myAlloc.length > 0 && (
               <div style={{ marginTop: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#6b7280", marginBottom: 6 }}>
-                  <b style={{ color: "#374151" }}>{name}</b> 기존 보유 코드
-                  <span style={{ color: "#9ca3af" }}>{myAlloc.length}건</span>
-                  <Help t={"이 고객사가 이미 할당받은 S/O 입니다.\n· 코드를 클릭하면 그 S/O로 이동해 이어서 추가 발급할 수 있습니다.\n· 자동 추천에서는 기존 오너를 유지하고 잔여 구간에서 배정합니다."} />
+                <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 6 }}>
+                  <b style={{ color: "#374151" }}>{name}</b> 보유 코드 <span style={{ color: "#9ca3af" }}>{myAlloc.length}건 · 클릭하면 이동</span>
                 </div>
-                {myAlloc.length === 0 ? (
-                  <div style={{ fontSize: 12, color: "#9ca3af", padding: "6px 0" }}>
-                    보유한 코드가 없습니다 — {aMode === "auto" && !applied ? "신규 오너로 추천됩니다." : "새 S/O로 발급됩니다."}
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", justifyItems: "start", gap: 6, maxHeight: 112, overflowY: "auto" }}>
-                      {myAlloc.map((a, i) => {
-                        const on = a.k === pds && a.s === curS && a.o === curO;
-                        return (
-                          <button key={i} title="이 S/O 로 이동해서 이어서 추가 발급 (시작 Book 자동)"
-                            onClick={() => {
-                              // 이 S/O 에서 비어 있는 가장 빠른 Book 을 자동 선택
-                              const k2 = a.k as "N" | "G";
-                              const bmax = SCALE[codeKind(k2, a.s)]?.[a.s]?.b ?? 4096;
-                              const used2 = usedBookMap(k2, a.s, a.o, allocBooks);
-                              const other2 = rangesFor(k2, a.s, a.o).filter((r) => nzn(r.account) !== nzn(name));
-                              let nextB = -1;
-                              for (let b = 0; b < bmax; b++) {
-                                if (used2.has(b) || other2.some((r) => b >= r.start && b <= r.end)) continue;
-                                nextB = b; break;
-                              }
-                              setKind(codeKind(k2, a.s)); setSelS(a.s); setSelO(a.o);
-                              if (nextB < 0) { setRecoRes({ ok: false, reason: `S${a.s}/O${a.o} 에 사용 가능한 Book 번호가 없습니다.` }); setApplied(false); return; }
-                              setSelB(nextB); setAlloc({ ...alloc, bookStart: nextB });
-                              setRecoRes(null); setApplied(true);
-                            }}
-                            style={{ display: "inline-flex", alignItems: "center", gap: 6, borderRadius: 8, padding: "4px 8px", fontSize: 11.5,
-                              cursor: "pointer",
-                              border: on ? "1px solid #93c5fd" : "1px solid #eef0f4", background: on ? "#eef6ff" : "#fff" }}>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: a.k === "N" ? "#2563eb" : "#d97706", borderRadius: 4, padding: "1px 5px" }}>{a.k === "N" ? "PDS3" : "PDS2"}</span>
-                            <Sc k="S" c="#5f8ff0" v={a.s} />
-                            <Sc k="O" c="#14b8a6" v={a.o} />
-                            <Sc k="B" c="#8b5cf6" v={`${a.bs}~${a.be}`} />
-                            {a.pe > 0 && <Sc k="P" c="#f59e0b" v={`${a.ps}~${a.pe}`} />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 5 }}>
-                      코드를 클릭하면 해당 S/O로 이동하고 <b>시작 Book이 가장 빠른 빈 번호</b>로 자동 설정됩니다. (자동 추천은 점유 구간을 제외하고 새 구간을 제안합니다)
-                    </div>
-                  </>
-                )}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", justifyItems: "start", gap: 6, maxHeight: 96, overflowY: "auto" }}>
+                  {myAlloc.map((a, i) => {
+                    const on = a.s === curS && a.o === curO;
+                    return (
+                      <button key={i} title="이 S/O 로 이동"
+                        onClick={() => { setKind(codeKind(a.k as string, a.s)); setSelS(a.s); setSelO(a.o); setSelB(-1); setAKindSel(null); }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 8, padding: "4px 8px", fontSize: 11.5, cursor: "pointer",
+                          border: on ? "1px solid #93c5fd" : "1px solid #eef0f4", background: on ? "#eef6ff" : "#fff" }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: a.k === "N" ? "#2563eb" : "#d97706", borderRadius: 4, padding: "1px 5px" }}>{a.k === "N" ? "PDS3" : "PDS2"}</span>
+                        <Sc k="S" c="#5f8ff0" v={a.s} />
+                        <Sc k="O" c="#14b8a6" v={a.o} />
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            )}
-
-            {/* 2-A. 자동 추천 — 조건 입력 */}
-            {aMode === "auto" && (
-              <div style={{ border: "1px solid #eef0f4", borderRadius: 10, padding: 12, marginTop: 12, background: "#fafbfc" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-                  <b style={{ fontSize: 12.5, color: "#374151" }}>추천 조건</b>
-                  <Help t={`조건을 입력하면 PDS 타입·Section·Owner·Book 을 추천합니다.\n\n· 신규 고객 → 오너를 새로 발급\n· 기존 고객 → 기존 오너를 유지하고 잔여 구간에서 할당\n· PDS2 S0·S14는 테스트/개발 전용이라 추천에서 제외(직접 선택은 가능)\n· 판형은 가장 긴 변 기준, 최대 ${maxRecommendLength(recoPds).toLocaleString()}mm`} />
-                  <span style={{ flex: 1 }} />
-                  <label style={{ fontSize: 11.5, color: "#6b7280", display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-                    <input type="checkbox" checked={pdsAuto} onChange={(e) => setPdsAuto(e.target.checked)} />
-                    PDS 자동
-                    <Help t={pdsAuto ? "PDS2·PDS3 전체를 탐색해 가장 적합한 타입을 추천합니다." : `현재 선택된 ${pds === "N" ? "PDS3" : "PDS2"} 안에서만 추천합니다.`} />
-                  </label>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1.1fr 1.3fr 0.9fr 0.9fr", gap: 10 }}>
-                  <Field label="용도">
-                    <select style={S.input} value={pen} onChange={(e) => { setPen(e.target.value as Pen); setRecoRes(null); }}>
-                      <option value="소리펜">소리펜</option><option value="필기펜">필기펜</option>
-                    </select>
-                  </Field>
-                  <Field label="발급 유형">
-                    <select style={S.input} value={alloc.mode} onChange={(e) => { setAlloc({ ...alloc, mode: e.target.value as "코드발급" | "편집" }); setRecoRes(null); }}>
-                      <option value="코드발급">코드만 발급</option>
-                      <option value="편집">편집</option>
-                    </select>
-                  </Field>
-                  <Field label="판형">
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <select style={S.input} value={paper} onChange={(e) => {
-                        const v = e.target.value; setPaper(v);
-                        const hit = PAPER_SIZES.find((x) => x.label === v);
-                        if (hit) setReco({ ...reco, lengthMm: hit.mm });
-                      }}>
-                        {PAPER_SIZES.map((x) => <option key={x.label} value={x.label}>{x.label}</option>)}
-                        <option value="__CUSTOM__">직접 입력</option>
-                      </select>
-                      {paper === "__CUSTOM__" && (
-                        <input type="number" min={1} max={maxRecommendLength(recoPds)} style={{ ...S.input, maxWidth: 88 }} value={reco.lengthMm}
-                          onChange={(e) => setReco({ ...reco, lengthMm: Math.min(maxRecommendLength(recoPds), Math.max(1, +e.target.value)) })} placeholder="mm" />
-                      )}
-                    </div>
-                  </Field>
-                  <Field label="권당 페이지"><input type="number" min={1} style={S.input} value={reco.pages} onChange={(e) => setReco({ ...reco, pages: Math.max(1, +e.target.value) })} /></Field>
-                  <Field label="권수"><input type="number" min={1} style={S.input} value={reco.books} onChange={(e) => setReco({ ...reco, books: Math.max(1, +e.target.value) })} /></Field>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-                  <button onClick={() => {
-                    const r = recommendSobp({ pds: pdsAuto ? undefined : recoPds, pen, mode: alloc.mode, lengthMm: reco.lengthMm, pagesPerBook: reco.pages, books: reco.books, company: name }, companies, projects);
-                    setRecoRes(r);
-                    if (r.ok) {   // 추천 즉시 반영 → 아래에서 값 수정 가능
-                      setKind(codeKind(r.pds, r.section)); setSelS(r.section); setSelO(r.owner); setSelB(r.bookStart);
-                      setAlloc({ ...alloc, bookStart: r.bookStart, books: reco.books, pages: Math.min(r.spec.page, reco.pages) });
-                      setApplied(true);
-                    }
-                  }} disabled={!name} style={{ ...S.primary, ...(!name ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>추천 받기</button>
-                </div>
-
-                {recoRes && (recoRes.ok ? (
-                  <div style={{ marginTop: 10, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 9, padding: "10px 12px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span style={{ ...S.tag, background: recoRes.pds === "N" ? "#2563eb" : "#d97706", color: "#fff", fontWeight: 700 }}>{recoRes.pds === "N" ? "PDS3" : "PDS2"}</span>
-                      <Sc k="S" c="#5f8ff0" v={recoRes.section} />
-                      <Sc k="O" c="#14b8a6" v={recoRes.owner} />
-                      <Sc k="B" c="#8b5cf6" v={`${recoRes.bookStart}~${recoRes.bookEnd}`} />
-                      <span style={{ ...S.tag, background: recoRes.isNewOwner ? "#eef6ff" : "#fff7ed", color: recoRes.isNewOwner ? "#2563eb" : "#b45309" }}>{recoRes.isNewOwner ? "신규 오너" : "기존 오너"}</span>
-                      <Help t={`${recoRes.reason}\n\n섹션 최대 판형 ${recoRes.spec.length.toLocaleString()}mm · 최대 ${recoRes.spec.page.toLocaleString()}p${recoRes.alternatives.length ? `\n대안 섹션: ${recoRes.alternatives.map((a) => `S${a.section}(${a.length}mm/${a.page}p)`).join(", ")}` : ""}`} />
-                      <span style={{ flex: 1 }} />
-                      <span style={{ fontSize: 11.5, color: "#15803d", fontWeight: 700 }}>적용됨 · 아래에서 수정 가능</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ marginTop: 10, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: "9px 12px", fontSize: 12.5, color: "#b91c1c" }}>⚠ {recoRes.reason}</div>
-                ))}
-              </div>
-            )}
-
-            {/* 2-B. 발급 상세 (직접 선택 또는 추천 적용 후) */}
-            {(aMode === "manual" || applied) && (
-              <>
-                {/* 발급 대상 — 코드 종류 · Section · Owner 를 여기서 다시 고를 수 있다 (각각 단일 선택) */}
-                <div style={{ marginTop: 12, padding: "10px 12px",
-                  border: `1px solid ${locked ? "#fecaca" : "#bfdbfe"}`, background: locked ? "#fef2f2" : "#f5f9ff", borderRadius: 9 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-                    <span style={{ fontSize: 11.5, color: locked ? "#991b1b" : "#1e3a8a", fontWeight: 700 }}>발급 대상</span>
-                    {locked && <span style={{ ...S.tag, fontSize: 9.5, background: "#fee2e2", color: "#991b1b", fontWeight: 700 }}>🔒 전용 · 할당 불가</span>}
-                    <KindChip kind={aKind} small />
-                    <Sc k="S" c="#5f8ff0" v={curS} />
-                    <Sc k="O" c="#14b8a6" v={curO} />
-                    <span style={{ ...S.tag, fontSize: 9.5, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>owner 전체</span>
-                    <span style={{ flex: 1 }} />
-                    {applied && aMode === "auto" && <button onClick={() => { setApplied(false); setRecoRes(null); }} style={S.linkBtn}>조건 다시 입력</button>}
-                  </div>
-                  {/* 들어온 뒤에도 대상을 다시 고를 수 있다 — 다중 선택은 없다 */}
-                  <div style={{ display: "grid", gridTemplateColumns: "160px 150px 150px", gap: 10 }}>
-                    <Field label="코드 종류 *">
-                      <select style={S.input} value={ALLOC_KINDS.includes(aKind) ? aKind : "PDS3"}
-                        onChange={(e) => {
-                          const k2 = e.target.value as CodeKind;
-                          const ns = Object.keys(SCALE[k2] ?? {}).map(Number).sort((a, b) => a - b);
-                          setKind(k2); setSelS(ns[0]); setSelO(-1); setSelB(-1); setOFrom(""); setBFrom("");
-                        }}>
-                        {ALLOC_KINDS.map((k2) => <option key={k2} value={k2}>{kindMeta(k2).label}</option>)}
-                      </select>
-                    </Field>
-                    <Field label="Section *">
-                      <select style={S.input} value={curS}
-                        onChange={(e) => { setSelS(+e.target.value); setSelO(-1); setSelB(-1); setOFrom(""); setBFrom(""); }}>
-                        {secs.map((s2) => <option key={s2} value={s2}>S{s2}</option>)}
-                      </select>
-                    </Field>
-                    <Field label="Owner *">
-                      <input type="number" min={0} max={scale.o - 1} style={S.input} value={curO}
-                        onChange={(e) => { const v = Math.max(0, Math.min(scale.o - 1, +e.target.value || 0)); setSelO(v); setSelB(-1); setOFrom(""); }} />
-                    </Field>
-                  </div>
-                  <div style={{ fontSize: 10.5, color: "#6b7280", marginTop: 6 }}>
-                    Owner 는 0 ~ {(scale.o - 1).toLocaleString()} 범위. 바꾸면 왼쪽 지도 선택도 함께 이동합니다.
-                  </div>
-                </div>
-                <div style={{ marginTop: 10, fontSize: 12, color: locked ? "#b91c1c" : "#6b7280", lineHeight: 1.65 }}>
-                  이 <b>S{curS}/O{curO}</b> 전체를 <b>{name || "선택한 고객사"}</b> 에 발급(점유)합니다. owner 아래 <b>모든 Book 이 &lsquo;사용가능&rsquo;</b> 이 되고, 실제 발급 규모(코드 수)는 <b>편집 시 집계</b>됩니다.
-                  {locked && <div style={{ marginTop: 4, fontWeight: 700 }}>⚠ 이미 {others.join(", ")} 전용입니다.</div>}
-                  {commonBlock && (
-                    <div style={{ marginTop: 4, fontWeight: 700, color: "#b91c1c" }}>
-                      🚫 <b>{name}</b> 는 공유(커먼) 코드 <b>{cCode!.name}</b> 의 <b>사용 고객사가 아닙니다</b> — [고객사 관리] 에서 <b>공통코드 사용 고객사(하위 등록)</b> 에 먼저 체크하세요.
-                    </div>
-                  )}
-                  {mixedBlock && (
-                    <div style={{ marginTop: 4, fontWeight: 700, color: "#b91c1c" }}>
-                      🚫 이 S/O 는 이미 <b>{mixed.join(" · ")}</b> 로 사용 중 — <b>한 S/O 안에서는 한 종류만</b> 발급합니다 (과거 혼용 이력은 그대로 표시)
-                    </div>
-                  )}
-                </div>
-              </>
             )}
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
               <button onClick={() => setAlloc(null)} style={S.ghost}>취소</button>
-              {(aMode === "manual" || applied) && (
+              {true && (
                 <button onClick={save} disabled={locked || !name || mixedBlock || commonBlock}
                   style={{ ...S.primary, ...(locked || !name || mixedBlock || commonBlock ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>할당</button>
               )}
@@ -930,19 +775,6 @@ function PageView({ sec, owner, book, recs, pmax, dk, setTip }: { sec: number; o
 const chip = (on: boolean): React.CSSProperties => ({ fontSize: 11.5, borderRadius: 7, padding: "4px 9px", cursor: "pointer", border: on ? "1px solid #93c5fd" : "1px solid #e5e7eb", background: on ? "#eef6ff" : "#fff", color: on ? "#2563eb" : "#6b7280" });
 // SOBP 미니 칩 (S/O/B/P 각각 표시)
 // 부가 설명은 ? 툴팁으로 (화면 정리)
-function Help({ t }: { t: string }) {
-  return (
-    <span title={t} style={{
-      display: "inline-grid", placeItems: "center", width: 15, height: 15, borderRadius: "50%",
-      border: "1px solid #cbd5e1", color: "#94a3b8", fontSize: 10, fontWeight: 700,
-      cursor: "help", flex: "none", marginLeft: 2,
-    }}>?</span>
-  );
-}
-const noteBox: React.CSSProperties = {
-  display: "flex", alignItems: "center", gap: 4, border: "1px solid", borderRadius: 10,
-  padding: "8px 12px", fontSize: 12.5, marginBottom: 12,
-};
 const moreBtn: React.CSSProperties = {
   display: "block", width: "100%", margin: "6px 0 2px", padding: "7px 0", fontSize: 11.5,
   border: "1px dashed #cbd5e1", borderRadius: 8, background: "#fafbfc", color: "#2563eb", cursor: "pointer",
