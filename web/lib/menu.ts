@@ -101,7 +101,7 @@ export const titleOf = (path: string): string => {
   // 메뉴에 없는 하위 화면(등록·상세)
   if (path === "/tickets/account/new") return "계정 등록";
   if (path.startsWith("/tickets/account/")) return "계정 상세 · 수정";
-  if (path === "/tickets/nkey/new") return "N Key 생성";
+  if (path === "/tickets/nkey/new") return "N Key 발급";   // `PC-068`
   if (path.startsWith("/tickets/nkey/")) return "발급 상세 · 수정";
   if (path === "/companies/new") return "고객사 등록";
   if (path.startsWith("/companies/")) return "고객사 상세 · 수정";

@@ -649,7 +649,6 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   useTickets();
   const myTickets = ticketsOfAccount(accountId);
   const appTicket = myTickets.find((x) => x.kind === "APP");
-  const nTicket = myTickets.find((x) => x.kind === "N");
   const keyable = (acc?.services ?? []).length > 0 && !myKey;
 
   // 사용처를 새로 켜면 그 서비스의 기본 설정을 채운다.
@@ -806,12 +805,10 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
         {/* 이 계정의 Key 정보 — 계정 : 키 = 1:1 매핑 `PC-059` */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
-          <SecHead t="Key 정보" d="· 이 계정에 매핑된 키 · App Key 1개 · N Key 1개" />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          <SecHead t="Key 정보" d="· 이 계정에 발급된 App Key · 계정당 1개" />
+          <div style={{ marginBottom: 12 }}>
+            {/* N Key 는 이 화면에서 발급하지 않는다 — [N Key 관리] 메뉴에서 다룬다 `PC-068` */}
             <KeyCard title="App Key" params={appTicket?.params} empty="아래에서 발급하세요." />
-            <KeyCard title="N Key" params={nTicket?.params}
-              empty="N Key 발급 화면에서 이 계정을 골라 발급하세요."
-              href={nTicket ? `/tickets/nkey/${nTicket.id}` : "/tickets/nkey"} />
           </div>
           <SecHead t="App Key 발급 내역" d={`· 발급된 키 ${keys.length}개`} />
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
