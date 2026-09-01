@@ -3,6 +3,7 @@
 
 등록(/tickets/account/new) : ① 계정 정보 → ② 사용처·권한 → ③ App Key(선택) → [계정 추가]
 상세·수정(/tickets/account/{email}) : ①② 수정 + [저장] · ③ App Key 발급·삭제
+App Key 는 계정당 1개이고 사용처 전체에 공통이다 `PC-050`. 발급 시 Book Start·Book Volume 을 지정한다.
 """
 from shell import page, frame
 from p_tkt01 import sel, field, picker
@@ -15,10 +16,9 @@ PERMS = ('프로젝트 생성', '심볼 편집', '리소스 편집', 'Ncode PDF 
          'NCP2 내보내기', 'App용 패키지 내보내기', 'App 페이지 설정')
 
 # 상세 화면의 App Key 목록 (키, 코드종류, SOBP, 사용처, 유효, 생성일시)
-KEYS = (('ncc_live_9f3c1a08b2', 'PDS2', 'S3/O17/B400~499', 'CasterN', '2027-12-31',
-         '2026-08-20 14:02'),
-        ('ncc_live_41d7e6b590', 'PDS2', 'S3/O17/B500~599', 'CasterN', '무제한',
-         '2026-08-22 09:41'))
+# 계정당 1개 · 사용처 전체 공통 `PC-050`
+KEYS = (('ncc_live_9f3c1a08b2', 'PDS2', 'S3/O17/B400~499 · 100권',
+         'CasterN · 폼솔루션', '2027-12-31', '2026-08-20 14:02'),)
 
 
 def step(n, title, desc=''):
@@ -74,6 +74,12 @@ def acct_inputs(edit=False, err=None, empty=True):
                     + ('https://www.wjthinkbig.com' if edit or not empty else '')
                     + '</div>')
             + '</div>')
+
+
+def book_fields(start='400', vol='100'):
+    """App Key 발급 범위 — Book Start · Book Volume(권수) `PC-050`"""
+    return (field('Book Start', '<div class="inp">%s</div>' % start)
+            + field('Book Volume (권수)', '<div class="inp">%s</div>' % vol))
 
 
 def until_field(unlimited=True):
@@ -190,31 +196,37 @@ def perms_only(selected=None):
             'gap:6px">' + cells + '</div>')
 
 
+def range_note(start='400', vol='100'):
+    end = int(start) + int(vol) - 1
+    return ('<div style="font-size:11.5px;color:#6b7280;margin-top:6px">'
+            '발급 범위 <b>PDS2 S3/O17/B%s~%d</b> · %s권 '
+            '<span style="color:#9ca3af">(할당 B1~501)</span></div>' % (start, end, vol))
+
+
 def appkey_block(mode='new', withkey=False, rng='closed', issued=False, has=True):
-    """CasterN 탭 안의 App Key — 사용처에 CasterN 이 없으면 안내만"""
-    sep = ('<div style="margin-top:14px;border-top:1px solid #eef0f4;padding-top:12px">'
-           '%s</div>')
-    if not has:
-        return sep % ('<div style="font-size:12px;color:#9ca3af;line-height:1.6">'
-                      'App Key 는 <b>CasterN</b> 사용처에만 발급됩니다.</div>')
+    """③ App Key — 사용처 전체 공통 · 계정당 1개 `PC-050`. 탭 밖에 둔다."""
     if mode == 'new':
         chk = ('<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;'
                'color:#374151"><input type="checkbox"' + (' checked' if withkey else '')
                + '> 이 계정에 <b>App Key도 함께 발급</b>합니다 '
-                 '<span style="color:#9ca3af">· SOBP 범위 연동 · 선택</span></label>')
+                 '<span style="color:#9ca3af">· 사용처 전체 공통 · 계정당 1개 · 선택</span>'
+                 '</label>')
         if not withkey:
-            return sep % chk
-        return sep % (chk + '<div style="margin-top:10px">' + picker(rng)
-                      + '<div class="g2" style="margin-top:12px">' + until_field()
-                      + '</div></div>')
-    head_ = ('<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">'
-             'App Key 발급 <span style="font-weight:400;color:#9ca3af">'
-             '· SOBP 범위 연동 · 연동된 키 2개</span></div>')
-    btn = ('<div style="display:flex;gap:12px;align-items:flex-end;margin-top:12px">'
-           '<div style="width:300px">' + until_field() + '</div>'
-           '<span style="flex:1"></span><div class="btn '
-           + ('pri' if rng != 'closed' else 'dis') + '">App Key 발급</div></div>')
-    return sep % (head_ + picker(rng) + btn + (result_box() if issued else ''))
+            return chk
+        return (chk + '<div style="margin-top:10px">' + picker(rng)
+                + '<div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:12px;'
+                  'margin-top:12px">' + book_fields() + until_field() + '</div>'
+                + (range_note() if rng != 'closed' else '') + '</div>')
+    if has:      # 이미 발급된 키가 있는 계정 — 계정당 1개라 재발급하지 않는다
+        return ('<div style="font-size:11.5px;color:#6b7280;line-height:1.7">'
+                '이 계정에는 이미 App Key 가 발급돼 있습니다 — <b>계정당 1개</b>입니다. '
+                '범위를 바꾸려면 아래에서 <b>키를 삭제</b>한 뒤 다시 발급하세요.</div>')
+    btn = ('<div style="display:grid;grid-template-columns:1fr 1fr 1.4fr auto;gap:12px;'
+           'align-items:end;margin-top:12px">' + book_fields() + until_field()
+           + '<div class="btn ' + ('pri' if rng != 'closed' else 'dis')
+           + '">App Key 발급</div></div>')
+    return (picker(rng) + btn + (range_note() if rng != 'closed' else '')
+            + (result_box() if issued else ''))
 
 
 def key_history(broken=False):
@@ -226,19 +238,22 @@ def key_history(broken=False):
                             'border-radius:5px;padding:2px 7px;font-weight:700">연동 끊김',
                             1)
     return ('<div style="margin-top:18px;border-top:1px solid #eef0f4;padding-top:14px">'
-            + step(3, 'App Key 발급 내역', '연동된 키 2개 · 발급은 ② CasterN 탭에서')
+            + step(3, 'App Key 발급', '사용처 전체 공통 · 계정당 1개 · 발급된 키 1개')
+            + '<div style="margin-bottom:12px">' + appkey_block('edit', has=True)
+            + '</div>'
             + rows + '</div>')
 
 
 def new_form(picked=('CasterN',), tab='CasterN', perms=None, withkey=False, rng='closed',
              err=None, empty=True, toast=None):
-    inner = perms_only(perms) + appkey_block('new', withkey, rng, has=True)
+    inner = perms_only(perms)          # App Key 는 탭 밖 ③ 단계 `PC-050`
     panel = svc_panel(tab, tab in picked,
                       dict((n, r) for n, _d, r in SERVICES)[tab], inner)
-    body = (head('계정 등록', '① 계정 정보 → ② 사용처·권한')
+    body = (head('계정 등록', '① 계정 정보 → ② 사용처·권한 → ③ App Key')
             + '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:12px">'
               '한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). '
-              'App Key 발급은 <b>CasterN 사용처 전용</b>이며 선택 사항입니다.</div>'
+              'App Key 는 <b>계정당 1개</b>이며 <b>사용처 전체에 공통</b>으로 쓰입니다 '
+              '<code>PC-050</code>.</div>'
             + step(1, '계정 정보', '서비스 로그인 계정') + acct_inputs(err=err, empty=empty)
             + '<div style="margin-top:16px">'
             + step(2, '사용처 · 권한', '탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다')
@@ -247,6 +262,9 @@ def new_form(picked=('CasterN',), tab='CasterN', perms=None, withkey=False, rng=
               '<b>한 계정으로 각 서비스에 로그인</b>합니다. 선택 <b>'
             + str(len(picked)) + '</b> / 3</div>'
             + svc_tabs(picked, tab, panel) + '</div>'
+            + '<div style="margin-top:18px;border-top:1px solid #eef0f4;padding-top:14px">'
+            + step(3, 'App Key 발급', '사용처 전체 공통 · 계정당 1개 · 선택')
+            + appkey_block('new', withkey, rng) + '</div>'
             + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'
               '<div class="btn gho">취소</div><div class="btn pri">계정 추가</div></div>')
     if toast:
@@ -258,8 +276,7 @@ def new_form(picked=('CasterN',), tab='CasterN', perms=None, withkey=False, rng=
 
 def edit_form(picked=('CasterN',), tab='CasterN', perms=None, rng='closed', issued=False,
               toast=None, broken=False):
-    has = 'CasterN' in picked
-    inner = perms_only(perms) + appkey_block('edit', rng=rng, issued=issued, has=has)
+    inner = perms_only(perms)          # App Key 는 탭 밖 ③ 단계 `PC-050`
     panel = svc_panel(tab, tab in picked,
                       dict((n, r) for n, _d, r in SERVICES)[tab], inner)
     chips = ('<code style="font-size:12.5px;color:#374151">wj_edit@wjthinkbig.com</code>'
@@ -270,8 +287,8 @@ def edit_form(picked=('CasterN',), tab='CasterN', perms=None, rng='closed', issu
             + '<div style="margin-top:16px">'
             + step(2, '사용처 · 권한', '탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다')
             + '<div style="font-size:10.5px;color:#9ca3af;margin-bottom:6px;line-height:1.5">'
-              '사용처에서 CasterN 을 빼면 이 계정의 <b>App Key 연동이 끊깁니다</b>'
-              '(키는 삭제되지 않습니다). 선택 <b>' + str(len(picked)) + '</b> / 3</div>'
+              'App Key 는 <b>사용처 전체에 공통</b>이라 사용처를 바꿔도 키는 그대로입니다 '
+              '<code>PC-050</code>. 선택 <b>' + str(len(picked)) + '</b> / 3</div>'
             + svc_tabs(picked, tab, panel) + '</div>'
             + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'
               '<div class="btn gho" style="color:#dc2626;border-color:#fecaca">계정 삭제'
@@ -358,25 +375,28 @@ def build():
          ('App Key', '표시', '<b>없음</b>', 'CasterN 탭에만 있다')]))
 
     B.append((
-        'S5', 'App Key 함께 발급 — CasterN 탭', '분기',
-        'App Key 는 SOBP 범위를 편집툴에 연동하는 키라 <b>CasterN 사용처 전용</b>이다. '
-        '그래서 별도 단계가 아니라 <b>CasterN 탭의 권한 아래</b>에 있다. '
-        '체크하면 할당된 SOBP 범위와 만료일이 열린다.',
-        scr_new(withkey=True, rng='open', h=1320),
-        [('[App Key도 함께 발급]', '체크', '범위·만료 표시', '선택 사항'),
+        'S5', '③ App Key 함께 발급', '분기',
+        'App Key 는 그 계정의 <b>사용처 전체에 공통</b>으로 쓰이고 <b>계정당 1개</b>다 '
+        '<code>PC-050</code>. 그래서 탭 안이 아니라 <b>③ 단계</b>로 따로 둔다. '
+        '체크하면 할당된 SOBP 범위와 <b>Book Start · Book Volume(권수)</b> · 만료일이 열린다.',
+        scr_new(withkey=True, rng='open', h=1360),
+        [('[App Key도 함께 발급]', '체크', '범위·Book·만료 표시', '선택 사항'),
          ('할당된 SOBP 범위', '선택', '순번 + S·O·B·P', '<b>직접 입력하지 않는다</b>'),
+         ('Book Start', '입력', '숫자', '할당 범위 안에서만 <code>PC-050</code>'),
+         ('Book Volume (권수)', '입력', '숫자',
+          '발급 권수 — <b>Book End = Start + Volume − 1</b> 로 계산해 아래에 보여 준다'),
          ('범위 없음', '—', '<code>SOB-02</code>', '코드 할당 후 재시도'),
          ('만료일', '기본', '<b>무제한</b>', '체크를 풀면 달력으로 지정'),
          ('미체크', '저장', '계정만 등록', '키는 상세에서 나중에 발급')]))
 
     B.append((
-        'S6', 'CasterN 미선택 — App Key 안내', '차단',
-        '사용처에서 CasterN 을 빼면 App Key 발급 자리에 <b>안내만</b> 남는다. '
-        '폼솔루션·SDK 탭에는 App Key 항목 자체가 나오지 않는다.',
-        scr_new(picked=('폼솔루션',), tab='CasterN', h=900),
-        [('CasterN 탭', '조회', '사용 여부 해제됨', '조건이 잠긴다'),
-         ('App Key', '표시', '—', '<b>App Key 는 CasterN 사용처에만 발급됩니다.</b>'),
-         ('저장', '—', '가능', '계정은 폼솔루션 사용처로 등록된다')]))
+        'S6', '사용처를 바꿔도 App Key 는 그대로', '변형',
+        'App Key 는 <b>사용처 전체 공통</b>이라 사용처 구성을 바꿔도 키는 영향을 받지 않는다 '
+        '<code>PC-050</code>. 예전의 「CasterN 전용 · 연동 끊김」 처리는 <b>폐지</b>했다.',
+        scr_new(picked=('폼솔루션',), tab='CasterN', h=960),
+        [('사용처 구성', '변경', 'App Key 영향 없음', '키는 계정 단위로 붙는다'),
+         ('③ App Key', '표시', '<b>항상 노출</b>', '탭과 무관한 단계다'),
+         ('저장', '—', '가능', '계정은 고른 사용처로 등록된다')]))
 
     B.append((
         'S7', '등록 검증 실패', '검증',
@@ -414,22 +434,25 @@ def build():
         scr_edit(rng='sel', issued=True, h=1520,
                  toast='App Key 발급 완료 — 계정과 연동되어 서비스 DB에 등록되었습니다.'),
         [('[App Key 발급]', '클릭', '키 생성', '범위 선택 전에는 <b>비활성</b>'),
+         ('Book Start · Volume', '입력', '발급 범위 확정',
+          '<b>B{Start}~{Start+Volume−1}</b> 로 발급된다 <code>PC-050</code>'),
          ('발급 결과', '표시', '—', '계정 ID · PWD · App Key'),
          ('[전체 복사]', '클릭', '복사', '<b>계정·키 정보가 복사되었습니다.</b>'),
+         ('재발급', '—', '<b>불가</b>',
+          '계정당 1개 — 범위를 바꾸려면 <b>키를 삭제한 뒤</b> 다시 발급한다'),
          ('자동 기록', '—', '<code>TKT-03</code> · <code>LOG-01</code>', '발급 이력·활동 로그')]))
 
     B.append((
-        'S10', '사용처에서 CasterN 제거 — 연동 끊김', '차단',
-        '사용처에서 CasterN 을 빼고 저장하면 그 계정의 App Key는 <b>연동이 끊긴다</b>. '
-        '<b>키를 지우지는 않는다.</b> 저장 전에 확인을 받고, 발급 내역에는 '
-        '<b>연동 끊김</b> 표시가 붙는다. 다시 CasterN 을 선택하면 <b>연동이 되살아난다</b>.',
-        scr_edit(picked=('폼솔루션',), tab='CasterN', broken=True, h=1180),
-        [('[저장]', '클릭', '확인창',
-          '<b>사용처에서 빠지는 서비스로 발급된 App Key 2개는 연동이 끊깁니다. '
-          '저장할까요?</b>'),
-         ('끊긴 키', '표시', '<b>연동 끊김</b>', '발급 내역에 표시 · 로그인 불가'),
-         ('키 삭제', '—', '자동 삭제 안 함', '담당자가 내역에서 직접 판단'),
-         ('CasterN 재선택', '저장', '연동 복구', '키를 다시 발급할 필요가 없다')]))
+        'S10', '이미 발급된 계정 — 재발급 차단', '차단',
+        'App Key 는 <b>계정당 1개</b>다 <code>PC-050</code>. 이미 키가 있으면 ③ 단계에 '
+        '발급 폼 대신 <b>안내</b>가 나오고, 범위를 바꾸려면 <b>키를 삭제한 뒤</b> 다시 발급한다. '
+        '(사용처를 빼도 키 연동은 끊기지 않는다 — 「연동 끊김」 처리는 폐지)',
+        scr_edit(picked=('폼솔루션',), tab='CasterN', h=1180),
+        [('③ App Key', '표시', '<b>안내</b>',
+          '<b>이 계정에는 이미 App Key 가 발급돼 있습니다 — 계정당 1개입니다.</b>'),
+         ('발급 폼', '—', '<b>표시 안 함</b>', '범위·Book·만료 입력이 나오지 않는다'),
+         ('[키 삭제]', '클릭', '발급 폼 복귀', '삭제 후 새 범위로 다시 발급한다'),
+         ('사용처 변경', '저장', '키 유지', '키는 사용처 전체 공통이라 영향 없음')]))
 
     B.append((
         'S11', '계정 삭제 확인', '차단',

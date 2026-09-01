@@ -55,6 +55,7 @@ const won = (n: number) => `₩${Math.round(n).toLocaleString()}`;
 
 // 정산 등록·수정은 발급 상세(/tickets/nkey/[id])로 넘긴다 — 목록은 조회·이동만 한다.
 function TicketListView() {
+  const router = useRouter();   // 행을 누르면 상세로 이동 `PC-050`
   useTickets();
   const rows = allTickets();
   const [fCo, setFCo] = useState("");
@@ -183,19 +184,16 @@ function TicketListView() {
               const c = BILL_COLOR[t.billing];
               const left = t.billing === "체험" ? daysLeft(t.trialUntil) : null;
               return (
-                <tr key={t.id} style={{ borderTop: "1px solid #eef0f4" }}>
-                  <td style={{ ...S.td, fontFamily: "ui-monospace,monospace" }}>
-                    <Link href={`/tickets/nkey/${t.id}`} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>{t.no}</Link>
-                  </td>
+                <tr key={t.id} onClick={() => router.push(`/tickets/nkey/${t.id}`)} title="클릭하면 상세·수정"
+                  style={{ borderTop: "1px solid #eef0f4", cursor: "pointer" }}>
+                  <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#2563eb", fontWeight: 600 }}>{t.no}</td>
                   <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", fontSize: 11.5, whiteSpace: "nowrap" }}>{t.at.slice(0, 16).replace("T", " ")}</td>
                   <td style={S.td}><span style={{ ...S.tag, background: t.kind === "APP" ? "#fef3c7" : "#eef6ff", color: t.kind === "APP" ? "#92400e" : "#2563eb" }}>{t.kind === "APP" ? "App Key" : "N Key"}</span></td>
                   <td style={{ ...S.td, fontWeight: 600, textAlign: "left" }}>
                     {t.company}
                     {t.src === "ledger" && <span style={{ ...S.tag, fontSize: 8.5, marginLeft: 5, background: "#f3f4f6", color: "#9ca3af" }} title="nkey(HLP) 발급 대장에서 가져온 과거 이력">대장</span>}
                   </td>
-                  <td style={{ ...S.td, textAlign: "left", fontSize: 11.5, maxWidth: 300 }}>
-                    <Link href={`/tickets/nkey/${t.id}`} style={{ color: "#6b7280", textDecoration: "none" }} title="클릭하면 상세·수정">{t.summary}</Link>
-                  </td>
+                  <td style={{ ...S.td, textAlign: "left", fontSize: 11.5, maxWidth: 300, color: "#6b7280" }}>{t.summary}</td>
                   <td style={{ ...S.td, fontSize: 11.5 }}>{t.by || "-"}</td>
                   <td style={S.td}>
                     <span style={{ ...S.tag, background: c.bg, color: c.fg, fontWeight: 700 }}>{t.billing}</span>
@@ -209,7 +207,7 @@ function TicketListView() {
                     {t.billing === "유료" ? won(t.amount) : "-"}
                   </td>
                   <td style={{ ...S.td, textAlign: "left", fontSize: 11, color: "#9ca3af", maxWidth: 160 }}>{t.billNote || "-"}</td>
-                  <td style={{ ...S.td, whiteSpace: "nowrap" }}>
+                  <td style={{ ...S.td, whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
                     <Link href={`/tickets/nkey/${t.id}?tab=bill`} style={{ ...S.smallBtn, textDecoration: "none" }}>정산</Link>
                     <Link href={`/tickets/nkey/${t.id}`} style={{ ...S.linkBtn, marginLeft: 6, textDecoration: "none" }}>상세</Link>
                     <button onClick={() => { if (confirm(`발급 ${t.no}번 기록을 삭제할까요?`)) deleteTicket(t.id); }} style={{ ...S.linkBtn, marginLeft: 6, color: "#dc2626" }}>삭제</button>

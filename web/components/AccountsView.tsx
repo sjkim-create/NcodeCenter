@@ -269,20 +269,46 @@ function useRanges(companyId: number): SobpRange[] {
 
 // App Key 발급 — 계정 등록·상세에서 공용으로 쓴다.
 // App Key 는 CasterN 서비스에만 해당한다(SOBP 범위를 편집툴에 연동하는 키).
-const APP_KEY_SERVICE: AccountService = "CASTERN";
-function issueAppKey(acc: CasterAccount, range: SobpRange, until: string, by?: string) {
-  const service = APP_KEY_SERVICE;
+// App Key 발급 범위 입력 — 할당 SOBP 안에서 **Book Start · Book Volume(권수)** 를 정한다 `PC-050`
+function BookRangeFields({ range, bookStart, bookVol, onStart, onVol }: {
+  range?: SobpRange; bookStart: number; bookVol: number;
+  onStart: (v: number) => void; onVol: (v: number) => void;
+}) {
+  const min = range?.bookStart ?? 0;
+  const max = range?.bookEnd ?? 0;
+  const maxVol = Math.max(1, max - bookStart + 1);
+  return (
+    <>
+      <Field label="Book Start">
+        <input type="number" style={S.input} value={bookStart} min={min} max={max} disabled={!range}
+          onChange={(e) => onStart(Math.max(min, Math.min(max, +e.target.value || 0)))} />
+      </Field>
+      <Field label="Book Volume (권수)">
+        <input type="number" style={S.input} value={bookVol} min={1} max={maxVol} disabled={!range}
+          onChange={(e) => onVol(Math.max(1, Math.min(maxVol, +e.target.value || 1)))} />
+      </Field>
+    </>
+  );
+}
+
+// App Key 는 **계정당 1개**이고 그 계정의 **사용처 전체에 공통**이다 `PC-050`.
+// 발급 시 **Book Start · Book Volume(권수)** 를 지정한다 — bookEnd = start + volume - 1.
+function issueAppKey(acc: CasterAccount, range: SobpRange, bookStart: number, bookVol: number, until: string, by?: string) {
+  const services = acc.services ?? [];
+  const bs = bookStart, be = bookStart + bookVol - 1;
   const key = genKeyStr();
-  caster.addAppKey({ key, accountId: acc.id, service, company: acc.company, pt: range.pt,
-    section: range.section, owner: range.owner, bookStart: range.bookStart, bookEnd: range.bookEnd,
+  const rec = caster.addAppKey({ key, accountId: acc.id, services, company: acc.company, pt: range.pt,
+    section: range.section, owner: range.owner, bookStart: bs, bookEnd: be, bookVol,
     pageStart: range.pageStart, pageEnd: range.pageEnd, until });
-  const summary = `계정 ${acc.id} · ${accountServiceLabel(service)} · ${range.pt} S${range.section}/O${range.owner}/B${range.bookStart}~${range.bookEnd} · ${until}`;
+  if (!rec) return "";                                  // 이미 발급된 계정
+  const svcText = services.map(accountServiceLabel).join(" · ") || "미지정";
+  const summary = `계정 ${acc.id} · ${svcText} · ${range.pt} S${range.section}/O${range.owner}/B${bs}~${be}(${bookVol}권) · ${until}`;
   addTicket({ kind: "APP", companyId: acc.companyId, company: acc.company, by: by ?? "", summary,
     params: {
-      CompanyName: acc.company, AccountId: acc.id, Service: accountServiceLabel(service), Usage: accountServiceLabel(service),
+      CompanyName: acc.company, AccountId: acc.id, Service: svcText, Usage: svcText,
       AppKey: key, PatternType: patternTypeParam(range.pt as TicketPattern),
       Section: range.section, Owner: range.owner,
-      BookStart: range.bookStart, BookEnd: range.bookEnd,
+      BookStart: bs, BookVolume: bookVol, BookEnd: be,
       PageStart: range.pageStart, PageEnd: range.pageEnd,
       ValidUntil: until, IssuedAt: new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 16).replace("T", " "),
     } });
@@ -306,8 +332,10 @@ export function AccountNewView() {
   const [homepage, setHomepage] = useState("");
   const [services, setServices] = useState<AccountService[]>(["CASTERN"]);
   const [settings, setSettings] = useState<AccountSettings>({ CASTERN: { perms: [...ALL_PERMS] } });
-  const [withKey, setWithKey] = useState(false);          // ③ App Key 발급 — 선택(CasterN 전용)
+  const [withKey, setWithKey] = useState(false);          // ③ App Key 발급 — 선택 (사용처 공통 `PC-050`)
   const [sobpIdx, setSobpIdx] = useState(-1);
+  const [bStart, setBStart] = useState<number | null>(null);
+  const [bVol, setBVol] = useState<number | null>(null);
   const [until, setUntil] = useState("");
   const [unlimited, setUnlimited] = useState(true);
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
@@ -336,7 +364,7 @@ export function AccountNewView() {
     if (!pwd.trim()) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
     if (services.length === 0) { setToast({ ok: false, text: "사용처(연동 서비스)를 1개 이상 선택하세요." }); return; }
     // App Key 는 CasterN 전용 — 사용처에서 CasterN 이 빠졌으면 함께 발급하지 않는다.
-    const wantKey = withKey && hasCastern;
+    const wantKey = withKey;   // App Key 는 사용처 공통 `PC-050`
     if (wantKey && !range) { setToast({ ok: false, text: "할당된 SOBP 범위를 선택하세요." }); return; }
 
     // 선택하지 않은 사용처의 설정은 저장하지 않는다.
@@ -351,21 +379,25 @@ export function AccountNewView() {
     const r = caster.addAccount(acc);
     if (!r.ok) { setToast({ ok: false, text: r.msg }); return; }
     logActivity("ticket", `계정 등록 · ${company.name} · ${acc.id} · ${services.map(accountServiceLabel).join(" · ")}`, me?.name);
-    if (wantKey && range) issueAppKey(acc, range, unlimited ? "무제한" : (until || "무제한"), me?.name);
+    if (wantKey && range) issueAppKey(acc, range, keyBS, keyVol, unlimited ? "무제한" : (until || "무제한"), me?.name);
     router.push("/tickets/account");        // 목록에 노출
   };
 
-  // App Key 발급 — CasterN 전용 조건이라 ② 의 CasterN 탭 안에서만 노출한다.
+  // App Key 발급 — **사용처 전체 공통 · 계정당 1개** `PC-050`
+  const keyBS = bStart ?? range?.bookStart ?? 0;
+  const keyVol = Math.max(1, Math.min(bVol ?? (range?.bookCount ?? 1), range ? range.bookEnd - keyBS + 1 : 1));
   const appKeyBlock = (
     <>
       <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "#374151", cursor: "pointer" }}>
         <input type="checkbox" checked={withKey} onChange={(e) => setWithKey(e.target.checked)} />
-        이 계정에 <b>App Key도 함께 발급</b>합니다 <span style={{ color: "#9ca3af" }}>· SOBP 범위 연동 · 선택</span>
+        이 계정에 <b>App Key도 함께 발급</b>합니다
+        <span style={{ color: "#9ca3af" }}>· 사용처 전체 공통 · 계정당 1개 · 선택</span>
       </label>
       {withKey && (
         <div style={{ marginTop: 10 }}>
-          <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={setSobpIdx} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+          <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); }} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: 12, marginTop: 12 }}>
+            <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} onStart={setBStart} onVol={setBVol} />
             <Field label="만료일 (기간)">
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited} onChange={(e) => setUntil(e.target.value)} />
@@ -375,6 +407,12 @@ export function AccountNewView() {
               </div>
             </Field>
           </div>
+          {range && (
+            <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 6 }}>
+              발급 범위 <b>{range.pt} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권
+              <span style={{ color: "#9ca3af" }}> (할당 B{range.bookStart}~{range.bookEnd})</span>
+            </div>
+          )}
         </div>
       )}
     </>
@@ -384,12 +422,12 @@ export function AccountNewView() {
     <div style={{ padding: "18px 20px", maxWidth: 900 }}>
       <div style={{ ...S.card, padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>계정 등록 <span style={{ color: "#9ca3af", fontWeight: 400, fontSize: 12 }}>· ① 계정 정보 → ② 사용처·권한</span></div>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>계정 등록 <span style={{ color: "#9ca3af", fontWeight: 400, fontSize: 12 }}>· ① 계정 정보 → ② 사용처·권한 → ③ App Key</span></div>
           <span style={{ flex: 1 }} />
           <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
         </div>
         <div style={{ fontSize: 11.5, color: "#9ca3af", marginBottom: 12 }}>
-          한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). App Key 발급은 <b>CasterN 사용처 전용</b>이며 선택 사항입니다 — 나중에 계정 상세에서도 발급할 수 있습니다.
+          한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). App Key 는 <b>계정당 1개</b>이며 <b>사용처 전체에 공통</b>으로 쓰입니다 <code>PC-050</code> — 나중에 계정 상세에서도 발급할 수 있습니다.
         </div>
 
         {/* ① 계정 정보 */}
@@ -420,7 +458,13 @@ export function AccountNewView() {
             사용처는 <b>중복 선택</b>할 수 있습니다. 여러 서비스를 선택하면 <b>한 계정으로 각 서비스에 로그인</b>하며, 각 서비스는 자기 계정만 관리·인증합니다.
             <span style={{ marginLeft: 6 }}>선택 <b>{services.length}</b> / {ACCOUNT_SERVICES.length}</span>
           </div>
-          <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} casternExtra={appKeyBlock} />
+          <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} />
+        </div>
+
+        {/* ③ App Key 발급 — 사용처 전체 공통이라 탭 밖에 둔다 `PC-050` */}
+        <div style={{ marginTop: 18, borderTop: "1px solid #eef0f4", paddingTop: 14 }}>
+          <StepHead n={3} t="App Key 발급" d="사용처 전체 공통 · 계정당 1개 · 선택" />
+          {appKeyBlock}
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
@@ -449,6 +493,8 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const [settings, setSettings] = useState<AccountSettings>({});
   const [loaded, setLoaded] = useState(false);
   const [sobpIdx, setSobpIdx] = useState(-1);
+  const [bStart, setBStart] = useState<number | null>(null);   // App Key Book Start `PC-050`
+  const [bVol, setBVol] = useState<number | null>(null);       // App Key Book Volume(권수)
   const [until, setUntil] = useState("");
   const [unlimited, setUnlimited] = useState(true);
   const [issued, setIssued] = useState<string | null>(null);
@@ -465,8 +511,9 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const ranges = useRanges(acc?.companyId ?? 0);
   const range = ranges[sobpIdx];
   const keys = cast.appKeys.filter((k) => k.accountId === accountId);
-  // App Key 발급은 저장된 사용처 기준 — 편집 중인 값이 아니라 실제 연동 상태를 따른다.
-  const keyable = (acc?.services ?? []).includes("CASTERN");
+  // App Key 는 **계정당 1개**이고 **사용처 전체에 공통**이다 `PC-050`
+  const myKey = keys[0];
+  const keyable = (acc?.services ?? []).length > 0 && !myKey;
 
   // 사용처를 새로 켜면 그 서비스의 기본 설정을 채운다.
   const onServices = (next: AccountService[]) => {
@@ -488,10 +535,6 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
     if (!pwd.trim()) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
     if (services.length === 0) { setToast({ ok: false, text: "사용처(연동 서비스)를 1개 이상 선택하세요." }); return; }
 
-    // 사용처에서 빠진 서비스의 키는 연동이 끊긴다 — 지우지 않고 담당자에게 알린다.
-    const dropped = keys.filter((k) => !services.includes(k.service));
-    if (dropped.length && !confirm(`사용처에서 빠지는 서비스로 발급된 App Key ${dropped.length}개는 연동이 끊깁니다.\n(키는 지워지지 않고 「연동 끊김」으로 남습니다)\n\n저장할까요?`)) return;
-
     const kept: AccountSettings = {};
     for (const sv of services) if (settings[sv]) kept[sv] = settings[sv];
 
@@ -504,10 +547,12 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
     setToast({ ok: true, text: "계정 정보가 저장되었습니다." });
   };
 
+  const keyBS = bStart ?? range?.bookStart ?? 0;
+  const keyVol = Math.max(1, Math.min(bVol ?? (range?.bookCount ?? 1), range ? range.bookEnd - keyBS + 1 : 1));
   const addKey = () => {
     if (!range) { setToast({ ok: false, text: "할당된 SOBP 범위를 선택하세요." }); return; }
-    if (!keyable) { setToast({ ok: false, text: "App Key 는 CasterN 사용처에만 발급됩니다." }); return; }
-    const key = issueAppKey(acc, range, unlimited ? "무제한" : (until || "무제한"), me?.name);
+    if (myKey) { setToast({ ok: false, text: "App Key 는 계정당 1개입니다. 기존 키를 삭제한 뒤 다시 발급하세요." }); return; }
+    const key = issueAppKey(acc, range, keyBS, keyVol, unlimited ? "무제한" : (until || "무제한"), me?.name);
     setIssued(key);
     setToast({ ok: true, text: "App Key 발급 완료 — 계정과 연동되어 서비스 DB에 등록되었습니다." });
   };
@@ -515,30 +560,35 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   // App Key 발급 — CasterN 전용 조건이라 ② 의 CasterN 탭 안에서만 노출한다.
   const appKeyBlock = (
     <>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
-        App Key 발급 <span style={{ fontWeight: 400, color: "#9ca3af" }}>· SOBP 범위 연동 · 연동된 키 {keys.length}개</span>
-      </div>
-      {!keyable ? (
+      {myKey ? (
+        <div style={{ fontSize: 11.5, color: "#6b7280", lineHeight: 1.7 }}>
+          이 계정에는 이미 App Key 가 발급돼 있습니다 — <b>계정당 1개</b>입니다. 범위를 바꾸려면 아래에서 <b>키를 삭제</b>한 뒤 다시 발급하세요.
+        </div>
+      ) : (acc?.services ?? []).length === 0 ? (
         <div style={{ fontSize: 11.5, color: "#9ca3af", lineHeight: 1.6 }}>
-          CasterN 을 사용처로 선택하고 <b>[저장]</b> 하면 여기에서 App Key 를 발급할 수 있습니다.
+          사용처(연동 서비스)를 1개 이상 고르고 <b>[저장]</b> 하면 App Key 를 발급할 수 있습니다.
         </div>
       ) : (
         <>
-          <SobpRangePicker company ranges={ranges} value={sobpIdx} onSelect={setSobpIdx} />
-          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginTop: 12, flexWrap: "wrap" }}>
-            <div style={{ width: 300 }}>
-              <Field label="만료일 (기간)">
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited} onChange={(e) => setUntil(e.target.value)} />
-                  <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
-                    <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> 무제한
-                  </label>
-                </div>
-              </Field>
-            </div>
-            <span style={{ flex: 1 }} />
+          <SobpRangePicker company ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); }} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr auto", gap: 12, alignItems: "end", marginTop: 12 }}>
+            <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} onStart={setBStart} onVol={setBVol} />
+            <Field label="만료일 (기간)">
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited} onChange={(e) => setUntil(e.target.value)} />
+                <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
+                  <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> 무제한
+                </label>
+              </div>
+            </Field>
             <button onClick={addKey} disabled={!range} style={{ ...S.primary, ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>App Key 발급</button>
           </div>
+          {range && (
+            <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 6 }}>
+              발급 범위 <b>{range.pt} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권
+              <span style={{ color: "#9ca3af" }}> (할당 B{range.bookStart}~{range.bookEnd})</span>
+            </div>
+          )}
           {issued && (
             <div style={{ marginTop: 12, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "12px 14px" }}>
               <div style={{ fontSize: 12, color: "#92400e", fontWeight: 700, marginBottom: 6 }}>발급 완료 — App Key (서비스 DB 등록됨)</div>
@@ -588,10 +638,10 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
         <div style={{ marginTop: 16 }}>
           <StepHead n={2} t="사용처 · 권한" d="탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
           <div style={{ fontSize: 10.5, color: "#9ca3af", marginBottom: 6, lineHeight: 1.5 }}>
-            사용처는 <b>중복 선택</b>할 수 있습니다. CasterN 을 빼면 이 계정의 <b>App Key 연동이 끊깁니다</b>(키는 삭제되지 않습니다).
+            사용처는 <b>중복 선택</b>할 수 있습니다. App Key 는 <b>사용처 전체에 공통</b>이라 사용처를 바꿔도 키는 그대로입니다 <code>PC-050</code>.
             <span style={{ marginLeft: 6 }}>선택 <b>{services.length}</b> / {ACCOUNT_SERVICES.length}</span>
           </div>
-          <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} casternExtra={appKeyBlock} />
+          <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} />
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
@@ -603,19 +653,20 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
         {/* ③ App Key 발급 내역 — 발급 UI 는 ② 의 CasterN 탭 안에 있다 */}
         <div style={{ marginTop: 18, borderTop: "1px solid #eef0f4", paddingTop: 14 }}>
-          <StepHead n={3} t="App Key 발급 내역" d={`연동된 키 ${keys.length}개 · 발급은 ② CasterN 탭에서`} />
+          <StepHead n={3} t="App Key 발급" d={`사용처 전체 공통 · 계정당 1개 · 발급된 키 ${keys.length}개`} />
+          <div style={{ marginBottom: 12 }}>{appKeyBlock}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {keys.length === 0 ? (
               <div style={{ fontSize: 12, color: "#9ca3af", padding: "6px 0" }}>
-                {keyable ? "발급된 App Key가 없습니다. ② CasterN 탭에서 발급하세요." : "발급된 App Key가 없습니다."}
+                발급된 App Key가 없습니다.
               </div>
             ) : keys.map((k) => {
-              const linked = (acc.services ?? []).includes(k.service);
+              const linked = (acc.services ?? []).length > 0;   // 키는 사용처 전체 공통 `PC-050`
               return (
               <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${linked ? "#eef0f4" : "#fecaca"}`, background: linked ? "#fff" : "#fff7f7", borderRadius: 9, padding: "8px 10px", fontSize: 11.5, color: "#6b7280", flexWrap: "wrap" }}>
                 <code style={{ fontFamily: "ui-monospace,monospace" }}>{k.key.slice(0, 18)}…</code>
-                <span style={{ ...S.tag, background: k.pt === "PDS3" ? "#eef6ff" : "#fef3c7", color: k.pt === "PDS3" ? "#2563eb" : "#92400e" }}>{k.pt} S{k.section}/O{k.owner}/B{k.bookStart}~{k.bookEnd}</span>
-                <span>{accountServiceLabel(k.service)}</span>
+                <span style={{ ...S.tag, background: k.pt === "PDS3" ? "#eef6ff" : "#fef3c7", color: k.pt === "PDS3" ? "#2563eb" : "#92400e" }}>{k.pt} S{k.section}/O{k.owner}/B{k.bookStart}~{k.bookEnd} · {k.bookVol ?? (k.bookEnd - k.bookStart + 1)}권</span>
+                <span>{(k.services ?? []).map(accountServiceLabel).join(" · ") || "미지정"}</span>
                 {!linked && <span style={{ ...S.tag, background: "#fef2f2", color: "#b91c1c", fontWeight: 700 }} title="계정 사용처에서 이 서비스가 빠져 로그인에 쓸 수 없습니다">연동 끊김</span>}
                 <span>유효 {k.until}</span>
                 <span style={{ flex: 1 }} />

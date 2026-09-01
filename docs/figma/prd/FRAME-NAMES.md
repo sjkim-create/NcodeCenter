@@ -120,12 +120,12 @@ TKT-02:S01 계정 등록 — 진입
 TKT-02:S02 사용처 중복 선택
 TKT-02:S03 CasterN 탭 — 권한 개별 선택
 TKT-02:S04 폼솔루션 · SDK 탭 — 준비중
-TKT-02:S05 App Key 함께 발급 — CasterN 탭
-TKT-02:S06 CasterN 미선택 — App Key 안내
+TKT-02:S05 ③ App Key 함께 발급
+TKT-02:S06 사용처를 바꿔도 App Key 는 그대로
 TKT-02:S07 등록 검증 실패
 TKT-02:S08 계정 상세 · 수정
 TKT-02:S09 상세 — App Key 발급 완료
-TKT-02:S10 사용처에서 CasterN 제거 — 연동 끊김
+TKT-02:S10 이미 발급된 계정 — 재발급 차단
 TKT-02:S11 계정 삭제 확인
 ```
 

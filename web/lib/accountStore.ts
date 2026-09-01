@@ -65,17 +65,24 @@ export type CasterAccount = {
 export const casternPerms = (a?: CasterAccount): CasterPerm[] =>
   a && a.services?.includes("CASTERN") ? a.settings?.CASTERN?.perms ?? [] : [];
 export const hasService = (a: CasterAccount | undefined, s: AccountService) => !!a?.services?.includes(s);
+// App Key — **한 계정에 1개**만 발급하고, 그 계정의 **사용처 전체에 공통**으로 쓴다 `PC-050`
 export type AppKey = {
   id: number;
   key: string;         // 발급 App Key (ncc_live_...)
   accountId: string;   // 연동 계정(email)
-  service: AccountService;   // 사용처 — 계정과 동일한 서비스
+  services: AccountService[];   // 사용처 — 계정의 사용처 전체(공통)
   company: string;
   pt: string; section: number; owner: number; bookStart: number; bookEnd: number;
+  bookVol: number;     // Book Volume — 발급 권수 (bookEnd = bookStart + bookVol - 1)
   pageStart: number; pageEnd: number;
   until: string;       // 만료(YYYY-MM-DD) / "무제한"
   createdAt: string;
+  /** @deprecated 사용처별 키였던 시절 필드 — hydrate 에서 services 로 옮긴다 */
+  service?: AccountService;
 };
+// 계정의 App Key — 1개만 있다
+export const appKeyOf = (s: { appKeys: AppKey[] }, accountId: string) =>
+  s.appKeys.find((k) => k.accountId === accountId);
 type State = { accounts: CasterAccount[]; appKeys: AppKey[] };
 
 const KEY = "ncc-caster-v1";
@@ -98,7 +105,16 @@ function migrate(s: State): State {
     const { service: _drop, perms: _dropPerms, ...rest } = a;
     return { ...rest, services, settings };
   });
-  return { ...s, accounts };
+  // App Key: 사용처별(service) → 계정 공통(services) `PC-050`
+  const appKeys = s.appKeys.map((k) => {
+    if (k.services?.length) return k;
+    const acc = accounts.find((a) => a.id === k.accountId);
+    const services = acc?.services?.length ? acc.services : (k.service ? [k.service] : []);
+    const vol = k.bookVol ?? Math.max(1, (k.bookEnd ?? 0) - (k.bookStart ?? 0) + 1);
+    const { service: _drop, ...rest } = k;
+    return { ...rest, services, bookVol: vol };
+  });
+  return { ...s, accounts, appKeys };
 }
 
 function hydrate() {
@@ -139,7 +155,9 @@ export const caster = {
   removeAccount(id: string) {
     commit({ ...state, accounts: state.accounts.filter((a) => a.id !== id), appKeys: state.appKeys.filter((k) => k.accountId !== id) });
   },
+  // 한 계정에 App Key 는 1개다 `PC-050` — 이미 있으면 발급하지 않는다(삭제 후 재발급).
   addAppKey(k: Omit<AppKey, "id" | "createdAt">) {
+    if (state.appKeys.some((x) => x.accountId === k.accountId)) return undefined;
     const rec: AppKey = { ...k, id: seq++, createdAt: kstNow() };
     commit({ ...state, appKeys: [rec, ...state.appKeys] });
     return rec;
@@ -152,10 +170,11 @@ export const caster = {
   // 한 계정이 여러 서비스에 연동돼 있으면 각 서비스 목록에 모두 잡힌다.
   accountsOfService(service: AccountService) { return state.accounts.filter((a) => a.services?.includes(service)); },
   // 서비스 로그인 허용 판정 — 계정 사용처에 그 서비스가 있고, 그 서비스용 App Key가 있어야 한다.
+  //   App Key 는 계정당 1개이고 사용처 전체에 공통이다 `PC-050`.
   canLogin(service: AccountService, accountId: string) {
     const acc = state.accounts.find((a) => a.id.toLowerCase() === accountId.toLowerCase());
     if (!acc || !acc.services?.includes(service)) return false;
-    return state.appKeys.some((k) => k.accountId === acc.id && k.service === service);
+    return state.appKeys.some((k) => k.accountId === acc.id);
   },
 };
 const EMPTY: State = { accounts: [], appKeys: [] };
