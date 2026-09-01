@@ -17,7 +17,7 @@ import { SobpRangePicker, type SobpRange } from "./TicketsView";
 import { servicesOfCompany } from "@/lib/serviceCustomers";
 import { codeKind, patternOf, patternTypeParam, CODE_KINDS, type CodeKind, type TicketPattern } from "@/lib/codeKind";
 import {
-  caster, useCaster, ACCOUNT_SERVICES, accountServiceLabel, accountServiceReady,
+  caster, useCaster, genAppKey, ACCOUNT_SERVICES, accountServiceLabel, accountServiceReady,
   CASTERN_PERMS, ALL_PERMS, permLabel, casternPerms, hasService,
   type AccountService, type CasterPerm, type CasterAccount, type AccountSettings,
 } from "@/lib/accountStore";
@@ -312,15 +312,8 @@ const genPwdStr = () => {
   (globalThis.crypto ?? window.crypto).getRandomValues(buf);
   return btoa(String.fromCharCode(...buf)).replace(/[+/=]/g, "").slice(0, 10);
 };
-// App Key = **영문·숫자 29자 난수** `PC-066`
-//   접두어(ncc_live_ 등) 없이 [0-9A-Za-z] 에서 고른 29자다.
-const APP_KEY_LEN = 29;
-const APP_KEY_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-const genKeyStr = () => {
-  const buf = new Uint32Array(APP_KEY_LEN);
-  (globalThis.crypto ?? window.crypto).getRandomValues(buf);
-  return Array.from(buf, (n) => APP_KEY_CHARS[n % APP_KEY_CHARS.length]).join("");
-};
+// App Key 값 생성은 스토어의 규칙을 그대로 쓴다 — 영문·숫자 29자 `PC-066`
+const genKeyStr = genAppKey;
 
 // 고객사가 할당받은 SOBP 범위 목록
 function useRanges(companyId: number): SobpRange[] {

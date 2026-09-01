@@ -82,6 +82,16 @@ export type AppKey = {
   /** @deprecated 사용처별 키였던 시절 필드 — hydrate 에서 services 로 옮긴다 */
   service?: AccountService;
 };
+// App Key 값 = **영문·숫자 29자 난수** `PC-066` — 접두어(ncc_live_ 등)를 붙이지 않는다.
+export const APP_KEY_LEN = 29;
+const APP_KEY_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+export function genAppKey(): string {
+  const buf = new Uint32Array(APP_KEY_LEN);
+  (globalThis.crypto ?? window.crypto).getRandomValues(buf);
+  return Array.from(buf, (n) => APP_KEY_CHARS[n % APP_KEY_CHARS.length]).join("");
+}
+const isAppKey = (v: string) => new RegExp(`^[0-9A-Za-z]{${APP_KEY_LEN}}$`).test(v);
+
 // 계정의 App Key — 1개만 있다
 export const appKeyOf = (s: { appKeys: AppKey[] }, accountId: string) =>
   s.appKeys.find((k) => k.accountId === accountId);
@@ -109,12 +119,15 @@ function migrate(s: State): State {
   });
   // App Key: 사용처별(service) → 계정 공통(services) `PC-050`
   const appKeys = s.appKeys.map((k) => {
-    if (k.services?.length) return k;
+    if (k.services?.length && isAppKey(k.key)) return k;
+    if (k.services?.length) return { ...k, key: genAppKey() };   // 키 형식만 갱신 `PC-066`
     const acc = accounts.find((a) => a.id === k.accountId);
     const services = acc?.services?.length ? acc.services : (k.service ? [k.service] : []);
     const vol = k.bookVol ?? Math.max(1, (k.bookEnd ?? 0) - (k.bookStart ?? 0) + 1);
     const { service: _drop, ...rest } = k;
-    return { ...rest, services, bookVol: vol };
+    // 옛 형식(ncc_live_…)으로 발급된 키는 새 규칙(영문·숫자 29자)으로 다시 만든다 `PC-066`
+    const key = isAppKey(k.key) ? k.key : genAppKey();
+    return { ...rest, key, services, bookVol: vol };
   });
   return { ...s, accounts, appKeys };
 }
