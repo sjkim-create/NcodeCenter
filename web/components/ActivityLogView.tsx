@@ -172,11 +172,13 @@ export default function ActivityLogView() {
                       {items.map((a, i) => {
                         const meta = TYPE_META[a.type];
                         return (
-                          <div key={a.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 12px", borderTop: i ? "1px solid #f4f6f9" : "none" }}>
-                            <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11.5, color: "#9ca3af", paddingTop: 2, width: 40, flex: "none" }}>{hm(a.at)}</span>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: meta.color, borderRadius: 6, padding: "2px 8px", whiteSpace: "nowrap", flex: "none", marginTop: 1 }}>{meta.label}</span>
-                            <span style={{ fontSize: 13, color: "#111827", flex: 1 }}>{a.detail}</span>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "#6b7280", whiteSpace: "nowrap", flex: "none" }}><span style={avatar}>{a.actor[0]}</span>{a.actor}</span>
+                          // 시간 · 종류 · 내용 · 사용자 — **열 너비를 고정**해 목록이 흐트러지지 않게 한다 `PC-073`
+                          //   내용은 2줄까지 접고(그 이상은 …), 줄간은 넉넉히(1.7) 둔다.
+                          <div key={a.id} style={{ display: "grid", gridTemplateColumns: "44px 92px 1fr 108px", alignItems: "start", gap: 10, padding: "9px 12px", borderTop: i ? "1px solid #f4f6f9" : "none" }}>
+                            <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11.5, color: "#9ca3af", paddingTop: 3 }}>{hm(a.at)}</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: meta.color, borderRadius: 6, padding: "3px 0", marginTop: 1, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={meta.label}>{meta.label}</span>
+                            <span style={{ fontSize: 13, color: "#111827", lineHeight: 1.7, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" }} title={a.detail}>{a.detail}</span>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "#6b7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingTop: 2 }} title={a.actor}><span style={avatar}>{a.actor[0]}</span>{a.actor}</span>
                           </div>
                         );
                       })}

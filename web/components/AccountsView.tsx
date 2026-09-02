@@ -576,11 +576,8 @@ export function AccountNewView() {
 
         {/* 사용 서비스 및 권한 — 서비스마다 그 조건만 노출 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "svc" ? "block" : "none" }}>
-          <SecHead t="사용 서비스 및 권한" d="· 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
-          <div style={{ fontSize: 10.5, color: "#9ca3af", marginBottom: 6, lineHeight: 1.5 }}>
-            사용 서비스는 <b>중복 선택</b>할 수 있습니다. 여러 서비스를 선택하면 <b>한 계정으로 각 서비스에 로그인</b>하며, 각 서비스는 자기 계정만 관리·인증합니다.
-            <span style={{ marginLeft: 6 }}>선택 <b>{services.length}</b> / {ACCOUNT_SERVICES.length}</span>
-          </div>
+          {/* 설명은 제목 툴팁으로 `PC-073` */}
+          <SecHead t="사용 서비스 및 권한" d={`· 선택 ${services.length} / ${ACCOUNT_SERVICES.length}`} tip="사용 서비스는 중복 선택할 수 있습니다. 여러 서비스를 선택하면 한 계정으로 각 서비스에 로그인하며, 각 서비스는 자기 계정만 관리·인증합니다." />
           <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} />
         </div>
 
@@ -787,11 +784,9 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
         {/* 사용 서비스 및 권한 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "svc" ? "block" : "none" }}>
-          <SecHead t="사용 서비스 및 권한" d="· 서비스를 고르고 · 서비스마다 조건이 다릅니다" />
-          <div style={{ fontSize: 10.5, color: "#9ca3af", marginBottom: 6, lineHeight: 1.5 }}>
-            사용 서비스는 <b>중복 선택</b>할 수 있습니다. App Key 는 <b>사용 서비스 전체에 공통</b>이라 서비스를 바꿔도 키는 그대로입니다 <code>PC-050</code>.
-            <span style={{ marginLeft: 6 }}>선택 <b>{services.length}</b> / {ACCOUNT_SERVICES.length}</span>
-          </div>
+          {/* 설명은 제목 툴팁으로 `PC-073` */}
+          <SecHead t="사용 서비스 및 권한" d={`· 선택 ${services.length} / ${ACCOUNT_SERVICES.length}`}
+            tip="사용 서비스는 중복 선택할 수 있습니다. 여러 서비스를 선택하면 한 계정으로 각 서비스에 로그인하며, 각 서비스는 자기 계정만 관리·인증합니다. App Key 는 사용 서비스 전체에 공통이라 서비스를 바꿔도 키는 그대로입니다." />
           <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} />
         </div>
 
