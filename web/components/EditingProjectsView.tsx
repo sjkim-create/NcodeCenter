@@ -7,6 +7,7 @@ import { codeKind, CODE_KINDS, kindMeta, type CodeKind } from "@/lib/codeKind";
 import { store, useStore } from "@/lib/store";
 import EditingDetailView from "./EditingDetailView";
 import { EditCustomer, loadCustomCustomers, saveCustomCustomers } from "@/lib/editingCustomers";
+import { clearOverridesOfCustomer } from "@/lib/editOverrides";
 import { customersOfService } from "@/lib/serviceCustomers";
 import { EDIT_CUSTOMERS, EDIT_SUMMARY } from "@/lib/editingData";
 import { rateOf, settle, BASE_RATE, won } from "@/lib/pricing";
@@ -130,11 +131,32 @@ export default function EditingProjectsView() {
     }
     setAddForm(null);
   };
+  // 편집 고객사가 물고 있는 코드 프로젝트 — 추가(saveAdd)와 같은 기준으로 찾는다
+  const projOf = (customer: string, owner: string) => {
+    const co = st.companies.find((x) => nzc(x.name) === nzc(customer));
+    if (!co) return undefined;
+    return st.projects.filter((p) => p.companyId === co.id)
+      .find((p) => p.issued.some((b) => String(b.owner) === owner));
+  };
+  // 삭제하면 **편집 흔적을 모두 되돌린다** `PC-075`
+  //   ① 좌측 목록 ② 추가한 교재 캐시 ③ SOBP 맵 Book 오버라이드 ④ 코드 프로젝트의 편집 플래그
   const delCustom = (c: Cust) => {
-    if (!confirm("이 고객사(및 추가한 교재)를 삭제할까요?")) return;
+    if (!confirm("이 고객사를 편집 프로젝트에서 삭제할까요?\n추가한 교재와 SOBP 맵의 편집 표시도 함께 지워집니다.")) return;
     const next = custom.filter((x) => x.owner !== c.owner || x.customer !== c.customer);
     setCustom(next); saveCustomCustomers(next);
-    try { localStorage.removeItem(`ncc-edit11-${c.owner}`); } catch { /* */ }
+    // ② 교재 캐시 — 현재 키(v12·고객사명)와 옛 키(v11·owner)를 함께 정리
+    try {
+      localStorage.removeItem(`ncc-edit12-${c.customer}`);
+      localStorage.removeItem(`ncc-edit11-${c.owner}`);
+    } catch { /* */ }
+    // ③ 공유(커먼) 코드 Book 에 남긴 사용 고객사·편집 표시
+    clearOverridesOfCustomer(c.customer);
+    // ④ 같은 코드 프로젝트를 쓰는 편집 고객사가 더 없으면 편집 플래그를 되돌린다
+    //    (플래그가 남으면 SOBP 맵 OWNER 카드에 '편집' 배지가 계속 보인다)
+    const proj = projOf(c.customer, c.owner);
+    if (proj && !next.some((x) => projOf(x.customer, x.owner)?.id === proj.id)) {
+      store.upsertProject({ ...proj, editing: false, editingOwner: undefined });
+    }
     if (sel === uidOf(c)) setSel(D.customers[0] ? uidOf(D.customers[0]) : "");
   };
 

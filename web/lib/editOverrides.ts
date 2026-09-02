@@ -32,6 +32,20 @@ export function setBookOverride(k: string, s: number, o: number, b: number, v: B
   notify();
 }
 
+// 편집 프로젝트에서 고객사를 지우면 그 고객사가 남긴 Book 오버라이드도 모두 지운다 `PC-075`
+//   이 저장소를 hydrate 하지 않은 화면(편집 프로젝트)에서도 부르므로 **보관된 값**을 직접 읽고 쓴다.
+//   (메모리 map 만 보면 비어 있어 아무것도 못 지우거나, 반대로 남의 오버라이드를 날릴 수 있다)
+export function clearOverridesOfCustomer(cu: string) {
+  let saved: Record<string, BookOverride> = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Record<string, BookOverride>; }
+  catch { saved = {}; }
+  const kept = Object.fromEntries(Object.entries(saved).filter(([, v]) => v.cu !== cu));
+  if (Object.keys(kept).length === Object.keys(saved).length) return;   // 지울 것이 없으면 그대로 둔다
+  try { localStorage.setItem(KEY, JSON.stringify(kept)); } catch { /* */ }
+  map = kept;
+  notify();
+}
+
 export const overrideOf = (k: string, s: number, o: number, b: number): BookOverride | undefined => map[ovrKey(k, s, o, b)];
 export const overridesMap = () => map;
 
