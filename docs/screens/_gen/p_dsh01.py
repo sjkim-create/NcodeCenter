@@ -242,7 +242,7 @@ def content(empty=False, hot=True, zero=False, est=True, dist=(6893, 1240, 350),
             code_kpis(hot) + grid2(sec_card(hot), top10_card()) +
             shead('편집 (CasterN)', '편집 프로젝트 규모와 진행 상태', '편집 프로젝트') +
             edit_kpis(dist[1], sum(dist)) + edit_dist(dist, note) +
-            shead('정산', '편집 청구액과 Key 발급 과금', 'Key 관리') + bill_kpis(est) +
+            shead('정산', '편집 청구액과 Key 발급 과금', 'N Key 관리') + bill_kpis(est) +
             shead('운영', '확인·처리가 필요한 항목', '전체 로그') +
             grid2(alert_card(zero, hot), act_card(empty)))
 
@@ -250,12 +250,12 @@ def content(empty=False, hot=True, zero=False, est=True, dist=(6893, 1240, 350),
 NAV = [('좌측 메뉴 [SOBP 맵]', '클릭', '<code>SOB-01</code>', 'Section·Owner·Book·Page 드릴다운'),
        ('좌측 메뉴 [고객사 관리]', '클릭', '<code>MEM-01</code>', '업체 상세·계약·단가'),
        ('좌측 메뉴 [편집 프로젝트]', '클릭', '<code>PRJ-02</code>', '편집량·정산'),
-       ('좌측 메뉴 [Key 관리]', '클릭', '<code>TKT-01</code>', '발급·정산 목록')]
+       ('좌측 메뉴 [N Key 관리]', '클릭', '<code>TKT-03</code>', 'N Key 발급 목록 `PC-061`')]
 
 SECT_NAV = [
     ('① 구역 제목 [SOBP 맵]', '클릭', '<code>SOB-01</code>', '코드 여력 확인'),
     ('② 구역 제목 [편집 프로젝트]', '클릭', '<code>PRJ-02</code>', '편집량·정산'),
-    ('③ 구역 제목 [Key 관리]', '클릭', '<code>TKT-01</code>', '발급·정산 목록'),
+    ('③ 구역 제목 [N Key 관리]', '클릭', '<code>TKT-03</code>', 'N Key 발급 목록 `PC-061`'),
     ('④ 구역 제목 [전체 로그]', '클릭', '<code>LOG-01</code>', '활동 로그 전체 조회'),
 ]
 

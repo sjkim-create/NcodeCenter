@@ -59,11 +59,16 @@ def coord(mode='edit', share=False, sub_err=False):
                                   ph=sub_err, err=sub_err), True,
                     '공유 코드입니다. 사용 고객사를 입력하세요.' if sub_err else None,
                     '공유(커먼) 코드 Owner인 경우에만 표시·<b>필수</b> <code>P-12</code>')
+    # 코드 종류는 **Book 다음**에 온다 `PC-054`
+    kind_f = field('코드 종류', sel('PDS3'), True, None,
+                   '<b>PDS2 · PDS3 · PDS4 · OID</b> 중 선택 <code>PC-052</code>')
+    book_f = field('Book (사용 가능 번호)', sel('B431'), True, None,
+                   '입력칸에 번호를 <b>바로 칠 수 있고</b>, 목록 아래 <b>＋ 100개 더 보기</b> 를 눌러도 '
+                   '<b>셀렉트가 닫히지 않는다</b> <code>PC-054</code> <code>PC-057</code>')
     return ('<div class="card"><div class="hd">코드 좌표</div><div class="bd">'
-            '<div class="g3">%s%s%s</div></div></div>'
-            % (field('할당된 S / O', so, True, None, hint),
-               field('Book (사용 가능 번호 · 100개 표시)', sel('B431'), True, None,
-                     '<b>사용 가능한 번호</b>에서만 선택 · <b>＋ 100개 더 보기</b> <code>PC-046</code>'), sub))
+            '<div class="g3">%s%s%s</div>'
+            '<div class="g3" style="margin-top:10px">%s</div></div></div>'
+            % (field('할당된 S / O', so, True, None, hint), book_f, kind_f, sub))
 
 
 def info(empty=False, mod_date=True):
@@ -288,7 +293,13 @@ def build():
         [('진행 상태', '선택', '진행중 / 완료 / 보류', '기본값 <b>진행중</b>'),
          ('할당된 S / O', '선택 (필수)', '—', '할당된 S/O가 여러 개면 선택'),
          ('Book', '선택 (필수)', '—', '<b>사용 가능한 번호</b>에서만 <code>P-01</code>. '
-          '한 번에 <b>100개</b>만 그리고 <b>[＋ 100개 더 보기]</b> 로 100씩 늘린다 <code>PC-046</code>'),
+          '한 번에 <b>100개</b>만 그리고 <b>[＋ 100개 더 보기]</b> 로 100씩 늘린다 <code>PC-046</code>. '
+          '더 보기를 눌러도 <b>셀렉트가 열린 채</b> 아래로 이어진다 <code>PC-057</code>, '
+          '입력칸에 번호를 <b>바로 쳐서</b> 찾을 수도 있다 <code>PC-054</code>'),
+         ('코드 종류', '선택', '—',
+          '<b>Book 다음</b>에 배치 <code>PC-054</code> · PDS2 · PDS3 · PDS4 · OID <code>PC-052</code>'),
+         ('[초기화] · [＋ 교재(책) 추가]', '—', '<b>숨김</b>',
+          '교재 추가 화면에서는 상단 버튼을 내리지 않는다 <code>PC-054</code>'),
          ('Total Page', '입력', '적용비 계산', '<b>적용비 계산 기준(페이지 수)</b>'),
          ('심볼·기능 수량', '입력', '편집·기능비 계산', '각 항목 <b>수량 × 단가</b>'),
          ('[추가]', '클릭', '<code>PRJ-03</code> 갱신', '상단 알림 <b>추가됨</b>'),

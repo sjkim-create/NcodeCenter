@@ -355,7 +355,14 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
         fr = '<tr>' + blank + fsel('전체')
         if share:
             fr += fsel('전체', 100)
-        fr += blank + fsel('PDS2', 58, True) + fsel('전체', 74) + blank * 3
+        # S/O/B 열에는 **Book 필터 콤보박스** 가 붙는다 `PC-052` `PC-057`
+        bcombo = ('<th style="padding:4px 6px;background:#fafbfc;'
+                  'border-bottom:1px solid #eef0f4"><div class="inp" '
+                  'style="min-width:96px;font-size:11px;padding:3px 6px;'
+                  'display:flex;align-items:center;justify-content:space-between">'
+                  '<span style="color:#9ca3af">B 전체</span>'
+                  '<span style="color:#9ca3af;font-size:9px">&#9662;</span></div></th>')
+        fr += blank + fsel('PDS2', 58, True) + fsel('전체', 74) + bcombo + blank * 2
         fr += fsel('편집방식 전체', 130) + blank * 5 + '</tr>'
 
     body = ''
@@ -881,6 +888,10 @@ def build3():
           '<code>PRJ-02</code> 필터가 걸리면 회색으로 고정 — <b>목록의 PDS 필터로 고정됨</b>'),
          ('타입', '선택', '행 필터', '소리펜 / 필기펜 / 교원구몬·KEP'),
          ('편집방식', '선택', '행 필터', '<b>편집방식 전체</b> 가 기본'),
+         ('S/O/B 의 B 필터', '입력 또는 선택', '행 필터 · 정렬',
+          '<b>콤보박스</b> — 입력칸에 Book 번호를 <b>바로 친다</b>(별도 [직접 입력] 선택 없음) '
+          '<code>PC-057</code>. 목록에서는 <b>B 낮은순 · B 높은순</b> 을 고른다 <code>PC-052</code>. '
+          '비우면 <b>B 전체</b>'),
          ('지표', '자동', '재계산', '교재 지표가 <b>교재(책)·필터</b> 로 바뀐다')] + NAV3))
 
     B.append((

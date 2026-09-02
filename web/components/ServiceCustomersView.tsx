@@ -57,7 +57,7 @@ export default function ServiceCustomersView({ service, title }: { service: Serv
             {rows.length === 0 && (
               <tr><td colSpan={5} style={{ ...S.td, textAlign: "center", color: "#9ca3af", padding: 30, lineHeight: 1.8 }}>
                 아직 이 서비스로 지정된 고객사가 없습니다.<br />
-                <b>SOBP 맵 ▸ 직접 코드 할당</b> 에서 사용 서비스를 <b>{serviceLabel(service)}</b> 로 지정하면 여기에 나옵니다.
+                <b>고객사 관리 ▸ 사용 서비스</b> 에서 <b>{serviceLabel(service)}</b> 를 체크하면 여기에 나옵니다 <code>PC-076</code>.
               </td></tr>
             )}
           </tbody>

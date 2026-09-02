@@ -67,7 +67,9 @@ def modal(company='- 고객사 선택 -', body='', ok=False):
             '<p style="font-size:11.5px;color:#9ca3af;margin-top:12px">추가 후 우측 상세에서 '
             '<b>＋교재(책) 추가</b>로 편집 교재를 등록하세요.</p>'
             '<div class="mf"><div class="btn gho">취소</div>%s</div></div></div>'
-            % (field('등록된 고객사 * (고객사 관리)', sel(company)), body, btn))
+            % (field('등록된 고객사 * (고객사 관리)', sel(company),
+                     hint='<b>사용 서비스 = casterN</b> 인 고객사만 나온다 <code>PC-076</code>'),
+               body, btn))
 
 
 def F(overlay):
@@ -92,7 +94,11 @@ def build():
         '<b>편집 관리 대상으로 올리는</b> 창이다. 고객사를 고르기 전에는 아래가 비어 있고 '
         '<b>[추가]</b> 가 눌리지 않는다.',
         F(modal()),
-        [('등록된 고객사', '선택', 'Owner 코드 목록', '<code>MEM-01</code> 등록분 · 가나다순'),
+        [('등록된 고객사', '선택', 'Owner 코드 목록',
+          '<b>사용 서비스 = casterN</b> 으로 지정된 고객사만 · 가나다순 <code>PC-076</code>'),
+         ('후보에 없을 때', '—', '<code>MEM-02</code>',
+          '[고객사 관리] 에서 <b>사용 서비스에 casterN 을 체크</b>하면 후보가 된다. '
+          '편집 대장에 교재 행이 있는 고객사는 처음부터 지정돼 있다(<b>70곳</b>) <code>PC-076</code>'),
          ('[추가]', '—', '<b>비활성</b>', '고객사·Owner 가 모두 정해져야 눌린다'),
          ('미선택 저장', '—', '확인창',
           '<b>고객사 관리에 등록된 고객사를 선택하세요.</b>'),

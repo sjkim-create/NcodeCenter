@@ -59,29 +59,52 @@ def filter_row(label, chips):
             '%s</div>' % (label, chips))
 
 
-def filters(month='전체', actor='전체', kind='전체'):
-    mc = chip('전체', month == '전체') + ''.join(chip(m, month == m) for m in MONTHS)
-    ac = chip('전체', actor == '전체') + ''.join(
-        chip(avatar(n) + n, actor == n) for n in ACTORS)
+def sel(label, w=96):
+    """셀렉트 — 데이터가 많아 칩보다 목록에서 고르는 편이 낫다 `PC-069`"""
+    return ('<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;'
+            'padding:5px 10px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;'
+            'color:#374151;min-width:%dpx;justify-content:space-between">%s'
+            '<span style="color:#9ca3af;font-size:9px">&#9660;</span></span>' % (w, label))
+
+
+def navbtn(mark, off=False):
+    return ('<span style="display:inline-grid;place-items:center;width:28px;height:28px;'
+            'border-radius:8px;border:1px solid #e5e7eb;background:#fff;font-size:13px;'
+            'color:%s">%s</span>' % ('#d1d5db' if off else '#374151', mark))
+
+
+def filters(month='2026년 9월', actor='직원 전체', kind='전체', day='이 기간 전체',
+            day_off=True):
+    # 기간·직원 — 셀렉트 `PC-069`. 기본은 **이번 달**만 본다
+    period = (sel(month.split('년')[0] + '년') + sel(month.split(' ')[-1]) + sel(actor, 130)
+              + '<span style="font-size:12px;padding:5px 11px;border-radius:8px;'
+                'border:1px solid #e5e7eb;background:#fff;color:#6b7280">이번 달</span>')
+    # 일자 — 활동이 있는 날짜만 담긴 셀렉트 + 앞뒤 이동 `PC-071`
+    days = (navbtn('&#8249;', day_off) + sel(day, 168) + navbtn('&#8250;', day_off)
+            + ('<span style="font-size:12px;padding:5px 11px;border-radius:8px;'
+               'border:1px solid #e5e7eb;background:#fff;color:#374151">하루씩 보기</span>'
+               if day_off else ''))
     kc = chip('전체', kind == '전체') + ''.join(
         chip('<span style="display:inline-block;width:8px;height:8px;border-radius:50%%;'
              'background:%s;margin-right:5px"></span>%s %d' % (c, nm, n), kind == nm)
         for nm, c, n in TYPES)
-    return (filter_row('월', mc) + filter_row('직원', ac) + filter_row('활동 종류', kc))
+    return (filter_row('기간 · 직원', period) + filter_row('일자', days)
+            + filter_row('활동 종류', kc))
 
 
 def day_block(day, ym, week, items):
     rows = ''
     for i, (hm, kind, detail, who) in enumerate(items):
-        rows += ('<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;'
-                 'border-top:%s">'
+        # 고정 열 — 종류 배지 글자 수에 따라 내용 영역이 밀리지 않게 한다 `PC-073`
+        rows += ('<div style="display:grid;grid-template-columns:44px 92px 1fr 108px;gap:10px;'
+                 'align-items:start;padding:8px 12px;border-top:%s">'
                  '<span style="font-family:ui-monospace,monospace;font-size:11.5px;color:#9ca3af;'
-                 'padding-top:2px;width:40px;flex:none">%s</span>'
+                 'padding-top:2px">%s</span>'
                  '<span style="font-size:11px;font-weight:700;color:#fff;background:%s;'
-                 'border-radius:6px;padding:2px 8px;white-space:nowrap;flex:none;margin-top:1px">%s</span>'
-                 '<span style="font-size:13px;color:#111827;flex:1">%s</span>'
+                 'border-radius:6px;padding:2px 8px;text-align:center;margin-top:1px">%s</span>'
+                 '<span style="font-size:13px;color:#111827;line-height:1.7">%s</span>'
                  '<span style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;'
-                 'color:#6b7280;white-space:nowrap;flex:none">%s%s</span></div>'
+                 'color:#6b7280;white-space:nowrap;justify-content:flex-end">%s%s</span></div>'
                  % ('1px solid #f4f6f9' if i else 'none', hm, COLOR[kind], kind, detail,
                     avatar(who), who))
     return ('<div style="display:grid;grid-template-columns:92px 1fr;gap:14px;margin-bottom:12px">'
@@ -105,7 +128,8 @@ def month_block(label, days):
             % (label, total, body))
 
 
-def content(month='전체', actor='전체', kind='전체', data=None, count=265, total=265):
+def content(month='2026년 9월', actor='직원 전체', kind='전체', data=None, count=265,
+            total=265, day='이 기간 전체', day_off=True):
     data = DATA if data is None else data
     if data:
         body = ''.join(month_block(m, days) for m, days in data)
@@ -118,13 +142,14 @@ def content(month='전체', actor='전체', kind='전체', data=None, count=265,
     return ('<div style="max-width:1000px">'
             '<div style="display:flex;align-items:center;gap:10px;margin:0 0 14px">'
             '<p style="color:#6b7280;font-size:13px;margin:0;flex:1">'
-            '내부 직원 활동을 <b>월별 · 일자별</b>로 확인. 활동 종류·직원·월로 필터. · 전체 %d건</p>'
+            '내부 직원 활동을 <b>월별 · 일자별</b>로 확인. 기본은 <b>이번 달</b>이며 '
+            '연도·월·직원으로 고른다 <code>PC-069</code>. · 전체 %d건</p>'
             '<span style="font-size:12px;padding:6px 12px;border-radius:8px;'
             'border:1px solid #fecaca;background:#fff;color:#dc2626;white-space:nowrap">'
             '전체 삭제</span></div>%s'
             '<div style="font-size:12px;color:#9ca3af;margin:16px 0 10px">조건에 맞는 활동 '
             '<b style="color:#374151">%d</b>건</div>%s</div>'
-            % (total, filters(month, actor, kind), count, body))
+            % (total, filters(month, actor, kind, day, day_off), count, body))
 
 
 def denied():
@@ -143,20 +168,30 @@ def build():
     boards.append((
         'S1', '기본 · 월 ▸ 일자 그룹', '기본',
         '<b>ADMIN 전용</b> — 좌측 메뉴 [활동 로그] 또는 <code>DSH-01</code>의 [전체 로그]로 진입. '
-        '구현은 <b>본문 최대 1000px</b>이며 필터가 <b>드롭다운이 아니라 칩 3줄</b>(월 · 직원 · 활동 종류)이다. '
-        '목록은 <b>월 헤더 + 일자 그리드 <code>92px 1fr</code></b> 구조로, 왼쪽에 큰 날짜 숫자, '
-        '오른쪽에 활동 카드가 붙는다.',
+        '기록이 많아 <b>기본은 이번 달만</b> 보여 준다 <code>PC-069</code>. '
+        '필터는 <b>기간·직원 셀렉트</b>(연도 · 월 · 직원 + [이번 달]) · <b>일자 이동</b> · '
+        '<b>활동 종류 칩</b> 세 줄이다. '
+        '목록은 <b>월 헤더 + 일자 그리드 <code>92px 1fr</code></b> 구조이고, '
+        '활동 카드의 행은 <b>고정 열 <code>44 / 92 / 1fr / 108px</code></b> 이다 <code>PC-073</code>.',
         frame('LOG-01', '활동 로그', content(), height=1160),
-        [('월 칩', '클릭', '해당 월만', '전체 + 데이터에 있는 월 · <b>같은 칩 재클릭 = 해제(토글)</b>'),
-         ('직원 칩', '클릭', '해당 직원만', '아바타(이름 첫 글자) + 이름 · 토글'),
+        [('연도 · 월 셀렉트', '선택', '해당 기간만', '기본값은 <b>이번 달</b> · 월을 [전체 월]로 두면 그 해 전체 <code>PC-069</code>'),
+         ('직원 셀렉트', '선택', '해당 직원만', '많은 데이터를 다루므로 칩 대신 목록에서 고른다'),
+         ('[이번 달]', '클릭', '기본값 복귀', '연·월·직원·종류를 한 번에 되돌린다'),
+         ('일자 셀렉트', '선택', '그 하루만', '<b>활동이 있는 날짜만</b> 나온다 — 요일·건수를 함께 표시 <code>PC-071</code>'),
+         ('[&#8249;] [&#8250;]', '클릭', '앞/뒤 날짜', '빈 날짜가 없어 헛걸음이 없다 · 끝에서는 흐리게'),
+         ('[하루씩 보기]', '클릭', '가장 최근 날짜', '기간 전체를 보다가 하루 단위로 넘어간다'),
          ('활동 종류 칩', '클릭', 'S2 (필터 적용)', '색 점 + 라벨 + <b>현재 조건 기준 건수</b> · 8종 · 토글'),
          ('조건 건수', '자동', '재계산', '<b>조건에 맞는 활동 {n}건</b>'),
          ('[전체 삭제]', '클릭', 'S4 확인창', '빨간 테두리 버튼 · 되돌릴 수 없음'),
          ('기록된 코드 할당', '확인', '<code>SOB-01</code>', '해당 S/O 상태'),
          ('기록된 티켓', '확인', '<code>TKT-03</code>', '발급 목록 상세'),
          ('기록된 고객사 변경', '확인', '<code>MEM-01</code> → <code>MEM-02</code>', ''),
+         ('행 열 너비', '—', '<b>고정</b>',
+          '시간 44 · 종류 92 · 내용(가변) · 사용자 108px — 종류 배지가 길어도 내용 영역을 밀지 않는다 <code>PC-073</code>'),
+         ('긴 내용', '—', '<b>2줄까지</b>',
+          '줄간 1.7 로 두 줄까지 보이고 넘치면 말줄임 · 전체 내용은 <b>툴팁</b> <code>PC-073</code>'),
          ('⚠ 칩 동작', '참고', '<b>PRD와 다름</b>',
-          'PRD-00 §4.4는 "칩 = 단일 선택(토글 아님)"이나 구현은 <b>재클릭 시 전체로 해제</b>된다')]))
+          'PRD-00 §4.4는 "칩 = 단일 선택(토글 아님)"이나 활동 종류 칩은 <b>재클릭 시 전체로 해제</b>된다')]))
 
     filtered = [('2026년 8월', [
         ('26', '2026-08', '수', [
@@ -184,7 +219,7 @@ def build():
         [('빈 카드', '표시', '—', '<b>해당 조건의 활동이 없습니다.</b>'),
          ('보조 안내', '표시', '—',
           '<b>고객사 수정·코드 할당·프로젝트 등록·티켓 발급·교재 추가/작업·로그인 시 자동 기록됩니다.</b>'),
-         ('필터 되돌리기', '클릭', 'S1', '월·직원·종류를 전체로'),
+         ('[이번 달]', '클릭', 'S1', '연·월·직원·종류를 기본값으로 되돌린다 <code>PC-069</code>'),
          ('보관 기간', '—', '<b>최근 7일</b>', '⚠ 테스트 기준 · 운영 기준 미확정 (§7)')]))
 
     del_ovl = ('<div class="ovl"><div class="mdl">'
@@ -220,6 +255,9 @@ def build():
     intro = ('<b>내부 직원이 언제 무엇을 했는지</b>를 시간순으로 확인하는 감사(audit) 화면. '
              '<b>ADMIN 전용</b>이며 STAFF는 본문이 🔒 안내로 대체된다. '
              '<b>조회 전용</b>(기록은 각 화면에서 자동 생성) · 한국시간(KST) 기준 · 보관 최근 7일. '
-             '필터는 <b>월 · 직원 · 활동 종류</b> 칩 3줄이고 각 칩은 <b>재클릭 시 해제(토글)</b>된다. '
+             '기록이 많아 <b>기본은 이번 달</b>만 보고 <b>기간·직원은 셀렉트</b>로 고른다 <code>PC-069</code>. '
+             '<b>일자 셀렉트와 [&#8249;] [&#8250;]</b> 로 하루씩 넘겨 볼 수 있고(활동이 있는 날짜만) '
+             '<code>PC-071</code>, 행은 <b>고정 열</b>이라 종류 배지 길이에 목록이 흔들리지 않는다 '
+             '<code>PC-073</code>. '
              '')
     return page(CODE, NAME, PRD, intro, boards)
