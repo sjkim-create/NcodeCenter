@@ -245,7 +245,9 @@ def build():
         frame('PRJ-01', '코드 프로젝트', content(), height=1000),
         [('코드 종류 칩', '클릭', '목록·집계 필터', '<b>전체 / PDS3 / PDS2 / PDS4(S-code) / OID</b> — 좌표 속성 기준 <code>PC-032</code> · 옛 IDS = OID 동일 <code>PC-035</code> · 선택 시 프로젝트 선택 해제'),
          ('유형 칩', '클릭', '목록·집계 필터', '<b>전체 / 편집 / 코드발급</b> — 편집 = casterN이거나 심볼 보유'),
-         ('사용 서비스', '드롭다운 선택', '목록·집계 필터', '<b>사용 서비스 · 전체</b> 기본값 · casterN / 폼솔루션 / 서비스 없음'),
+         ('사용 서비스', '드롭다운 선택', '목록·집계 필터',
+          '<b>사용 서비스 · 전체</b> 기본값 · <b>casterN / 폼솔루션</b> 2종 <code>PC-076</code> · '
+          '기준은 <b>고객사의 사용 서비스</b>(<code>MEM-02</code>)이며 지정이 없으면 <b>SDK 연동 (코드만 할당)</b>'),
          ('고객사 검색', '입력', '즉시 필터링', '값이 있으면 <b>×</b>로 해제'),
          ('고객사 항목', '클릭', '② 프로젝트 목록 갱신', '부제 = <b>{사용서비스} · 코드 {n}</b> + 코드종류 배지 N/G'),
          ('프로젝트 카드', '클릭', 'S2 발급 구성', ''),
@@ -304,10 +306,12 @@ def build():
         '<div class="inp" style="display:flex;justify-content:space-between">신사고-6'
         '<span style="color:#9ca3af;font-size:10px">▾</span></div></div>'
         '<div class="fld"><span class="lbl">사용 서비스</span>'
-        '<div class="inp" style="display:flex;justify-content:space-between">SDK 연동 (코드만 할당)'
-        '<span style="color:#9ca3af;font-size:10px">▾</span></div>'
+        '<div class="inp" style="background:#fafbfc;display:flex;justify-content:space-between">'
+        'SDK 연동 (코드만 할당)'
+        '<span style="color:#2563eb;font-size:11px">고객사 관리 &rarr;</span></div>'
         '<div style="font-size:11px;color:#9ca3af;margin-top:3px">'
-        '표시·변경 가능하나 <b>정본 지정은 <code>SOB-02</code></b> <code>PC-011</code></div></div>'
+        '<b>조회 전용</b> — 서비스는 고객사 속성이라 <b><code>MEM-02</code> 고객사 등록·수정</b>에서 '
+        '정한다 <code>PC-076</code></div></div>'
         '<div style="border:1px solid #e5e7eb;border-radius:9px;padding:11px 13px;font-size:12px;'
         'color:#6b7280;background:#f8fafc"><b style="color:#374151">발급 SOBP 내역</b> — 조회 전용<br>'
         '발급 추가·수정은 <b>현재 숨김 상태</b>입니다. (⚠ §7 미결)</div>'
@@ -315,8 +319,9 @@ def build():
         '</div></div>')
     boards.append((
         'S5', '프로젝트 수정 (모달)', '모달',
-        'PRD §4.4 — ③ 상세의 <b>[수정]</b>으로 연다. 사용 서비스는 표시·변경 가능하나 '
-        '<b>정본 지정 위치는 <code>SOB-02</code></b>다.',
+        'PRD §4.4 — ③ 상세의 <b>[수정]</b>으로 연다. <b>사용 서비스는 조회 전용</b>이며 '
+        '고른 고객사의 값을 읽어 보여 준다 <code>PC-076</code> — 바꾸려면 '
+        '<b><code>MEM-02</code> 고객사 등록·수정</b>으로 간다.',
         frame('PRJ-01', '코드 프로젝트',
               content(sel_proj='신사고-6 코드발급', detail='full'),
               overlay=edit_modal, height=1000),

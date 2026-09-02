@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """TKT-02 계정 등록·수정 — 실제 화면 구조 그대로.
 
-등록(/tickets/account/new) : ① 계정 정보 → ② 사용처·권한 → ③ App Key(선택) → [계정 추가]
+등록(/tickets/account/new) : ① 계정 정보 → ② 인증 서비스·권한 → ③ App Key(선택) → [계정 추가]
 상세·수정(/tickets/account/{email}) : ①② 수정 + [저장] · ③ App Key 발급·삭제
-App Key 는 계정당 1개이고 사용처 전체에 공통이다 `PC-050`. 발급 시 Book Start·Book Volume 을 지정한다.
+App Key 는 계정당 1개이고 인증 서비스 전체에 공통이다 `PC-050`. 발급 시 Book Start·Book Volume 을 지정한다.
 """
 from shell import page, frame
 from p_tkt01 import sel, field, picker
@@ -16,8 +16,8 @@ PRD = 'docs/prd/TKT-02_계정 등록·수정.md'
 PERMS = ('프로젝트 생성', '심볼 편집', '리소스 편집', 'Ncode PDF 내보내기',
          'NCP2 내보내기', 'App용 패키지 내보내기')
 
-# 상세 화면의 App Key 목록 (키, 코드종류, SOBP, 사용처, 유효, 생성일시)
-# 계정당 1개 · 사용처 전체 공통 `PC-050`
+# 상세 화면의 App Key 목록 (키, 코드종류, SOBP, 인증 서비스, 유효, 생성일시)
+# 계정당 1개 · 인증 서비스 전체 공통 `PC-050`
 KEYS = (('7Kq3xF9dR2mA8pZ1vT6bN4sJ0wG5c', 'PDS2', 'S3/O17/B400~499 · 100권',
          'CasterN · 폼솔루션', '2027-12-31', '2026-08-20 14:02'),)
 
@@ -217,12 +217,12 @@ def range_note(start='400', vol='100'):
 
 
 def appkey_block(mode='new', withkey=False, rng='closed', issued=False, has=True):
-    """③ App Key — 사용처 전체 공통 · 계정당 1개 `PC-050`. 탭 밖에 둔다."""
+    """③ App Key — 인증 서비스 전체 공통 · 계정당 1개 `PC-050`. 탭 밖에 둔다."""
     if mode == 'new':
         chk = ('<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;'
                'color:#374151"><input type="checkbox"' + (' checked' if withkey else '')
                + '> 이 계정에 <b>App Key도 함께 발급</b>합니다 '
-                 '<span style="color:#9ca3af">· 사용처 전체 공통 · 계정당 1개 · 선택</span>'
+                 '<span style="color:#9ca3af">· 인증 서비스 전체 공통 · 계정당 1개 · 선택</span>'
                  '</label>')
         if not withkey:
             return chk
@@ -265,18 +265,18 @@ def new_form(picked=('CasterN',), tab='CasterN', perms=None, withkey=False, rng=
     body = (head('계정 등록', '') + acc_tabs('계정 정보')
             + '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:12px">'
               '한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). '
-              'App Key 는 <b>계정당 1개</b>이며 <b>사용처 전체에 공통</b>으로 쓰입니다 '
+              'App Key 는 <b>계정당 1개</b>이며 <b>인증 서비스 전체에 공통</b>으로 쓰입니다 '
               '<code>PC-050</code>.</div>'
             + step(1, '계정 정보', '서비스 로그인 계정') + acct_inputs(err=err, empty=empty)
             + '<div style="margin-top:16px">'
-            + step(3, '사용처 · 권한', '탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다')
+            + step(3, '인증 서비스 · 권한', '탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다')
             + '<div style="font-size:10.5px;color:#9ca3af;margin-bottom:6px;line-height:1.5">'
-              '사용처는 <b>중복 선택</b>할 수 있습니다. 여러 서비스를 선택하면 '
+              '인증 서비스는 <b>중복 선택</b>할 수 있습니다. 여러 서비스를 선택하면 '
               '<b>한 계정으로 각 서비스에 로그인</b>합니다. 선택 <b>'
             + str(len(picked)) + '</b> / 3</div>'
             + svc_tabs(picked, tab, panel) + '</div>'
             + '<div style="margin-top:18px;border-top:1px solid #eef0f4;padding-top:14px">'
-            + step(2, 'App Key 발급', '사용처 전체 공통 · 계정당 1개 · 선택')
+            + step(2, 'App Key 발급', '인증 서비스 전체 공통 · 계정당 1개 · 선택')
             + appkey_block('new', withkey, rng) + '</div>'
             + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'
               '<div class="btn gho">취소</div><div class="btn pri">계정 추가</div></div>')
@@ -298,9 +298,9 @@ def edit_form(picked=('CasterN',), tab='CasterN', perms=None, rng='closed', issu
             + step(1, '계정 정보', 'ID(email) · 고객사는 변경할 수 없습니다')
             + acct_inputs(edit=True)
             + '<div style="margin-top:16px">'
-            + step(2, '사용처 · 권한', '탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다')
+            + step(2, '인증 서비스 · 권한', '탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다')
             + '<div style="font-size:10.5px;color:#9ca3af;margin-bottom:6px;line-height:1.5">'
-              'App Key 는 <b>사용처 전체에 공통</b>이라 사용처를 바꿔도 키는 그대로입니다 '
+              'App Key 는 <b>인증 서비스 전체에 공통</b>이라 인증 서비스를 바꿔도 키는 그대로입니다 '
               '<code>PC-050</code>. 선택 <b>' + str(len(picked)) + '</b> / 3</div>'
             + svc_tabs(picked, tab, panel) + '</div>'
             + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'
@@ -380,21 +380,21 @@ def build():
 
     B.append((
         'S4', '폼솔루션 · SDK 탭 — 준비중', '변형',
-        '조건이 정의된 서비스는 <b>CasterN 뿐</b>이다. 나머지 탭은 사용처로 선택해도 '
-        '<b>준비중</b> 안내만 나오고 지정할 항목이 없다. 사용처로 선택하지 않은 탭은 '
-        '<b>사용처로 선택하면 이 서비스의 조건을 설정할 수 있습니다.</b> 로 비어 있다.',
+        '조건이 정의된 서비스는 <b>CasterN 뿐</b>이다. 나머지 탭은 인증 서비스로 선택해도 '
+        '<b>준비중</b> 안내만 나오고 지정할 항목이 없다. 인증 서비스로 선택하지 않은 탭은 '
+        '<b>인증 서비스로 선택하면 이 서비스의 조건을 설정할 수 있습니다.</b> 로 비어 있다.',
         scr_new(picked=('CasterN', '폼솔루션'), tab='폼솔루션', h=900),
         [('폼솔루션 탭', '조회', '<b>준비중</b>',
           '<b>이 서비스의 권한·설정 항목은 아직 정의되지 않았습니다. '
-          '사용처 연동만 등록됩니다.</b>'),
+          '인증 서비스 연동만 등록됩니다.</b>'),
          ('SDK 탭', '조회', '동일', '준비중'),
          ('미선택 탭', '조회', '—',
-          '<b>사용처로 선택하면 이 서비스의 조건을 설정할 수 있습니다.</b>'),
+          '<b>인증 서비스로 선택하면 이 서비스의 조건을 설정할 수 있습니다.</b>'),
          ('App Key', '표시', '<b>없음</b>', 'CasterN 탭에만 있다')]))
 
     B.append((
         'S5', '③ App Key 함께 발급', '분기',
-        'App Key 는 그 계정의 <b>사용처 전체에 공통</b>으로 쓰이고 <b>계정당 1개</b>다 '
+        'App Key 는 그 계정의 <b>인증 서비스 전체에 공통</b>으로 쓰이고 <b>계정당 1개</b>다 '
         '<code>PC-050</code>. 그래서 탭 안이 아니라 <b>③ 단계</b>로 따로 둔다. '
         '체크하면 할당된 SOBP 범위와 <b>Book Start · Book Volume(권수)</b> · 만료일이 열린다.',
         scr_new(withkey=True, rng='open', h=1360),
@@ -408,27 +408,29 @@ def build():
          ('미체크', '저장', '계정만 등록', '키는 상세에서 나중에 발급')]))
 
     B.append((
-        'S6', '사용처를 바꿔도 App Key 는 그대로', '변형',
-        'App Key 는 <b>사용처 전체 공통</b>이라 사용처 구성을 바꿔도 키는 영향을 받지 않는다 '
+        'S6', '인증 서비스를 바꿔도 App Key 는 그대로', '변형',
+        'App Key 는 <b>인증 서비스 전체 공통</b>이라 인증 서비스 구성을 바꿔도 키는 영향을 받지 않는다 '
         '<code>PC-050</code>. 예전의 「CasterN 전용 · 연동 끊김」 처리는 <b>폐지</b>했다.',
         scr_new(picked=('폼솔루션',), tab='CasterN', h=960),
-        [('사용처 구성', '변경', 'App Key 영향 없음', '키는 계정 단위로 붙는다'),
+        [('인증 서비스 구성', '변경', 'App Key 영향 없음', '키는 계정 단위로 붙는다'),
          ('③ App Key', '표시', '<b>항상 노출</b>', '탭과 무관한 단계다'),
-         ('저장', '—', '가능', '계정은 고른 사용처로 등록된다')]))
+         ('저장', '—', '가능', '계정은 고른 인증 서비스로 등록된다')]))
 
     B.append((
         'S7', '등록 검증 실패', '검증',
-        '검사는 <b>회사 → ID 형식 → 비밀번호 → 사용처 → 범위 → ID 중복</b> 순서로 진행하고 '
+        '검사는 <b>회사 → ID 형식 → 비밀번호 → 범위 → ID 중복</b> 순서로 진행하고 '
         '하나라도 걸리면 그 자리에서 멈춘다. 메시지는 버튼 아래 한 줄로 나온다.',
         scr_new(err='id', toast='계정 ID는 이메일 형식이어야 합니다.', h=1160),
         [('① 회사 미선택', '검증', '중단', '<b>회사(고객사)를 선택하세요.</b>'),
          ('② ID 형식', '검증', '중단', '<b>계정 ID는 이메일 형식이어야 합니다.</b>'),
          ('③ 비밀번호', '검증', '중단',
           '<b>비밀번호가 필요합니다. (요청 없으면 [임의 생성])</b>'),
-         ('④ 사용처', '검증', '중단', '<b>사용처(연동 서비스)를 1개 이상 선택하세요.</b>'),
-         ('⑤ 범위', '검증', '중단',
+         ('~~인증 서비스 개수~~', '—', '<b>검사 안 함</b>',
+          '<b>0개도 정상</b>이다 — SDK 연동(코드만 할당) <code>PC-076</code>. 옛 '
+          '「1개 이상 선택하세요」 검증은 폐지'),
+         ('④ 범위', '검증', '중단',
           '<b>할당된 SOBP 범위를 선택하세요.</b> — App Key 함께 발급일 때만'),
-         ('⑥ ID 중복', '검증', '중단', '<b>이미 등록된 ID(email)입니다.</b>')]))
+         ('⑤ ID 중복', '검증', '중단', '<b>이미 등록된 ID(email)입니다.</b>')]))
 
     B.append((
         'S8', '계정 상세 · 수정', '기본',
@@ -439,7 +441,7 @@ def build():
         [('① ID · 고객사', '표시', '<b>잠금</b>', '키 연동 기준값'),
          ('② 탭 구조', '조회', '등록과 동일', 'CasterN 탭에 App Key 발급'),
          ('③ 발급 내역', '조회', '—',
-          '키 앞부분 · 코드 범위 · 사용처 · 유효 기한 · 생성 일시 · [키 삭제]'),
+          '키 앞부분 · 코드 범위 · 인증 서비스 · 유효 기한 · 생성 일시 · [키 삭제]'),
          ('[저장]', '클릭', '반영', '<b>계정 정보가 저장되었습니다.</b>'),
          ('[계정 삭제]', '클릭', '확인창', 'S11')] + NAV))
 
@@ -464,13 +466,13 @@ def build():
         'S10', '이미 발급된 계정 — 재발급 차단', '차단',
         'App Key 는 <b>계정당 1개</b>다 <code>PC-050</code>. 이미 키가 있으면 ③ 단계에 '
         '발급 폼 대신 <b>안내</b>가 나오고, 범위를 바꾸려면 <b>키를 삭제한 뒤</b> 다시 발급한다. '
-        '(사용처를 빼도 키 연동은 끊기지 않는다 — 「연동 끊김」 처리는 폐지)',
+        '(인증 서비스를 빼도 키 연동은 끊기지 않는다 — 「연동 끊김」 처리는 폐지)',
         scr_edit(picked=('폼솔루션',), tab='CasterN', h=1180),
         [('③ App Key', '표시', '<b>안내</b>',
           '<b>이 계정에는 이미 App Key 가 발급돼 있습니다 — 계정당 1개입니다.</b>'),
          ('발급 폼', '—', '<b>표시 안 함</b>', '범위·Book·만료 입력이 나오지 않는다'),
          ('[키 삭제]', '클릭', '발급 폼 복귀', '삭제 후 새 범위로 다시 발급한다'),
-         ('사용처 변경', '저장', '키 유지', '키는 사용처 전체 공통이라 영향 없음')]))
+         ('사용처 변경', '저장', '키 유지', '키는 인증 서비스 전체 공통이라 영향 없음')]))
 
     B.append((
         'S11', '계정 삭제 확인', '차단',
@@ -482,9 +484,13 @@ def build():
          ('[취소] · ✕', '클릭', '변경 없음', '')]))
 
     intro = ('<code>TKT-01</code> 계정 목록에서 열리는 <b>등록</b>과 <b>상세·수정</b> 두 화면이다. '
-             '사용처(연동 서비스)는 <b>중복 선택</b>이며, 서비스마다 지정할 조건이 달라 '
-             '<b>탭</b>으로 나뉜다 — 조건이 아래로 쌓이지 않는다. 조건이 정의된 서비스는 '
-             '<b>CasterN 뿐</b>이고 나머지는 준비중이다. <b>App Key 발급은 CasterN 사용처 '
-             '전용</b>이라 CasterN 탭 안에 있다. 사용처에서 CasterN 을 빼면 App Key는 '
-             '<b>연동이 끊긴다</b>(삭제되지 않는다). 로그인 허용 판정은 PRD §4.6.')
+             '<b>인증 서비스</b>(이 계정이 우리 서비스 어디에 로그인하나)는 <b>중복 선택</b>이며, '
+             '서비스마다 지정할 조건이 달라 <b>탭</b>으로 나뉜다 <code>PC-076</code> — '
+             '조건이 아래로 쌓이지 않는다. 고르는 서비스는 <b>CasterN · 폼솔루션 2종</b>이고 '
+             '조건이 정의된 것은 <b>CasterN 뿐</b>이다. '
+             '<b>아무것도 고르지 않으면 SDK 연동(코드만 할당)</b> 이라 App Key 만 발급한다. '
+             '고객사 관리의 <b>사용 서비스</b>(우리가 그 고객사를 어느 서비스로 다루나)와는 '
+             '다른 값이며, 고객사를 고르면 그 값대로 <b>자동 체크</b>된다. '
+             'App Key 는 <b>계정당 1개 · 인증 서비스 전체 공통</b> <code>PC-050</code>. '
+             '로그인 허용 판정은 PRD §4.6.')
     return page(CODE, NAME, PRD, intro, B)

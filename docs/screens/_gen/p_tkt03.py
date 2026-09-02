@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """TKT-01 계정 발급 (계정 목록) — 실제 화면 구조 그대로.
 
-요약 4칸 → 한 줄 필터(고객사·사용처·검색 + [＋ 계정 추가]) → 8열 표.
+요약 4칸 → 한 줄 필터(고객사·인증 서비스·검색 + [＋ 계정 추가]) → 7열 표.
 등록·상세 수정은 TKT-02 (p_tkt02.py).
 """
 from shell import page, frame
@@ -10,16 +10,19 @@ from p_tkt01 import sel
 CODE, NAME = 'TKT-01', '계정 발급'
 PRD = 'docs/prd/TKT-01_계정 발급.md'
 
-# lib/accountStore.ts — (고객사, ID(email), 이름, 사용처, 권한 수, App Key 수, 등록일)
-# 사용처는 중복 선택이라 튜플로 담는다
+# lib/accountStore.ts — (고객사, ID(email), 이름, 인증 서비스, 권한 수, App Key, 등록일)
+# 인증 서비스는 중복 선택이라 튜플로 담는다. **빈 튜플 = SDK 연동(코드만 할당)** `PC-076`
+# App Key 는 개수가 아니라 **키 값**(영문·숫자 29자)을 그대로 보여 준다 `PC-067` `PC-066`
 ROWS = (
-    ('웅진씽크빅', 'wj_edit@wjthinkbig.com', '웅진 편집팀', ('CasterN',), 7, 2, '2026-08-20'),
+    ('웅진씽크빅', 'wj_edit@wjthinkbig.com', '웅진 편집팀', ('CasterN',), 6,
+     'k3Qa7Rm2Xz9Bd4Nf1Wp6Ts8Vy0Hc5', '2026-08-20'),
     ('웅진씽크빅', 'wj_design@wjthinkbig.com', '웅진 디자인',
-     ('CasterN', '폼솔루션'), 3, 0, '2026-08-22'),
-    ('웅진씽크빅', 'wj_sdk@wjthinkbig.com', '웅진 SDK', ('SDK 연동',), 0, 1, '2026-08-25'),
+     ('CasterN', '폼솔루션'), 3, '', '2026-08-22'),
+    ('웅진씽크빅', 'wj_sdk@wjthinkbig.com', '웅진 SDK', (), 0,
+     'p8Lu2Ej5Cq1Rt7Xa3Nk9Db6Mv4Zs0', '2026-08-25'),
     ('대교', 'daekyo_form@daekyo.com', '대교 폼솔루션',
-     ('폼솔루션', 'SDK 연동'), 0, 1, '2026-08-26'),
-    ('한솔교육', 'hansol_old@hansol.com', '(구) 담당자', (), 0, 1, '2025-11-03'),
+     ('폼솔루션',), 0, 'w5Yh9Fn3Gt2Qm8Jx1Bp7Ld4Ck6Ra0', '2026-08-26'),
+    ('한솔교육', 'hansol_old@hansol.com', '(구) 담당자', (), 0, '', '2025-11-03'),
 )
 
 # 조건(권한·설정)이 정의된 서비스 — 나머지는 '준비중'
@@ -46,7 +49,7 @@ def kpis(kpi=None):
             'margin-bottom:12px">' + cards + '</div>')
 
 
-def bar(company='고객사 전체', service='사용처 전체', q='', count=5):
+def bar(company='고객사 전체', service='인증 서비스 전체', q='', count=5):
     srch = ('<div class="inp' + ('' if q else ' ph') + '" style="width:230px">'
             + (q or 'ID(email) · 이름 · 고객사 검색') + '</div>')
     return ('<div class="card" style="padding:10px 12px;margin-bottom:10px;display:flex;'
@@ -57,11 +60,11 @@ def bar(company='고객사 전체', service='사용처 전체', q='', count=5):
             '<span class="btn pri">＋ 계정 추가</span></div>')
 
 
-HEADS = ('고객사', 'ID (EMAIL)', '이름', '사용처', 'App Key', '등록일', '')
+HEADS = ('고객사', 'ID (EMAIL)', '이름', '인증 서비스', 'App Key', '등록일', '')
 
 
 def perm_cell(services, n):
-    """CasterN 권한 칸 — 사용처에 CasterN 이 있을 때만 표시"""
+    """CasterN 권한 칸 — 인증 서비스에 CasterN 이 있을 때만 표시"""
     if 'CasterN' not in (services or ()):
         return '<span style="color:#9ca3af">—</span>'
     if n == 0:
@@ -87,9 +90,13 @@ def table(rows=None, empty=None):
                     '#047857' if x in READY else '#6b7280')
                 for x in svc)
         else:
-            svc_tag = tag('미지정', '#fef2f2', '#b91c1c')
-        key_tag = tag(str(keys), '#eef6ff' if keys else '#f3f4f6',
-                      '#2563eb' if keys else '#9ca3af', bold=False)
+            # 선택 없음 = SDK 연동(코드만 할당) — 오류가 아니라 정상 상태 `PC-076`
+            svc_tag = tag('SDK 연동 (코드만 할당)', '#f3f4f6', '#6b7280')
+        if keys:
+            key_tag = ('<span style="font-family:ui-monospace,monospace;font-size:11px;'
+                       'color:#2563eb">%s</span>' % keys)
+        else:
+            key_tag = tag('미발급', '#f3f4f6', '#9ca3af', bold=False)
         body += ('<tr>'
                  '<td style="text-align:left;font-weight:600">' + co + '</td>'
                  '<td style="text-align:left"><span class="lnk" '
@@ -97,7 +104,7 @@ def table(rows=None, empty=None):
                  + '</span></td>'
                  '<td style="text-align:left">' + (nm or '—') + '</td>'
                  '<td style="white-space:nowrap">' + svc_tag + '</td>'
-                 '<td>' + key_tag + '</td>'
+                 '<td style="white-space:nowrap">' + key_tag + '</td>'
                  '<td style="font-family:ui-monospace,monospace;color:#6b7280">' + at
                  + '</td>'
                  '<td style="white-space:nowrap;text-align:right">'
@@ -109,7 +116,7 @@ def table(rows=None, empty=None):
             + body + '</table></div>')
 
 
-def content(kpi=None, company='고객사 전체', service='사용처 전체', q='', count=5,
+def content(kpi=None, company='고객사 전체', service='인증 서비스 전체', q='', count=5,
             rows=None, empty=None):
     return ('<div style="min-width:0">' + kpis(kpi) + bar(company, service, q, count)
             + table(rows, empty) + '</div>')
@@ -142,13 +149,22 @@ def build():
           '<code>/tickets/account/{email}</code>'),
          ('[삭제]', '클릭', 'S5 확인창', '계정과 <b>연동 App Key가 함께</b> 삭제된다'),
          ('요약 4칸', '표시', '—', '등록 계정 · App Key 연동 · App Key 없음 · 발급 App Key'),
-         ('사용처 칸', '표시', '—',
-          '계정이 가진 서비스를 <b>모두</b> 배지로 — 조건 미정의 서비스는 <b>준비중</b> 표기'),
+         ('인증 서비스 칸', '표시', '—',
+          '계정이 가진 서비스를 <b>모두</b> 배지로 <code>PC-076</code> — 조건 미정의 서비스는 '
+          '<b>준비중</b> 표기 · <b>하나도 없으면 「SDK 연동 (코드만 할당)」</b>(정상 상태)'),
+         ('인증 서비스 칸', '클릭', '<code>TKT-02</code> ▸ <b>인증 서비스 및 권한</b> 탭',
+          '상세에 들어가 탭을 다시 찾지 않게 한다 <code>PC-067</code>'),
          ('레코드(행)', '클릭', '<code>TKT-02</code>',
           '<b>행 어디를 눌러도 계정 상세로 간다</b> <code>PC-053</code> · 행 안의 [상세]·[삭제]는 분리'),
          ('~~CasterN 권한 칸~~', '—', '<b>삭제</b>',
           '권한은 <b>계정 상세</b>에서 본다 <code>PC-053</code>'),
-         ('App Key 칸', '표시', '—', '이 계정에 연동된 키 개수 · 0이면 회색')] + NAV))
+         ('App Key 칸', '표시', '—',
+          '<b>발급된 키 값을 그대로</b> 보여 준다 <code>PC-067</code> — 영문·숫자 <b>29자</b> '
+          '<code>PC-066</code> · 없으면 <b>미발급</b>'),
+         ('App Key 칸', '클릭', '<code>TKT-02</code> ▸ <b>App Key 발급</b> 탭',
+          '항목마다 그 항목의 탭으로 간다 <code>PC-067</code>'),
+         ('그 밖의 셀(행)', '클릭', '<code>TKT-02</code> ▸ <b>계정 정보</b> 탭',
+          '기본 이동 <code>PC-067</code>')] + NAV))
 
     B.append((
         'S2', '등록된 계정 없음', '기본',
