@@ -3,7 +3,8 @@
 
 두 곳에서 모은다.
     docs/screens/_gen/p_*.py  → 화면 개요 · 상태 구성 · 상태별 변화
-    docs/prd/*.md             → 기능 개요 · 화면 흐름 · 정책 · 사용법 · 연결 화면
+    docs/prd/*.md             → 기능 개요 · 화면 흐름 · 정책 · 사용법 · 연결 화면 · 문서 이력
+                                (문서 이력까지 넣어야 PRD 를 고칠 때마다 이 파일도 함께 갱신된다 `PC-078`)
 화면 정의서(HTML)와 같은 소스를 쓰므로 HTML 과 MD 가 어긋나지 않는다.
 
 플러그인이 읽는 형식
@@ -36,7 +37,9 @@ ROOT = os.path.dirname(DOCS)
 # 손으로 쓴 PRD(docs/prd)에서 가져와 「화면 구성」 카드에 실을 절.
 # 플러그인은 '화면 구성' 을 포함한 ## 머리말 아래만 왼쪽 카드로 붙이므로
 # 이 절들은 ## 이 아니라 ### 로 낮춰 그 안에 넣는다.
-PRD_SECTIONS = ('기능 개요', '화면 흐름', '정책', '사용법', '연결 화면')
+PRD_SECTIONS = ('기능 개요', '화면 흐름', '정책', '사용법', '연결 화면', '문서 이력')
+# 문서 이력은 맨 뒤로 보낸다 — 카드를 열자마자 변경 표부터 보이지 않게 `PC-078`
+LAST_SECTIONS = ('문서 이력',)
 
 
 def demote(body):
@@ -123,14 +126,17 @@ def build_md(code, info):
     out = ['# %s · %s' % (code, name), '',
            '**화면 ID**: %s' % code, '',
            '> 원본 — 화면 정의서 `docs/screens/` · PRD `%s`' % prd_link,
-           '> 화면 구성·상태는 화면 정의서에서, 기능 개요·흐름·정책·사용법·연결 화면은 '
+           '> 화면 구성·상태는 화면 정의서에서, 기능 개요·흐름·정책·사용법·연결 화면·문서 이력은 '
            'PRD 에서 **자동으로 모아** 만든다. 이 파일을 직접 고치지 말 것.',
            '', '---', '',
            '## 2. 화면 구성', '',
            '### 개요', '', md(intro), '']
 
-    # 손으로 쓴 PRD 의 기능 개요 · 흐름 · 정책 · 사용법 · 연결 화면
-    for title, body in prd_sections(prd_link):
+    # 손으로 쓴 PRD 의 기능 개요 · 흐름 · 정책 · 사용법 · 연결 화면 (+ 문서 이력은 맨 뒤) `PC-078`
+    secs = prd_sections(prd_link)
+    head = [s for s in secs if not any(k in s[0] for k in LAST_SECTIONS)]
+    tail = [s for s in secs if any(k in s[0] for k in LAST_SECTIONS)]
+    for title, body in head + tail:
         out += ['### %s' % title, '', body, '']
 
     tags = [b[2] for b in boards if b[2]]

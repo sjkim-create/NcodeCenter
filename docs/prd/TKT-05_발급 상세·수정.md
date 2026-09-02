@@ -44,6 +44,24 @@ TKT-05
 
 ---
 
+## 2-1. Key 정보 항목 순서 `PC-070`
+
+좌표 → 범위 → 코드 종류 → 시간 → 티켓 속성 순으로 읽도록 고정한다. `Issued Time` 은 **`Code Type` 뒤**에 온다.
+
+| 순서 | 항목 |
+|---|---|
+| ① 소유 | `Company Name` · `Account Id` · `App Key` · `Service` · `Usage` · `Used Customer` |
+| ② 좌표 | `Section` · `Owner` |
+| ③ 범위 | `Book Start` · `Book Volume` · `Book End` · `Page Start` · `Page Volume` · `Page End` |
+| ④ 종류 | `Code Type` |
+| ⑤ 시간 | `Issued Time` · `Valid Until Time` |
+| ⑥ 티켓 | `Ticket Type` · `Ticket Version` |
+
+- **항목명은 모두 띄어쓴다** `PC-065` — `AccountId` → `Account Id`, `IssuedTime` → `Issued Time`.
+- 이미 저장된 키의 옛 항목명·순서는 **화면에 올릴 때 자동으로 맞춘다**(별도 작업 없음).
+
+---
+
 ## 3. 정책
 
 | 정책 | 이 화면에서의 적용 |

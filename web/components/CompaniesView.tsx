@@ -207,6 +207,8 @@ export function CompanyFormView({ companyId }: { companyId: number }) {
 
   // 입력 항목이 길어 탭으로 나눈다. 수정 화면에서는 우측 업무요청 메모가 탭과 무관하게 항상 보인다.
   const [tab, setTab] = useState<"base" | "rate" | "docs">("base");
+  // 사용 서비스 탭 — 서비스마다 딸린 설정이 달라 한 번에 하나만 보여 준다 `PC-077`
+  const [svcTab, setSvcTab] = useState<ServiceType>("CASTERN");
   const [form, setForm] = useState<Draft>(EMPTY);
   const [memberCodes, setMemberCodes] = useState<Set<string>>(new Set());   // 이 고객사가 사용하는 공통코드(하위 등록)
   const [logDraft, setLogDraft] = useState<LogDraft>(EMPTY_LOG);
@@ -340,83 +342,121 @@ export function CompanyFormView({ companyId }: { companyId: number }) {
               <input type="email" style={S.input} value={form.taxEmail ?? ""} onChange={(e) => set("taxEmail", e.target.value)} placeholder="tax@company.com" />
             </Field>
             {/* 사용 서비스 — **이 고객사를 우리 어느 서비스로 다루나** `PC-076`.
+                서비스마다 딸린 설정이 달라 **탭**으로 나눈다 `PC-077`.
                 계정의 [인증 서비스]와 다르다: 저쪽은 외부 고객사가 우리 서비스에 로그인하는 범위다. */}
             <Field label="사용 서비스" full>
-              <div style={{ border: "1px solid #e5e7eb", background: "#fafbfc", borderRadius: 10, padding: "12px 14px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+                {/* 탭 바 — 고른 서비스에 ✓ */}
+                <div style={{ display: "flex", borderBottom: "1px solid #eef0f4", background: "#fafbfc" }}>
                   {SERVICE.map((sv) => {
                     const on = companyServices(form).includes(sv.v);
-                    const toggle = () => setForm((f) => {
-                      const cur = companyServices(f);
-                      const next = on ? cur.filter((x) => x !== sv.v) : [...cur, sv.v];
-                      return { ...f, services: next };
-                    });
+                    const cur = svcTab === sv.v;
                     return (
-                      <label key={sv.v} style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer",
-                        border: `1px solid ${on ? "#bfdbfe" : "#eef0f4"}`, background: on ? "#f5f9ff" : "#fff", borderRadius: 9, padding: "9px 11px" }}>
-                        <input type="checkbox" checked={on} onChange={toggle} style={{ marginTop: 2 }} />
-                        <span style={{ fontSize: 12.5 }}>
-                          <b style={{ color: on ? "#1e3a8a" : "#374151" }}>{sv.label}</b>
-                          {!sv.ready && <span style={{ ...S.tag, marginLeft: 6, fontSize: 9.5, background: "#f3f4f6", color: "#9ca3af", fontWeight: 700 }}>서비스 준비중</span>}
-                          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2, lineHeight: 1.6 }}>{sv.desc}</div>
-                        </span>
-                      </label>
+                      <button key={sv.v} type="button" onClick={() => setSvcTab(sv.v)}
+                        style={{ flex: 1, padding: "10px 8px", fontSize: 12.5, cursor: "pointer", border: "none",
+                          borderBottom: `2px solid ${cur ? "#2563eb" : "transparent"}`,
+                          background: cur ? "#fff" : "transparent", fontWeight: cur ? 700 : 400,
+                          color: cur ? "#1d4ed8" : on ? "#374151" : "#9ca3af" }}>
+                        {on && <span style={{ color: "#2563eb", marginRight: 4 }}>✓</span>}{sv.label}
+                        {!sv.ready && <span style={{ ...S.tag, marginLeft: 6, fontSize: 9.5, background: "#fff7ed", color: "#c2410c", fontWeight: 700 }}>준비중</span>}
+                      </button>
                     );
                   })}
                 </div>
-                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 8, lineHeight: 1.7 }}>
-                  <b>아무것도 고르지 않으면 「{SDK_ONLY}」</b> 입니다 — 우리 서비스를 거치지 않고 코드만 받아 직접 연동하는 고객사입니다 <code>PC-076</code>.
-                  고른 서비스에 따라 <b>편집 프로젝트·폼솔루션 서비스 관리</b>에 이 고객사가 나타납니다.
-                </div>
+
+                {/* 탭 패널 — 맨 위에 사용 여부, 켜져 있을 때만 그 서비스의 설정이 나온다 */}
+                {SERVICE.filter((sv) => sv.v === svcTab).map((sv) => {
+                  const on = companyServices(form).includes(sv.v);
+                  const toggle = () => setForm((f) => {
+                    const cur = companyServices(f);
+                    return { ...f, services: on ? cur.filter((x) => x !== sv.v) : [...cur, sv.v] };
+                  });
+                  return (
+                    <div key={sv.v} style={{ padding: "12px 14px" }}>
+                      <label style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer" }}>
+                        <input type="checkbox" checked={on} onChange={toggle} style={{ marginTop: 2 }} />
+                        <span style={{ fontSize: 12.5 }}>
+                          <b style={{ color: on ? "#1e3a8a" : "#374151" }}>{sv.label}</b>
+                          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2, lineHeight: 1.6 }}>{sv.desc}</div>
+                        </span>
+                      </label>
+
+                      {/* casterN — 켜면 편집에 딸린 설정(프로젝트 상태 · 공통코드 사용 고객사)이 나온다 `PC-077` */}
+                      {sv.v === "CASTERN" && (on ? (
+                        <div style={{ marginTop: 12, display: "grid", gap: 14 }}>
+                          <div>
+                            <div style={{ ...secHead, margin: "0 0 8px" }}>프로젝트 상태</div>
+                            <div style={{ border: `1px solid ${form.closed ? "#fca5a5" : "#e5e7eb"}`, background: form.closed ? "#fef2f2" : "#fafbfc", borderRadius: 10, padding: "12px 14px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                <button type="button" role="switch" aria-checked={!!form.closed} onClick={() => set("closed", !form.closed)}
+                                  title={form.closed ? "사업 종료 → 진행중으로 되돌리기" : "사업 종료로 전환"}
+                                  style={{ width: 46, height: 26, borderRadius: 13, border: "none", padding: 0, cursor: "pointer", position: "relative",
+                                    background: form.closed ? "#ef4444" : "#d1d5db", transition: "background .15s", flexShrink: 0 }}>
+                                  <span style={{ position: "absolute", top: 3, left: form.closed ? 23 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .15s", boxShadow: "0 1px 2px rgba(0,0,0,.25)" }} />
+                                </button>
+                                <div>
+                                  <b style={{ fontSize: 13.5, color: form.closed ? "#b91c1c" : "#374151" }}>{form.closed ? "사업 종료" : "진행중"}</b>
+                                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 1 }}>사업 종료 시 코드 발급 이력만 유지되고, 목록·코드 프로젝트에서 비활성(회색)으로 표시됩니다.</div>
+                                </div>
+                              </div>
+                              {form.closed && (
+                                <input style={{ ...S.input, marginTop: 10 }} value={form.closedNote ?? ""} onChange={(e) => set("closedNote", e.target.value)} placeholder="종료 사유 / 코드 이관 메모 (예: 엠베스트-28로 코드 이관)" />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 공통코드 사용 고객사(하위) 등록 — 대표 회사 아래 귀속. 코드 할당 없이(기 발급) 편집·티켓만 */}
+                          <div>
+                            <div style={{ ...secHead, margin: "0 0 8px" }}>
+                              공통코드 사용 고객사 (하위 등록) <span style={{ color: "#9ca3af", fontWeight: 400 }}>· 대표 회사 아래로 귀속 · 코드 할당 불필요</span>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                              {COMMON_CODES.filter((c) => !c.historyOnly).map((c) => {
+                                const key = codeKey(c); const cOn = memberCodes.has(key);
+                                const own = !!form.name.trim() && c.company === form.name.trim();   // 이 고객사가 이 코드의 대표(자기 코드) → 비활성화
+                                return (
+                                  <label key={key} style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: own ? "not-allowed" : "pointer", opacity: own ? 0.55 : 1,
+                                    border: `1px solid ${!own && cOn ? "#bfdbfe" : "#eef0f4"}`, background: own ? "#f3f4f6" : cOn ? "#f5f9ff" : "#fafbfc", borderRadius: 9, padding: "9px 11px" }}>
+                                    <input type="checkbox" checked={cOn && !own} disabled={own} style={{ marginTop: 2 }}
+                                      onChange={(e) => setMemberCodes((prev) => { const n = new Set(prev); if (e.target.checked) n.add(key); else n.delete(key); return n; })} />
+                                    <span style={{ fontSize: 12.5 }}>
+                                      <b style={{ color: own ? "#9ca3af" : cOn ? "#1e3a8a" : "#374151" }}>{c.name}</b>
+                                      {own && <span style={{ ...S.tag, marginLeft: 6, fontSize: 9.5, background: "#e5e7eb", color: "#6b7280", fontWeight: 700 }}>대표(자기) 코드</span>}
+                                      <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{c.label}</div>
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                            <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6, lineHeight: 1.7 }}>
+                              선택하면 이 고객사가 해당 <b>공통코드의 사용 고객사(하위)</b>로 등록됩니다. 이미 발급된 공통코드를 쓰므로 <b>코드 할당은 없고</b>, 편집 프로젝트·티켓 발급에서 하위 고객사로 관리됩니다.
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: 10, fontSize: 11.5, color: "#9ca3af", lineHeight: 1.7 }}>
+                          casterN 으로 선택하면 <b>프로젝트 상태</b>·<b>공통코드 사용 고객사</b> 를 지정할 수 있습니다 <code>PC-077</code>.
+                        </div>
+                      ))}
+
+                      {/* 폼솔루션 — 지금은 지정할 항목이 없다. 어디에 나타나는지만 알려 준다 `PC-077` */}
+                      {sv.v === "FORMSOLUTION" && (
+                        <div style={{ marginTop: 10, fontSize: 12, color: "#6b7280", lineHeight: 1.75,
+                          border: "1px solid #eef0f4", background: "#fafbfc", borderRadius: 9, padding: "10px 12px" }}>
+                          <b style={{ color: "#c2410c" }}>준비중</b> — 폼솔루션에서 지정할 항목은 아직 없습니다.
+                          선택하면 이 고객사가 <b>[폼솔루션 서비스 관리]</b> 화면에 나타납니다.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6, lineHeight: 1.7 }}>
+                <b>아무것도 고르지 않으면 「{SDK_ONLY}」</b> 입니다 — 우리 서비스를 거치지 않고 코드만 받아 직접 연동하는 고객사입니다 <code>PC-076</code>.
               </div>
             </Field>
-
-            <Field label="프로젝트 상태" full>
-              <div style={{ border: `1px solid ${form.closed ? "#fca5a5" : "#e5e7eb"}`, background: form.closed ? "#fef2f2" : "#fafbfc", borderRadius: 10, padding: "12px 14px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <button type="button" role="switch" aria-checked={!!form.closed} onClick={() => set("closed", !form.closed)}
-                    title={form.closed ? "사업 종료 → 진행중으로 되돌리기" : "사업 종료로 전환"}
-                    style={{ width: 46, height: 26, borderRadius: 13, border: "none", padding: 0, cursor: "pointer", position: "relative",
-                      background: form.closed ? "#ef4444" : "#d1d5db", transition: "background .15s", flexShrink: 0 }}>
-                    <span style={{ position: "absolute", top: 3, left: form.closed ? 23 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .15s", boxShadow: "0 1px 2px rgba(0,0,0,.25)" }} />
-                  </button>
-                  <div>
-                    <b style={{ fontSize: 13.5, color: form.closed ? "#b91c1c" : "#374151" }}>{form.closed ? "사업 종료" : "진행중"}</b>
-                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 1 }}>사업 종료 시 코드 발급 이력만 유지되고, 목록·코드 프로젝트에서 비활성(회색)으로 표시됩니다.</div>
-                  </div>
-                </div>
-                {form.closed && (
-                  <input style={{ ...S.input, marginTop: 10 }} value={form.closedNote ?? ""} onChange={(e) => set("closedNote", e.target.value)} placeholder="종료 사유 / 코드 이관 메모 (예: 엠베스트-28로 코드 이관)" />
-                )}
-              </div>
-            </Field>
           </div>
 
-          {/* 공통코드 사용 고객사(하위) 등록 — 대표 회사 아래 귀속. 코드 할당 없이(기 발급) 편집·티켓만 */}
-          <div style={secHead}>
-            공통코드 사용 고객사 (하위 등록) <span style={{ color: "#9ca3af", fontWeight: 400 }}>· 대표 회사 아래로 귀속 · 코드 할당 불필요</span>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {COMMON_CODES.filter((c) => !c.historyOnly).map((c) => {
-              const key = codeKey(c); const on = memberCodes.has(key);
-              const own = !!form.name.trim() && c.company === form.name.trim();   // 이 고객사가 이 코드의 대표(자기 코드) → 비활성화
-              return (
-                <label key={key} style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: own ? "not-allowed" : "pointer", opacity: own ? 0.55 : 1,
-                  border: `1px solid ${!own && on ? "#bfdbfe" : "#eef0f4"}`, background: own ? "#f3f4f6" : on ? "#f5f9ff" : "#fafbfc", borderRadius: 9, padding: "9px 11px" }}>
-                  <input type="checkbox" checked={on && !own} disabled={own} style={{ marginTop: 2 }}
-                    onChange={(e) => setMemberCodes((prev) => { const n = new Set(prev); if (e.target.checked) n.add(key); else n.delete(key); return n; })} />
-                  <span style={{ fontSize: 12.5 }}>
-                    <b style={{ color: own ? "#9ca3af" : on ? "#1e3a8a" : "#374151" }}>{c.name}</b>
-                    {own && <span style={{ ...S.tag, marginLeft: 6, fontSize: 9.5, background: "#e5e7eb", color: "#6b7280", fontWeight: 700 }}>대표(자기) 코드</span>}
-                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{c.label}</div>
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6, lineHeight: 1.7 }}>
-            선택하면 이 고객사가 해당 <b>공통코드의 사용 고객사(하위)</b>로 등록됩니다. 이미 발급된 공통코드를 쓰므로 <b>코드 할당은 없고</b>, 편집 프로젝트·티켓 발급에서 하위 고객사로 관리됩니다.
-          </div>
         </>)}
 
         {/* 편집 단가 — 항목별 개별 단가(2026 단가표). 기본값에서 바꾸면 이 고객사 전용 단가 */}

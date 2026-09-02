@@ -68,47 +68,86 @@ def basic_card(name_err=False, empty=False, closed=False):
             ph = True
         fs.append(fld(lb, req == '✔', val, ph=ph, err=(name_err and lb == '업체명')))
     err = '<div class="inline-err">업체명은 필수입니다.</div>' if name_err else ''
-    # 사용 서비스 — **고객사 속성** `PC-076`. 고르는 값은 casterN·폼솔루션 2개뿐이고
-    #   아무것도 고르지 않으면 SDK 연동(코드만 할당)이다.
-    def svc_box(v, label, desc, on, ready=True):
-        rd = '' if ready else ('<span class="tag" style="margin-left:6px;background:#f3f4f6;'
-                               'color:#9ca3af">서비스 준비중</span>')
-        return ('<label style="display:flex;align-items:flex-start;gap:9px;border:1px solid %s;'
-                'background:%s;border-radius:9px;padding:9px 11px">'
+    # 사용 서비스 — **고객사 속성** `PC-076`. 서비스마다 딸린 설정이 달라 **탭**으로 나눈다 `PC-077`.
+    #   casterN 탭 안에 프로젝트 상태 · 공통코드 사용 고객사가 들어간다.
+    def svc_tabbar(cur, on_cast):
+        out = ''
+        for v, label, ready in (('CASTERN', 'casterN (편집툴)', True),
+                                ('FORMSOLUTION', '폼솔루션', False)):
+            is_cur = (v == cur)
+            on = on_cast if v == 'CASTERN' else False
+            rd = ('<span class="tag" style="margin-left:6px;background:#fff7ed;color:#c2410c">'
+                  '준비중</span>') if not ready else ''
+            out += ('<div style="flex:1;text-align:center;padding:10px 8px;font-size:12.5px;'
+                    'border-bottom:2px solid %s;background:%s;font-weight:%s;color:%s">'
+                    '%s%s%s</div>'
+                    % ('#2563eb' if is_cur else 'transparent',
+                       '#fff' if is_cur else 'transparent',
+                       '700' if is_cur else '400',
+                       '#1d4ed8' if is_cur else ('#374151' if on else '#9ca3af'),
+                       '<span style="color:#2563eb;margin-right:4px">&#10003;</span>' if on else '',
+                       label, rd))
+        return ('<div style="display:flex;border-bottom:1px solid #eef0f4;'
+                'background:#fafbfc">%s</div>' % out)
+
+    def svc_check(label, desc, on):
+        return ('<label style="display:flex;align-items:flex-start;gap:9px">'
                 '<input type="checkbox"%s style="margin-top:2px">'
-                '<span style="font-size:12.5px"><b style="color:%s">%s</b>%s'
-                '<div style="font-size:11px;color:#9ca3af;margin-top:2px;line-height:1.6">%s</div>'
-                '</span></label>'
-                % ('#bfdbfe' if on else '#eef0f4', '#f5f9ff' if on else '#fff',
-                   ' checked' if on else '', '#1e3a8a' if on else '#374151', label, rd, desc))
+                '<span style="font-size:12.5px"><b style="color:%s">%s</b>'
+                '<div style="font-size:11px;color:#9ca3af;margin-top:2px;line-height:1.6">%s'
+                '</div></span></label>'
+                % (' checked' if on else '', '#1e3a8a' if on else '#374151', label, desc))
+
+    st = ('<div style="margin-top:12px">'
+          '<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px">'
+          '프로젝트 상태</div>'
+          '<div style="border:1px solid %s;background:%s;border-radius:10px;padding:12px 14px">'
+          '<div class="row" style="gap:6px"><span class="chip%s">진행</span>'
+          '<span class="chip%s">종료</span></div>'
+          '<div style="font-size:11px;color:#9ca3af;margin-top:6px">사업 종료 시 코드 발급 이력만 '
+          '유지되고, 목록·코드 프로젝트에서 비활성(회색)으로 표시됩니다.</div>%s</div></div>'
+          % ('#fca5a5' if closed else '#e5e7eb', '#fef2f2' if closed else '#fafbfc',
+             '' if closed else ' on', ' on' if closed else '',
+             ('<div style="margin-top:10px">' + fld('종료 사유', False, '스마트펜 사업 정리 (2026-06)')
+              + fld('코드 이관 메모', False, '엠베스트-28로 코드 이관 · 발급 이력 보존')
+              + '</div>') if closed else ''))
+
+    on_cast = not empty
+    cast_panel = (svc_check('casterN (편집툴)',
+                            '우리가 이 고객사 자료를 편집한다 — [편집 프로젝트]의 대상이 된다', on_cast)
+                  + (st if on_cast else
+                     '<div style="margin-top:10px;font-size:11.5px;color:#9ca3af;line-height:1.7">'
+                     'casterN 으로 선택하면 <b>프로젝트 상태</b>·<b>공통코드 사용 고객사</b> 를 '
+                     '지정할 수 있습니다.</div>'))
 
     svc = ('<div class="fld" style="grid-column:1/-1"><span class="lbl">사용 서비스</span>'
-           '<div style="border:1px solid #e5e7eb;background:#fafbfc;border-radius:10px;'
-           'padding:12px 14px">'
-           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">%s%s</div>'
-           '<div style="font-size:11px;color:#9ca3af;margin-top:8px;line-height:1.7">'
+           '<div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">'
+           '%s<div style="padding:12px 14px">%s</div></div>'
+           '<div style="font-size:11px;color:#9ca3af;margin-top:6px;line-height:1.7">'
            '<b>아무것도 고르지 않으면 「SDK 연동 (코드만 할당)」</b> 입니다 — 우리 서비스를 거치지 않고 '
-           '코드만 받아 직접 연동하는 고객사입니다. 고른 서비스에 따라 '
-           '<b>편집 프로젝트·폼솔루션 서비스 관리</b>에 이 고객사가 나타납니다.</div></div></div>'
-           % (svc_box('CASTERN', 'casterN (편집툴)',
-                      '우리가 이 고객사 자료를 편집한다 — [편집 프로젝트]의 대상이 된다', not empty),
-              svc_box('FORMSOLUTION', '폼솔루션',
-                      '폼솔루션 서비스로 관리한다 — 서비스 개발 전이라 아직 지정된 고객사가 없다',
-                      False, ready=False)))
-    st = ('<div class="fld"><span class="lbl">프로젝트 상태</span>'
-          '<div class="row" style="gap:6px"><span class="chip%s">진행</span>'
-          '<span class="chip%s">종료</span></div></div>'
-          % ('' if closed else ' on', ' on' if closed else ''))
+           '코드만 받아 직접 연동하는 고객사입니다.</div></div>'
+           % (svc_tabbar('CASTERN', on_cast), cast_panel))
+
     closed_fs = ''
-    if closed:
-        closed_fs = ('<div style="grid-column:1/-1;background:#fffbeb;border:1px solid #fde68a;'
-                     'border-radius:9px;padding:12px;display:grid;gap:10px">'
-                     + fld('종료 사유', False, '스마트펜 사업 정리 (2026-06)')
-                     + fld('코드 이관 메모', False, '엠베스트-28로 코드 이관 · 발급 이력 보존')
-                     + '</div>')
     return ('<div class="card"><div class="hd">기본 정보</div><div class="bd">'
-            '<div class="g2" style="gap:12px">%s%s%s%s</div>%s</div></div>'
-            % (''.join(fs[:1]) + err, ''.join(fs[1:]), svc, st, closed_fs))
+            '<div class="g2" style="gap:12px">%s%s%s</div>%s</div></div>'
+            % (''.join(fs[:1]) + err, ''.join(fs[1:]), svc, closed_fs))
+
+
+def form_panel():
+    """폼솔루션 탭 — 지정할 항목이 없다. 어디에 나타나는지만 알려 준다 `PC-077`"""
+    chk = ('<label style="display:flex;align-items:flex-start;gap:9px">'
+           '<input type="checkbox" style="margin-top:2px">'
+           '<span style="font-size:12.5px"><b style="color:#374151">폼솔루션</b>'
+           '<div style="font-size:11px;color:#9ca3af;margin-top:2px;line-height:1.6">'
+           '폼솔루션 서비스로 관리한다 — 서비스 개발 전이라 아직 지정된 고객사가 없다'
+           '</div></span></label>')
+    note = ('<div style="margin-top:10px;font-size:12px;color:#6b7280;line-height:1.75;'
+            'border:1px solid #eef0f4;background:#fafbfc;border-radius:9px;padding:10px 12px">'
+            '<b style="color:#c2410c">준비중</b> — 폼솔루션에서 지정할 항목은 아직 없습니다. '
+            '선택하면 이 고객사가 <b>[폼솔루션 서비스 관리]</b> 화면에 나타납니다.</div>')
+    return ('<div class="card"><div class="hd">사용 서비스 &middot; 폼솔루션 탭</div>'
+            '<div class="bd">%s%s</div></div>' % (chk, note))
 
 
 def common_card(is_parent=False):
@@ -130,7 +169,7 @@ def common_card(is_parent=False):
     if is_parent:
         note = ('<div class="toast warn" style="margin:8px 0 0">대표(상위) 회사는 '
                 '<b>자기 코드의 하위가 될 수 없어</b> 해당 항목이 비활성입니다. <code>PC-015</code></div>')
-    return ('<div class="card"><div class="hd">공통코드 사용 고객사(하위) 등록'
+    return ('<div class="card"><div class="hd">사용 서비스 &middot; casterN 탭 &mdash; 공통코드 사용 고객사(하위) 등록'
             '<div class="sp"></div><span style="font-size:11px;color:#9ca3af;font-weight:400">'
             '대표 회사 아래로 귀속 · 코드 할당 불필요</span></div>'
             '<div class="bd">%s%s</div></div>' % (li, note))
@@ -261,8 +300,10 @@ def footer(save_label='저장', edit=False):
 def panel(tab, name_err=False, empty=False, closed=False, is_parent=False, n_custom=3):
     """좌측 입력 — 항목이 길어 탭으로 나눈다. 조건이 아래로 쌓이지 않는다."""
     if tab == 'base':
+        # 사용 서비스 탭 `PC-077` — casterN 딸림 설정(공통코드) · 폼솔루션 탭 안내를 함께 보인다
         return (basic_card(name_err=name_err, empty=empty, closed=closed)
-                + '<div style="height:14px"></div>' + common_card(is_parent))
+                + '<div style="height:14px"></div>' + common_card(is_parent)
+                + '<div style="height:14px"></div>' + form_panel())
     if tab == 'rate':
         return price_card(n_custom)
     return docs_card()
