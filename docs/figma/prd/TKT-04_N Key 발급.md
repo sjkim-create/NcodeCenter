@@ -70,7 +70,7 @@ S11~S13 은 이 화면에서 열리는 **`TKT-02` Key 정보 확인** 모달이�
 | `P-01` SOBP | 티켓은 Section·Owner·Book·Page 범위로 발급된다 |
 | `P-05` 무겹침 | 티켓은 **이미 할당된 범위 안에서만** 발급된다. Book이 할당 범위를 넘으면 발급이 막힌다 |
 | `P-12` 공통(커먼) 코드 | 공통코드 보유 고객사는 **사용 고객사(하위 고객사)를 반드시 지정**해야 발급된다. 지정값은 티켓 정보와 파일명에 포함된다. **이력 전용 공통코드는 발급 대상에서 제외**한다 |
-| `P-02` 코드 종류 = 좌표 속성 | PatternType은 **선택한 좌표(SOBP)의 종류로 자동 결정**된다 `PC-032` — PDS3 → `Ncode_PDS3` · PDS2 → `Ncode_PDS2` · PDS4(S-code) → `Scode` · OID → `OID`. 사용자가 직접 고르지 않는다 |
+| `P-02` 코드 종류 = 좌표 속성 | Code Type 은 **선택한 좌표(SOBP)의 종류로 자동 결정**된다 `PC-032` — PDS3 → `Ncode_PDS3` · PDS2 → `Ncode_PDS2` · PDS4(S-code) → `Scode` · OID → `OID`. 사용자가 직접 고르지 않는다 |
 | 요구사항 #1 | 사용 기한(ValidUntilTime)으로 기간 제한, Book·Page 볼륨으로 수량 제한 |
 
 ### 사용법
@@ -110,7 +110,7 @@ S11~S13 은 이 화면에서 열리는 **`TKT-02` Key 정보 확인** 모달이�
 | Start Book | 범위의 시작 Book |
 | Book 볼륨 | **범위 전체 권수** |
 | Page 볼륨 | 그 Section의 페이지 상한 |
-| Section · Owner · PatternType | 범위 값 그대로(수정 불가) |
+| Section · Owner · Code Type | 범위 값 그대로(수정 불가) |
 
 #### 4.3 입력 항목 · 검증
 
@@ -124,8 +124,8 @@ S11~S13 은 이 화면에서 열리는 **`TKT-02` Key 정보 확인** 모달이�
 | Start Page | ✔ | 선택 | `0` / `1 (기본)` / `2` |
 | Page 볼륨 | ✔ | 숫자 | **1 이상.** 라벨에 Section 상한이 안내되지만 **상한을 넘겨도 막지 않는다** — §7 |
 | ValidUntilTime | — | 달력 | 기본값 **무제한**(`99999999`). 체크를 풀면 달력으로 날짜를 고른다 |
-| IssuedTime | — | 자동 | 발급일 고정값 |
-| PatternType | — | 자동 | 좌표 종류에 따라 `Ncode_PDS3` / `Ncode_PDS2` / `Scode`(PDS4) / `OID` — ※ PDS4·OID 의 정식 파라미터 표기는 **개발팀 확인 필요**(§7) |
+| Issued Time | — | 자동 | 발급일 고정값 |
+| Code Type | — | 자동 | 좌표 종류에 따라 `Ncode_PDS3` / `Ncode_PDS2` / `Scode`(PDS4) / `OID` — ※ PDS4·OID 의 정식 파라미터 표기는 **개발팀 확인 필요**(§7) |
 | TicketVersion | — | 자동 | `1` |
 | Separate each book | — | 체크 | 체크: **북코드별 개별 티켓** / 해제: **1개 티켓에 병합** |
 

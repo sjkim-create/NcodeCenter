@@ -16,7 +16,7 @@ MODULES = [
     ('p_tkt01', 'TKT-04_N Key 발급.html'),
     ('p_tkt03', 'TKT-01_계정 발급.html'),
     ('p_tkt02', 'TKT-02_계정 등록·수정.html'),
-    ('p_tkt04', 'TKT-03_Key 관리.html'),
+    ('p_tkt04', 'TKT-03_N Key 관리.html'),
     ('p_tkt05', 'TKT-05_발급 상세·수정.html'),
     ('p_tkt06', 'TKT-06_N Key 불러오기.html'),
     ('p_sob01', 'SOB-01_SOBP 맵.html'),
@@ -27,7 +27,7 @@ MODULES = [
     ('p_prj03w', 'PRJ-03_편집 프로젝트 상세.html'),
     ('p_prj04', 'PRJ-04_교재(책) 등록·수정.html'),
     ('p_prj05', 'PRJ-05_편집 고객사 추가.html'),
-    ('p_prj06', 'PRJ-06_PUI 코드.html'),
+    ('p_prj06', 'PRJ-06_PUI 코드 (페이퍼).html'),
     ('p_inf01', 'INF-01_코드 관리 정보.html'),
 ]
 

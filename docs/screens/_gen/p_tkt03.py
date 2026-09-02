@@ -7,7 +7,7 @@
 from shell import page, frame
 from p_tkt01 import sel
 
-CODE, NAME = 'TKT-01', '계정 발급'
+CODE, NAME = 'TKT-01', 'App Key 관리 (계정 발급)'
 PRD = 'docs/prd/TKT-01_계정 발급.md'
 
 # lib/accountStore.ts — (고객사, ID(email), 이름, 인증 서비스, 권한 수, App Key, 등록일)
@@ -123,7 +123,7 @@ def content(kpi=None, company='고객사 전체', service='인증 서비스 전�
 
 
 def scr(h=780, **kw):
-    return frame('TKT-01', '계정 발급', content(**kw), height=h)
+    return frame('TKT-01', 'App Key 관리 (계정 발급)', content(**kw), height=h)
 
 
 NAV = [('사이드바 [N Key 발급]', '클릭', '<code>TKT-04</code>', '물리 키 발급'),
@@ -203,7 +203,7 @@ def build():
         'S5', '계정 삭제 확인창', '확인창',
         '계정을 지우면 <b>연동된 App Key 도 함께</b> 사라진다. '
         '되돌릴 수 없으므로 확인창으로 한 번 막는다.',
-        frame('TKT-01', '계정 발급', content(),
+        frame('TKT-01', 'App Key 관리 (계정 발급)', content(),
               overlay='<div class="ovl"><div class="mdl">'
                       '<div class="mh"><div class="mt">확인</div>'
                       '<div class="mx">✕</div></div>'

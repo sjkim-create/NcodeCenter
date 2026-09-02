@@ -3,7 +3,7 @@
 from shell import page, frame
 
 CODE, NAME = 'PRJ-06', 'PUI 코드 (페이퍼)'
-PRD = 'docs/prd/PRJ-06_PUI 코드.md'
+PRD = 'docs/prd/PRJ-06_PUI 코드 (페이퍼).md'
 
 # data/pui-data.json 실제 값 (summary: sheets 6 · projects 41 · funcs 100)
 ALLOCS = (('PDS3_S3_O52_아이글 출석부', 'PDS3', 3, 52, '아이글 출석부', 0, 0, 298),

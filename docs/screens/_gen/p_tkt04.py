@@ -9,7 +9,7 @@ from shell import page, frame
 from p_tkt01 import sel, field
 
 CODE, NAME = 'TKT-03', 'N Key 관리'
-PRD = 'docs/prd/TKT-03_Key 관리.md'
+PRD = 'docs/prd/TKT-03_N Key 관리.md'
 
 # lib/ticketStore.ts BILL_COLOR
 BILL = {'미정': ('#f3f4f6', '#6b7280'), '유료': ('#eef6ff', '#1d4ed8'),

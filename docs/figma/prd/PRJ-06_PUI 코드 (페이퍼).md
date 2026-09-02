@@ -2,7 +2,7 @@
 
 **화면 ID**: PRJ-06
 
-> 원본 — 화면 정의서 `docs/screens/` · PRD `docs/prd/PRJ-06_PUI 코드.md`
+> 원본 — 화면 정의서 `docs/screens/` · PRD `docs/prd/PRJ-06_PUI 코드 (페이퍼).md`
 > 화면 구성·상태는 화면 정의서에서, 기능 개요·흐름·정책·사용법·연결 화면·문서 이력은 PRD 에서 **자동으로 모아** 만든다. 이 파일을 직접 고치지 말 것.
 
 ---

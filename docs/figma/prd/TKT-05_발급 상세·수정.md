@@ -54,7 +54,7 @@ TKT-05
 | ⑤ 시간 | `Issued Time` · `Valid Until Time` |
 | ⑥ 티켓 | `Ticket Type` · `Ticket Version` |
 
-- **항목명은 모두 띄어쓴다** `PC-065` — `AccountId` → `Account Id`, `IssuedTime` → `Issued Time`.
+- **항목명은 모두 띄어쓴다** `PC-065` — `Account Id` → `Account Id`, `Issued Time` → `Issued Time`.
 - 이미 저장된 키의 옛 항목명·순서는 **화면에 올릴 때 자동으로 맞춘다**(별도 작업 없음).
 
 ### 정책
@@ -83,7 +83,7 @@ TKT-05
 | **발급 내용** | 가능 | 목록에 표기되는 한 줄 요약. **필수** |
 | **Key 정보** | 값만 가능 | 발급 당시 파라미터를 `Key` · `Value` 표로 보여준다 |
 
-**Key 정보** 는 발급 시점에 기록된 항목을 그대로 나열한다(`Section` · `Owner` · `BookStart` · `BookVolume` · `PageStart` · `PageVolume` · `ValidUntilTime` · `PatternType` 등). **항목을 추가하거나 지울 수는 없고 값만 고친다.** 종류에 따라 항목 구성이 다르다.
+**Key 정보** 는 발급 시점에 기록된 항목을 그대로 나열한다(`Section` · `Owner` · `Book Start` · `Book Volume` · `Page Start` · `Page Volume` · `Valid Until Time` · `Code Type` 등). **항목을 추가하거나 지울 수는 없고 값만 고친다.** 종류에 따라 항목 구성이 다르다.
 
 > 원래 숫자였던 항목은 저장할 때 숫자로 되돌린다. 표시·재사용 시 형식이 흐트러지지 않게 하기 위함이다.
 

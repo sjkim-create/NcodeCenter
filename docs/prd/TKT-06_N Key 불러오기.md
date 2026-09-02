@@ -73,7 +73,7 @@ TKT-03 Key 관리
 | 항목 수 | **{n}개 항목 (불러온 파일)** |
 | 표 | `Key` · `Value` 2열. 파일에 들어 있는 항목을 **그대로** 나열한다 |
 
-항목 구성은 발급 당시 만들어진 그대로다 — `CompanyName` · `IssuedTime` · `ValidUntilTime` · `Section` · `Owner` · `BookStart` · `BookVolume` · `PageStart` · `PageVolume` · `PatternType` · `TicketType` · `SeparateEachBook` 등. **중첩된 값은 펼쳐서 한 줄씩** 보여준다.
+항목 구성은 발급 당시 만들어진 그대로다 — `Company Name` · `Issued Time` · `Valid Until Time` · `Section` · `Owner` · `Book Start` · `Book Volume` · `Page Start` · `Page Volume` · `Code Type` · `Ticket Type` · `Separate Each Book` 등. **중첩된 값은 펼쳐서 한 줄씩** 보여준다.
 
 ### 4.3 항목 검색
 
@@ -81,9 +81,9 @@ TKT-03 Key 관리
 
 ```
 예) 파일 항목 13개에서 "book" 으로 검색
-    BookStart   400
-    BookVolume  100
-    SeparateEachBook  N (1개 티켓 병합)
+    Book Start   400
+    Book Volume  100
+    Separate Each Book  N (1개 티켓 병합)
     → 3개 항목 표시
 ```
 
