@@ -103,12 +103,12 @@ def cust_svc(cust='', svc='NONE', kind='PDS3', kind_fixed=False, used=False):
               '<b>%s</b><span style="font-size:11px;color:#9ca3af">보유</span></div>' % cust)
     else:
         co = sel(cust or '고객사 선택 또는 검색', ph=not cust)
-    return ('<div style="display:grid;grid-template-columns:1.2fr 1fr 1.1fr;gap:12px;'
+    # 코드 종류 칸은 두지 않는다 `PC-074` — 종류는 발급(App Key·N Key)·편집에서 정한다
+    return ('<div style="display:grid;grid-template-columns:1.2fr 1.4fr;gap:12px;'
             'align-items:start;margin-top:10px;border:1px solid #eef0f4;border-radius:10px;'
-            'padding:12px 13px">%s%s%s</div>'
+            'padding:12px 13px">%s%s</div>'
             % (field('고객사', co, not used),
-               field('사용 서비스 (복수 선택)', svc_chips(svc)),
-               field('코드 종류', kind_chips(kind, kind_fixed))))
+               field('사용 서비스 (복수 선택)', svc_chips(svc))))
 
 
 def owned(cust='웅진씽크빅', rows=None):

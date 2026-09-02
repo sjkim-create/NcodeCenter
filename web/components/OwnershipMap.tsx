@@ -590,7 +590,8 @@ ${persistError()}`); return; }
             {/* 2. 발급 정보 */}
             <div style={{ marginTop: 10, border: "1px solid #eef0f4", borderRadius: 10, padding: "12px 13px" }}>
               {/* 고객사 · 사용 서비스 · 코드 종류 — 한 행 `PC-047` */}
-              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1.1fr", gap: 12, alignItems: "start" }}>
+              {/* 고객사 · 사용 서비스 — 코드 종류는 이 창에서 다루지 않는다 `PC-074` */}
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.4fr", gap: 12, alignItems: "start" }}>
                 <Field label={usedSO ? "고객사" : "고객사 *"}>
                   {usedSO ? (
                     <div style={{ ...S.input, background: "#fafbfc", display: "flex", alignItems: "center", gap: 6, color: "#374151" }}>
@@ -618,14 +619,6 @@ ${persistError()}`); return; }
                         </button>
                       );
                     })}
-                  </div>
-                </Field>
-                {/* 코드 종류 — 이 창에서 정하지 않는다 `PC-051` */}
-                <Field label="코드 종류">
-                  <div style={{ ...S.input, background: "#fafbfc", display: "flex", alignItems: "center", gap: 6, color: "#9ca3af", fontSize: 11.5 }}>
-                    {soKinds.length
-                      ? soKinds.map((k2) => <KindChip key={k2} kind={k2} small />)
-                      : <span>미정 · 발급 때 지정</span>}
                   </div>
                 </Field>
               </div>
