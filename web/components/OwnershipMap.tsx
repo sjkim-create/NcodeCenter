@@ -16,7 +16,7 @@ import { langLabelOfOwner, isLangOwner, LANG_PDS, LANG_SECTION } from "@/lib/lan
 import { hydrateOverrides, overrideOf, useBookOverrides } from "@/lib/editOverrides";
 import { Sc, SobpChips, KindChip, PenChip } from "./sobp";
 import { codeKind, CODE_KINDS, kindMeta, type CodeKind } from "@/lib/codeKind";
-import { SERVICE, serviceShort, projectServices, type ServiceType } from "@/lib/customerData";
+import { companyServices, companyServiceText, serviceLabel, type ServiceType } from "@/lib/customerData";
 
 // 좌표(SOBP) 정원 — 코드 종류·섹션별 owner/book/page 최대치 (코드 관리 정보 기준)
 //   좌표가 먼저이고 종류는 좌표의 속성이다. PDS4 = Section 44(S-code) · OID = index 전용(옛 IDS 포함).
@@ -96,7 +96,8 @@ export default function OwnershipMap() {
   // 자동 추천(SOBP 추천)은 PDS3·PDS2 만 대상 — PDS4(Section 44)·OID 는 직접 선택으로 다룬다.
   const recoPds: Pds = kind === "PDS2" ? "G" : "N";
   const recoTarget = kind === "PDS3" || kind === "PDS2" || kind === "ALL";
-  const [alloc, setAlloc] = useState<{ company: string; newCompany: string; bookStart: number; books: number; pages: number; mode: "코드발급" | "편집"; shared: boolean; service: ServiceType; services?: ServiceType[]; svcTouched?: boolean } | null>(null);
+  // 사용 서비스는 **고객사 속성**이라 이 창에서 다루지 않는다 `PC-076`
+  const [alloc, setAlloc] = useState<{ company: string; newCompany: string; bookStart: number; books: number; pages: number; mode: "코드발급" | "편집"; shared: boolean } | null>(null);
   const [selS, setSelS] = useState(0);
   const [selO, setSelO] = useState(1);
   const [selB, setSelB] = useState(0);
@@ -334,7 +335,7 @@ export default function OwnershipMap() {
 
       {/* 코드 할당 진입 — 필터 아래 배치 */}
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-        <button onClick={() => { setAlloc({ company: "", newCompany: "", bookStart: curB, books: 1, pages: Math.min(scale.p, 1000), mode: "코드발급", shared: false, service: "NONE" }); }}
+        <button onClick={() => { setAlloc({ company: "", newCompany: "", bookStart: curB, books: 1, pages: Math.min(scale.p, 1000), mode: "코드발급", shared: false }); }}
           style={{ ...S.primary, padding: "9px 18px", fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
           <span style={{ fontSize: 15, lineHeight: 1 }}>＋</span> 직접 코드 할당
         </button>
@@ -505,36 +506,18 @@ export default function OwnershipMap() {
         // 이미 한 업체가 쓰는 좌표 — 고객사는 고르는 값이 아니라 **상태**다 `PC-048`
         const usedSO = !shared && holders.length > 0;
         const soProj = projects.find((pr) => pr.issued.some((b) => b.section === curS && b.owner === curO));
-        // 사용 서비스는 **다중 선택** `PC-049` — 서비스 없음은 단독 선택
-        const svcCur: ServiceType[] = soProj ? projectServices(soProj) : ["NONE"];
-        const svcValue: ServiceType[] = alloc.svcTouched ? (alloc.services ?? ["NONE"]) : svcCur;
-        const svcKey = (a: ServiceType[]) => [...a].sort().join(",");
-        const toggleSvc = (v: ServiceType) => {
-          const cur = svcValue;
-          const next = v === "NONE" ? ["NONE" as ServiceType]
-            : cur.includes(v) ? cur.filter((x) => x !== v && x !== "NONE")
-            : [...cur.filter((x) => x !== "NONE"), v];
-          setAlloc({ ...alloc, services: next.length ? next : ["NONE"], service: (next.find((x) => x !== "NONE") ?? "NONE"), svcTouched: true });
-        };
         const lockIn = (s: React.CSSProperties): React.CSSProperties =>
           locked ? { ...s, background: "#f3f4f6", color: "#9ca3af", cursor: "not-allowed" } : s;
         // 선택 고객사가 이미 보유한 코드(S/O/Book/Page)
         const nzc = (x: string) => x.replace(/\s+/g, "").toLowerCase();
         const myCo = companies.find((c) => nzc(c.name) === nzc(name));
+        // 이 고객사의 **사용 서비스** — 고객사 관리에서 정한 값을 읽기만 한다 `PC-076`
+        const coSvcs: ServiceType[] = companyServices(myCo);
         const myAlloc = !myCo ? [] : projects.filter((p) => p.companyId === myCo.id)
           .flatMap((p) => p.issued.map((b) => ({ k: b.kind ?? "N", s: b.section, o: b.owner,
             bs: b.bookStart, be: b.bookEnd, ps: b.pageStart, pe: b.pageEnd, codes: b.codes })))
           .sort((a, b) => a.s - b.s || a.o - b.o);
-        // 이미 발급된 좌표에서는 **사용 서비스만** 바꿔 저장한다 `PC-048`
-        const svcDirty = usedSO && !!soProj && svcKey(svcValue) !== svcKey(svcCur);
-        const saveService = () => {
-          if (!soProj) return;
-          store.upsertProject({ ...soProj, service: svcValue.find((x) => x !== "NONE") ?? "NONE", services: svcValue, editing: svcValue.includes("CASTERN") ? true : soProj.editing });
-          if (persistError()) { alert(`⚠ 저장되지 않았습니다.
-${persistError()}`); return; }
-          logActivity("alloc", `${holders.join(" · ")} · S${curS}/O${curO} 사용 서비스 → ${svcValue.map((v) => SERVICE.find((s) => s.v === v)?.label ?? v).join(" · ")}`, me?.name);
-          setAlloc(null);
-        };
+
         // 좌표 상태 한 줄 — 셀렉트 없이 상태만 보여 준다 `PC-046`
         const stLabel2 = locked ? `🔒 전용 · 추가 발급 불가`
           : shared ? "공유 OWNER · Book 만 배타"
@@ -559,15 +542,17 @@ ${persistError()}`); return; }
           // 직접 코드 할당 = SO 단위. owner 전체를 점유(모든 book 사용가능)하되,
           // 실제 발급 규모(codes)는 편집 시 집계 → 여기서는 codes 0 (점유만).
           store.upsertProject({
-            id: 0, name: `${co.name} 코드발급 · S${curS}/O${curO}`, companyId, service: svcValue.find((x) => x !== "NONE") ?? "NONE", services: svcValue, grade: "",
-            editing: svcValue.includes("CASTERN"), editingOwner: curO, symbols: 0,
+            // 서비스는 **고객사 속성** `PC-076` — 프로젝트의 옛 필드는 고객사 값을 그대로 물려 둔다(호환용)
+            id: 0, name: `${co.name} 코드발급 · S${curS}/O${curO}`, companyId,
+            service: coSvcs[0] ?? "NONE", services: coSvcs, grade: "",
+            editing: false, editingOwner: curO, symbols: 0,
             // kind 를 넣지 않는다 — 코드 종류 미정 `PC-051`
             issued: [{ id: 1, date: new Date().toISOString().slice(0, 10), codes: 0,
                        by: me?.name ?? "", section: curS, owner: curO, bookStart: 0, bookEnd: scale.b - 1, pageStart: 1, pageEnd: 1 }],
           });
           // 저장 실패(용량 초과 등) 시 사라진 것처럼 보이지 않도록 즉시 경고
           if (persistError()) { alert(`⚠ 할당이 저장되지 않았습니다.\n${persistError()}`); return; }
-          logActivity("alloc", `${co.name} · S${curS}/O${curO} · ${svcValue.map((v) => SERVICE.find((s) => s.v === v)?.label ?? v).join(" · ")} · SO 점유(코드 종류 미정)`, me?.name);
+          logActivity("alloc", `${co.name} · S${curS}/O${curO} · SO 점유(코드 종류 미정) · 사용 서비스 ${companyServiceText(co)}`, me?.name);
           setSelB(0); setAlloc(null);
         };
         return (
@@ -607,18 +592,14 @@ ${persistError()}`); return; }
                     </>
                   )}
                 </Field>
-                <Field label="사용 서비스 (복수 선택)">
-                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                    {SERVICE.map((s) => {
-                      const on = svcValue.includes(s.v);
-                      return (
-                        <button key={s.v} onClick={() => toggleSvc(s.v)} title={s.label}
-                          style={{ flex: 1, minWidth: 62, fontSize: 11.5, borderRadius: 7, padding: "7px 4px", cursor: "pointer", fontWeight: on ? 700 : 400,
-                            border: `1px solid ${on ? "#93c5fd" : "#e5e7eb"}`, background: on ? "#eef6ff" : "#fff", color: on ? "#2563eb" : "#6b7280" }}>
-                          {serviceShort(s.v)}
-                        </button>
-                      );
-                    })}
+                {/* 사용 서비스는 **고객사 속성** — 여기서는 상태로만 보여 준다 `PC-076` */}
+                <Field label="사용 서비스">
+                  <div style={{ ...S.input, background: "#fafbfc", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    {coSvcs.length
+                      ? coSvcs.map((v) => <span key={v} style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>{serviceLabel(v)}</span>)
+                      : <span style={{ fontSize: 12, color: "#9ca3af" }}>{companyServiceText(myCo)}</span>}
+                    <span style={{ flex: 1 }} />
+                    <Link href="/companies" style={{ fontSize: 11, color: "#2563eb", textDecoration: "none" }} title="고객사 관리에서 사용 서비스를 정합니다">고객사 관리 →</Link>
                   </div>
                 </Field>
               </div>
@@ -650,10 +631,8 @@ ${persistError()}`); return; }
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
               <button onClick={() => setAlloc(null)} style={S.ghost}>취소</button>
-              {usedSO ? (
-                <button onClick={saveService} disabled={!svcDirty}
-                  style={{ ...S.primary, ...(!svcDirty ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>사용 서비스 저장</button>
-              ) : (
+              {/* 이미 쓰는 좌표는 **조회 전용** — 서비스도 코드 종류도 이 창에서 바꾸지 않는다 `PC-076` */}
+              {!usedSO && (
                 <button onClick={save} disabled={locked || !name || mixedBlock || commonBlock}
                   style={{ ...S.primary, ...(locked || !name || mixedBlock || commonBlock ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>할당</button>
               )}

@@ -68,6 +68,33 @@ def basic_card(name_err=False, empty=False, closed=False):
             ph = True
         fs.append(fld(lb, req == '✔', val, ph=ph, err=(name_err and lb == '업체명')))
     err = '<div class="inline-err">업체명은 필수입니다.</div>' if name_err else ''
+    # 사용 서비스 — **고객사 속성** `PC-076`. 고르는 값은 casterN·폼솔루션 2개뿐이고
+    #   아무것도 고르지 않으면 SDK 연동(코드만 할당)이다.
+    def svc_box(v, label, desc, on, ready=True):
+        rd = '' if ready else ('<span class="tag" style="margin-left:6px;background:#f3f4f6;'
+                               'color:#9ca3af">서비스 준비중</span>')
+        return ('<label style="display:flex;align-items:flex-start;gap:9px;border:1px solid %s;'
+                'background:%s;border-radius:9px;padding:9px 11px">'
+                '<input type="checkbox"%s style="margin-top:2px">'
+                '<span style="font-size:12.5px"><b style="color:%s">%s</b>%s'
+                '<div style="font-size:11px;color:#9ca3af;margin-top:2px;line-height:1.6">%s</div>'
+                '</span></label>'
+                % ('#bfdbfe' if on else '#eef0f4', '#f5f9ff' if on else '#fff',
+                   ' checked' if on else '', '#1e3a8a' if on else '#374151', label, rd, desc))
+
+    svc = ('<div class="fld" style="grid-column:1/-1"><span class="lbl">사용 서비스</span>'
+           '<div style="border:1px solid #e5e7eb;background:#fafbfc;border-radius:10px;'
+           'padding:12px 14px">'
+           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">%s%s</div>'
+           '<div style="font-size:11px;color:#9ca3af;margin-top:8px;line-height:1.7">'
+           '<b>아무것도 고르지 않으면 「SDK 연동 (코드만 할당)」</b> 입니다 — 우리 서비스를 거치지 않고 '
+           '코드만 받아 직접 연동하는 고객사입니다. 고른 서비스에 따라 '
+           '<b>편집 프로젝트·폼솔루션 서비스 관리</b>에 이 고객사가 나타납니다.</div></div></div>'
+           % (svc_box('CASTERN', 'casterN (편집툴)',
+                      '우리가 이 고객사 자료를 편집한다 — [편집 프로젝트]의 대상이 된다', not empty),
+              svc_box('FORMSOLUTION', '폼솔루션',
+                      '폼솔루션 서비스로 관리한다 — 서비스 개발 전이라 아직 지정된 고객사가 없다',
+                      False, ready=False)))
     st = ('<div class="fld"><span class="lbl">프로젝트 상태</span>'
           '<div class="row" style="gap:6px"><span class="chip%s">진행</span>'
           '<span class="chip%s">종료</span></div></div>'
@@ -80,8 +107,8 @@ def basic_card(name_err=False, empty=False, closed=False):
                      + fld('코드 이관 메모', False, '엠베스트-28로 코드 이관 · 발급 이력 보존')
                      + '</div>')
     return ('<div class="card"><div class="hd">기본 정보</div><div class="bd">'
-            '<div class="g2" style="gap:12px">%s%s%s</div>%s</div></div>'
-            % (''.join(fs[:1]) + err, ''.join(fs[1:]), st, closed_fs))
+            '<div class="g2" style="gap:12px">%s%s%s%s</div>%s</div></div>'
+            % (''.join(fs[:1]) + err, ''.join(fs[1:]), svc, st, closed_fs))
 
 
 def common_card(is_parent=False):

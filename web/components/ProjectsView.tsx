@@ -8,7 +8,8 @@ import { codeKind, CODE_KINDS, kindLabel, type CodeKind } from "@/lib/codeKind";
 import { store, useStore } from "@/lib/store";
 import {
   Project, ServiceType,
-  SERVICE, serviceLabel, GRADES, projectCodes, projectUsed, projectServices, usesService,
+  SERVICE, serviceLabel, GRADES, projectCodes, projectUsed,
+  companyServices, companyUsesService, companyServiceText,
 } from "@/lib/customerData";
 import { EDIT_BOOKS } from "@/lib/codeUsage";
 import { codesOfCompany, isCommonCodeCompany, type CommonCode } from "@/lib/commonCodes";
@@ -81,9 +82,9 @@ export default function ProjectsView() {
 
   const curCo = companies.find((c) => c.id === selCo) ?? companies[0];
   const kindsOf = (name: string) => KIND_BY_NAME[name] ?? [];
-  // 편집 플래그 = casterN 서비스와 동일 기준(편집 데이터/심볼 보유) — 뱃지⇔사용서비스 일치
-  const isEditing = (p: Project) =>
-    usesService(p, "CASTERN") || !!p.editing || (p.symbols ?? 0) > 0;
+  // 편집 플래그 — 편집 데이터·심볼 보유 또는 편집 프로젝트 등록 `PC-076`
+  //   (사용 서비스는 고객사 속성이므로 프로젝트 단위 판정에서 뺀다)
+  const isEditing = (p: Project) => !!p.editing || (p.symbols ?? 0) > 0;
   // 공통(커먼)코드 대장 프로젝트 → 이 프로젝트가 대표하는 공통코드 (하위 사용 고객사 노출용)
   const commonCodeOfProject = (p: Project): CommonCode | undefined => {
     const iss = p.issued[0];
@@ -97,7 +98,7 @@ export default function ProjectsView() {
   const matchProject = (p: Project) =>
     (pds === "ALL" || projKind(p) === pds) &&
     (flag === "ALL" || (flag === "편집" ? isEditing(p) : !isEditing(p))) &&
-    (svc === "ALL" || usesService(p, svc));
+    (svc === "ALL" || companyUsesService(companies.find((c) => c.id === p.companyId), svc));
   const projectsOf = (cid: number) => projects.filter((p) => p.companyId === cid && matchProject(p));
 
   const coList = companies
@@ -158,7 +159,7 @@ export default function ProjectsView() {
             {coList.map((c) => {
               const ps = projectsOf(c.id);
               const codes = ps.reduce((s2, p) => s2 + projectCodes(p), 0);
-              const svcs = [...new Set(ps.flatMap((p) => projectServices(p)))].sort((a, b) => (a === "NONE" ? 1 : 0) - (b === "NONE" ? 1 : 0));
+              const svcs = companyServices(c);   // 사용 서비스 = 고객사 속성 `PC-076`
               const on = c.id === (curCo?.id ?? -1);
               return (
                 <button key={c.id} onClick={() => { setSelCo(c.id); setSelP(null); }} style={{ ...cardBtn(on), ...(c.closed ? { opacity: 0.6 } : {}) }}>
@@ -167,7 +168,7 @@ export default function ProjectsView() {
                   </div>
                   <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
                     <span title={`프로젝트 ${ps.length}건`}>
-                      {ps.length === 0 ? "코드 없음" : svcs.map(shortSvc).join(" · ")} · 코드 {codes.toLocaleString()}
+                      {svcs.length ? svcs.map(shortSvc).join(" · ") : "SDK 연동"} · 코드 {codes.toLocaleString()}
                     </span>
                     {kindsOf(c.name).map((k) => (
                       <span key={k} style={{ ...S.tag, fontSize: 9.5, background: CODE_KINDS.find((x) => x.v === k)?.bg, color: CODE_KINDS.find((x) => x.v === k)?.color, fontWeight: 700 }}>{k}</span>
@@ -202,7 +203,9 @@ export default function ProjectsView() {
                     {p.issued.length === 0 && <span style={{ fontSize: 10.5, color: "#d1d5db" }}>미발급</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
-                    {projectServices(p).map((v) => <span key={v} style={{ ...S.tag, fontSize: 9.5, marginRight: 3, ...(v === "NONE" ? { background: "#f3f4f6", color: "#6b7280" } : {}) }}>{serviceLabel(v)}</span>)}
+                    {/* 사용 서비스 = 고객사 속성 `PC-076` */}
+                    {companyServices(companies.find((c2) => c2.id === p.companyId)).map((v) => (
+                      <span key={v} style={{ ...S.tag, fontSize: 9.5, marginRight: 3 }}>{serviceLabel(v)}</span>))}
                     {isEditing(p) && <span style={{ ...S.tag, fontSize: 9.5, background: "#ecfdf5", color: "#047857" }}>편집</span>}
                     {p.shared && <span style={{ ...S.tag, fontSize: 9.5, background: "#f3e8ff", color: "#7e22ce", fontWeight: 700 }} title="여러 고객사가 함께 쓰는 공유(커먼) 코드">공유</span>}
                   </div>
@@ -239,7 +242,8 @@ export default function ProjectsView() {
                     <Sc k="O" name="Owner" v={a.o} c="#14b8a6" />
                   </span>
                 ))}
-                {projectServices(proj).map((v) => <span key={v} style={{ ...S.tag, marginRight: 3, ...(v === "NONE" ? { background: "#f3f4f6", color: "#6b7280" } : {}) }}>{serviceLabel(v)}</span>)}
+                {companyServices(companies.find((c2) => c2.id === proj.companyId)).map((v) => (
+                  <span key={v} style={{ ...S.tag, marginRight: 3 }}>{serviceLabel(v)}</span>))}
                 {proj.shared && <span style={{ ...S.tag, background: "#f3e8ff", color: "#7e22ce", fontWeight: 700 }} title="여러 고객사가 함께 쓰는 공유(커먼) 코드">공유 코드</span>}
                 {proj.service === "FORMSOLUTION" && proj.grade && <span style={S.tag}>{proj.grade}등급</span>}
                 {isEditing(proj) && proj.editingOwner != null && (
@@ -381,12 +385,15 @@ export default function ProjectsView() {
                     {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </Field>
+                {/* 사용 서비스는 **고객사 속성** — 여기서는 조회만 한다 `PC-076` */}
                 <Field label="사용 서비스">
-                  <select style={S.input} value={form.service} onChange={(e) => set("service", e.target.value as ServiceType)}>
-                    {SERVICE.map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
-                  </select>
+                  <div style={{ ...S.input, background: "#fafbfc", display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: "#374151" }}>{companyServiceText(companies.find((c2) => c2.id === form.companyId))}</span>
+                    <span style={{ flex: 1 }} />
+                    <Link href="/companies" style={{ fontSize: 11, color: "#2563eb", textDecoration: "none" }} title="고객사 관리에서 사용 서비스를 정합니다">고객사 관리 →</Link>
+                  </div>
                 </Field>
-                {form.service === "FORMSOLUTION" && (
+                {companyUsesService(companies.find((c2) => c2.id === form.companyId), "FORMSOLUTION") && (
                   <Field label="등급 (폼솔루션)">
                     <select style={S.input} value={form.grade} onChange={(e) => set("grade", e.target.value)}>
                       <option value="">미지정</option>
@@ -395,8 +402,8 @@ export default function ProjectsView() {
                   </Field>
                 )}
               </div>
-              {form.service === "NONE" && (
-                <div style={{ ...emptyBox, marginTop: 10, color: "#6b7280" }}>서비스 없이 <b>코드만 발급</b>받는 프로젝트입니다.</div>
+              {companyServices(companies.find((c2) => c2.id === form.companyId)).length === 0 && (
+                <div style={{ ...emptyBox, marginTop: 10, color: "#6b7280" }}>이 고객사는 <b>SDK 연동(코드만 할당)</b> 입니다 — 우리 서비스를 거치지 않고 코드만 받아 직접 연동합니다 <code>PC-076</code>.</div>
               )}
               <div style={secHead}>발급 SOBP 내역 <span style={{ color: "#9ca3af", fontWeight: 400 }}>· 조회 전용 (발급은 [Ncode 예약·할당])</span>
                 <span style={{ marginLeft: 8, color: "#2563eb", fontFamily: "ui-monospace,monospace" }}>합계 {draftCodes.toLocaleString()}코드</span>

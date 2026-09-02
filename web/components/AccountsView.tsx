@@ -18,7 +18,7 @@ import { servicesOfCompany } from "@/lib/serviceCustomers";
 import { codeKind, patternOf, patternTypeParam, CODE_KINDS, type CodeKind, type TicketPattern } from "@/lib/codeKind";
 import {
   caster, useCaster, genAppKey, ACCOUNT_SERVICES, accountServiceLabel, accountServiceReady,
-  CASTERN_PERMS, ALL_PERMS, permLabel, casternPerms, hasService,
+  CASTERN_PERMS, ALL_PERMS, permLabel, casternPerms, hasService, SDK_ONLY_LABEL,
   type AccountService, type CasterPerm, type CasterAccount, type AccountSettings,
 } from "@/lib/accountStore";
 
@@ -68,7 +68,7 @@ export function AccountsListView() {
           {coOpts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <select value={fSvc} onChange={(e) => setFSvc(e.target.value as AccountService | "")} style={{ ...S.input, width: 170 }}>
-          <option value="">사용 서비스 전체</option>
+          <option value="">인증 서비스 전체</option>
           {ACCOUNT_SERVICES.map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
         </select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ID(email) · 이름 · 고객사 검색" style={{ ...S.input, width: 240 }} />
@@ -81,7 +81,7 @@ export function AccountsListView() {
       <div style={{ ...S.card, padding: 0, overflowX: "auto" }}>
         <table style={{ ...S.table, minWidth: 1120 }}>
           <thead>
-            <tr>{["고객사", "ID (EMAIL)", "이름", "사용 서비스", "App Key", "등록일", ""].map((h) => (
+            <tr>{["고객사", "ID (EMAIL)", "이름", "인증 서비스", "App Key", "등록일", ""].map((h) => (
               <th key={h} style={S.th}>{h}</th>
             ))}</tr>
           </thead>
@@ -96,11 +96,12 @@ export function AccountsListView() {
                   <td style={S.td}>{a.company}</td>
                   <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#2563eb", fontWeight: 600 }}>{a.id}</td>
                   <td style={S.td}>{a.name || "—"}</td>
-                  {/* 사용 서비스 → [사용 서비스 및 권한] 탭 `PC-067` */}
-                  <td style={S.td} title="클릭하면 사용 서비스 및 권한"
+                  {/* 인증 서비스 → [인증 서비스 및 권한] 탭 `PC-067` */}
+                  <td style={S.td} title="클릭하면 인증 서비스 및 권한"
                     onClick={(e) => { e.stopPropagation(); router.push(accountHref(a.id, "svc")); }}>
+                    {/* 선택 없음 = SDK 연동(코드만 할당) — 오류가 아니다 `PC-076` */}
                     {svcs.length === 0
-                      ? <span style={{ ...S.tag, background: "#fef2f2", color: "#b91c1c", fontWeight: 700 }}>미지정</span>
+                      ? <span style={{ ...S.tag, background: "#f3f4f6", color: "#6b7280", fontWeight: 700 }} title="우리 서비스를 거치지 않고 코드만 받아 직접 연동합니다">{SDK_ONLY_LABEL}</span>
                       : <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
                           {svcs.map((sv) => (
                             <span key={sv} title={accountServiceReady(sv) ? undefined : "권한·설정 준비중"}
@@ -169,11 +170,11 @@ function KeyCard({ title, params, empty, href }: {
   );
 }
 
-// 화면 탭 — 계정 정보 · 사용 서비스 및 권한 · App Key 발급 `PC-062`
+// 화면 탭 — 계정 정보 · 인증 서비스 및 권한 · App Key 발급 `PC-062`
 export type AccTab = "info" | "svc" | "key";
 const ACC_TABS: { v: AccTab; label: string }[] = [
   { v: "info", label: "계정 정보" },
-  { v: "svc", label: "사용 서비스 및 권한" },
+  { v: "svc", label: "인증 서비스 및 권한" },
   { v: "key", label: "App Key 발급" },
 ];
 function AccTabs({ tab, onTab, badge }: { tab: AccTab; onTab: (v: AccTab) => void; badge?: Partial<Record<AccTab, string>> }) {
@@ -283,7 +284,7 @@ function ServiceTabs({ services, settings, onServices, onSettings, casternExtra 
 
         <div style={{ marginTop: 10 }}>
           {!on ? (
-            <div style={{ fontSize: 11.5, color: "#9ca3af" }}>사용 서비스로 선택하면 이 서비스의 조건을 설정할 수 있습니다.</div>
+            <div style={{ fontSize: 11.5, color: "#9ca3af" }}>인증 서비스로 선택하면 이 서비스의 조건을 설정할 수 있습니다.</div>
           ) : tab === "CASTERN" ? (
             <>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
@@ -299,7 +300,7 @@ function ServiceTabs({ services, settings, onServices, onSettings, casternExtra 
             </>
           ) : (
             <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.6, border: "1px solid #eef0f4", background: "#fafbfc", borderRadius: 9, padding: "10px 12px" }}>
-              <b style={{ color: "#c2410c" }}>준비중</b> — 이 서비스의 권한·설정 항목은 아직 정의되지 않았습니다. 사용 서비스 연동만 등록됩니다.
+              <b style={{ color: "#c2410c" }}>준비중</b> — 이 서비스의 권한·설정 항목은 아직 정의되지 않았습니다. 인증 서비스 연동만 등록됩니다.
             </div>
           )}
         </div>
@@ -459,11 +460,10 @@ export function AccountNewView() {
     setCompanyId(cid); setSobpIdx(-1);
     const c = companies.find((x) => x.id === cid);
     if (c) setAddr(c.address || "");        // 고객사 주소 자동 입력
-    // 사용처는 **SOBP 맵에서 지정한 사용 서비스**를 그대로 체크한다 `PC-057`
-    //   casterN → CasterN · 폼솔루션 → 폼솔루션 · SDK 연동(코드만 할당) → SDK
-    const map: Record<string, AccountService> = { CASTERN: "CASTERN", FORMSOLUTION: "FORMSOLUTION", NONE: "SDK" };
-    const next = [...new Set(servicesOfCompany(cid, projects).map((v) => map[v]).filter(Boolean))] as AccountService[];
-    if (!next.length) return;
+    // 인증 서비스는 **고객사 관리에서 정한 사용 서비스**를 그대로 체크한다 `PC-076`
+    //   casterN → CasterN · 폼솔루션 → 폼솔루션 · 아무것도 없으면 선택 없음(= SDK 연동)
+    const map: Record<string, AccountService> = { CASTERN: "CASTERN", FORMSOLUTION: "FORMSOLUTION" };
+    const next = [...new Set(servicesOfCompany(cid, companies).map((v) => map[v]).filter(Boolean))] as AccountService[];
     setServices(next);
     setSettings(next.includes("CASTERN") ? { CASTERN: { perms: [...ALL_PERMS] } } : {});
   };
@@ -472,7 +472,7 @@ export function AccountNewView() {
     if (!company) { setToast({ ok: false, text: "회사(고객사)를 선택하세요." }); return; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(id.trim())) { setToast({ ok: false, text: "계정 ID는 이메일 형식이어야 합니다." }); return; }
     if (!pwd.trim()) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
-    if (services.length === 0) { setToast({ ok: false, text: "사용 서비스를 1개 이상 선택하세요." }); return; }
+    // 인증 서비스 0개 = SDK 연동(코드만 할당) — 막지 않는다 `PC-076`
     // App Key 는 CasterN 전용 — 사용처에서 CasterN 이 빠졌으면 함께 발급하지 않는다.
     const wantKey = !!range;   // 범위를 골랐으면 함께 발급한다 `PC-071`
 
@@ -541,12 +541,12 @@ export function AccountNewView() {
           </div>
         </div>
 
-        {/* 탭 3개 — 계정 정보 · 사용 서비스 및 권한 · App Key 발급 `PC-062` */}
+        {/* 탭 3개 — 계정 정보 · 인증 서비스 및 권한 · App Key 발급 `PC-062` */}
         <AccTabs tab={tab} onTab={setTab} badge={{ svc: `${services.length}/${ACCOUNT_SERVICES.length}`, key: range ? "발급" : undefined }} />
 
         {/* 계정 정보 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "info" ? "block" : "none" }}>
-        <SecHead t="계정 정보" d="· 서비스 로그인 계정" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (사용 서비스 전체 공통)" />
+        <SecHead t="계정 정보" d="· 서비스 로그인 계정" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (인증 서비스 전체 공통)" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="회사정보 (고객사) *">
             <select style={S.input} value={companyId} onChange={(e) => onCompany(+e.target.value)}>
@@ -570,14 +570,14 @@ export function AccountNewView() {
 
         {/* App Key 발급 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
-          <SecHead t="App Key 발급" d="· 계정당 1개" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (사용 서비스 전체 공통)" />
+          <SecHead t="App Key 발급" d="· 계정당 1개" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (인증 서비스 전체 공통)" />
           {appKeyBlock}
         </div>
 
-        {/* 사용 서비스 및 권한 — 서비스마다 그 조건만 노출 */}
+        {/* 인증 서비스 및 권한 — 서비스마다 그 조건만 노출 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "svc" ? "block" : "none" }}>
           {/* 설명은 제목 툴팁으로 `PC-073` */}
-          <SecHead t="사용 서비스 및 권한" d={`· 선택 ${services.length} / ${ACCOUNT_SERVICES.length}`} tip="사용 서비스는 중복 선택할 수 있습니다. 여러 서비스를 선택하면 한 계정으로 각 서비스에 로그인하며, 각 서비스는 자기 계정만 관리·인증합니다." />
+          <SecHead t="인증 서비스 및 권한" d={services.length ? `· 선택 ${services.length} / ${ACCOUNT_SERVICES.length}` : `· ${SDK_ONLY_LABEL}`} tip="**인증 서비스** = 이 계정이 우리 서비스 어디에 로그인하나. 중복 선택할 수 있고, 아무것도 고르지 않으면 SDK 연동(코드만 할당)이라 App Key 만 발급합니다. App Key 는 인증 서비스 전체에 공통이라 서비스를 바꿔도 키는 그대로입니다. 고객사 관리의 [사용 서비스](우리가 그 고객사를 어느 서비스로 다루나)와는 다른 값입니다." />
           <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} />
         </div>
 
@@ -660,7 +660,6 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
   const save = () => {
     if (!pwd.trim()) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
-    if (services.length === 0) { setToast({ ok: false, text: "사용처(연동 서비스)를 1개 이상 선택하세요." }); return; }
 
     const kept: AccountSettings = {};
     for (const sv of services) if (settings[sv]) kept[sv] = settings[sv];
@@ -693,7 +692,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
         null
       ) : (acc?.services ?? []).length === 0 ? (
         <div style={{ fontSize: 11.5, color: "#9ca3af", lineHeight: 1.6 }}>
-          사용 서비스를 1개 이상 고르고 <b>[저장]</b> 하면 App Key 를 발급할 수 있습니다.
+<b>[저장]</b> 하면 App Key 를 발급할 수 있습니다.
         </div>
       ) : (
         <>
@@ -759,7 +758,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
         {/* 계정 정보 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "info" ? "block" : "none" }}>
-        <SecHead t="계정 정보" d="· ID(email) · 고객사는 변경할 수 없습니다" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (사용 서비스 전체 공통)" />
+        <SecHead t="계정 정보" d="· ID(email) · 고객사는 변경할 수 없습니다" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (인증 서비스 전체 공통)" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="회사정보 (고객사)"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{acc.company}</div></Field>
           <Field label="NAME (담당자/사용자명)"><input style={S.input} value={name} onChange={(e) => setName(e.target.value)} /></Field>
@@ -778,15 +777,15 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
         {/* App Key 발급 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
-          <SecHead t="App Key 발급" d={`· 계정당 1개 · 발급된 키 ${keys.length}개`} tip={myKey ? "이 계정에는 이미 App Key 가 발급돼 있습니다 — 계정당 1개입니다. 범위를 바꾸려면 발급 내역에서 키를 삭제한 뒤 다시 발급하세요." : "고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (사용 서비스 전체 공통)"} />
+          <SecHead t="App Key 발급" d={`· 계정당 1개 · 발급된 키 ${keys.length}개`} tip={myKey ? "이 계정에는 이미 App Key 가 발급돼 있습니다 — 계정당 1개입니다. 범위를 바꾸려면 발급 내역에서 키를 삭제한 뒤 다시 발급하세요." : "고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (인증 서비스 전체 공통)"} />
           {appKeyBlock}
         </div>
 
-        {/* 사용 서비스 및 권한 */}
+        {/* 인증 서비스 및 권한 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "svc" ? "block" : "none" }}>
           {/* 설명은 제목 툴팁으로 `PC-073` */}
-          <SecHead t="사용 서비스 및 권한" d={`· 선택 ${services.length} / ${ACCOUNT_SERVICES.length}`}
-            tip="사용 서비스는 중복 선택할 수 있습니다. 여러 서비스를 선택하면 한 계정으로 각 서비스에 로그인하며, 각 서비스는 자기 계정만 관리·인증합니다. App Key 는 사용 서비스 전체에 공통이라 서비스를 바꿔도 키는 그대로입니다." />
+          <SecHead t="인증 서비스 및 권한" d={services.length ? `· 선택 ${services.length} / ${ACCOUNT_SERVICES.length}` : `· ${SDK_ONLY_LABEL}`}
+            tip="**인증 서비스** = 이 계정이 우리 서비스 어디에 로그인하나. 중복 선택할 수 있고, 아무것도 고르지 않으면 SDK 연동(코드만 할당)이라 App Key 만 발급합니다. App Key 는 인증 서비스 전체에 공통이라 서비스를 바꿔도 키는 그대로입니다. 고객사 관리의 [사용 서비스](우리가 그 고객사를 어느 서비스로 다루나)와는 다른 값입니다." />
           <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} />
         </div>
 

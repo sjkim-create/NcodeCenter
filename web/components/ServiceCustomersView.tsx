@@ -1,6 +1,6 @@
 "use client";
 
-// 서비스별 고객사 — SOBP 맵(직접 코드 할당)에서 **사용 서비스**로 지정한 고객사를 그 서비스 화면으로 불러온다 `PC-057`
+// 서비스별 고객사 — **고객사 관리**에서 **사용 서비스**로 지정한 고객사를 그 서비스 화면으로 불러온다 `PC-076`
 //   casterN 은 [편집 프로젝트]가 그 역할을 하고, 이 화면은 나머지 서비스(폼솔루션 등)를 맡는다.
 import Link from "next/link";
 import { useMemo } from "react";
@@ -21,7 +21,7 @@ export default function ServiceCustomersView({ service, title }: { service: Serv
         <b style={{ fontSize: 15 }}>{title}</b>
         <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>{rows.length}곳</span>
         <span style={{ fontSize: 11.5, color: "#9ca3af" }}>
-          SOBP 맵 ▸ 직접 코드 할당에서 <b>사용 서비스 = {serviceLabel(service)}</b> 로 지정한 고객사입니다
+고객사 관리에서 <b>사용 서비스 = {serviceLabel(service)}</b> 로 지정한 고객사입니다
         </span>
       </div>
 

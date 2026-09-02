@@ -11,7 +11,7 @@ import type { Company, Project, WorkLog, WorkKind } from "./customerData";
 
 export type State = { companies: Company[]; projects: Project[]; logs: WorkLog[] };
 
-const KEY = "ncc-store-v25";  // v25: 하위(공통코드 사용) 고객사도 정식 회사 레코드로 생성(214건) — 옛 캐시 폐기
+const KEY = "ncc-store-v26";  // v26: 고객사에 **사용 서비스**(services) 추가 `PC-076` — 옛 캐시 폐기(시드에서 casterN 70곳 자동 지정)
 const SEED = seed as unknown as State;
 
 let state: State = SEED;

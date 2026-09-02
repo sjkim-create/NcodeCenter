@@ -10,7 +10,8 @@ import { S, Field, Modal, AutoTextarea, BLUE } from "./ui";
 import { store, useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
-import { Company, CompanyDoc, WorkKind, WorkLog, projectCodes, nextId } from "@/lib/customerData";
+import { Company, CompanyDoc, WorkKind, WorkLog, projectCodes, nextId,
+         SERVICE, SDK_ONLY, companyServices, type ServiceType } from "@/lib/customerData";
 import { SOUND_ITEMS, PEN_ITEMS, rateMapOf, customRateCount, type RateItem } from "@/lib/pricing";
 import { COMMON_CODES, codeKey, codesOfCompany, isCommonCodeCompany, type CommonCode } from "@/lib/commonCodes";
 import { codesOfMember, addMember, removeMember, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
@@ -338,6 +339,38 @@ export function CompanyFormView({ companyId }: { companyId: number }) {
             <Field label="세금계산서 발행용 이메일" full>
               <input type="email" style={S.input} value={form.taxEmail ?? ""} onChange={(e) => set("taxEmail", e.target.value)} placeholder="tax@company.com" />
             </Field>
+            {/* 사용 서비스 — **이 고객사를 우리 어느 서비스로 다루나** `PC-076`.
+                계정의 [인증 서비스]와 다르다: 저쪽은 외부 고객사가 우리 서비스에 로그인하는 범위다. */}
+            <Field label="사용 서비스" full>
+              <div style={{ border: "1px solid #e5e7eb", background: "#fafbfc", borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {SERVICE.map((sv) => {
+                    const on = companyServices(form).includes(sv.v);
+                    const toggle = () => setForm((f) => {
+                      const cur = companyServices(f);
+                      const next = on ? cur.filter((x) => x !== sv.v) : [...cur, sv.v];
+                      return { ...f, services: next };
+                    });
+                    return (
+                      <label key={sv.v} style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer",
+                        border: `1px solid ${on ? "#bfdbfe" : "#eef0f4"}`, background: on ? "#f5f9ff" : "#fff", borderRadius: 9, padding: "9px 11px" }}>
+                        <input type="checkbox" checked={on} onChange={toggle} style={{ marginTop: 2 }} />
+                        <span style={{ fontSize: 12.5 }}>
+                          <b style={{ color: on ? "#1e3a8a" : "#374151" }}>{sv.label}</b>
+                          {!sv.ready && <span style={{ ...S.tag, marginLeft: 6, fontSize: 9.5, background: "#f3f4f6", color: "#9ca3af", fontWeight: 700 }}>서비스 준비중</span>}
+                          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2, lineHeight: 1.6 }}>{sv.desc}</div>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 8, lineHeight: 1.7 }}>
+                  <b>아무것도 고르지 않으면 「{SDK_ONLY}」</b> 입니다 — 우리 서비스를 거치지 않고 코드만 받아 직접 연동하는 고객사입니다 <code>PC-076</code>.
+                  고른 서비스에 따라 <b>편집 프로젝트·폼솔루션 서비스 관리</b>에 이 고객사가 나타납니다.
+                </div>
+              </div>
+            </Field>
+
             <Field label="프로젝트 상태" full>
               <div style={{ border: `1px solid ${form.closed ? "#fca5a5" : "#e5e7eb"}`, background: form.closed ? "#fef2f2" : "#fafbfc", borderRadius: 10, padding: "12px 14px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

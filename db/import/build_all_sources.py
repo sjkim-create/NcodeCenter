@@ -868,6 +868,23 @@ for a in ALLOC:
                                  "bookStart": bs, "bookEnd": be, "pageStart": ps, "pageEnd": pe}],
                      "editing": False, "editingOwner": a["owner"], "symbols": 0})
     added += 1
+# ── 고객사 사용 서비스 `PC-076` ────────────────────
+# 서비스는 **고객사 속성**이다. 지정은 [고객사 관리]에서 하고, 초기값은 여기서 채운다.
+#   casterN = 편집팀 대장(편집 프로젝트)에 교재(책) 행이 있는 고객사 = 우리가 자료를 편집하는 곳
+#   폼솔루션 = 서비스 개발 전이라 지정 대상 없음 (0곳)
+#   아무것도 없음 = SDK 연동(코드만 할당)
+def _nzc(s): return (s or "").replace(" ", "").lower()
+
+_edit_names = {_nzc(_c["customer"]) for _c in edit_customers if _c.get("bookRows")}
+_n_svc = 0
+for _co in companies:
+    if _nzc(_co["name"]) in _edit_names:
+        _co["services"] = ["CASTERN"]
+        _n_svc += 1
+    else:
+        _co["services"] = []
+print(f"고객사 사용 서비스: casterN {_n_svc}곳 / 전체 {len(companies)}곳 (나머지는 SDK 연동)")
+
 json.dump({"companies": companies, "projects": projects, "logs": logs},
           open(os.path.join(WEB, "seed-customers.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 print(f"할당 원장 {len(ALLOC)}행 → ownership-data.json · 프로젝트 보강 {added}건")

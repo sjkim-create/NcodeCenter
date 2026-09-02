@@ -23,9 +23,9 @@ KEYS = (('7Kq3xF9dR2mA8pZ1vT6bN4sJ0wG5c', 'PDS2', 'S3/O17/B400~499 · 100권',
 
 
 def acc_tabs(active='계정 정보'):
-    """화면 탭 — 계정 정보 · 사용 서비스 및 권한 · App Key 발급 `PC-062`"""
+    """화면 탭 — 계정 정보 · 인증 서비스 및 권한 · App Key 발급 `PC-062` `PC-076`"""
     out = ''
-    for label in ('계정 정보', '사용 서비스 및 권한', 'App Key 발급'):
+    for label in ('계정 정보', '인증 서비스 및 권한', 'App Key 발급'):
         on = (label == active)
         out += ('<span style="padding:9px 16px;font-size:13px;border-bottom:2px solid %s;'
                 'margin-bottom:-1px;color:%s;font-weight:%s">%s</span>'
@@ -138,13 +138,13 @@ def result_box():
 # ── 등록 화면 ──────────────────────────────────────────────────────
 
 
+# 고르는 인증 서비스는 2종뿐 — 0개 선택이 곧 SDK 연동(코드만 할당) `PC-076`
 SERVICES = (('CasterN', 'Caster U 웹 편집툴 · 계정 로그인', True),
-            ('폼솔루션', '폼솔루션 서비스 · 계정 로그인', False),
-            ('SDK 연동', 'id/pwd + SOBP 직접 사용', False))
+            ('폼솔루션', '폼솔루션 서비스 · 계정 로그인', False))
 
 
 def svc_tabs(picked=('CasterN',), tab='CasterN', panel=''):
-    """② 사용처 · 권한 — 탭 바 + 현재 탭 패널. 조건이 아래로 쌓이지 않는다."""
+    """② 인증 서비스 · 권한 — 탭 바 + 현재 탭 패널. 조건이 아래로 쌓이지 않는다 `PC-076`"""
     bar = ''
     for name, _desc, ready in SERVICES:
         on = (name == tab)
@@ -170,13 +170,13 @@ def svc_panel(name, on, ready, inner=''):
            '<span style="color:#9ca3af;font-size:11.5px">· %s</span></label>'
            % (' checked' if on else '', '#1d4ed8' if on else '#374151', name, desc))
     if not on:
-        body = ('<div style="font-size:11.5px;color:#9ca3af">사용처로 선택하면 '
+        body = ('<div style="font-size:11.5px;color:#9ca3af">인증 서비스로 선택하면 '
                 '이 서비스의 조건을 설정할 수 있습니다.</div>')
     elif not ready:
         body = ('<div style="font-size:12px;color:#9ca3af;line-height:1.6;'
                 'border:1px solid #eef0f4;background:#fafbfc;border-radius:9px;'
                 'padding:10px 12px"><b style="color:#c2410c">준비중</b> — 이 서비스의 '
-                '권한·설정 항목은 아직 정의되지 않았습니다. 사용처 연동만 등록됩니다.</div>')
+                '권한·설정 항목은 아직 정의되지 않았습니다. 인증 서비스 연동만 등록됩니다.</div>')
     else:
         body = inner
     return chk + '<div style="margin-top:10px">%s</div>' % body
@@ -340,27 +340,32 @@ def build():
 
     B.append((
         'S1', '계정 등록 — 진입', '기본',
-        '등록은 <b>2단계</b>다 — ① 계정 정보 → ② 사용처·권한. '
+        '등록은 <b>2단계</b>다 — ① 계정 정보 → ② <b>인증 서비스</b>·권한 <code>PC-076</code>. '
         '⚠ 옛 ③ App Key 단계는 폐기되어 <b>CasterN 탭 안</b>으로 들어갔다. '
-        '사용처 기본값은 <b>CasterN</b> 이고 권한은 <b>6종 모두 선택</b>된 상태로 시작한다.',
+        '인증 서비스는 고른 고객사의 <b>사용 서비스</b>(<code>MEM-02</code>)대로 자동 체크되고, '
+        'CasterN 이 켜지면 권한은 <b>6종 모두 선택</b>된 상태로 시작한다.',
         scr_new(),
         [('① 회사정보', '선택', 'ADDR 자동 입력', '<code>MEM-01</code> 등록 고객사'),
          ('① ID (EMAIL)', '입력', '이메일 형식', '전체에서 <b>유일</b>'),
          ('① PWD [임의 생성]', '클릭', '10자리 자동', '비밀번호 미요청 고객사'),
-         ('② 탭 바', '조회', '서비스 3종', '선택된 서비스에 <b>✓</b> · 준비중 표기'),
+         ('② 탭 바', '조회', '서비스 <b>2종</b>', '선택된 서비스에 <b>✓</b> · 준비중 표기 <code>PC-076</code>'),
          ('② CasterN 권한', '기본', '<b>7 / 6</b>', '모두 선택된 상태'),
          ('[계정 추가]', '클릭', '<code>TKT-01</code>', '목록으로 이동')] + NAV))
 
     B.append((
-        'S2', '사용처 중복 선택', '분기',
-        '사용처는 <b>중복 선택</b>이다. 여러 서비스를 골라도 조건이 아래로 쌓이지 않고 '
-        '<b>탭을 바꿔야</b> 그 서비스의 조건이 나온다. 탭 바에서 선택된 서비스에 '
-        '<b>✓</b> 가 붙어 어느 사용처가 켜져 있는지 한눈에 보인다.',
+        'S2', '인증 서비스 중복 선택', '분기',
+        '<b>인증 서비스 = 외부 고객사가 우리 서비스 어디에 로그인하나</b> <code>PC-076</code> — '
+        '고객사 관리의 <b>사용 서비스</b>(우리가 그 고객사를 어느 서비스로 다루나)와는 다른 값이다. '
+        '<b>중복 선택</b>이며, 여러 서비스를 골라도 조건이 아래로 쌓이지 않고 '
+        '<b>탭을 바꿔야</b> 그 서비스의 조건이 나온다. '
+        '<b>0개를 골라도 정상</b>이다 — 그때는 <b>SDK 연동 (코드만 할당)</b> 으로 App Key 만 발급한다.',
         scr_new(picked=('CasterN', '폼솔루션'), tab='CasterN'),
-        [('탭 바', '조회', '✓ CasterN · ✓ 폼솔루션 · ○ SDK', '선택 <b>2 / 3</b>'),
+        [('탭 바', '조회', '✓ CasterN · ✓ 폼솔루션', '선택 <b>2 / 2</b>'),
          ('탭 클릭', '클릭', '해당 서비스 조건', '한 번에 한 서비스만 보인다'),
+         ('0개 선택', '—', '<b>SDK 연동 (코드만 할당)</b>',
+          '제목 옆에 그대로 표기된다 — 오류가 아니라 정상 상태 <code>PC-076</code>'),
          ('로그인 범위', '—', '—', '<b>한 계정으로 각 서비스에 로그인</b>한다'),
-         ('선택 안 한 서비스', '—', '조건 저장 안 함', '사용처에서 뺀 서비스의 조건은 버린다')]))
+         ('선택 안 한 서비스', '—', '조건 저장 안 함', '뺀 서비스의 조건은 버린다')]))
 
     B.append((
         'S3', 'CasterN 탭 — 권한 개별 선택', '분기',

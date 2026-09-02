@@ -83,21 +83,24 @@ def kind_chips(kind='PDS3', fixed=False):
 
 
 def svc_chips(svc='NONE'):
-    """사용 서비스 — 복수 선택 `PC-049`. 서비스 없음은 단독 선택"""
-    on_set = svc if isinstance(svc, (list, tuple)) else [svc]
-    out = ''
-    for v, short in (('CASTERN', 'casterN'), ('FORMSOLUTION', '폼솔루션'), ('NONE', 'SDK 연동')):
-        on = v in on_set
-        out += ('<span style="flex:1;text-align:center;font-size:11.5px;border-radius:7px;'
-                'padding:7px 4px;font-weight:%s;border:1px solid %s;background:%s;color:%s">%s</span>'
-                % ('700' if on else '400', '#93c5fd' if on else '#e5e7eb',
-                   '#eef6ff' if on else '#fff', '#2563eb' if on else '#6b7280', short))
-    return '<div style="display:flex;gap:5px">%s</div>' % out
+    """사용 서비스 — **읽기 표시** `PC-076`. 고객사 관리에서 정한 값을 그대로 보여 준다"""
+    on_set = [v for v in (svc if isinstance(svc, (list, tuple)) else [svc])
+              if v in ('CASTERN', 'FORMSOLUTION')]
+    label = {'CASTERN': 'casterN (편집툴)', 'FORMSOLUTION': '폼솔루션'}
+    if on_set:
+        body = ''.join('<span style="font-size:10.5px;border-radius:6px;padding:2px 7px;'
+                       'font-weight:700;background:#eef6ff;color:#2563eb">%s</span>' % label[v]
+                       for v in on_set)
+    else:
+        body = '<span style="font-size:12px;color:#9ca3af">SDK 연동 (코드만 할당)</span>'
+    return ('<div class="inp" style="background:#fafbfc;display:flex;align-items:center;gap:6px">'
+            '%s<span style="flex:1"></span>'
+            '<span style="font-size:11px;color:#2563eb">고객사 관리 &rarr;</span></div>' % body)
 
 
 def cust_svc(cust='', svc='NONE', kind='PDS3', kind_fixed=False, used=False):
     """고객사 · 사용 서비스 · 코드 종류 — 한 행 `PC-047`.
-    이미 발급된 좌표(used)면 고객사는 **상태 표시**, 사용 서비스만 바꿀 수 있다 `PC-048`"""
+    이미 발급된 좌표(used)면 고객사는 **상태 표시**이고, 사용 서비스도 **읽기 전용**이다 `PC-076`"""
     if used:
         co = ('<div class="inp" style="background:#fafbfc;display:flex;align-items:center;gap:6px">'
               '<b>%s</b><span style="font-size:11px;color:#9ca3af">보유</span></div>' % cust)
@@ -108,7 +111,7 @@ def cust_svc(cust='', svc='NONE', kind='PDS3', kind_fixed=False, used=False):
             'align-items:start;margin-top:10px;border:1px solid #eef0f4;border-radius:10px;'
             'padding:12px 13px">%s%s</div>'
             % (field('고객사', co, not used),
-               field('사용 서비스 (복수 선택)', svc_chips(svc))))
+               field('사용 서비스', svc_chips(svc))))
 
 
 def owned(cust='웅진씽크빅', rows=None):
@@ -190,12 +193,14 @@ def build():
         '<code>PC-046</code> — ① <b>발급 대상</b>(좌표·종류·상태를 <b>보여 주기만</b> 한다) '
         '② <b>발급 정보</b>(고객사 · 사용 서비스 · 코드 종류) ③ <b>보유 코드</b>(고객사를 고르면 나온다). '
         '좌표(Section · Owner)는 <b>지도에서 고른 값</b>이라 모달에서 바꾸지 않는다. '
-        '<b>[할당]</b> 은 고객사를 고르기 전에는 눌리지 않고, 사용 서비스 기본값은 <b>SDK 연동</b>.',
+        '<b>[할당]</b> 은 고객사를 고르기 전에는 눌리지 않는다. '
+        '<b>사용 서비스는 고르는 값이 아니다</b> <code>PC-076</code> — 고른 고객사의 값을 읽어 보여 준다.',
         scr(modal(T, detail('') + cust_svc('', 'NONE') + owned(''), save_off=True)),
         [('고객사 *', '목록 선택 또는 직접 입력(검색)', '기존 보유 코드 영역 표시',
           '<code>MEM-01</code> 에 등록된 고객사만 — <b>여기서 신규 고객사를 만들지 않는다</b>'),
-         ('사용 서비스', '선택', '아래 안내문 교체',
-          'casterN / 폼솔루션 / 서비스 없음 <b>3종</b> <code>PC-026</code>'),
+         ('사용 서비스', '—', '<b>읽기 표시</b>',
+          '고객사 관리에서 정한 값 <code>PC-076</code>. 지정이 없으면 <b>SDK 연동 (코드만 할당)</b>. '
+          '옆의 <b>[고객사 관리 &rarr;]</b> 로 바꾸러 간다'),
          ('코드 종류', '—', '<b>미정 · 발급 때 지정</b>',
           '<b>PDS3 · PDS2 · PDS4</b> 중 하나(단일 선택). 골라도 <b>S/O 가 바뀌지 않는다</b> '
           '<code>PC-046</code>. 이미 쓰는 종류가 있으면 <b>그 종류로 고정</b>되고 문구로만 보여 준다. '
@@ -232,48 +237,51 @@ def build():
 
     B.append((
         'S4', '사용 서비스 = casterN', '분기',
-        '<code>P-14</code> — casterN 으로 지정하면 그 코드는 '
-        '<b>편집 프로젝트(<code>PRJ-02</code>) 관리 대상</b> 이 된다. '
-        '이후 편집 진행과 정산은 <code>PRJ-03</code> 에서 이어진다.',
+        '<code>P-14</code> — 고객사 관리에서 <b>사용 서비스 = casterN</b> 으로 지정된 고객사 '
+        '<code>PC-076</code>. 그 고객사는 <b>편집 프로젝트(<code>PRJ-02</code>) 관리 대상</b> 이 된다. '
+        '이후 편집 진행과 정산은 <code>PRJ-03</code> 에서 이어진다. '
+        '이 창에서는 <b>바꾸지 못하고 읽기만</b> 한다.',
         scr(modal(T, detail('웅진씽크빅') + cust_svc('웅진씽크빅', 'CASTERN')
                   + owned('웅진씽크빅', OWN2))),
-        [('사용 서비스 = casterN', '선택', '<code>PRJ-02</code> → <code>PRJ-03</code>',
-          '이 코드가 편집 대상으로 표시된다'),
+        [('사용 서비스 = casterN', '—', '<code>PRJ-02</code> → <code>PRJ-03</code>',
+          '그 고객사가 편집 대상으로 표시된다 — 지정은 <code>MEM-02</code> 에서 <code>PC-076</code>'),
          ('[할당]', '성공', '<code>LOG-01</code>',
-          '<b>{고객사} · PDS3 S{n}/O{n} · casterN (편집툴) · SO 점유(전체 book 사용가능)</b>')]
+          '<b>{고객사} · S{n}/O{n} · SO 점유(코드 종류 미정) · 사용 서비스 casterN (편집툴)</b>')]
         + CLOSE))
 
     B.append((
-        'S5', '사용 서비스 — 복수 선택', '분기',
-        '<code>PC-026</code> — 지정할 수 있는 서비스는 3종뿐이고, '
-        '<b>여러 서비스를 함께 고를 수 있다</b> <code>PC-049</code>. '
-        '<b>SDK 연동</b> 은 단독 선택이라 고르면 나머지가 해제된다. '
-        '그 외 용도(Ncode 프린터 등)의 코드는 <b>서비스 없음(코드만 발급)</b> 으로 할당한다.',
+        'S5', '사용 서비스 — 복수 지정 고객사', '분기',
+        '<code>PC-076</code> — 고르는 서비스는 <b>casterN · 폼솔루션 2종</b>뿐이고, '
+        '한 고객사가 <b>둘 다</b> 쓸 수 있다. 지정은 <b>고객사 관리</b>에서 한다. '
+        '아무것도 지정하지 않은 고객사는 <b>SDK 연동 (코드만 할당)</b> 으로 보인다 — '
+        '그 외 용도(Ncode 프린터 등)의 코드가 여기 해당한다.',
         scr(modal(T, detail('웅진씽크빅')
                   + cust_svc('웅진씽크빅', ['CASTERN', 'FORMSOLUTION'])
                   + owned('웅진씽크빅', OWN2))),
-        [('사용 서비스', '복수 선택', '칩 다중 활성',
-          'casterN · 폼솔루션 을 함께 지정할 수 있다 <code>PC-049</code>'),
-         ('SDK 연동', '선택', '나머지 해제', '단독 선택 항목'),
+        [('사용 서비스', '—', '배지 2개',
+          'casterN · 폼솔루션을 함께 지정한 고객사 <code>PC-076</code>'),
+         ('지정 없음', '—', '<b>SDK 연동 (코드만 할당)</b>', '우리 서비스를 거치지 않는 고객사'),
+         ('[고객사 관리 &rarr;]', '클릭', '<code>MEM-02</code>', '사용 서비스는 거기서 바꾼다'),
          ('[할당]', '성공', '<code>LOG-01</code>',
-          '<b>{고객사} · PDS3 S{n}/O{n} · casterN (편집툴) · 폼솔루션 · SO 점유</b>')] + CLOSE))
+          '<b>{고객사} · S{n}/O{n} · SO 점유 · 사용 서비스 casterN (편집툴) · 폼솔루션</b>')] + CLOSE))
 
     B.append((
         'S6', '전용 코드 — 입력 잠금', '차단',
         '<code>P-05</code> 무겹침 — 이 S/O 를 <b>다른 고객사가 전용으로 쓰고 있는</b> 경우. '
         '발급 대상이 빨강으로 바뀌고 <b>🔒 전용 · 추가 발급 불가</b> 배지와 '
         '<b>“{업체명}” 전용으로 추가 발급이 불가</b> 한 줄이 나온다 <code>PC-048</code>. '
-        '고객사는 <b>보유 업체 상태 표시</b>(입력 칸이 아니다), 코드 종류도 배지로만 보여 주며, '
-        '바꿀 수 있는 것은 <b>사용 서비스</b> 하나다.',
+        '고객사는 <b>보유 업체 상태 표시</b>(입력 칸이 아니다), 코드 종류도 배지로만 보여 준다. '
+        '<b>이 창은 조회 전용</b>이다 <code>PC-076</code> — 사용 서비스도 읽기라 저장할 것이 없고 '
+        '<b>[취소]</b> 만 남는다.',
         scr(modal(T, detail('웅진씽크빅', locked='대교')
-                  + cust_svc('대교', 'NONE', kind_fixed=True, used=True)
-                  + owned('대교', OWN2), save_off=True, save='사용 서비스 저장')),
+                  + cust_svc('대교', 'CASTERN', kind_fixed=True, used=True)
+                  + owned('대교', OWN2), save_off=True, save='')),
         [('고객사', '—', '<b>상태 표시</b>', '보유 업체명 + <b>보유</b> — 고르는 값이 아니다 <code>PC-048</code>'),
          ('코드 종류', '—', '<b>상태 표시</b>', '쓰고 있는 종류를 배지로만 보여 준다'),
-         ('사용 서비스', '선택', '<b>[사용 서비스 저장]</b> 활성',
-          '현재 지정된 값이 그대로 뜨고, 바꾸면 저장 버튼이 열린다 <code>PC-048</code>'),
-         ('[사용 서비스 저장]', '클릭', '<code>SOB-01</code> 복귀',
-          '그 좌표의 <b>사용 서비스만</b> 바꾼다 — 코드는 새로 발급하지 않는다'),
+         ('사용 서비스', '—', '<b>읽기 표시</b>',
+          '그 고객사의 값을 보여 줄 뿐 여기서 바꾸지 않는다 <code>PC-076</code>'),
+         ('저장 버튼', '—', '<b>없음</b>',
+          '옛 <b>[사용 서비스 저장]</b> 은 폐지 — 조회 전용이다 <code>PC-076</code>'),
          ('추가 발급', '—', '<b>불가</b>',
           'SO 단위 점유라 이미 발급된 좌표에는 다시 발급하지 않는다 <code>P-05</code>')] + CLOSE))
 
@@ -345,7 +353,8 @@ def build():
           '⚠ §7 — 되돌리기 기능이 없다. 잘못 할당하면 <code>PRJ-01</code> 에서 프로젝트를 지워야 한다')]))
 
     intro = ('<b>NcodeCenter에서 코드의 주인이 정해지는 유일한 지점</b>이며, '
-             '이 코드를 어떤 서비스가 쓸지(<b>사용 서비스</b>)도 여기서만 지정한다 '
+             '<b>사용 서비스와 코드 종류는 여기서 정하지 않는다</b> — '
+             '서비스는 고객사 속성이라 <code>MEM-02</code> 에서 정한다 <code>PC-076</code> '
              '<code>PC-011</code>. 할당 단위는 <b>S/O</b> — Owner 전체를 그 고객사가 점유한다.<br>'
              '<code>SOB-01</code> 의 <b>[＋ 직접 코드 할당]</b> 으로만 열리며, '
              '<b>자동 추천은 사용하지 않는다</b>(모드 토글 없음).')

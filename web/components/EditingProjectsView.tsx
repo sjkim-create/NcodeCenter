@@ -96,7 +96,7 @@ export default function EditingProjectsView() {
   const selCust = all.find((c) => uidOf(c) === sel) ?? all.find((c) => c.owner === sel);
 
   const openAdd = () => setAddForm({ companyId: 0, owner: "", kind: "N" });
-  // 편집(casterN) 대상 고객사 — SOBP 맵의 사용 서비스 지정을 따른다 `PC-057`
+  // 편집(casterN) 대상 고객사 — **고객사 관리의 사용 서비스** 지정을 따른다 `PC-076`
   const casternCos = useMemo(() => customersOfService("CASTERN", st.companies, st.projects), [st.companies, st.projects]);
   // 선택한 고객사가 보유한 코드의 Owner 목록 (코드 프로젝트 발급 내역 기준)
   const ownerOptsOf = (companyId: number) => {

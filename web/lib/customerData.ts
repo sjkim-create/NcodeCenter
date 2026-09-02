@@ -1,17 +1,21 @@
 // 고객사 관리 / 프로젝트 관리 공용 데이터 모델 (mock)
 // DB 연결 시 customers / projects / work_logs / allocations 테이블에 매핑
 
-// ── 네오랩 서비스 (프로젝트가 사용하는 서비스) ─────────
-// "SDK 연동(코드만 할당)" = 네오랩 서비스를 쓰지 않고 코드만 받아 직접 연동하는 프로젝트 `PC-053`
-// casterN 서비스 코드는 [편집 프로젝트] 메뉴에서 관리한다.
+// ── 네오랩 서비스 (고객사가 쓰는 서비스) ─────────────
+// 서비스는 **고객사 속성**이다 `PC-076` — 지정은 [고객사 관리]에서 하고, SOBP 맵·계정은 그 값을 읽기만 한다.
+//   · 사용 서비스(고객사) = 우리가 이 고객사를 어느 서비스로 다루나  → 편집 프로젝트·폼솔루션 목록의 기준
+//   · 인증 서비스(계정)   = 이 계정이 우리 서비스 어디에 로그인하나 → App Key 관리 `accountStore.ts`
+// 고르는 값은 **2개뿐**이고, **아무것도 고르지 않으면 = SDK 연동(코드만 할당)** 이다 `PC-076`.
 export type ServiceType =
   | "CASTERN" | "FORMSOLUTION" | "NONE";
-export const SERVICE: { v: ServiceType; label: string }[] = [
-  { v: "CASTERN", label: "casterN (편집툴)" },
-  { v: "FORMSOLUTION", label: "폼솔루션" },
-  { v: "NONE", label: "SDK 연동 (코드만 할당)" },
+// NONE 은 **고르는 값이 아니다** — 옛 데이터 호환용으로만 남긴다(= 선택 없음).
+export const SDK_ONLY = "SDK 연동 (코드만 할당)";
+export const SERVICE: { v: ServiceType; label: string; desc: string; ready: boolean }[] = [
+  { v: "CASTERN", label: "casterN (편집툴)", desc: "우리가 이 고객사 자료를 편집한다 — [편집 프로젝트]의 대상이 된다", ready: true },
+  { v: "FORMSOLUTION", label: "폼솔루션", desc: "폼솔루션 서비스로 관리한다 — 서비스 개발 전이라 아직 지정된 고객사가 없다", ready: false },
 ];
-export const serviceLabel = (v: ServiceType) => SERVICE.find((s) => s.v === v)?.label ?? v;
+const SERVICE_LABEL: Record<string, string> = { CASTERN: "casterN (편집툴)", FORMSOLUTION: "폼솔루션", NONE: SDK_ONLY };
+export const serviceLabel = (v: ServiceType) => SERVICE_LABEL[v] ?? v;
 export const serviceShort = (v: ServiceType) => (v === "CASTERN" ? "casterN" : v === "FORMSOLUTION" ? "폼솔루션" : "SDK 연동");
 export const GRADES = ["a", "b", "c"];
 
@@ -32,6 +36,9 @@ export type Company = {
   rates?: Record<string, number>;   // 항목 key(s_page/s_edit/s_cmp2…/w_none…) → 단가
   pageUnit?: number;   // (구) 적용 단가 — rates 미지정 시 s_page/w_page로 흡수
   symbolUnit?: number; // (구) 편집 단가 — rates 미지정 시 s_edit/w_none로 흡수
+  // 사용 서비스 — **이 고객사를 우리 어느 서비스로 다루나** `PC-076`.
+  //   비어 있으면 = SDK 연동(코드만 할당). 편집 프로젝트·폼솔루션 목록이 이 값을 기준으로 고객사를 불러온다.
+  services?: ServiceType[];
   // 커먼 코드(공유 코드) 사용 여부 — 체크한 업체만 편집 프로젝트의 "사용 고객사" 후보가 된다
   nspCommon?: boolean; // NSP Common Code (소리펜) — S3/O21 · S3/O964~983
   nwpCommon?: boolean; // NWP Common Code (필기펜) — S0/O27 · S3/O27 · S3/O1012~1013
@@ -64,11 +71,25 @@ export type Project = {
   editLinkOwner?: number;  // 예외: 이 코드의 편집 실적이 다른 owner에 귀속 → [편집] 칩으로 이동
   editLinkLabel?: string;  // [편집] 칩에 표시할 대상 라벨
 };
-// 사용 서비스 목록 — 옛 데이터(service 단일)도 함께 읽는다 `PC-049`
+/** @deprecated 서비스는 **고객사 속성**이다 `PC-076` — 화면에서는 `companyServices` 를 쓴다.
+ *  프로젝트의 service·services 는 옛 데이터 호환으로만 남긴다. */
 export const projectServices = (p: { service: ServiceType; services?: ServiceType[] }): ServiceType[] =>
   p.services && p.services.length ? p.services : [p.service];
+/** @deprecated `companyUsesService` 를 쓴다 `PC-076` */
 export const usesService = (p: { service: ServiceType; services?: ServiceType[] }, v: ServiceType) =>
   projectServices(p).includes(v);
+
+// ── 고객사 사용 서비스 `PC-076` ───────────────────
+// 고르는 값(casterN·폼솔루션)만 남긴다. 빈 배열 = SDK 연동(코드만 할당).
+export const companyServices = (c?: { services?: ServiceType[] }): ServiceType[] =>
+  (c?.services ?? []).filter((v) => v === "CASTERN" || v === "FORMSOLUTION");
+export const companyUsesService = (c: { services?: ServiceType[] } | undefined, v: ServiceType) =>
+  companyServices(c).includes(v);
+// 화면 표기 — 아무것도 안 골랐으면 SDK 연동으로 읽는다
+export const companyServiceText = (c?: { services?: ServiceType[] }) => {
+  const s = companyServices(c);
+  return s.length ? s.map(serviceLabel).join(" · ") : SDK_ONLY;
+};
 
 export const projectCodes = (p: Project) => p.issued.reduce((s, b) => s + b.codes, 0);       // 발급 규모(B×P)
 export const projectUsed = (p: Project) => p.issued.reduce((s, b) => s + (b.used ?? 0), 0);   // 실등록 페이지

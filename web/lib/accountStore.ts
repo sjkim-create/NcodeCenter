@@ -12,14 +12,24 @@
 import { useSyncExternalStore } from "react";
 
 // 사용처(연동 서비스) — 계정 로그인 허용 범위를 가르는 값
+// ── 인증 서비스 `PC-076` ──────────────────────────
+// **인증 서비스** = 이 계정이 우리 서비스 어디에 로그인하나(외부 고객사의 사용 인증).
+//   고객사 관리의 **사용 서비스**(우리가 그 고객사를 어느 서비스로 다루나)와는 다른 값이다.
+// 고르는 값은 2개뿐이고, **아무것도 고르지 않으면 = SDK 연동(코드만 할당)** — App Key 만 발급한다.
 export type AccountService = "CASTERN" | "FORMSOLUTION" | "SDK";
-// ready=false → 사용처로 선택은 되지만 권한·설정은 아직 정의되지 않음(준비중)
+// SDK 는 **고르는 값이 아니다** — 옛 데이터 호환용으로만 타입에 남긴다(= 선택 없음).
+export const SDK_ONLY_LABEL = "SDK 연동 (코드만 할당)";
+// ready=false → 인증 서비스로 선택은 되지만 권한·설정은 아직 정의되지 않음(준비중)
 export const ACCOUNT_SERVICES: { v: AccountService; label: string; desc: string; ready: boolean }[] = [
   { v: "CASTERN", label: "CasterN", desc: "Caster U 웹 편집툴 · 계정 로그인", ready: true },
   { v: "FORMSOLUTION", label: "폼솔루션", desc: "폼솔루션 서비스 · 계정 로그인", ready: false },
-  { v: "SDK", label: "SDK 연동 (코드만 할당)", desc: "네오랩 서비스 없이 코드만 받아 직접 연동 · id/pwd + SOBP", ready: false },
 ];
 export const accountServiceLabel = (v?: string) => ACCOUNT_SERVICES.find((s) => s.v === v)?.label ?? "미지정";
+// 고른 인증 서비스 표기 — 비어 있으면 SDK 연동(코드만 할당) `PC-076`
+export const authServiceText = (svcs?: AccountService[]) => {
+  const s = (svcs ?? []).filter((v) => v === "CASTERN" || v === "FORMSOLUTION");
+  return s.length ? s.map(accountServiceLabel).join(" · ") : SDK_ONLY_LABEL;
+};
 // 권한·설정 화면이 준비된 서비스인지 — false면 등록 화면에서 「준비중」으로 노출한다.
 export const accountServiceReady = (v?: string) => ACCOUNT_SERVICES.find((s) => s.v === v)?.ready ?? false;
 
@@ -108,10 +118,12 @@ let seq = 1;
 function persist() { if (typeof window !== "undefined") { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* */ } } }
 function commit(next: State) { state = next; persist(); subs.forEach((f) => f()); }
 // 단일 사용처(service·perms) 로 저장된 기존 데이터를 다중 사용처(services·settings) 로 옮긴다.
+// 옛 데이터의 "SDK" 선택값 → **선택 없음**(= SDK 연동) `PC-076`
+const dropSdk = (v?: AccountService[]) => (v ?? []).filter((x) => x !== "SDK");
 function migrate(s: State): State {
   const accounts = s.accounts.map((a) => {
-    if (a.services?.length && a.settings) return a;
-    const services = a.services?.length ? a.services : a.service ? [a.service] : [];
+    if (a.services?.length && a.settings) return { ...a, services: dropSdk(a.services) };
+    const services = dropSdk(a.services?.length ? a.services : a.service ? [a.service] : []);
     const settings: AccountSettings = { ...a.settings };
     if (services.includes("CASTERN") && !settings.CASTERN) settings.CASTERN = { perms: a.perms ?? [] };
     const { service: _drop, perms: _dropPerms, ...rest } = a;
@@ -119,10 +131,10 @@ function migrate(s: State): State {
   });
   // App Key: 사용처별(service) → 계정 공통(services) `PC-050`
   const appKeys = s.appKeys.map((k) => {
-    if (k.services?.length && isAppKey(k.key)) return k;
-    if (k.services?.length) return { ...k, key: genAppKey() };   // 키 형식만 갱신 `PC-066`
+    if (k.services?.length && isAppKey(k.key)) return { ...k, services: dropSdk(k.services) };
+    if (k.services?.length) return { ...k, key: genAppKey(), services: dropSdk(k.services) };   // 키 형식만 갱신 `PC-066`
     const acc = accounts.find((a) => a.id === k.accountId);
-    const services = acc?.services?.length ? acc.services : (k.service ? [k.service] : []);
+    const services = dropSdk(acc?.services?.length ? acc.services : (k.service ? [k.service] : []));
     const vol = k.bookVol ?? Math.max(1, (k.bookEnd ?? 0) - (k.bookStart ?? 0) + 1);
     const { service: _drop, ...rest } = k;
     // 옛 형식(ncc_live_…)으로 발급된 키는 새 규칙(영문·숫자 29자)으로 다시 만든다 `PC-066`
@@ -153,7 +165,7 @@ export const caster = {
 
   addAccount(a: Omit<CasterAccount, "createdAt">): { ok: boolean; msg: string } {
     if (state.accounts.some((x) => x.id.toLowerCase() === a.id.toLowerCase())) return { ok: false, msg: "이미 등록된 ID(email)입니다." };
-    if (!a.services?.length) return { ok: false, msg: "사용처(연동 서비스)를 1개 이상 선택하세요." };
+    // 인증 서비스는 **0개도 정상** — 아무것도 고르지 않으면 SDK 연동(코드만 할당) `PC-076`
     commit({ ...state, accounts: [{ ...a, createdAt: kstNow() }, ...state.accounts] });
     return { ok: true, msg: "계정 등록됨" };
   },
@@ -161,7 +173,6 @@ export const caster = {
   // 사용처를 빼도 해당 App Key 는 지우지 않는다. 계정에 없는 사용처의 키는 연동이 끊긴 상태로 남고
   // canLogin 이 막는다. (키 삭제는 상세 화면에서 담당자가 직접 판단)
   updateAccount(id: string, patch: Partial<Omit<CasterAccount, "id" | "companyId" | "company" | "createdAt">>) {
-    if (patch.services && !patch.services.length) return { ok: false, msg: "사용처(연동 서비스)를 1개 이상 선택하세요." };
     const accounts = state.accounts.map((a) => (a.id === id ? { ...a, ...patch } : a));
     commit({ ...state, accounts });
     return { ok: true, msg: "계정 정보가 저장되었습니다." };
