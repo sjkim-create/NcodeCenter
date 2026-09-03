@@ -91,6 +91,14 @@ def info(empty=False, mod_date=True):
                      '서버 저장 용량 파악용'),
                field('타입', sel('소리펜'), False, None,
                      '<b>소리펜 · 필기펜 2종</b> <code>PC-086</code> — 적용비·심볼 단가의 펜 구분'),
+               # 편집 방식은 타입 바로 옆 · 그 타입의 항목만 `PC-087`
+               field('편집 방식 · 소리펜 항목만 · 선택해서 추가 (복수)',
+                     '<div class="row" style="gap:5px;flex-wrap:wrap">'
+                     + sel('＋ 편집방식 선택…')
+                     + '<span class="chip on">소리펜_기본 ✕</span>'
+                       '<span class="chip on">소리펜_멀티터치 ✕</span></div>', False, None,
+                     '소리펜 12종 / 필기펜 7종 + <b>기능 없음</b>(공통) <code>PC-087</code> — '
+                     '타입을 바꾸면 그 타입에 없는 것은 떨어진다'),
                field('Start Page', v('0'), False, None, '0 이상'),
                field('Total Page', v('0' if e else '48'), False, None,
                      '<b>목록 표시용</b> — 적용비는 [Ncode 적용] 수량으로 계산한다 <code>PC-085</code>'),
@@ -104,11 +112,7 @@ def info(empty=False, mod_date=True):
                               '<span class="chip on">C90 ✕</span><span class="chip on">C91 ✕</span>'
                               '<span class="chip">＋ 추가</span></div>', False, None,
                      '여러 개 선택 가능'),
-               field('편집방식', '<div class="row" style="gap:5px;flex-wrap:wrap">'
-                              '<span class="chip on">기본 ✕</span>'
-                              '<span class="chip on">투터치 ✕</span>'
-                              '<span class="chip">＋ 추가</span></div>', False, None,
-                     '여러 개 선택 가능')))
+               ))
 
 
 def qty(pen='소리펜'):
@@ -324,7 +328,10 @@ def build():
         frame('PRJ-03', '교재(책) 편집 수정', content(), height=2100),
         [('S / O', '—', '<b>수정 불가</b>', '수정 모드에서는 변경할 수 없다'),
          ('Book', '선택', '—', '사용 가능한 번호에서'),
-         ('펜 모델 · 편집방식', '추가/삭제', '—', '여러 개 선택 가능'),
+         ('펜 모델', '추가/삭제', '—', '여러 개 선택 가능'),
+         ('편집 방식', '추가/삭제', '<b>타입에 따라 후보가 바뀐다</b>',
+          '[타입] 바로 옆 <code>PC-087</code> · 소리펜 12종 / 필기펜 7종 + 기능 없음(공통). '
+          '타입을 바꾸면 그 타입에 없는 편집 방식은 자동으로 떨어진다'),
          ('[저장]', '클릭', '<code>PRJ-03</code> 갱신', '상단 알림 <b>수정됨</b> · 목록·집계·청구액 갱신'),
          ('저장(자동)', '기록', '<code>LOG-01</code>', '수정 = <b>교재 작업</b>'),
          ('[교재 삭제]', '클릭', 'S9 확인창', '')]))

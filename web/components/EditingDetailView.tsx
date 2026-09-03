@@ -57,11 +57,18 @@ const ST_COLOR: Record<string, { bg: string; fg: string }> = {
 // 기존 데이터(O/X)는 진행중으로 간주
 const stateOf = (v?: string) => (v === "완료" || v === "보류" || v === "진행중" ? v : "진행중");
 const PEN_MODELS = ["C30(PO)", "C71(BH)", "C71(BH2)", "C71(BH5)", "C71(BH6)", "C90", "C91", "C133", "C160", "C161", "C190", "C192", "C200", "C1000(PO)", "NSP-C1000-PO", "연구수업용"];
+// 편집 방식 — **타입에 맞는 것만** 고른다 `PC-087`.
+//   KEP_ICT(필기펜) · 교원구몬_내공100 은 폐지 `PC-086` (타입에서 교원구몬/KEP 를 뺀 것과 같은 정리).
 const METHODS = [
   "기능 없음",
   "소리펜_기본", "소리펜_멀티터치", "소리펜_멀티언어", "소리펜_그룹재생(0x02)", "소리펜_슬롯전환(0x20)", "소리펜_게임", "소리펜_영상호출", "소리펜_LED(핀덴카)", "소리펜_녹음재생", "소리펜_기타 기능", "소리펜_프롬프트", "소리펜_발음평가",
-  "필기펜_공유", "필기펜_플래너 연동", "필기펜_URL 링크 연동", "필기펜_gif 연동", "필기펜_PDF 연동", "필기펜_MP3 연동", "필기펜_기타 기능", "KEP_ICT(필기펜)", "교원구몬_내공100",
+  "필기펜_공유", "필기펜_플래너 연동", "필기펜_URL 링크 연동", "필기펜_gif 연동", "필기펜_PDF 연동", "필기펜_MP3 연동", "필기펜_기타 기능",
 ];
+// 그 타입의 편집방식만 남긴다 — 「기능 없음」은 양쪽 공통 `PC-087`
+const methodsForType = (ty?: string) => {
+  const pre = normTy(ty) === "소리펜" ? "소리펜_" : "필기펜_";
+  return METHODS.filter((m) => m === "기능 없음" || m.startsWith(pre));
+};
 
 const won = (n: number) => `₩${Math.round(n).toLocaleString()}`;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -910,8 +917,34 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                 ))}
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginTop: 10 }}>
-              <Field label="타입"><select style={S.input} value={normTy(editing.row.ty)} onChange={(e) => setF("ty", e.target.value)}>{TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></Field>
+            {/* 타입 · 편집 방식 — 편집 방식은 타입을 따라가므로 나란히 둔다 `PC-087` */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 5fr", gap: 10, marginTop: 10, alignItems: "start" }}>
+              <Field label="타입">
+                <select style={S.input} value={normTy(editing.row.ty)}
+                  onChange={(e) => {
+                    const ty = e.target.value;
+                    // 타입을 바꾸면 그 타입에 없는 편집방식은 떨군다 `PC-087`
+                    const keep = methodsForType(ty);
+                    const kept = (ed0: string) => ed0.split(",").map((x) => x.trim()).filter((x) => x && keep.includes(x)).join(", ");
+                    setEditing((ed) => (ed ? { ...ed, row: { ...ed.row, ty, m: kept(ed.row.m ?? "") } } : ed));
+                  }}>
+                  {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </Field>
+              <Field label={`편집 방식 · ${normTy(editing.row.ty)} 항목만 · 선택해서 추가 (복수)`}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <select style={{ ...S.input, maxWidth: 260 }} value={pick} onChange={(e) => addMethod(e.target.value)}>
+                    <option value="">＋ 편집방식 선택…</option>
+                    {methodsForType(editing.row.ty).filter((mm) => !selMethods.includes(mm)).map((mm) => <option key={mm} value={mm}>{mm}</option>)}
+                  </select>
+                  {selMethods.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>선택된 편집방식 없음</span>}
+                  {selMethods.map((mm) => (
+                    <span key={mm} style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      {mm}<button onClick={() => rmMethod(mm)} style={{ border: 0, background: "none", color: "#dc2626", cursor: "pointer", padding: 0 }}>✕</button>
+                    </span>
+                  ))}
+                </div>
+              </Field>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginTop: 10 }}>
               <Field label="Start Page"><input type="number" min={0} style={S.input} value={typeof editing.row.sp === "number" ? editing.row.sp : 1} onChange={(e) => setF("sp", Math.max(0, +e.target.value))} /></Field>
@@ -932,24 +965,6 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   {editing.row.iss && !staff.some((u) => u.name === editing.row.iss) && <option value={editing.row.iss}>{editing.row.iss} (미등록)</option>}
                 </select>
               </Field>
-            </div>
-            {/* 편집 방식 (기본 정보 영역) */}
-            <div style={{ marginTop: 10 }}>
-              <label style={{ fontSize: 11, color: "#6b7280", display: "flex", alignItems: "center", gap: 8 }}>
-                편집 방식 <span style={{ color: "#9ca3af" }}>· 선택해서 추가 (복수)</span>
-                <select style={{ ...S.input, maxWidth: 260 }} value={pick} onChange={(e) => addMethod(e.target.value)}>
-                  <option value="">＋ 편집방식 선택…</option>
-                  {METHODS.filter((mm) => !selMethods.includes(mm)).map((mm) => <option key={mm} value={mm}>{mm}</option>)}
-                </select>
-              </label>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-                {selMethods.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>선택된 편집방식 없음</span>}
-                {selMethods.map((mm) => (
-                  <span key={mm} style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    {mm}<button onClick={() => rmMethod(mm)} style={{ border: 0, background: "none", color: "#dc2626", cursor: "pointer", padding: 0 }}>✕</button>
-                  </span>
-                ))}
-              </div>
             </div>
           </div>
 
