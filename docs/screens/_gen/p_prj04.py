@@ -118,17 +118,30 @@ def info(empty=False, mod_date=True):
 
 
 def qty(pen='소리펜'):
-    """소리펜(좌 1.6fr · 4열 14칸) / 필기펜(우 1fr · 2열 5칸) — 항상 함께 표시된다."""
-    def block(title, items, cols, grow):
+    """소리펜(좌 1.6fr · 4열 15칸) / 필기펜(우 1fr · 2열 4칸).
+
+    두 묶음이 늘 함께 보이지만 **[타입]이 정하는 쪽만 활성**이다 `PC-091` —
+    반대쪽은 흐리게(잠김) 그리고 제목에 [잠김] 배지가 붙는다.
+    """
+    def block(title, items, cols, grow, on=True):
+        # 잠긴 묶음 — 입력칸이 회색이고 글자도 흐리다 `PC-094`
+        icss = ('padding:5px 8px;font-size:12px' if on
+                else 'padding:5px 8px;font-size:12px;background:#f3f4f6;color:#9ca3af')
+        lcss = ('font-size:10.5px' if on else 'font-size:10.5px;color:#c0c6d0')
         cells = ''.join(
-            '<div class="fld"><span class="lbl" style="font-size:10.5px">%s</span>'
-            '<div class="inp" style="padding:5px 8px;font-size:12px">%d</div></div>'
-            % (lab, qv) for lab, _u, qv in items)
-        return ('<div class="card" style="flex:%s;min-width:0"><div class="bd">'
-                '<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px">'
-                '%s</div>'
+            '<div class="fld"><span class="lbl" style="%s">%s</span>'
+            '<div class="inp" style="%s">%d</div></div>'
+            % (lcss, lab, icss, qv) for lab, _u, qv in items)
+        lock = ('' if on else
+                '<span class="tag" style="margin-left:6px;background:#f3f4f6;color:#9ca3af">'
+                '잠김</span>')
+        return ('<div class="card" style="flex:%s;min-width:0;opacity:%s"><div class="bd">'
+                '<div style="font-size:12px;font-weight:700;color:%s;margin-bottom:8px">'
+                '%s%s</div>'
                 '<div style="display:grid;grid-template-columns:repeat(%d,1fr);gap:8px">%s</div>'
-                '</div></div>' % (grow, title, cols, cells))
+                '</div></div>'
+                % (grow, '1' if on else '.55', '#374151' if on else '#9ca3af',
+                   title, lock, cols, cells))
     return ('<div style="display:flex;gap:12px;align-items:stretch">%s%s</div>'
             '<div style="font-size:11.5px;color:#6b7280;line-height:1.7;margin-top:8px">'
             '<b>[타입]이 정하는 쪽만 입력</b>합니다 <code>PC-091</code> — 반대쪽 묶음은 '
@@ -137,9 +150,9 @@ def qty(pen='소리펜'):
             '기본 정보의 <b>[Total Page]</b> 와는 <b>서로 물리지 않습니다</b> <code>PC-089</code>. '
             '단가 정본은 정책 <code>P-16</code>, 고객사별 단가는 '
             '<code>MEM-02</code> 에서 지정합니다. '
-            '필기펜은 <b>기본 편집 · Custom · 노트서버 업로드</b> 3항목 <code>PC-084</code>.</div>'
-            % (block('소리펜 심볼 입력', SOUND_Q, 4, '1.6'),
-               block('필기펜 심볼 입력', PEN_Q, 2, '1')))
+            '필기펜은 <b>Ncode 적용 · 기본 편집 · Custom · 노트서버 업로드</b> 4항목 <code>PC-084</code> <code>PC-085</code>.</div>'
+            % (block('소리펜 심볼 입력', SOUND_Q, 4, '1.6', pen == '소리펜'),
+               block('필기펜 심볼 입력', PEN_Q, 2, '1', pen != '소리펜')))
 
 
 def totals(pen='소리펜'):
@@ -306,6 +319,9 @@ def build():
               content(mode='new', empty=True, badge='new', discount=False, mod_date=False),
               height=2100),
         [('진행 상태', '선택', '진행중 / 완료 / 보류', '기본값 <b>진행중</b>'),
+         ('타입 = 소리펜', '선택', '<b>소리펜 심볼 입력 활성</b> · 필기펜 심볼 입력 <b>잠김</b>',
+          '잠긴 묶음은 흐리게 + 제목에 <b>[잠김]</b> 배지 <code>PC-091</code>. '
+          '타입을 바꾸면 열리고 <b>값은 지워지지 않는다</b>'),
          ('할당된 S / O', '선택 (필수)', '—',
           '<b>좌표(S/O)만</b> 나온다 <code>PC-083</code> — 종류(N·G)는 빼서 같은 코드가 두 줄로 '
           '중복되지 않는다(할당 원장이 종류 미상이라 N·G 양쪽으로 잡혔다). '
@@ -408,13 +424,22 @@ def build():
          ('단가를 바꿔야 할 때', '이동', '<code>MEM-01</code> → <code>MEM-02</code>', '고객사 단가 지정')]))
 
     boards.append((
-        'S8', '필기펜 항목 · 할인 없음', '변형',
-        'PRD §4.4 — 펜 종류에 따라 입력 항목이 갈린다. <b>필기펜</b>은 '
-        '<b>기본 편집 · Custom · 노트서버 업로드</b> 3항목이다 <code>PC-084</code> — '
-        'action 변경 편집 · 교원구몬/KEP 는 폐지했다(구 <code>none 편집비용</code> → <b>기본 편집</b>).',
+        'S8', '타입 = 필기펜 — 소리펜 묶음 잠김', '변형',
+        'PRD §4.4 · <code>PC-091</code> — <b>[타입]이 정하는 쪽만 활성</b>이다. '
+        '필기펜을 고르면 <b>필기펜 심볼 입력이 열리고 소리펜 심볼 입력은 잠긴다</b>'
+        '(흐리게 · 제목에 <b>[잠김]</b> 배지 · 입력칸 회색). S1 의 소리펜 선택과 정확히 반대다. '
+        '필기펜 항목은 <b>Ncode 적용 · 기본 편집 · Custom · 노트서버 업로드</b> 4항목이다 '
+        '<code>PC-084</code> <code>PC-085</code> — action 변경 편집 · 교원구몬/KEP 는 폐지했다'
+        '(구 <code>none 편집비용</code> → <b>기본 편집</b>).',
         frame('PRJ-03', '교재(책) 편집 수정',
               content(pen='필기펜', discount=False), height=2020),
-        [('타입 = 필기펜', '선택', '항목 전환', '소리펜 ⇄ 필기펜'),
+        [('타입 = 필기펜', '선택', '<b>필기펜 심볼 입력 활성</b> · 소리펜 심볼 입력 <b>잠김</b>',
+          '잠긴 묶음의 값은 <b>지워지지 않는다</b> — 타입을 되돌리면 그대로 다시 열린다 <code>PC-091</code>'),
+         ('잠긴 묶음', '입력 시도', '<b>불가</b>', '입력칸이 회색이고 눌리지 않는다'),
+         ('Ncode 적용 수 · 적용비', '자동', '<b>활성 펜 기준</b>',
+          '두 펜의 [Ncode 적용] 을 더하지 않는다 <code>PC-091</code>'),
+         ('편집·기능비', '자동', '<b>두 묶음 합산</b>',
+          '옛 장부에 반대편 묶음으로 기록된 심볼이 있어 그대로 청구에 반영한다'),
          ('Custom', '—', '<b>1,500</b>', '심볼당 <code>PC-084</code>'),
          ('할인율 · 추가 할인액', '입력', '청구액 조정', '0이면 할인 행이 산출 근거에 나오지 않는다'),
          ('[할인 초기화]', '클릭', '할인 없음으로', '')]))
