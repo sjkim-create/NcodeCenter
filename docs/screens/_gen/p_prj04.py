@@ -80,8 +80,10 @@ def info(empty=False, mod_date=True):
     e = empty
     # 발급인 · 펜 모델 — 교재명 다음 줄에 **한 행**으로 (발급인이 앞) `PC-095` `PC-096`
     # 항목명은 **위**, 고른 값은 셀렉트 **오른쪽** — 다른 항목과 같은 결 `PC-097`
-    pen_models = ('<div style="display:grid;grid-template-columns:300px 1fr;gap:10px;'
-                  'margin-top:10px;align-items:start">%s%s</div>'
+    pen_models = ('<div style="display:grid;'
+                  'grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;'
+                  'margin-top:10px;align-items:start">%s'
+                  '<div style="grid-column:span 5">%s</div></div>'
                   % (field('발급인 (코드 할당자 · 사용자 명단)', sel('김순정'), False, None,
                            '코드 할당자·사용자 명단에서 선택'),
                      field('펜 모델 · 다중 선택',
@@ -91,11 +93,16 @@ def info(empty=False, mod_date=True):
                              '<span class="chip on">C91 ✕</span></div>', False, None,
                            '셀렉트에서 고르면 <b>오른쪽에 칩</b>으로 쌓이고 <b>✕</b> 로 뺀다 · '
                            '미선택이면 <b>선택된 펜 모델 없음</b>')))
-    return ('<div class="card"><div class="hd">교재 정보</div><div class="bd">'
+    # 아래 세 행은 **같은 6열 격자** — 시작 열이 맞아야 화면 구도가 깨지지 않는다 `PC-098`
+    #   (1fr 은 내용에 따라 열이 늘어나므로 minmax(0,1fr) 로 고정)
+    g6 = 'display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-top:10px'
+    tmpl = ('<div class="card"><div class="hd">교재 정보</div><div class="bd">'
             '<div class="g3">%s%s%s</div>%s'
-            '<div class="g4" style="margin-top:10px">%s%s%s%s</div>'
-            '<div class="g2" style="margin-top:10px">%s%s</div>'
-            '</div></div>'
+            '<div style="' + g6 + ';align-items:start">%s'
+            '<div style="grid-column:span 5">%s</div></div>'
+            '<div style="' + g6 + '">%s%s%s%s</div>'
+            '</div></div>')
+    return (tmpl
             % (field('교재명', v('교재명을 입력하세요' if e else '범블비 잉글리시 전집 1권', e),
                      False, None, '목록·검색에 표시'),
                field('ncp2 파일명', v('ncp2 파일명' if e else 'BUMBLEBEE_ENG_01', e)),

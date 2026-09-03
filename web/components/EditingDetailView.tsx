@@ -911,8 +911,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   onChange={(e) => setF("bytes", Math.max(0, Math.round(+e.target.value)))} />
               </Field>
             </div>
-            {/* 발급인 · 펜 모델 — 한 행에 나란히 `PC-096` (발급인이 앞) */}
-            <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 10, marginTop: 10, alignItems: "start" }}>
+            {/* 발급인 · 펜 모델 — 한 행에 나란히 `PC-096` (발급인이 앞).
+                아래 [타입]·[Start Page] 행과 **같은 6열 격자**를 써서 시작 열을 맞춘다 `PC-098` */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 10, marginTop: 10, alignItems: "start" }}>
               <Field label="발급인 (코드 할당자 · 사용자 명단)">
                 <select style={S.input} value={editing.row.iss ?? ""} onChange={(e) => setF("iss", e.target.value)}>
                   <option value="">- 선택 -</option>
@@ -921,6 +922,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                 </select>
               </Field>
               {/* 항목명은 **위**, 고른 값은 셀렉트 **오른쪽** — 다른 항목과 같은 결 `PC-097` */}
+              <div style={{ gridColumn: "span 5" }}>
               <Field label="펜 모델 · 다중 선택">
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <select style={{ ...S.input, width: 200 }} value={penPick} onChange={(e) => addPen(e.target.value)}>
@@ -935,9 +937,10 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   ))}
                 </div>
               </Field>
+              </div>
             </div>
-            {/* 타입 · 편집 방식 — 편집 방식은 타입을 따라가므로 나란히 둔다 `PC-087` */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 5fr", gap: 10, marginTop: 10, alignItems: "start" }}>
+            {/* 타입 · 편집 방식 — 편집 방식은 타입을 따라가므로 나란히 둔다 `PC-087` · 6열 격자 `PC-098` */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 10, marginTop: 10, alignItems: "start" }}>
               <Field label="타입">
                 <select style={S.input} value={normTy(editing.row.ty)}
                   onChange={(e) => {
@@ -950,6 +953,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </Field>
+              <div style={{ gridColumn: "span 5" }}>
               <Field label={`편집 방식 · ${normTy(editing.row.ty)} 항목만 · 선택해서 추가 (복수)`}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <select style={{ ...S.input, maxWidth: 260 }} value={pick} onChange={(e) => addMethod(e.target.value)}>
@@ -964,8 +968,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   ))}
                 </div>
               </Field>
+              </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginTop: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 10, marginTop: 10 }}>
               <Field label="Start Page"><input type="number" min={0} style={S.input} value={typeof editing.row.sp === "number" ? editing.row.sp : 1} onChange={(e) => setF("sp", Math.max(0, +e.target.value))} /></Field>
               {/* Total Page — **직접 입력** · 목록의 페이지 항목에 반영된다. 청구액과는 무관 `PC-089` */}
               <Field label="Total Page">
