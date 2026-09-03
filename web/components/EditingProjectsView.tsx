@@ -50,7 +50,8 @@ export default function EditingProjectsView() {
   const all = useMemo(() => [...custom.map(toFull), ...D.customers], [custom]);
   const customOwners = useMemo(() => new Set(custom.map((c) => c.owner)), [custom]);
   // PDS 필터를 교재(행) 단위로 적용한 집계 — 요약·카드 수치가 필터를 따라간다
-  const sumOf = (a?: number[]) => (a ?? []).reduce((x, y) => x + y, 0);
+  // 심볼 합계 — 배열 0번은 [Ncode 적용] **페이지 수**라 심볼로 세지 않는다 `PC-085`
+  const sumOf = (a?: number[]) => (a ?? []).slice(1).reduce((x, y) => x + y, 0);
   // 고객사 단가 — 고객사 관리에 등록된 값(없으면 기본 단가)
   const nzc = (x: string) => x.replace(/\s+/g, "").replace(/\(.*\)/g, "").toLowerCase();
   const rateFor = useMemo(() => (name: string) => rateOf(st.companies.find((c) => nzc(c.name) === nzc(name))), [st.companies]);

@@ -13,7 +13,8 @@ CODE, NAME = 'PRJ-04', '교재(책) 등록·수정'
 PRD = 'docs/prd/PRJ-04_교재(책) 등록·수정.md'
 
 # lib/pricing.ts RATE_ITEMS — (항목, 기본단가). 소리펜 14 / 필기펜 5
-SOUND_Q = (('Ncode 편집(기본)', 1000, 1240), ('Compound 2언어', 1300, 0),
+# 0번은 [Ncode 적용] — 적용비를 이 수량으로 계산한다 `PC-085`
+SOUND_Q = (('Ncode 적용', 500, 240), ('Ncode 편집(기본)', 1000, 1240), ('Compound 2언어', 1300, 0),
            ('Compound 3언어', 1600, 0), ('Compound 4언어', 1900, 0),
            ('Compound 5언어', 2200, 0), ('Compound 6언어', 2500, 0),
            ('Compound 7언어', 2800, 0), ('Compound 8언어', 3100, 0),
@@ -21,7 +22,8 @@ SOUND_Q = (('Ncode 편집(기본)', 1000, 1240), ('Compound 2언어', 1300, 0),
            ('프롬프트 편집', 50000, 0), ('RAG 데이터 업로드', 50000, 0),
            ('4도 Ncode 출력', 1000, 0))
 # 필기펜 심볼 입력 3항목 `PC-084`
-PEN_Q = (('기본 편집', 1000, 0), ('Custom', 1500, 0), ('노트서버 업로드', 10000, 0))
+PEN_Q = (('Ncode 적용', 500, 0), ('기본 편집', 1000, 0), ('Custom', 1500, 0),
+         ('노트서버 업로드', 10000, 0))
 
 MEMOS = (('2', '처리', '2026-08-20 14:12', '김순정', '2차 교정 반영 · 심볼 12개 추가'),
          ('1', '요청', '2026-08-18 09:30', '박지훈', '3권 게임 기능 2건 추가 요청'))
@@ -90,7 +92,7 @@ def info(empty=False, mod_date=True):
                field('타입', sel('소리펜')),
                field('Start Page', v('0'), False, None, '0 이상'),
                field('Total Page', v('0' if e else '48'), False, None,
-                     '<b>적용비 계산 기준</b>'),
+                     '<b>목록 표시용</b> — 적용비는 [Ncode 적용] 수량으로 계산한다 <code>PC-085</code>'),
                field('발급일자 (Ncode 발급일)', v('2026-08-26' if e else '2019-04-11')),
                field('ncp2 최종수정',
                      v('입력 안 함' if not mod_date else '2019-08-16', not mod_date),
@@ -135,7 +137,9 @@ def totals(pen='소리펜'):
     s_sum, p_sum = (1240, 0) if pen == '소리펜' else (0, 726)
     pg = 48 if pen == '소리펜' else 40
     tot = s_sum + p_sum
-    page_amt = pg * 500
+    # 적용비 = [Ncode 적용] 입력 수량 × 단가 `PC-085` (Total Page 로 계산하지 않는다)
+    s_pg, w_pg = (pg, 0) if pen == '소리펜' else (0, pg)
+    page_amt = (s_pg + w_pg) * 500
     sym_amt = tot * 1000
     return ('<div class="card" style="background:#f5f9ff;border-color:#bfdbfe">'
             '<div class="bd">'
@@ -153,14 +157,14 @@ def totals(pen='소리펜'):
             '<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:8px;'
             'padding-top:8px;border-top:1px dashed #bfdbfe">'
             '<span style="font-size:12.5px;color:#374151">적용비 <b>₩%s</b>'
-            '<span style="color:#9ca3af;font-size:11px"> (%dp × 500)</span></span>'
+            '<span style="color:#9ca3af;font-size:11px"> (Ncode 적용 소리펜 %dp · 필기펜 %dp)</span></span>'
             '<span style="font-size:12.5px;color:#374151">편집·기능비 <b>₩%s</b>'
             '<span style="color:#9ca3af;font-size:11px"> (항목별 단가 합)</span></span>'
             '<span style="margin-left:auto;font-size:14px">청구액 '
             '<b style="color:#2563eb;font-size:18px">₩%s</b></span></div>'
             '</div></div>'
             % (pg, '{:,}'.format(s_sum), '{:,}'.format(p_sum), '{:,}'.format(tot),
-               '{:,}'.format(page_amt), pg, '{:,}'.format(sym_amt),
+               '{:,}'.format(page_amt), s_pg, w_pg, '{:,}'.format(sym_amt),
                '{:,}'.format(page_amt + sym_amt)))
 
 

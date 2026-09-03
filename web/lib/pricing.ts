@@ -44,9 +44,15 @@ export const RATE_ITEMS: RateItem[] = [
 ];
 export const SOUND_ITEMS = RATE_ITEMS.filter((r) => r.pen === "sound");
 export const PEN_ITEMS = RATE_ITEMS.filter((r) => r.pen === "pen");
-// 편집 상세 심볼 배열(수량) 순서 = "적용/페이지"를 뺀 나머지 항목 (페이지는 book.pg 사용)
-export const SOUND_QTY = SOUND_ITEMS.filter((r) => r.key !== "s_page");   // 14개(4도출력 포함)
-export const PEN_QTY = PEN_ITEMS.filter((r) => r.key !== "w_page");        // 3개 (기본 편집·Custom·노트서버 업로드)
+// 편집 상세 심볼 배열(수량) 순서 = **RATE_ITEMS 순서 그대로** `PC-085`
+//   [Ncode 적용] 도 직접 입력하는 항목이다 — 적용 비용은 이 수량으로 계산한다.
+//   (Total Page(book.pg) 는 목록 표시용으로만 쓴다)
+export const SOUND_QTY = SOUND_ITEMS;   // 15개 — Ncode 적용 + 편집 14
+export const PEN_QTY = PEN_ITEMS;       // 4개  — Ncode 적용 + 기본 편집·Custom·노트서버 업로드
+// 적용(페이지) 항목의 자리 — 심볼 합계에서 빼고, 적용비로 따로 센다 `PC-085`
+export const S_PAGE_I = SOUND_QTY.findIndex((r) => r.key === "s_page");
+export const W_PAGE_I = PEN_QTY.findIndex((r) => r.key === "w_page");
+export const isPageKey = (key: string) => key === "s_page" || key === "w_page";
 const itemOf = (key: string) => RATE_ITEMS.find((r) => r.key === key)!;
 
 export type RateMap = Record<string, number>;
@@ -86,16 +92,17 @@ export type BookBill = {
 };
 
 export function settleBook(row: BookQty, rate: RateMap): BookBill {
-  const pg = Math.max(0, row.pg || 0);
-  const isPen = (row.ty ?? "소리펜") !== "소리펜";
-  const pageKey = isPen ? "w_page" : "s_page";
+  // 적용비는 **[Ncode 적용] 입력 수량**으로 계산한다 `PC-085` — Total Page(row.pg) 는 목록 표시용.
   const byKey: Record<string, number> = {};
-  const pageAmt = pg * (rate[pageKey] ?? itemOf(pageKey).base);
-  byKey[pageKey] = pageAmt;
-
-  let symAmt = 0;
-  SOUND_QTY.forEach((it, i) => { const q = Math.max(0, row.sm?.[i] || 0); if (q) { const amt = q * (rate[it.key] ?? it.base); byKey[it.key] = amt; symAmt += amt; } });
-  PEN_QTY.forEach((it, i) => { const q = Math.max(0, row.pm?.[i] || 0); if (q) { const amt = q * (rate[it.key] ?? it.base); byKey[it.key] = amt; symAmt += amt; } });
+  let pageAmt = 0, symAmt = 0;
+  const add = (it: RateItem, q: number) => {
+    if (q <= 0) return;
+    const amt = q * (rate[it.key] ?? it.base);
+    byKey[it.key] = amt;
+    if (isPageKey(it.key)) pageAmt += amt; else symAmt += amt;
+  };
+  SOUND_QTY.forEach((it, i) => add(it, Math.max(0, row.sm?.[i] || 0)));
+  PEN_QTY.forEach((it, i) => add(it, Math.max(0, row.pm?.[i] || 0)));
 
   const gross = pageAmt + symAmt;
   const dcRate = Math.min(100, Math.max(0, row.dcRate ?? 0));

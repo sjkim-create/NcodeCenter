@@ -16,7 +16,7 @@ import { setBookOverride } from "@/lib/editOverrides";
 import { logActivity } from "@/lib/activityStore";
 import { EDIT_CUSTOMERS } from "@/lib/editingData";
 import { loadCustomCustomers } from "@/lib/editingCustomers";
-import { BASE_RATE, RATE_ITEMS, rateMapOf, settleBook, bookHasDiscount, hasCustomRates, SOUND_QTY, PEN_QTY, type RateMap } from "@/lib/pricing";
+import { BASE_RATE, RATE_ITEMS, rateMapOf, settleBook, bookHasDiscount, hasCustomRates, SOUND_QTY, PEN_QTY, S_PAGE_I, W_PAGE_I, type RateMap } from "@/lib/pricing";
 
 const KIND_BG: Record<string, string> = { 요청: "#fef3c7", 처리: "#dcfce7", 메모: "#eef2f7" };
 const KIND_FG: Record<string, string> = { 요청: "#92400e", 처리: "#166534", 메모: "#475569" };
@@ -62,8 +62,9 @@ const METHODS = [
 
 const won = (n: number) => `₩${Math.round(n).toLocaleString()}`;
 const today = () => new Date().toISOString().slice(0, 10);
-const sSum = (r: BR) => r.sm.reduce((a, b) => a + b, 0);
-const pSum = (r: BR) => r.pm.reduce((a, b) => a + b, 0);
+// 심볼 합계에서 **[Ncode 적용] 수량은 뺀다** `PC-085` — 페이지 수이지 심볼이 아니다.
+const sSum = (r: BR) => r.sm.reduce((a, b, i) => a + (i === S_PAGE_I ? 0 : b), 0);
+const pSum = (r: BR) => r.pm.reduce((a, b, i) => a + (i === W_PAGE_I ? 0 : b), 0);
 const tSum = (r: BR) => sSum(r) + pSum(r);
 // 코드 관리 정보 기준 Book 최대치 (PDS·Section별)
 const BOOK_MAX: Record<string, Record<number, number>> = {
@@ -159,7 +160,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     ?? seedCustomer ?? customSeed;
   const st = useStore(); // 코드 프로젝트(발급 내역) — 할당된 S/O 조회용
 
-  const key = `ncc-edit12-${cust?.customer ?? owner}`;   // v12: 고객사명 식별(오너 충돌 방지) — 옛 편집 캐시 폐기
+  const key = `ncc-edit13-${cust?.customer ?? owner}`;   // v13: 심볼 배열에 [Ncode 적용] 자리 추가 `PC-085` — 옛 캐시 폐기
   const readOnly = !!allCustomers;                        // 전체 고객사 보기 = 조회 전용
   // 구버전 데이터(mb=MB) → bytes 로 정규화
   // 빌드 데이터는 빈 값/0 배열을 빼서 내보내므로 여기서 기본값을 복원한다 (구버전 mb=MB → bytes 도 정규화)
@@ -980,7 +981,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               <span style={{ fontSize: 13 }}>심볼 합계 <b style={{ color: "#2563eb", fontSize: 16 }}>{tSum(editing.row).toLocaleString()}</b></span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", marginTop: 8, paddingTop: 8, borderTop: "1px dashed #bfdbfe" }}>
-              <span style={{ fontSize: 12.5, color: "#374151" }}>적용비 <b>{won(eb.pageAmt)}</b><span style={{ color: "#9ca3af", fontSize: 11 }}> ({(editing.row.pg || 0).toLocaleString()}p × {(rateOf(editing.row)[editing.row.ty !== "소리펜" ? "w_page" : "s_page"]).toLocaleString()})</span></span>
+              {/* 적용비 = **[Ncode 적용] 입력 수량** × 단가 `PC-085` — Total Page 로 계산하지 않는다 */}
+              <span style={{ fontSize: 12.5, color: "#374151" }}>적용비 <b>{won(eb.pageAmt)}</b>
+                <span style={{ color: "#9ca3af", fontSize: 11 }}> (Ncode 적용 소리펜 {(editing.row.sm[S_PAGE_I] || 0).toLocaleString()}p · 필기펜 {(editing.row.pm[W_PAGE_I] || 0).toLocaleString()}p)</span></span>
               <span style={{ fontSize: 12.5, color: "#374151" }}>편집·기능비 <b>{won(eb.symAmt)}</b><span style={{ color: "#9ca3af", fontSize: 11 }}> (항목별 단가 합)</span></span>
               <span style={{ marginLeft: "auto", fontSize: 14 }}>청구액 <b style={{ color: "#2563eb", fontSize: 18 }}>{won(eb.total)}</b></span>
             </div>

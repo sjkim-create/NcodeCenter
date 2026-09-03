@@ -75,12 +75,18 @@ def split_customer_name(name, k, s):
     base, _, own = name.rpartition("-")            # "네오노트-27" → ("네오노트","-","27")
     return f"{base}-IDS-{own}" if k == "A" else f"{base}-{s}-{own}"
 
-SOUND_N, PEN_N = 7, 3
+# 배열 0번은 **[Ncode 적용] 수량** 자리다 `PC-085` — 엑셀 열이 아니라 그 교재의 페이지 수(pg)로 채운다.
+SOUND_N, PEN_N = 8, 4
 SOUND_I = [13, 14, 15, 16, 17, 18, 19]   # 심볼 블록(편집현황 표준 레이아웃)
 # 필기펜 열 — pricing.ts PEN_QTY 순서와 **자리로 맞춘다**(기본 편집 · Custom · 노트서버 업로드).
 #   `PC-084`: action 변경 편집(열 22) 은 폐지 — 실데이터도 전부 0 이었다.
 PEN_I = [20, 21, 23]
 TOT_I = 24
+
+# 심볼 합계 — 배열 0번은 [Ncode 적용] **페이지 수**라 심볼로 세지 않는다 `PC-085`
+def ssum(a): return sum((a or [])[1:])
+def symsum(b): return ssum(b.get("sm")) + ssum(b.get("pm"))
+
 
 def num(v):
     try:
@@ -228,14 +234,15 @@ def parse_sheet(ws, default_ty, s_hint=None, o_hint=None, common=False):
         if pmdl: b["pmdl"] = pmdl
 
         if "sym" in cm:
-            b["sm"][0] = int(num(g("sym")))
+            b["sm"][1] = int(num(g("sym")))   # 0번은 [Ncode 적용] 자리 `PC-085`
         elif has_sym:
-            sm = [int(num(row[i])) if len(row) > i else 0 for i in SOUND_I]
-            pm = [int(num(row[i])) if len(row) > i else 0 for i in PEN_I]
+            # 0번은 [Ncode 적용] 자리로 비워 두고, 엑셀 열은 1번부터 담는다 `PC-085`
+            sm = [0] + [int(num(row[i])) if len(row) > i else 0 for i in SOUND_I]
+            pm = [0] + [int(num(row[i])) if len(row) > i else 0 for i in PEN_I]
             total = int(num(row[TOT_I])) if len(row) > TOT_I else 0
             if sum(sm) + sum(pm) == 0 and total > 0:
-                if "필기펜" in default_ty: pm[0] = total
-                else: sm[0] = total
+                if "필기펜" in default_ty: pm[1] = total
+                else: sm[1] = total
             b["sm"], b["pm"] = sm, pm
             for key, idx in [("iss", 26), ("use", 28), ("pmdl", 34)]:
                 v = txt(row[idx]) if len(row) > idx else ""
@@ -429,6 +436,21 @@ if os.path.exists(epath):
 else:
     print("!! 편집현황 파일 없음:", EDIT_FILE)
 
+# ── [Ncode 적용] 수량(sm/pm 의 0번) `PC-085` ─────────────────────────
+#   지금까지 적용비는 Total Page 로 계산했다. 그 페이지 수를 **그 책 자신의 값**으로 옮겨 담아
+#   기존 청구액을 그대로 유지한다. 이후에는 담당자가 이 칸을 직접 고친다.
+#   ※ 편집현황 이식(위)이 끝난 뒤에 채운다 — 먼저 채우면 `any(sm)` 판정이 흐려져 남의 값이 덮인다.
+_n_pg = 0
+for _c in custs.values():
+    for b in _c["books"]:
+        if not b.get("pg"): continue
+        if not b.get("sm"): b["sm"] = [0] * SOUND_N
+        if not b.get("pm"): b["pm"] = [0] * PEN_N
+        if "필기펜" in (b.get("ty") or ""): b["pm"][0] = b["pg"]
+        else: b["sm"][0] = b["pg"]
+        _n_pg += 1
+print(f"Ncode 적용 수량 이관: {_n_pg:,}건 (Total Page → 심볼 입력 0번) `PC-085`")
+
 # OID 는 book 으로 나누지 않는 경우가 많다(북코드 없음) → 아래 nb 필터 전에 대장용으로 따로 모아 둔다 (PC-033)
 OID_ROWS = [(_c["name"], b) for _c in custs.values() for b in _c["books"] if b["k"] == "O"]
 
@@ -491,7 +513,7 @@ for _, c in sorted(custs.items(), key=lambda kv: -len(kv[1]["books"])):
     companies.append(co)
     pages = sum(b["pg"] for b in books)
     size = sum(b["bytes"] for b in books)
-    sym = sum(sum(b["sm"]) + sum(b["pm"]) for b in books)
+    sym = sum(symsum(b) for b in books)
 
     groups = {}
     for b in books:
@@ -503,7 +525,7 @@ for _, c in sorted(custs.items(), key=lambda kv: -len(kv[1]["books"])):
         pid += 1
         sub = [b for b in books if b["k"] == k and b["s"] == sec and b["o"] == own]
         _editing = any(b.get("ed") for b in sub)
-        _symbols = int(sum(sum(b["sm"]) + sum(b["pm"]) for b in sub))
+        _symbols = int(sum(symsum(b) for b in sub))
         # 편집 데이터(편집 프로젝트에 노출되는 코드) = casterN 편집툴 서비스
         _service = "CASTERN" if (_editing or _symbols > 0) else "NONE"
         projects.append({"id": pid, "name": f"{name} 코드발급 · S{sec}/O{own}", "companyId": cid,
@@ -540,7 +562,7 @@ for _, c in sorted(custs.items(), key=lambda kv: -len(kv[1]["books"])):
     def _emit(cname, bks):
         global T_books, T_pages, T_sym, T_size
         p = sum(b["pg"] for b in bks); sz = sum(b["bytes"] for b in bks)
-        sy = sum(sum(b["sm"]) + sum(b["pm"]) for b in bks)
+        sy = sum(symsum(b) for b in bks)
         owners = sorted({b["o"] for b in bks}); methods = {}
         for b in bks:
             for one in [x.strip() for x in (b["m"] or "").split(",") if x.strip()]:
@@ -549,9 +571,9 @@ for _, c in sorted(custs.items(), key=lambda kv: -len(kv[1]["books"])):
             "customer": cname, "owner": str(owners[0] if owners else 0), "owners": owners,
             "codeKinds": sorted({b["k"] for b in bks}), "books": len(bks),
             "pages": int(p), "symbols": int(sy),
-            "soundSymbols": int(sum(sum(b["sm"]) for b in bks)),
-            "penSymbols": int(sum(sum(b["pm"]) for b in bks)),
-            "withSymbolBooks": sum(1 for b in bks if sum(b["sm"]) + sum(b["pm"]) > 0),
+            "soundSymbols": int(sum(ssum(b.get("sm")) for b in bks)),
+            "penSymbols": int(sum(ssum(b.get("pm")) for b in bks)),
+            "withSymbolBooks": sum(1 for b in bks if symsum(b) > 0),
             "sizeMB": round(sz / 1e6), "soundBreakdown": {}, "penBreakdown": {},
             "topMethods": sorted(methods.items(), key=lambda x: -x[1])[:4], "bookRows": bks})
         T_books += len(bks); T_pages += p; T_sym += sy; T_size += sz
@@ -665,14 +687,14 @@ for c in edit_customers:
     rows = [b for b in c["bookRows"] if not (b.get("cg") and not (b.get("t") or "").strip())]
     if not rows: continue
     pg = sum(b["pg"] for b in rows)
-    snd = sum(sum(b["sm"]) for b in rows); pn = sum(sum(b["pm"]) for b in rows)
+    snd = sum(ssum(b.get("sm")) for b in rows); pn = sum(ssum(b.get("pm")) for b in rows)
     owners = sorted({b["o"] for b in rows})
     edit_only.append({**c, "bookRows": rows, "books": len(rows), "pages": int(pg),
                       "symbols": int(snd + pn), "soundSymbols": int(snd), "penSymbols": int(pn),
                       "owner": str(owners[0] if owners else 0), "owners": owners,
                       "codeKinds": sorted({b["k"] for b in rows}),
                       "sizeMB": round(sum(b["bytes"] for b in rows) / 1e6),
-                      "withSymbolBooks": sum(1 for b in rows if sum(b["sm"]) + sum(b["pm"]) > 0)})
+                      "withSymbolBooks": sum(1 for b in rows if symsum(b) > 0)})
 edit_only.sort(key=lambda c: -c["symbols"])
 
 # 번들 축소 — 빈 값/0 배열/화면에서 안 쓰는 키는 빼고 내보낸다 (앱에서 기본값 복원)

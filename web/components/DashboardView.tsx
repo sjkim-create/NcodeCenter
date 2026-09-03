@@ -50,7 +50,8 @@ const maxAcc = Math.max(1, ...topAccounts.map((a) => a.owners));
 /* ── ② 편집 ── */
 const EDIT_KEY = "ncc-edit12-";   // 교재 편집 캐시 (고객사명 단위)
 const nzc = (x: string) => x.replace(/\s+/g, "").replace(/\(.*\)/g, "").toLowerCase();
-const sumOf = (a?: number[]) => (a ?? []).reduce((x, y) => x + y, 0);
+// 심볼 합계 — 배열 0번은 [Ncode 적용] **페이지 수**라 심볼로 세지 않는다 `PC-085`
+const sumOf = (a?: number[]) => (a ?? []).slice(1).reduce((x, y) => x + y, 0);
 type BRow = { pg?: number; sm?: number[]; pm?: number[]; pu?: number; su?: number; dcRate?: number; dcAmt?: number; use?: string };
 const stateOf = (v?: string) => (v === "완료" || v === "보류" ? v : "진행중");
 const ST_TONE: Record<string, string> = { 진행중: "#5f8ff0", 완료: "#22c55e", 보류: "#f59e0b" };
