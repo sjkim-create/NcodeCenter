@@ -97,16 +97,24 @@ def basic_card(name_err=False, empty=False, closed=False):
                 '</div></span></label>'
                 % (' checked' if on else '', '#1e3a8a' if on else '#374151', label, desc))
 
+    # 프로젝트 상태 — 구현은 **토글 스위치**다(칩이 아니다) `PC-093`
+    knob = ('<span style="position:absolute;top:3px;left:%dpx;width:20px;height:20px;'
+            'border-radius:50%%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25)"></span>'
+            % (23 if closed else 3))
+    sw = ('<span style="display:inline-block;position:relative;width:46px;height:26px;'
+          'border-radius:13px;background:%s;flex:none">%s</span>'
+          % ('#ef4444' if closed else '#d1d5db', knob))
     st = ('<div style="margin-top:12px">'
           '<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px">'
           '프로젝트 상태</div>'
           '<div style="border:1px solid %s;background:%s;border-radius:10px;padding:12px 14px">'
-          '<div class="row" style="gap:6px"><span class="chip%s">진행</span>'
-          '<span class="chip%s">종료</span></div>'
-          '<div style="font-size:11px;color:#9ca3af;margin-top:6px">사업 종료 시 코드 발급 이력만 '
-          '유지되고, 목록·코드 프로젝트에서 비활성(회색)으로 표시됩니다.</div>%s</div></div>'
+          '<div style="display:flex;align-items:center;gap:12px">%s'
+          '<div><b style="font-size:13.5px;color:%s">%s</b>'
+          '<div style="font-size:11px;color:#9ca3af;margin-top:1px">사업 종료 시 코드 발급 이력만 '
+          '유지되고, 목록·코드 프로젝트에서 비활성(회색)으로 표시됩니다.</div></div></div>'
+          '%s</div></div>'
           % ('#fca5a5' if closed else '#e5e7eb', '#fef2f2' if closed else '#fafbfc',
-             '' if closed else ' on', ' on' if closed else '',
+             sw, '#b91c1c' if closed else '#374151', '사업 종료' if closed else '진행중',
              ('<div style="margin-top:10px">' + fld('종료 사유', False, '스마트펜 사업 정리 (2026-06)')
               + fld('코드 이관 메모', False, '엠베스트-28로 코드 이관 · 발급 이력 보존')
               + '</div>') if closed else ''))
@@ -151,16 +159,27 @@ def form_panel():
 
 def common_card(is_parent=False):
     # 실제 레지스트리(commonCodes.ts) 기준 `PC-044` — 여러 고객사가 함께 쓰는 코드만 올라온다
-    items = [('Common-21 · PDS2 S3/O21', False, False),
-             ('네오노트-3-27 · PDS3 S3/O27', False, False),
-             ('스마트클래스키트-1013 · PDS3 S3/O1013', False, False)]
+    # 레지스트리 5건 `PC-082` — 구현은 **2열 카드**(이름 + 좌표 2줄)다 `PC-093`
+    items = [('Common-21', 'PDS2 · S3/O21', False, False),
+             ('네오노트-0-27', 'PDS3 · S0/O27', False, False),
+             ('네오노트-3-27', 'PDS3 · S3/O27', True, False),
+             ('네오노트-1012', 'PDS3 · S3/O1012', False, False),
+             ('스마트클래스키트-1013', 'PDS3 · S3/O1013', False, False)]
     if is_parent:
-        items[0] = ('Common-21 · PDS2 S3/O21 <span class="tag">자기 보유 코드</span>', False, True)
-    li = ''.join('<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;'
-                 'padding:7px 2px;color:%s"><input type="checkbox"%s%s> %s</label>'
-                 % ('#cbd5e1' if dis else '#374151', ' checked' if ck else '',
-                    ' disabled' if dis else '', nm)
-                 for nm, ck, dis in items)
+        items[0] = ('Common-21 <span class="tag">대표(자기) 코드</span>', 'PDS2 · S3/O21', False, True)
+    li = ''.join('<label style="display:flex;align-items:flex-start;gap:9px;'
+                 'border:1px solid %s;background:%s;border-radius:9px;padding:9px 11px;'
+                 'font-size:12.5px;opacity:%s">'
+                 '<input type="checkbox"%s%s style="margin-top:2px">'
+                 '<span><b style="color:%s">%s</b>'
+                 '<div style="font-size:11px;color:#9ca3af;margin-top:2px">%s</div></span></label>'
+                 % ('#bfdbfe' if (ck and not dis) else '#eef0f4',
+                    '#f3f4f6' if dis else ('#f5f9ff' if ck else '#fafbfc'),
+                    '0.55' if dis else '1',
+                    ' checked' if (ck and not dis) else '', ' disabled' if dis else '',
+                    '#9ca3af' if dis else ('#1e3a8a' if ck else '#374151'), nm, lb)
+                 for nm, lb, ck, dis in items)
+    li = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">%s</div>' % li
     note = ('<div style="font-size:11.5px;color:#6b7280;background:#f8fafc;border-radius:8px;'
             'padding:9px 11px;margin-top:8px;line-height:1.6">'
             '이미 발급된 공통코드를 쓰므로 <b>코드 할당은 없고</b>, 편집 프로젝트·티켓 발급에서 '
