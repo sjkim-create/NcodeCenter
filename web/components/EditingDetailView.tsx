@@ -217,14 +217,19 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const [logDraft, setLogDraft] = useState<{ id: number | null; kind: WorkKind; content: string }>({ id: null, kind: "요청", content: "" });
   const [toast, setToast] = useState("");
   const [bookLimit, setBookLimit] = useState(BOOK_STEP);   // Book 번호 노출 개수 (＋100씩) `PC-046`
+  // 이 고객사의 교재를 **로컬 저장분까지 읽었는지** `PC-092`
+  //   첫 렌더의 rows 는 시드(base)라, 이 표시가 없으면 편집 폼이 **저장 전 값**으로 채워진다.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
 
   // 고객사(owner) 전환 시 해당 고객사 데이터로 재로드 (localStorage 우선, 없으면 시드)
   useEffect(() => {
     setEditing(null); setQ(""); setPage(1); setFS(null); setFO(null); setFB(null); setFM(""); setFT(""); setFK(""); setFSt(""); setFCu(""); setFOwnerCust(""); setSort({ key: null, dir: 1 });
-    if (allCustomers) { setRows(base); return; }             // 전체 보기는 캐시를 쓰지 않는다
+    setLoadedKey(null);
+    if (allCustomers) { setRows(base); setLoadedKey(key); return; }   // 전체 보기는 캐시를 쓰지 않는다
     try { const raw = localStorage.getItem(key); setRows(raw ? norm(JSON.parse(raw)) : base); }
     catch { setRows(base); }
-  }, [key, base]);
+    setLoadedKey(key);
+  }, [key, base]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPage(1); }, [ownerFilter, pdsLock, fS, fO, fB, fM, fT, fK, fSt, fCu, fOwnerCust]);
   const toggleSort = (k: "t" | "d") => { setSort((s2) => (s2.key === k ? (s2.dir === 1 ? { key: k, dir: -1 } : { key: null, dir: 1 }) : { key: k, dir: 1 })); setPage(1); };
   // 저장 실패(용량 초과) 시 다른 편집 캐시를 비우고 재시도 — 조용히 사라지지 않도록 경고
@@ -371,7 +376,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
 
   // 편집 페이지 진입 시 대상 교재를 폼에 올린다 (rows 가 localStorage 로 채워진 뒤)
   useEffect(() => {
-    if (!bookMode || editing) return;
+    // **로컬 저장분을 읽기 전에는 폼을 만들지 않는다** `PC-092` —
+    //   먼저 만들면 시드값이 올라가고, 이 효과는 editing 이 생긴 뒤 다시 돌지 않는다.
+    if (!bookMode || editing || loadedKey !== key) return;
     if (bookIdx === "new") {
       const a = assignedSO[0];                      // 할당된 S/O 기본값 (수정 불가)
       const row = EMPTY(Number(owner) || 0);
@@ -385,7 +392,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     if (!r) return;
     setKepOpen(bookHasKep(r)); setLogDraft({ id: null, kind: "요청", content: "" });
     setEditing({ idx, row: { ...r, sm: [...r.sm], pm: [...r.pm], logs: r.logs ? r.logs.map((l) => ({ ...l })) : [] } });
-  }, [bookMode, bookIdx, rows, editing, assignedSO, owner]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [bookMode, bookIdx, rows, editing, assignedSO, owner, loadedKey, key]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // 훅은 모두 호출한 뒤에 분기한다 — 고객사를 늦게(로컬 저장분) 찾는 경우가 있어 조건부 훅이 되면 안 된다 `PC-045`
   const custMissing = !cust;

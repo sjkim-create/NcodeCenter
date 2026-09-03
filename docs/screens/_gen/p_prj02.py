@@ -176,7 +176,7 @@ def basis_box(filtered=False, base_price=False, discount=True):
                 'color:%s;white-space:nowrap">%s</td></tr>'
                 % (label, detail, '#b91c1c' if minus else '#1e3a8a', value))
 
-    calc = line('적용비용', '페이지 %s × 500' % pg, '₩%s' % apply_amt)
+    calc = line('적용비용', 'Ncode 적용 %s × 500' % pg, '₩%s' % apply_amt)
     calc += line('편집·기능비', '심볼·기능 %s (항목별 단가 합)' % sym, '＋ ₩%s' % sym_amt)
     calc += line('기준가', '고객사 단가 기준 합계', '₩%s' % listed)
     if dc:
@@ -259,7 +259,7 @@ def summary(filtered=False, base_price=False, discount=True, basis=False,
         ('소리펜 심볼 합', s_sym, ''), ('필기펜 심볼 합', p_sym, ''),
         ('심볼 합계', sym, '소리펜+필기펜')), 5)
     pay = kpi_group('정산', (
-        ('적용비(페이지)', apply_amt, '%sp × 500' % pg),
+        ('적용비 (Ncode 적용)', apply_amt, '%sp × 500' % pg),
         ('편집·기능비', sym_amt, '심볼·기능 %s (항목별 단가)' % sym),
         ('청구액', cost, ('할인 −%s' % dc) if dc else '할인 없음')), 3, True)
 
@@ -794,12 +794,14 @@ def build3():
         '<code>PRJ-02</code> 에서 고객사를 고르면 <b>같은 화면 오른쪽</b>에 나온다. '
         '편집량(페이지·심볼)이 곧 청구 근거라 <b>편집팀의 작업 관리 화면이자 '
         '재무팀의 정산 근거 화면</b>이다. 지표는 <b>편집량</b>(수량)과 <b>정산</b>(금액) '
-        '두 묶음으로 나뉜다. 청구액 = <b>적용비(페이지 × 적용단가) + 편집·기능비 − 할인</b> '
+        '두 묶음으로 나뉜다. 청구액 = <b>적용비([Ncode 적용] 수량 × 적용단가) + 편집·기능비 − 할인</b> '
+        '<code>PC-085</code> — <b>Total Page 로 계산하지 않는다</b> <code>PC-089</code>. '
         '<code>P-16</code>.',
         frame('PRJ-02', '편집 프로젝트', content(), height=H3),
         [('헤더', '표시', '—', '고객사명 · <b>owner {번호}</b> · 코드 종류 배지'),
          ('[초기화]', '클릭', 'S12 확인창', '엑셀 시드로 되돌린다'),
-         ('적용비(페이지)', '표시', '—', '아래에 <b>{n}p × {단가}</b>'),
+         ('적용비 (Ncode 적용)', '표시', '—',
+          '아래에 <b>{타입} {n}p × 단가</b> — 타입이 정하는 <b>활성 펜</b>의 [Ncode 적용] 기준 <code>PC-091</code>'),
          ('편집·기능비', '표시', '—', '아래에 <b>심볼·기능 {n} (항목별 단가)</b>'),
          ('청구액', '표시', '—', '아래에 <b>할인 −{n}</b> 또는 <b>할인 없음</b>'),
          ('페이지 열', '표시', '—', '<b>{시작}~{끝}</b> + 아래 <b>{n}p</b>'),
