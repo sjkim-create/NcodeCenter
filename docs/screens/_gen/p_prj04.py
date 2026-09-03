@@ -78,17 +78,28 @@ def info(empty=False, mod_date=True):
     def v(x, ph=False):
         return '<div class="inp%s">%s</div>' % (' ph' if ph else '', x)
     e = empty
+    # 펜 모델 — 실제 화면은 **교재명 바로 다음 줄**에 전폭으로 온다 `PC-095`
+    pen_models = ('<div style="margin-top:10px">'
+                  '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#6b7280">'
+                  '펜 모델 <span style="color:#9ca3af">· 다중 선택</span>%s'
+                  '</div>'
+                  '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">'
+                  '<span class="chip on">C90 ✕</span><span class="chip on">C91 ✕</span></div>'
+                  '<div style="font-size:11px;color:#9ca3af;margin-top:4px">'
+                  '선택하면 칩으로 쌓이고 <b>✕</b> 로 뺀다 · 미선택이면 '
+                  '<b>선택된 펜 모델 없음</b></div></div>'
+                  % sel('＋ 펜 모델 추가…'))
     return ('<div class="card"><div class="hd">교재 정보</div><div class="bd">'
-            '<div class="g3">%s%s%s</div>'
+            '<div class="g3">%s%s%s</div>%s'
             '<div class="g4" style="margin-top:10px">%s%s%s%s</div>'
             '<div class="g3" style="margin-top:10px">%s%s%s</div>'
-            '<div class="g2" style="margin-top:10px">%s%s</div>'
             '</div></div>'
             % (field('교재명', v('교재명을 입력하세요' if e else '범블비 잉글리시 전집 1권', e),
                      False, None, '목록·검색에 표시'),
                field('ncp2 파일명', v('ncp2 파일명' if e else 'BUMBLEBEE_ENG_01', e)),
                field('ncp2 파일 크기(byte)', v('0' if e else '109,316,656'), False, None,
                      '서버 저장 용량 파악용'),
+               pen_models,
                field('타입', sel('소리펜'), False, None,
                      '<b>소리펜 · 필기펜 2종</b> <code>PC-086</code> — 적용비·심볼 단가의 펜 구분'),
                # 편집 방식은 타입 바로 옆 · 그 타입의 항목만 `PC-087`
@@ -109,11 +120,6 @@ def info(empty=False, mod_date=True):
                      v('입력 안 함' if not mod_date else '2019-08-16', not mod_date),
                      False, None, '<b>완료 처리의 선행 조건</b>'),
                field('발급인', sel('김순정'), False, None, '코드 할당자·사용자 명단에서 선택'),
-               '<div></div>',
-               field('펜 모델', '<div class="row" style="gap:5px;flex-wrap:wrap">'
-                              '<span class="chip on">C90 ✕</span><span class="chip on">C91 ✕</span>'
-                              '<span class="chip">＋ 추가</span></div>', False, None,
-                     '여러 개 선택 가능'),
                ))
 
 
@@ -350,7 +356,10 @@ def build():
         frame('PRJ-03', '교재(책) 편집 수정', content(), height=2100),
         [('S / O', '—', '<b>수정 불가</b>', '수정 모드에서는 변경할 수 없다'),
          ('Book', '선택', '—', '사용 가능한 번호에서'),
-         ('펜 모델', '추가/삭제', '—', '여러 개 선택 가능'),
+         ('펜 모델', '셀렉트에서 선택', '칩으로 추가',
+          '<b>교재명 바로 다음 줄</b>에 있다 <code>PC-095</code> · <b>[＋ 펜 모델 추가…]</b> 에서 고르면 '
+          '칩으로 쌓이고 <b>✕</b> 로 뺀다(다중). 미선택이면 <b>선택된 펜 모델 없음</b> · '
+          '이미 고른 모델은 목록에 다시 나오지 않는다'),
          ('편집 방식', '추가/삭제', '<b>타입에 따라 후보가 바뀐다</b>',
           '[타입] 바로 옆 <code>PC-087</code> · 소리펜 12종 / 필기펜 7종 + 기능 없음(공통). '
           '타입을 바꾸면 그 타입에 없는 편집 방식은 자동으로 떨어진다'),
