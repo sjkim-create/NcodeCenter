@@ -131,7 +131,9 @@ def qty(pen='소리펜'):
                 '</div></div>' % (grow, title, cols, cells))
     return ('<div style="display:flex;gap:12px;align-items:stretch">%s%s</div>'
             '<div style="font-size:11.5px;color:#6b7280;line-height:1.7;margin-top:8px">'
-            '<b>Ncode 적용</b>은 <b>적용비 계산</b>에 쓰는 수량입니다 <code>PC-085</code> — '
+            '<b>[타입]이 정하는 쪽만 입력</b>합니다 <code>PC-091</code> — 반대쪽 묶음은 '
+            '<b>잠김</b>(흐리게)이고 타입을 바꾸면 열립니다. '
+            '<b>Ncode 적용</b>은 <b>적용비 계산</b>에 쓰는 수량이며 <code>PC-085</code> '
             '기본 정보의 <b>[Total Page]</b> 와는 <b>서로 물리지 않습니다</b> <code>PC-089</code>. '
             '단가 정본은 정책 <code>P-16</code>, 고객사별 단가는 '
             '<code>MEM-02</code> 에서 지정합니다. '

@@ -16,7 +16,7 @@ import { setBookOverride } from "@/lib/editOverrides";
 import { logActivity } from "@/lib/activityStore";
 import { EDIT_CUSTOMERS } from "@/lib/editingData";
 import { loadCustomCustomers } from "@/lib/editingCustomers";
-import { BASE_RATE, RATE_ITEMS, rateMapOf, settleBook, bookHasDiscount, hasCustomRates, SOUND_QTY, PEN_QTY, S_PAGE_I, W_PAGE_I, type RateMap } from "@/lib/pricing";
+import { BASE_RATE, RATE_ITEMS, rateMapOf, settleBook, bookHasDiscount, hasCustomRates, SOUND_QTY, PEN_QTY, S_PAGE_I, W_PAGE_I, ncodeApplied, type RateMap } from "@/lib/pricing";
 
 const KIND_BG: Record<string, string> = { 요청: "#fef3c7", 처리: "#dcfce7", 메모: "#eef2f7" };
 const KIND_FG: Record<string, string> = { 요청: "#92400e", 처리: "#166534", 메모: "#475569" };
@@ -977,32 +977,44 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
             </div>
           </div>
 
-          {/* 2행: 소리펜(좌) / 필기펜(우) 심볼 입력 */}
+          {/* 2행: 소리펜(좌) / 필기펜(우) 심볼 입력 — **타입에 맞는 쪽만 입력한다** `PC-091` */}
+          {(() => {
+            const penOn = normTy(editing.row.ty) !== "소리펜";
+            const off = { background: "#f3f4f6", color: "#9ca3af", cursor: "not-allowed" } as React.CSSProperties;
+            const dim = (on: boolean): React.CSSProperties => (on ? {} : { opacity: 0.55 });
+            const lock = (on: boolean) => (on ? null : (
+              <span style={{ ...S.tag, marginLeft: 6, fontSize: 9.5, background: "#f3f4f6", color: "#9ca3af", fontWeight: 700 }}
+                title={`타입이 ${normTy(editing.row.ty)} 이라 잠겨 있습니다 · 타입을 바꾸면 열립니다`}>잠김</span>
+            ));
+            return (
           <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 12 }}>
-            <div style={rowBox}>
-              <div style={rowHead}>소리펜 심볼 입력</div>
+            <div style={{ ...rowBox, ...dim(!penOn) }}>
+              <div style={rowHead}>소리펜 심볼 입력{lock(!penOn)}</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                 {SOUND_LABELS.map((lab, i) => (
-                  <Field key={lab} label={lab}><input type="number" style={S.input} value={editing.row.sm[i]} onChange={(e) => setSm(i, +e.target.value)} /></Field>
+                  <Field key={lab} label={lab}><input type="number" disabled={penOn} style={{ ...S.input, ...(penOn ? off : {}) }} value={editing.row.sm[i]} onChange={(e) => setSm(i, +e.target.value)} /></Field>
                 ))}
               </div>
             </div>
-            <div style={rowBox}>
-              <div style={rowHead}>필기펜 심볼 입력</div>
+            <div style={{ ...rowBox, ...dim(penOn) }}>
+              <div style={rowHead}>필기펜 심볼 입력{lock(penOn)}</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
                 {PEN_LABELS.map((lab, i) => (
-                  <Field key={lab} label={lab}><input type="number" style={S.input} value={editing.row.pm[i]} onChange={(e) => setPm(i, +e.target.value)} /></Field>
+                  <Field key={lab} label={lab}><input type="number" disabled={!penOn} style={{ ...S.input, ...(!penOn ? off : {}) }} value={editing.row.pm[i]} onChange={(e) => setPm(i, +e.target.value)} /></Field>
                 ))}
               </div>
             </div>
           </div>
+            );
+          })()}
 
           {/* 3행: 합산 — 편집량(TOTAL PAGE·심볼) / 정산(PDF·심볼 편집비·청구액) */}
           {(() => { const eb = bill(editing.row); return (
           <div style={{ ...rowBox, background: "#f5f9ff", borderColor: "#bfdbfe" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
-              {/* 정산 영역이므로 **적용비 기준값**을 보여 준다 `PC-090` — 기본 정보의 Total Page 가 아니다 */}
-              <span style={{ fontSize: 13 }}>Ncode 적용 수 <b style={{ color: "#2563eb", fontSize: 17 }}>{((editing.row.sm[S_PAGE_I] || 0) + (editing.row.pm[W_PAGE_I] || 0)).toLocaleString()}</b><span style={{ color: "#9ca3af", fontSize: 11 }}> p · 소리펜 {(editing.row.sm[S_PAGE_I] || 0).toLocaleString()} + 필기펜 {(editing.row.pm[W_PAGE_I] || 0).toLocaleString()}</span></span>
+              {/* 정산 영역이므로 **적용비 기준값**을 보여 준다 `PC-090` — 기본 정보의 Total Page 가 아니다.
+                  값은 **타입이 정하는 활성 펜**의 [Ncode 적용] 이다 `PC-091` */}
+              <span style={{ fontSize: 13 }}>Ncode 적용 수 <b style={{ color: "#2563eb", fontSize: 17 }}>{ncodeApplied(editing.row).toLocaleString()}</b><span style={{ color: "#9ca3af", fontSize: 11 }}> p · {normTy(editing.row.ty)} 기준</span></span>
               <span style={{ color: "#cbd5e1" }}>|</span>
               <span style={{ fontSize: 13 }}>소리펜 합 <b style={{ color: "#2563eb" }}>{sSum(editing.row).toLocaleString()}</b></span>
               <span style={{ fontSize: 13 }}>필기펜 합 <b style={{ color: "#2563eb" }}>{pSum(editing.row).toLocaleString()}</b></span>
@@ -1011,7 +1023,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
             <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", marginTop: 8, paddingTop: 8, borderTop: "1px dashed #bfdbfe" }}>
               {/* 적용비 = **[Ncode 적용] 입력 수량** × 단가 `PC-085` — Total Page 로 계산하지 않는다 */}
               <span style={{ fontSize: 12.5, color: "#374151" }}>적용비 <b>{won(eb.pageAmt)}</b>
-                <span style={{ color: "#9ca3af", fontSize: 11 }}> (Ncode 적용 소리펜 {(editing.row.sm[S_PAGE_I] || 0).toLocaleString()}p · 필기펜 {(editing.row.pm[W_PAGE_I] || 0).toLocaleString()}p)</span></span>
+                <span style={{ color: "#9ca3af", fontSize: 11 }}> ({normTy(editing.row.ty)} Ncode 적용 {ncodeApplied(editing.row).toLocaleString()}p × 단가)</span></span>
               <span style={{ fontSize: 12.5, color: "#374151" }}>편집·기능비 <b>{won(eb.symAmt)}</b><span style={{ color: "#9ca3af", fontSize: 11 }}> (항목별 단가 합)</span></span>
               <span style={{ marginLeft: "auto", fontSize: 14 }}>청구액 <b style={{ color: "#2563eb", fontSize: 18 }}>{won(eb.total)}</b></span>
             </div>
@@ -1074,7 +1086,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                 <div style={{ marginTop: 12, border: "1px solid #eef0f4", borderRadius: 9, overflow: "hidden" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
                     <tbody>
-                      <Line label="적용비 (Ncode 적용)" detail={`소리펜 ${(row.sm?.[S_PAGE_I] || 0).toLocaleString()}p · 필기펜 ${(row.pm?.[W_PAGE_I] || 0).toLocaleString()}p × 단가`} value={won(b.pageAmt)} />
+                      <Line label="적용비 (Ncode 적용)" detail={`${normTy(row.ty)} ${ncodeApplied(row).toLocaleString()}p × 단가`} value={won(b.pageAmt)} />
                       <Line label="편집·기능비" detail={`심볼·기능 ${tSum(row).toLocaleString()} (항목별 단가 합)`} value={`＋ ${won(b.symAmt)}`} />
                       <Line label="합계 (할인 전)" detail="적용비 + 편집·기능비" value={won(b.gross)} />
                       {b.rateDc > 0 && <Line label={`할인율 ${row.dcRate}%`} detail="합계 기준" value={`− ${won(b.rateDc)}`} minus />}

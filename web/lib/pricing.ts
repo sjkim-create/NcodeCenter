@@ -91,18 +91,27 @@ export type BookBill = {
   byKey: Record<string, number>;   // 항목별 금액
 };
 
+// 그 교재의 [Ncode 적용] 수량 — **타입에 맞는 펜 쪽만** 센다 `PC-091`
+export const ncodeApplied = (row: { ty?: string; sm?: number[]; pm?: number[] }) =>
+  (row.ty ?? "소리펜") !== "소리펜"
+    ? Math.max(0, row.pm?.[W_PAGE_I] || 0)
+    : Math.max(0, row.sm?.[S_PAGE_I] || 0);
+
 export function settleBook(row: BookQty, rate: RateMap): BookBill {
   // 적용비는 **[Ncode 적용] 입력 수량**으로 계산한다 `PC-085` — Total Page(row.pg) 는 목록 표시용.
+  //   타입이 정하는 **활성 펜 쪽만** 적용비로 센다 `PC-091` — 반대쪽 입력은 화면에서도 잠긴다.
+  const isPen = (row.ty ?? "소리펜") !== "소리펜";
   const byKey: Record<string, number> = {};
   let pageAmt = 0, symAmt = 0;
-  const add = (it: RateItem, q: number) => {
+  const add = (it: RateItem, q: number, active: boolean) => {
     if (q <= 0) return;
+    if (isPageKey(it.key) && !active) return;         // 비활성 펜의 [Ncode 적용] 은 세지 않는다
     const amt = q * (rate[it.key] ?? it.base);
     byKey[it.key] = amt;
     if (isPageKey(it.key)) pageAmt += amt; else symAmt += amt;
   };
-  SOUND_QTY.forEach((it, i) => add(it, Math.max(0, row.sm?.[i] || 0)));
-  PEN_QTY.forEach((it, i) => add(it, Math.max(0, row.pm?.[i] || 0)));
+  SOUND_QTY.forEach((it, i) => add(it, Math.max(0, row.sm?.[i] || 0), !isPen));
+  PEN_QTY.forEach((it, i) => add(it, Math.max(0, row.pm?.[i] || 0), isPen));
 
   const gross = pageAmt + symAmt;
   const dcRate = Math.min(100, Math.max(0, row.dcRate ?? 0));
