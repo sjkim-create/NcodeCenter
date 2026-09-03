@@ -75,9 +75,11 @@ def split_customer_name(name, k, s):
     base, _, own = name.rpartition("-")            # "네오노트-27" → ("네오노트","-","27")
     return f"{base}-IDS-{own}" if k == "A" else f"{base}-{s}-{own}"
 
-SOUND_N, PEN_N = 7, 4
+SOUND_N, PEN_N = 7, 3
 SOUND_I = [13, 14, 15, 16, 17, 18, 19]   # 심볼 블록(편집현황 표준 레이아웃)
-PEN_I = [20, 21, 22, 23]
+# 필기펜 열 — pricing.ts PEN_QTY 순서와 **자리로 맞춘다**(기본 편집 · Custom · 노트서버 업로드).
+#   `PC-084`: action 변경 편집(열 22) 은 폐지 — 실데이터도 전부 0 이었다.
+PEN_I = [20, 21, 23]
 TOT_I = 24
 
 def num(v):

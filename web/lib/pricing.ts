@@ -36,17 +36,17 @@ export const RATE_ITEMS: RateItem[] = [
   { key: "s_4color", pen: "sound", label: "4도 Ncode 출력",    unit: "page",   base: 1000 },
   // 필기펜
   { key: "w_page",   pen: "pen",   label: "Ncode 적용",        unit: "page",   base: 500 },
-  { key: "w_none",   pen: "pen",   label: "none 편집비용",     unit: "symbol", base: 1000 },
-  { key: "w_custom", pen: "pen",   label: "Custom",            unit: "symbol", base: 1000 },  // (구 캘린더) · 단가 확인 필요
-  { key: "w_action", pen: "pen",   label: "action 변경 편집",  unit: "symbol", base: 1500 },
+  { key: "w_none",   pen: "pen",   label: "기본 편집",         unit: "symbol", base: 1000 },  // (구 none 편집비용) `PC-084`
+  { key: "w_custom", pen: "pen",   label: "Custom",            unit: "symbol", base: 1500 },  // (구 캘린더) `PC-084`
   { key: "w_upload", pen: "pen",   label: "노트서버 업로드",   unit: "each",   base: 10000 }, // (구 링크)
-  { key: "w_kep",    pen: "pen",   label: "교원구몬/KEP",      unit: "each",   base: 1000 },  // 단가 확인 필요
+  // 폐지 `PC-084` — w_action(action 변경 편집) · w_kep(교원구몬/KEP) 는 쓰지 않는다.
+  //   심볼 수량 배열(pm)은 **자리 순서**로 매기므로 정본 열(PEN_I)도 함께 줄였다.
 ];
 export const SOUND_ITEMS = RATE_ITEMS.filter((r) => r.pen === "sound");
 export const PEN_ITEMS = RATE_ITEMS.filter((r) => r.pen === "pen");
 // 편집 상세 심볼 배열(수량) 순서 = "적용/페이지"를 뺀 나머지 항목 (페이지는 book.pg 사용)
 export const SOUND_QTY = SOUND_ITEMS.filter((r) => r.key !== "s_page");   // 14개(4도출력 포함)
-export const PEN_QTY = PEN_ITEMS.filter((r) => r.key !== "w_page");        // 3개
+export const PEN_QTY = PEN_ITEMS.filter((r) => r.key !== "w_page");        // 3개 (기본 편집·Custom·노트서버 업로드)
 const itemOf = (key: string) => RATE_ITEMS.find((r) => r.key === key)!;
 
 export type RateMap = Record<string, number>;
