@@ -100,8 +100,10 @@ def info(empty=False, mod_date=True):
                      '소리펜 12종 / 필기펜 7종 + <b>기능 없음</b>(공통) <code>PC-087</code> — '
                      '타입을 바꾸면 그 타입에 없는 것은 떨어진다'),
                field('Start Page', v('0'), False, None, '0 이상'),
-               field('Total Page', v('0' if e else '48'), False, None,
-                     '<b>목록 표시용</b> — 적용비는 [Ncode 적용] 수량으로 계산한다 <code>PC-085</code>'),
+               field('Ncode 적용 수', v('0' if e else '48'), False, None,
+                     '<b>직접 입력하지 않는다</b> <code>PC-088</code> — 아래 [Ncode 적용] 입력의 '
+                     '합(소리펜+필기펜)이 자동으로 올라온다. <b>목록 표시용</b>이고 '
+                     '적용비는 그 수량으로 계산한다 <code>PC-085</code>'),
                field('발급일자 (Ncode 발급일)', v('2026-08-26' if e else '2019-04-11')),
                field('ncp2 최종수정',
                      v('입력 안 함' if not mod_date else '2019-08-16', not mod_date),
@@ -129,8 +131,9 @@ def qty(pen='소리펜'):
                 '</div></div>' % (grow, title, cols, cells))
     return ('<div style="display:flex;gap:12px;align-items:stretch">%s%s</div>'
             '<div style="font-size:11.5px;color:#6b7280;line-height:1.7;margin-top:8px">'
-            '페이지 단위 <b>Ncode 적용</b>은 Total Page로 자동 계산되므로 별도 수량을 '
-            '입력하지 않습니다. 단가 정본은 정책 <code>P-16</code>, 고객사별 단가는 '
+            '<b>Ncode 적용</b>에 적은 수량이 위의 <b>[Ncode 적용 수]</b> 로 올라가고, '
+            '적용비도 이 수량으로 계산됩니다 <code>PC-085</code> <code>PC-088</code>. '
+            '단가 정본은 정책 <code>P-16</code>, 고객사별 단가는 '
             '<code>MEM-02</code> 에서 지정합니다. '
             '필기펜은 <b>기본 편집 · Custom · 노트서버 업로드</b> 3항목 <code>PC-084</code>.</div>'
             % (block('소리펜 심볼 입력', SOUND_Q, 4, '1.6'),
@@ -149,7 +152,7 @@ def totals(pen='소리펜'):
     return ('<div class="card" style="background:#f5f9ff;border-color:#bfdbfe">'
             '<div class="bd">'
             '<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">'
-            '<span style="font-size:13px">TOTAL PAGE '
+            '<span style="font-size:13px">Ncode 적용 수 '
             '<b style="color:#2563eb;font-size:17px">%d</b>'
             '<span style="color:#9ca3af;font-size:11px"> p</span></span>'
             '<span style="color:#cbd5e1">|</span>'
@@ -313,7 +316,8 @@ def build():
           '<b>Book 다음</b>에 배치 <code>PC-054</code> · PDS2 · PDS3 · PDS4 · OID <code>PC-052</code>'),
          ('[초기화] · [＋ 교재(책) 추가]', '—', '<b>숨김</b>',
           '교재 추가 화면에서는 상단 버튼을 내리지 않는다 <code>PC-054</code>'),
-         ('Total Page', '입력', '적용비 계산', '<b>적용비 계산 기준(페이지 수)</b>'),
+         ('Ncode 적용 수', '—', '<b>자동</b>',
+          '아래 [Ncode 적용] 입력의 합(소리펜+필기펜) <code>PC-088</code> · 목록 표시용'),
          ('심볼·기능 수량', '입력', '편집·기능비 계산', '각 항목 <b>수량 × 단가</b>'),
          ('[추가]', '클릭', '<code>PRJ-03</code> 갱신', '상단 알림 <b>추가됨</b>'),
          ('저장(자동)', '기록', '<code>LOG-01</code>', '등록 = <b>교재 추가</b>'),
