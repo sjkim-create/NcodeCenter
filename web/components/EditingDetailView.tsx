@@ -253,8 +253,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const discounted = (r: BR) => bookHasDiscount(r);
 
 
-  // 교원구몬/KEP·산출물이 필요한 프로젝트인지 (현재는 구몬학습 등 실제 데이터 있는 곳만)
-  const hasKep = (cust?.bookRows ?? []).some((r) => r.det || r.out || r.app || r.use || r.set || (r.pm?.[4] ?? 0) > 0);   // KEP = 필기펜 항목 index 4
+  // 산출물(세트 개수·세부내역·출력용파일·APP 데이터)이 있는 프로젝트인지 `PC-089`
+  //   옛 판정에 있던 `pm[4] > 0`(교원구몬/KEP 항목)은 뺐다 — 그 단가 항목은 폐지됐다 `PC-084`.
+  const hasKep = (cust?.bookRows ?? []).some((r) => r.det || r.out || r.app || r.use || r.set);
   const bookHasKep = (r: BR) => !!(r.det || r.out || r.app || r.use || r.set);
 
   // 업무요청 메모 = 교재(책) 단위 (메모1~3 대체). editing.row.logs 에 저장.
@@ -390,11 +391,11 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const custMissing = !cust;
 
   const setF = <K extends keyof BR>(k: K, v: BR[K]) => setEditing((e) => (e ? { ...e, row: { ...e.row, [k]: v } } : e));
-  // [Ncode 적용] 수량을 고치면 `pg`(= Ncode 적용 수)도 함께 따라간다 `PC-088`.
-  //   pg 는 목록에만 쓰이는 표시값이고, 청구액은 예전부터 이 수량으로 계산한다 `PC-085`.
-  const withPg = (r: BR): BR => ({ ...r, pg: (r.sm[S_PAGE_I] || 0) + (r.pm[W_PAGE_I] || 0) });
-  const setSm = (i: number, v: number) => setEditing((e) => (e ? { ...e, row: withPg({ ...e.row, sm: e.row.sm.map((x, j) => (j === i ? v : x)) }) } : e));
-  const setPm = (i: number, v: number) => setEditing((e) => (e ? { ...e, row: withPg({ ...e.row, pm: e.row.pm.map((x, j) => (j === i ? v : x)) }) } : e));
+  // `Total Page`(pg) 와 [Ncode 적용] 수량은 **서로 물리지 않는다** `PC-089`.
+  //   · Total Page — 직접 입력 · **목록의 페이지 항목**에 그대로 나간다
+  //   · Ncode 적용 — 직접 입력 · **적용비 계산**에 쓴다 `PC-085`
+  const setSm = (i: number, v: number) => setEditing((e) => (e ? { ...e, row: { ...e.row, sm: e.row.sm.map((x, j) => (j === i ? v : x)) } } : e));
+  const setPm = (i: number, v: number) => setEditing((e) => (e ? { ...e, row: { ...e.row, pm: e.row.pm.map((x, j) => (j === i ? v : x)) } } : e));
   // 진행 상태 변경 — 완료는 ncp2 최종수정 필수, 완료 해제 시 날짜를 이력으로 이관
   const changeState = (next: string) => {
     if (!editing) return;
@@ -951,12 +952,11 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginTop: 10 }}>
               <Field label="Start Page"><input type="number" min={0} style={S.input} value={typeof editing.row.sp === "number" ? editing.row.sp : 1} onChange={(e) => setF("sp", Math.max(0, +e.target.value))} /></Field>
-              {/* Ncode 적용 수 — **[Ncode 적용] 입력의 합**이라 직접 고치지 않는다 `PC-088` */}
-              <Field label="Ncode 적용 수">
-                <div style={{ ...S.input, background: "#fafbfc", display: "flex", alignItems: "center", gap: 6 }}>
-                  <b style={{ fontFamily: "ui-monospace,monospace" }}>{(editing.row.pg || 0).toLocaleString()}</b>
-                  <span style={{ fontSize: 11, color: "#9ca3af" }}>p · 아래 [Ncode 적용] 합계</span>
-                </div>
+              {/* Total Page — **직접 입력** · 목록의 페이지 항목에 반영된다. 청구액과는 무관 `PC-089` */}
+              <Field label="Total Page">
+                <input type="number" min={0} style={S.input} value={editing.row.pg}
+                  onChange={(e) => setF("pg", Math.max(0, +e.target.value))} />
+                <div style={{ fontSize: 10.5, color: "#9ca3af", marginTop: 2 }}>목록의 페이지 항목 · 청구액과 무관</div>
               </Field>
               <Field label="발급일자 (Ncode 발급일)">
                 <input type="date" style={S.input} value={editing.row.d} onChange={(e) => setF("d", e.target.value)} />
@@ -1001,7 +1001,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
           {(() => { const eb = bill(editing.row); return (
           <div style={{ ...rowBox, background: "#f5f9ff", borderColor: "#bfdbfe" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 13 }}>Ncode 적용 수 <b style={{ color: "#2563eb", fontSize: 17 }}>{(editing.row.pg || 0).toLocaleString()}</b><span style={{ color: "#9ca3af", fontSize: 11 }}> p</span></span>
+              <span style={{ fontSize: 13 }}>TOTAL PAGE <b style={{ color: "#2563eb", fontSize: 17 }}>{(editing.row.pg || 0).toLocaleString()}</b><span style={{ color: "#9ca3af", fontSize: 11 }}> p</span></span>
               <span style={{ color: "#cbd5e1" }}>|</span>
               <span style={{ fontSize: 13 }}>소리펜 합 <b style={{ color: "#2563eb" }}>{sSum(editing.row).toLocaleString()}</b></span>
               <span style={{ fontSize: 13 }}>필기펜 합 <b style={{ color: "#2563eb" }}>{pSum(editing.row).toLocaleString()}</b></span>
@@ -1095,12 +1095,12 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
             );
           })()}
 
-          {/* 4행: 교원구몬/KEP·산출물 · 메모 */}
+          {/* 4행: 산출물 · 메모 `PC-089` */}
           <div style={rowBox}>
             {(hasKep || editing.idx === -1) && (
               <>
                 <div style={{ ...rowHead, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 10 }} onClick={() => setKepOpen((v) => !v)}>
-                  교원구몬/KEP · 산출물 <span style={{ fontWeight: 400, color: "#9ca3af", fontSize: 11 }}>· 세트 개수 · 파일/링크 + 설명</span>
+                  산출물 <span style={{ fontWeight: 400, color: "#9ca3af", fontSize: 11 }}>· 세트 개수 · 세부내역 · 출력용파일 · APP 데이터 (파일/링크 + 설명)</span>
                   <span style={{ marginLeft: "auto", fontSize: 11, color: "#3b82f6" }}>{kepOpen ? "접기 ▲" : "펼치기 ▼"}</span>
                 </div>
                 {kepOpen && (
