@@ -335,6 +335,18 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     () => assignedSOFor(cust?.customer ?? "", allocBooks),
     [cust, allocBooks]
   );
+  // 좌표(S/O) 단위로 합친다 `PC-083` — 종류(N·G)는 뒤의 [코드 종류]에서 고르므로
+  //   같은 S/O 가 두 줄로 나올 이유가 없다. k 는 그 좌표에서 쓸 수 있는 기본값만 남긴다.
+  const assignedCoords = useMemo(() => {
+    const m = new Map<string, { s: number; o: number; ks: string[] }>();
+    for (const a of assignedSO) {
+      const key = `${a.s}/${a.o}`;
+      const cur = m.get(key);
+      if (cur) { if (!cur.ks.includes(a.k)) cur.ks.push(a.k); }
+      else m.set(key, { s: a.s, o: a.o, ks: [a.k] });
+    }
+    return [...m.values()].sort((x, y) => x.s - y.s || x.o - y.o);
+  }, [assignedSO]);
 
   // 사용 가능한 Book 번호 — 발급된 SO 아래 편집 안 된(사용 가능) Book 을 노출 (편집된 Book 만 제외)
   //   한 번에 다 그리면 느려서 **100개씩** 보여 주고 [더 보기] 로 100씩 늘린다 `PC-046`
@@ -775,19 +787,26 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                     : <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>전용 코드 · {cust.customer}</span>}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: sh ? "1.3fr 0.9fr 0.9fr 1.1fr" : "1.3fr 0.9fr 0.9fr", gap: 10 }}>
-                  <Field label={`할당된 S / O${editing.idx === -1 && assignedSO.length > 0 ? " (선택)" : " (수정 불가)"}`}>
-                    {editing.idx === -1 && assignedSO.length > 0 ? (
-                      <select style={S.input} value={`${editing.row.k}/${editing.row.s}/${editing.row.o}`}
-                        onChange={(e) => { const [k, sv, ov] = e.target.value.split("/"); setBookLimit(BOOK_STEP); setEditing((ed) => (ed ? { ...ed, row: { ...ed.row, k, s: +sv, o: +ov, b: freeBooks(k, +sv, +ov, undefined, BOOK_STEP)[0] ?? 0 } } : ed)); }}>
-                        {assignedSO.map((a) => (
-                          <option key={`${a.k}/${a.s}/${a.o}`} value={`${a.k}/${a.s}/${a.o}`}>
-                            {a.k === "N" ? "N(PDS3)" : "G(PDS2)"} · S{a.s} / O{a.o}{sharedInfo(a.s, a.o, a.k) ? " · 공유" : ""}
+                  {/* 좌표만 고른다 `PC-083` — 종류는 뒤의 [코드 종류]에서 정한다 `PC-054` */}
+                  <Field label={`할당된 S / O${editing.idx === -1 && assignedCoords.length > 0 ? " (선택)" : " (수정 불가)"}`}>
+                    {editing.idx === -1 && assignedCoords.length > 0 ? (
+                      <select style={S.input} value={`${editing.row.s}/${editing.row.o}`}
+                        onChange={(e) => {
+                          const [sv, ov] = e.target.value.split("/").map(Number);
+                          // 지금 고른 종류를 그대로 쓰되, 그 좌표에서 못 쓰는 종류면 첫 값으로 맞춘다
+                          const ks = assignedCoords.find((c) => c.s === sv && c.o === ov)?.ks ?? [];
+                          const k = ks.includes(editing.row.k) ? editing.row.k : (ks[0] ?? editing.row.k);
+                          setBookLimit(BOOK_STEP);
+                          setEditing((ed) => (ed ? { ...ed, row: { ...ed.row, k, s: sv, o: ov, b: freeBooks(k, sv, ov, undefined, BOOK_STEP)[0] ?? 0 } } : ed));
+                        }}>
+                        {assignedCoords.map((a) => (
+                          <option key={`${a.s}/${a.o}`} value={`${a.s}/${a.o}`}>
+                            S{a.s} / O{a.o}{a.ks.some((k) => sharedInfo(a.s, a.o, k)) ? " · 공유" : ""}
                           </option>
                         ))}
                       </select>
                     ) : (
                       <div style={{ ...S.input, background: "#fff", color: "#374151", display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ ...S.tag, background: editing.row.k === "N" ? "#eef6ff" : "#fef3c7", color: editing.row.k === "N" ? "#2563eb" : "#92400e" }}>{editing.row.k === "N" ? "N(PDS3)" : "G(PDS2)"}</span>
                         <b style={{ fontFamily: "ui-monospace,monospace" }}>S{editing.row.s} / O{editing.row.o}</b>
                         <span style={{ fontSize: 11, color: "#9ca3af" }}>할당된 코드</span>
                       </div>

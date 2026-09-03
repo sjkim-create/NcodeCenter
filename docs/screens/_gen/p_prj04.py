@@ -51,8 +51,10 @@ def status_row(st='진행중', locked=False, need_date=False, released=False):
 def coord(mode='edit', share=False, sub_err=False):
     so = ('<div class="inp ro">S3 / O17 <span style="color:#9ca3af;font-size:11px">(수정 불가)</span></div>'
           if mode == 'edit' else sel('S3 / O17'))
-    hint = ('수정 모드에서는 <b>변경 불가</b>' if mode == 'edit'
-            else '할당된 S/O가 여러 개면 선택')
+    # 좌표만 보여 준다 `PC-083` — 종류(N·G)는 뒤의 [코드 종류]에서 고른다
+    hint = ('수정 모드에서는 <b>변경 불가</b> · 종류 배지는 붙이지 않는다 <code>PC-083</code>'
+            if mode == 'edit'
+            else '할당된 S/O가 여러 개면 선택 · <b>좌표만</b> 나온다 <code>PC-083</code>')
     sub = ''
     if share:
         sub = field('사용 고객사', sel('아들과딸' if not sub_err else '사용 고객사를 선택하세요',
@@ -291,7 +293,10 @@ def build():
               content(mode='new', empty=True, badge='new', discount=False, mod_date=False),
               height=2100),
         [('진행 상태', '선택', '진행중 / 완료 / 보류', '기본값 <b>진행중</b>'),
-         ('할당된 S / O', '선택 (필수)', '—', '할당된 S/O가 여러 개면 선택'),
+         ('할당된 S / O', '선택 (필수)', '—',
+          '<b>좌표(S/O)만</b> 나온다 <code>PC-083</code> — 종류(N·G)는 빼서 같은 코드가 두 줄로 '
+          '중복되지 않는다(할당 원장이 종류 미상이라 N·G 양쪽으로 잡혔다). '
+          '공유 코드면 뒤에 <b>· 공유</b>. 좌표를 바꿔도 <b>고른 종류는 유지</b>된다'),
          ('Book', '선택 (필수)', '—', '<b>사용 가능한 번호</b>에서만 <code>P-01</code>. '
           '한 번에 <b>100개</b>만 그리고 <b>[＋ 100개 더 보기]</b> 로 100씩 늘린다 <code>PC-046</code>. '
           '더 보기를 눌러도 <b>셀렉트가 열린 채</b> 아래로 이어진다 <code>PC-057</code>, '
