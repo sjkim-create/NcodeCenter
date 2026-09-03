@@ -1001,7 +1001,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
           {(() => { const eb = bill(editing.row); return (
           <div style={{ ...rowBox, background: "#f5f9ff", borderColor: "#bfdbfe" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 13 }}>TOTAL PAGE <b style={{ color: "#2563eb", fontSize: 17 }}>{(editing.row.pg || 0).toLocaleString()}</b><span style={{ color: "#9ca3af", fontSize: 11 }}> p</span></span>
+              {/* 정산 영역이므로 **적용비 기준값**을 보여 준다 `PC-090` — 기본 정보의 Total Page 가 아니다 */}
+              <span style={{ fontSize: 13 }}>Ncode 적용 수 <b style={{ color: "#2563eb", fontSize: 17 }}>{((editing.row.sm[S_PAGE_I] || 0) + (editing.row.pm[W_PAGE_I] || 0)).toLocaleString()}</b><span style={{ color: "#9ca3af", fontSize: 11 }}> p · 소리펜 {(editing.row.sm[S_PAGE_I] || 0).toLocaleString()} + 필기펜 {(editing.row.pm[W_PAGE_I] || 0).toLocaleString()}</span></span>
               <span style={{ color: "#cbd5e1" }}>|</span>
               <span style={{ fontSize: 13 }}>소리펜 합 <b style={{ color: "#2563eb" }}>{sSum(editing.row).toLocaleString()}</b></span>
               <span style={{ fontSize: 13 }}>필기펜 합 <b style={{ color: "#2563eb" }}>{pSum(editing.row).toLocaleString()}</b></span>
