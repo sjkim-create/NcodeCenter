@@ -920,15 +920,13 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   {editing.row.iss && !staff.some((u) => u.name === editing.row.iss) && <option value={editing.row.iss}>{editing.row.iss} (미등록)</option>}
                 </select>
               </Field>
-              <div>
-                <label style={{ fontSize: 11, color: "#6b7280", display: "flex", alignItems: "center", gap: 8 }}>
-                  펜 모델 <span style={{ color: "#9ca3af" }}>· 다중 선택</span>
+              {/* 항목명은 **위**, 고른 값은 셀렉트 **오른쪽** — 다른 항목과 같은 결 `PC-097` */}
+              <Field label="펜 모델 · 다중 선택">
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <select style={{ ...S.input, width: 200 }} value={penPick} onChange={(e) => addPen(e.target.value)}>
                     <option value="">＋ 펜 모델 추가…</option>
                     {PEN_MODELS.filter((pm) => !selPens.includes(pm)).map((pm) => <option key={pm} value={pm}>{pm}</option>)}
                   </select>
-                </label>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
                   {selPens.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>선택된 펜 모델 없음</span>}
                   {selPens.map((pm) => (
                     <span key={pm} style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -936,7 +934,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                     </span>
                   ))}
                 </div>
-              </div>
+              </Field>
             </div>
             {/* 타입 · 편집 방식 — 편집 방식은 타입을 따라가므로 나란히 둔다 `PC-087` */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 5fr", gap: 10, marginTop: 10, alignItems: "start" }}>

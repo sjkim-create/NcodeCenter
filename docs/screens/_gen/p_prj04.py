@@ -79,20 +79,18 @@ def info(empty=False, mod_date=True):
         return '<div class="inp%s">%s</div>' % (' ph' if ph else '', x)
     e = empty
     # 발급인 · 펜 모델 — 교재명 다음 줄에 **한 행**으로 (발급인이 앞) `PC-095` `PC-096`
+    # 항목명은 **위**, 고른 값은 셀렉트 **오른쪽** — 다른 항목과 같은 결 `PC-097`
     pen_models = ('<div style="display:grid;grid-template-columns:300px 1fr;gap:10px;'
-                  'margin-top:10px;align-items:start">%s'
-                  '<div>'
-                  '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#6b7280">'
-                  '펜 모델 <span style="color:#9ca3af">· 다중 선택</span>%s'
-                  '</div>'
-                  '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">'
-                  '<span class="chip on">C90 ✕</span><span class="chip on">C91 ✕</span></div>'
-                  '<div style="font-size:11px;color:#9ca3af;margin-top:4px">'
-                  '선택하면 칩으로 쌓이고 <b>✕</b> 로 뺀다 · 미선택이면 '
-                  '<b>선택된 펜 모델 없음</b></div></div></div>'
+                  'margin-top:10px;align-items:start">%s%s</div>'
                   % (field('발급인 (코드 할당자 · 사용자 명단)', sel('김순정'), False, None,
                            '코드 할당자·사용자 명단에서 선택'),
-                     sel('＋ 펜 모델 추가…')))
+                     field('펜 모델 · 다중 선택',
+                           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+                           + sel('＋ 펜 모델 추가…')
+                           + '<span class="chip on">C90 ✕</span>'
+                             '<span class="chip on">C91 ✕</span></div>', False, None,
+                           '셀렉트에서 고르면 <b>오른쪽에 칩</b>으로 쌓이고 <b>✕</b> 로 뺀다 · '
+                           '미선택이면 <b>선택된 펜 모델 없음</b>')))
     return ('<div class="card"><div class="hd">교재 정보</div><div class="bd">'
             '<div class="g3">%s%s%s</div>%s'
             '<div class="g4" style="margin-top:10px">%s%s%s%s</div>'
