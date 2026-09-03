@@ -911,21 +911,31 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   onChange={(e) => setF("bytes", Math.max(0, Math.round(+e.target.value)))} />
               </Field>
             </div>
-            <div style={{ marginTop: 10 }}>
-              <label style={{ fontSize: 11, color: "#6b7280", display: "flex", alignItems: "center", gap: 8 }}>
-                펜 모델 <span style={{ color: "#9ca3af" }}>· 다중 선택</span>
-                <select style={{ ...S.input, width: 200 }} value={penPick} onChange={(e) => addPen(e.target.value)}>
-                  <option value="">＋ 펜 모델 추가…</option>
-                  {PEN_MODELS.filter((pm) => !selPens.includes(pm)).map((pm) => <option key={pm} value={pm}>{pm}</option>)}
+            {/* 발급인 · 펜 모델 — 한 행에 나란히 `PC-096` (발급인이 앞) */}
+            <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 10, marginTop: 10, alignItems: "start" }}>
+              <Field label="발급인 (코드 할당자 · 사용자 명단)">
+                <select style={S.input} value={editing.row.iss ?? ""} onChange={(e) => setF("iss", e.target.value)}>
+                  <option value="">- 선택 -</option>
+                  {staff.map((u) => <option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}
+                  {editing.row.iss && !staff.some((u) => u.name === editing.row.iss) && <option value={editing.row.iss}>{editing.row.iss} (미등록)</option>}
                 </select>
-              </label>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-                {selPens.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>선택된 펜 모델 없음</span>}
-                {selPens.map((pm) => (
-                  <span key={pm} style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    {pm}<button onClick={() => rmPen(pm)} style={{ border: 0, background: "none", color: "#dc2626", cursor: "pointer", padding: 0 }}>✕</button>
-                  </span>
-                ))}
+              </Field>
+              <div>
+                <label style={{ fontSize: 11, color: "#6b7280", display: "flex", alignItems: "center", gap: 8 }}>
+                  펜 모델 <span style={{ color: "#9ca3af" }}>· 다중 선택</span>
+                  <select style={{ ...S.input, width: 200 }} value={penPick} onChange={(e) => addPen(e.target.value)}>
+                    <option value="">＋ 펜 모델 추가…</option>
+                    {PEN_MODELS.filter((pm) => !selPens.includes(pm)).map((pm) => <option key={pm} value={pm}>{pm}</option>)}
+                  </select>
+                </label>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                  {selPens.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>선택된 펜 모델 없음</span>}
+                  {selPens.map((pm) => (
+                    <span key={pm} style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      {pm}<button onClick={() => rmPen(pm)} style={{ border: 0, background: "none", color: "#dc2626", cursor: "pointer", padding: 0 }}>✕</button>
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
             {/* 타입 · 편집 방식 — 편집 방식은 타입을 따라가므로 나란히 둔다 `PC-087` */}
@@ -971,15 +981,6 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               </Field>
               <Field label="ncp2 최종수정 (완료 필수)">
                 <input type="date" style={S.input} value={editing.row.nmod ?? ""} onChange={(e) => setF("nmod", e.target.value)} />
-              </Field>
-            </div>
-            <div style={{ marginTop: 10, maxWidth: 300 }}>
-              <Field label="발급인 (코드 할당자 · 사용자 명단)">
-                <select style={S.input} value={editing.row.iss ?? ""} onChange={(e) => setF("iss", e.target.value)}>
-                  <option value="">- 선택 -</option>
-                  {staff.map((u) => <option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}
-                  {editing.row.iss && !staff.some((u) => u.name === editing.row.iss) && <option value={editing.row.iss}>{editing.row.iss} (미등록)</option>}
-                </select>
               </Field>
             </div>
           </div>
