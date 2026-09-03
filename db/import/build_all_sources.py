@@ -768,8 +768,9 @@ print("oid-data.json · 업체", len(oid_json["companies"]), "· 항목",
 #   web/lib/commonCodes.ts 의 COMMON_CODES 와 (k,s,o) 가 일치해야 한다.
 #   등록 기준 `PC-044`: 여러 고객사가 함께 쓰는 코드만. 아래 3건은 제외했다 —
 #     N3/O940 NLJ NTT-940(사용 고객사 = 자기 자신 1곳) · N14/O303 딥스원테크-303(자사 1곳) · G3/O37 구몬D-37(이력 0곳)
+#   `PC-082`: G3/O964 Common 추가 언어 슬롯도 제외 — 사용 고객사 0곳 · 다국어 편집용 레퍼런스
 COMMON_CODES = [("G", 3, 21), ("N", 0, 27), ("N", 3, 27), ("N", 3, 1012), ("A", 4, 27),
-                ("N", 3, 1013), ("G", 3, 964)]
+                ("N", 3, 1013)]
 _mem = {f"{k}:{s}:{o}": set() for (k, s, o) in COMMON_CODES}
 for r in compact:
     ck = f"{r['k']}:{r['s']}:{r['o']}"

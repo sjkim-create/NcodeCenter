@@ -16,14 +16,15 @@ export type CommonCode = {
 
 // 등록 기준 `PC-044` — **여러 고객사가 함께 쓰는 코드**만 공통코드다.
 //   보유 고객사 1곳뿐(자기 자신·자사)이거나 사용 고객사 이력이 아예 없으면 일반 코드로 둔다.
-//   ※ Common 언어 슬롯(G3/O964)·이력전용 OID(A4/O27) 는 사용 고객사가 0곳이어도 Common 체계라 유지한다.
+//   ※ 이력전용 OID(A4/O27) 만 사용 고객사 0곳이어도 유지한다(검색·이력용).
+//   ※ Common 추가 언어 슬롯(G3/O964) 는 **제외** `PC-082` — 사용 고객사가 0곳이고, 다국어 편집용
+//      레퍼런스라 하위 고객사를 두지 않는다. 공유 OWNER 판정은 `sharedOwners.ts` 가 그대로 맡는다.
 export const COMMON_CODES: CommonCode[] = [
   { k: "G", s: 3, o: 21,   name: "Common-21",              holder: "Common",       company: "Common-21",              label: "PDS2 · S3/O21" },
   { k: "N", s: 0, o: 27,   name: "네오노트-0-27",            holder: "네오노트",     company: "네오노트-0-27",            label: "PDS3 · S0/O27" },
   { k: "N", s: 3, o: 27,   name: "네오노트-3-27",            holder: "네오노트",     company: "네오노트-3-27",            label: "PDS3 · S3/O27" },
   { k: "N", s: 3, o: 1012, name: "네오노트-1012",            holder: "네오노트",     company: "네오노트-1012",            label: "PDS3 · S3/O1012" },
   { k: "N", s: 3, o: 1013, name: "스마트클래스키트-1013",     holder: "스마트클래스키트", company: "스마트클래스키트-1013",     label: "PDS3 · S3/O1013" },
-        { k: "G", s: 3, o: 964,  name: "Common 추가 언어 슬롯-964", holder: "Common",       company: "Common 추가 언어 슬롯-964", label: "PDS2 · S3/O964" },
   { k: "A", s: 4, o: 27,   name: "네오노트-IDS-27",          holder: "네오노트",     company: "네오노트-IDS-27",          label: "OID · S4/O27", historyOnly: true },
 ];
 
