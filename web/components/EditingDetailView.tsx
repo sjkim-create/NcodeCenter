@@ -46,7 +46,10 @@ const SOUND_N = SOUND_QTY.length, PEN_N = PEN_QTY.length;
 const zeros = (n: number) => Array<number>(n).fill(0);
 // 배열 길이를 현재 항목 수에 맞춤(구 데이터 호환): 부족하면 0 채움, 넘치면 자름
 const fitArr = (arr: unknown, n: number): number[] => { const a = Array.isArray(arr) ? arr.map((x) => Number(x) || 0) : []; return Array.from({ length: n }, (_, i) => a[i] ?? 0); };
-const TYPES = ["소리펜", "필기펜", "교원구몬/KEP"];
+// 타입은 **소리펜 · 필기펜 2종** `PC-086` — 교원구몬/KEP 는 폐지(실데이터도 없다).
+//   옛 값이 남아 있으면 필기펜으로 읽는다(적용비·심볼 단가가 필기펜 기준이었다).
+const TYPES = ["소리펜", "필기펜"];
+const normTy = (v?: string) => (v === "소리펜" ? "소리펜" : "필기펜");
 const STATES = ["진행중", "완료", "보류"] as const;
 const ST_COLOR: Record<string, { bg: string; fg: string }> = {
   진행중: { bg: "#eef6ff", fg: "#2563eb" }, 완료: { bg: "#dcfce7", fg: "#166534" }, 보류: { bg: "#fef3c7", fg: "#92400e" },
@@ -166,7 +169,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   // 빌드 데이터는 빈 값/0 배열을 빼서 내보내므로 여기서 기본값을 복원한다 (구버전 mb=MB → bytes 도 정규화)
   const norm = (arr: unknown[]): BR[] => (arr as (BR & { mb?: number })[]).map((r) => ({
     ...r,
-    pg: r.pg ?? 0, t: r.t ?? "", f: r.f ?? "", m: r.m ?? "", d: r.d ?? "", ty: r.ty ?? "소리펜",
+    pg: r.pg ?? 0, t: r.t ?? "", f: r.f ?? "", m: r.m ?? "", d: r.d ?? "", ty: normTy(r.ty),
     sm: fitArr(r.sm, SOUND_N), pm: fitArr(r.pm, PEN_N),
     bytes: r.bytes ?? Math.round(((r.mb ?? 0) as number) * 1e6),
   }));
@@ -908,7 +911,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginTop: 10 }}>
-              <Field label="타입"><select style={S.input} value={editing.row.ty} onChange={(e) => setF("ty", e.target.value)}>{TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></Field>
+              <Field label="타입"><select style={S.input} value={normTy(editing.row.ty)} onChange={(e) => setF("ty", e.target.value)}>{TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></Field>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginTop: 10 }}>
               <Field label="Start Page"><input type="number" min={0} style={S.input} value={typeof editing.row.sp === "number" ? editing.row.sp : 1} onChange={(e) => setF("sp", Math.max(0, +e.target.value))} /></Field>
@@ -1046,7 +1049,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                 <div style={{ marginTop: 12, border: "1px solid #eef0f4", borderRadius: 9, overflow: "hidden" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
                     <tbody>
-                      <Line label="적용비 (페이지)" detail={`${row.pg.toLocaleString()}p × ${(rateOf(row)[row.ty !== "소리펜" ? "w_page" : "s_page"]).toLocaleString()}`} value={won(b.pageAmt)} />
+                      <Line label="적용비 (Ncode 적용)" detail={`소리펜 ${(row.sm?.[S_PAGE_I] || 0).toLocaleString()}p · 필기펜 ${(row.pm?.[W_PAGE_I] || 0).toLocaleString()}p × 단가`} value={won(b.pageAmt)} />
                       <Line label="편집·기능비" detail={`심볼·기능 ${tSum(row).toLocaleString()} (항목별 단가 합)`} value={`＋ ${won(b.symAmt)}`} />
                       <Line label="합계 (할인 전)" detail="적용비 + 편집·기능비" value={won(b.gross)} />
                       {b.rateDc > 0 && <Line label={`할인율 ${row.dcRate}%`} detail="합계 기준" value={`− ${won(b.rateDc)}`} minus />}
