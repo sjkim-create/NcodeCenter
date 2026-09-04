@@ -70,6 +70,13 @@ const methodsForType = (ty?: string) => {
   return METHODS.filter((m) => m === "기능 없음" || m.startsWith(pre));
 };
 
+// 입력칸 너비는 **격자에 맞춘다** `PC-099` — 항목마다 제각각이면 구도가 깨진다.
+//   기본 정보 6열 격자의 span-5 칸 안을 다시 5열로 나눠, 칩이 붙는 셀렉트(펜 모델·편집 방식)를
+//   **2칸** 폭으로 고정하고 칩은 나머지 3칸에 흐르게 한다.
+const SUB5: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10, alignItems: "center" };
+const SEL_2: React.CSSProperties = { gridColumn: "span 2", width: "100%" };
+const CHIPS_3: React.CSSProperties = { gridColumn: "span 3", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" };
+
 const won = (n: number) => `₩${Math.round(n).toLocaleString()}`;
 const today = () => new Date().toISOString().slice(0, 10);
 // 심볼 합계에서 **[Ncode 적용] 수량은 뺀다** `PC-085` — 페이지 수이지 심볼이 아니다.
@@ -924,17 +931,19 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               {/* 항목명은 **위**, 고른 값은 셀렉트 **오른쪽** — 다른 항목과 같은 결 `PC-097` */}
               <div style={{ gridColumn: "span 5" }}>
               <Field label="펜 모델 · 다중 선택">
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <select style={{ ...S.input, width: 200 }} value={penPick} onChange={(e) => addPen(e.target.value)}>
+                <div style={SUB5}>
+                  <select style={{ ...S.input, ...SEL_2 }} value={penPick} onChange={(e) => addPen(e.target.value)}>
                     <option value="">＋ 펜 모델 추가…</option>
                     {PEN_MODELS.filter((pm) => !selPens.includes(pm)).map((pm) => <option key={pm} value={pm}>{pm}</option>)}
                   </select>
-                  {selPens.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>선택된 펜 모델 없음</span>}
-                  {selPens.map((pm) => (
-                    <span key={pm} style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                      {pm}<button onClick={() => rmPen(pm)} style={{ border: 0, background: "none", color: "#dc2626", cursor: "pointer", padding: 0 }}>✕</button>
-                    </span>
-                  ))}
+                  <div style={CHIPS_3}>
+                    {selPens.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>선택된 펜 모델 없음</span>}
+                    {selPens.map((pm) => (
+                      <span key={pm} style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        {pm}<button onClick={() => rmPen(pm)} style={{ border: 0, background: "none", color: "#dc2626", cursor: "pointer", padding: 0 }}>✕</button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </Field>
               </div>
@@ -955,17 +964,19 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               </Field>
               <div style={{ gridColumn: "span 5" }}>
               <Field label={`편집 방식 · ${normTy(editing.row.ty)} 항목만 · 선택해서 추가 (복수)`}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <select style={{ ...S.input, maxWidth: 260 }} value={pick} onChange={(e) => addMethod(e.target.value)}>
+                <div style={SUB5}>
+                  <select style={{ ...S.input, ...SEL_2 }} value={pick} onChange={(e) => addMethod(e.target.value)}>
                     <option value="">＋ 편집방식 선택…</option>
                     {methodsForType(editing.row.ty).filter((mm) => !selMethods.includes(mm)).map((mm) => <option key={mm} value={mm}>{mm}</option>)}
                   </select>
-                  {selMethods.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>선택된 편집방식 없음</span>}
-                  {selMethods.map((mm) => (
-                    <span key={mm} style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                      {mm}<button onClick={() => rmMethod(mm)} style={{ border: 0, background: "none", color: "#dc2626", cursor: "pointer", padding: 0 }}>✕</button>
-                    </span>
-                  ))}
+                  <div style={CHIPS_3}>
+                    {selMethods.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>선택된 편집방식 없음</span>}
+                    {selMethods.map((mm) => (
+                      <span key={mm} style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        {mm}<button onClick={() => rmMethod(mm)} style={{ border: 0, background: "none", color: "#dc2626", cursor: "pointer", padding: 0 }}>✕</button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </Field>
               </div>

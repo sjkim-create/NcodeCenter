@@ -74,6 +74,20 @@ def coord(mode='edit', share=False, sub_err=False):
             % (field('할당된 S / O', so, True, None, hint), book_f, kind_f, sub))
 
 
+# span-5 칸 안을 다시 5열로 — 셀렉트 **2칸**, 칩 **3칸** `PC-099`
+#   항목마다 너비가 제각각이면 구도가 깨지므로 격자 배수로만 쓴다.
+SUB5 = ('display:grid;grid-template-columns:repeat(5,minmax(0,1fr));'
+        'gap:10px;align-items:center')
+
+
+def sel_chips(placeholder, chips):
+    return ('<div style="%s">'
+            '<div style="grid-column:span 2">%s</div>'
+            '<div style="grid-column:span 3;display:flex;align-items:center;gap:6px;'
+            'flex-wrap:wrap">%s</div></div>'
+            % (SUB5, sel(placeholder), chips))
+
+
 def info(empty=False, mod_date=True):
     def v(x, ph=False):
         return '<div class="inp%s">%s</div>' % (' ph' if ph else '', x)
@@ -87,10 +101,9 @@ def info(empty=False, mod_date=True):
                   % (field('발급인 (코드 할당자 · 사용자 명단)', sel('김순정'), False, None,
                            '코드 할당자·사용자 명단에서 선택'),
                      field('펜 모델 · 다중 선택',
-                           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-                           + sel('＋ 펜 모델 추가…')
-                           + '<span class="chip on">C90 ✕</span>'
-                             '<span class="chip on">C91 ✕</span></div>', False, None,
+                           sel_chips('＋ 펜 모델 추가…',
+                                     '<span class="chip on">C90 ✕</span>'
+                                     '<span class="chip on">C91 ✕</span>'), False, None,
                            '셀렉트에서 고르면 <b>오른쪽에 칩</b>으로 쌓이고 <b>✕</b> 로 뺀다 · '
                            '미선택이면 <b>선택된 펜 모델 없음</b>')))
     # 아래 세 행은 **같은 6열 격자** — 시작 열이 맞아야 화면 구도가 깨지지 않는다 `PC-098`
@@ -113,10 +126,9 @@ def info(empty=False, mod_date=True):
                      '<b>소리펜 · 필기펜 2종</b> <code>PC-086</code> — 적용비·심볼 단가의 펜 구분'),
                # 편집 방식은 타입 바로 옆 · 그 타입의 항목만 `PC-087`
                field('편집 방식 · 소리펜 항목만 · 선택해서 추가 (복수)',
-                     '<div class="row" style="gap:5px;flex-wrap:wrap">'
-                     + sel('＋ 편집방식 선택…')
-                     + '<span class="chip on">소리펜_기본 ✕</span>'
-                       '<span class="chip on">소리펜_멀티터치 ✕</span></div>', False, None,
+                     sel_chips('＋ 편집방식 선택…',
+                               '<span class="chip on">소리펜_기본 ✕</span>'
+                               '<span class="chip on">소리펜_멀티터치 ✕</span>'), False, None,
                      '소리펜 12종 / 필기펜 7종 + <b>기능 없음</b>(공통) <code>PC-087</code> — '
                      '타입을 바꾸면 그 타입에 없는 것은 떨어진다'),
                field('Start Page', v('0'), False, None, '0 이상'),
