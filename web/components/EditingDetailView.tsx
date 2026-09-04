@@ -10,6 +10,7 @@ import type { WorkKind } from "@/lib/customerData";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { useStore } from "@/lib/store";
 import { assignedSOFor, editableBookNumbers, projectBooks, sharedInfo } from "@/lib/codeUsage";
+import { usePenModels, addPenModel } from "@/lib/penModels";
 import { hydrateShared, useSharedOwners, COMMON_LABEL, commonRangesText } from "@/lib/sharedOwners";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { setBookOverride } from "@/lib/editOverrides";
@@ -56,16 +57,9 @@ const ST_COLOR: Record<string, { bg: string; fg: string }> = {
 };
 // 기존 데이터(O/X)는 진행중으로 간주
 const stateOf = (v?: string) => (v === "완료" || v === "보류" || v === "진행중" ? v : "진행중");
-// 펜 모델 — 기본 16종. 새 모델이 나오면 화면에서 **직접 추가**한다 `PC-100`.
-//   직접 추가한 모델은 브라우저에 남아 다음에도 셀렉트에 나온다(고객사 구분 없이 공용).
-const PEN_MODELS = ["C30(PO)", "C71(BH)", "C71(BH2)", "C71(BH5)", "C71(BH6)", "C90", "C91", "C133", "C160", "C161", "C190", "C192", "C200", "C1000(PO)", "NSP-C1000-PO", "연구수업용"];
-const PEN_ADD_KEY = "ncc-pen-models-v1";
+// 펜 모델 목록은 **공용 저장소**에서 온다 `PC-101` — `lib/penModels.ts`
+//   [코드 관리 정보 ▸ 펜 모델] 에서 한 곳으로 관리한다.
 const PEN_NEW = "__PEN_NEW__";          // 셀렉트의 [＋ 직접 추가…] 값
-const loadPenExtra = (): string[] => {
-  if (typeof window === "undefined") return [];
-  try { const r = localStorage.getItem(PEN_ADD_KEY); return r ? (JSON.parse(r) as string[]) : []; }
-  catch { return []; }
-};
 // 편집 방식 — **타입에 맞는 것만** 고른다 `PC-087`.
 //   KEP_ICT(필기펜) · 교원구몬_내공100 은 폐지 `PC-086` (타입에서 교원구몬/KEP 를 뺀 것과 같은 정리).
 const METHODS = [
@@ -228,9 +222,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const [editing, setEditing] = useState<{ idx: number; row: BR } | null>(null);
   const [pick, setPick] = useState("");
   const [penPick, setPenPick] = useState("");
-  const [penExtra, setPenExtra] = useState<string[]>([]);   // 직접 추가한 펜 모델 `PC-100`
-  const [penNew, setPenNew] = useState<string | null>(null); // 직접 추가 입력 중인 값
-  useEffect(() => { setPenExtra(loadPenExtra()); }, []);
+  const [penNew, setPenNew] = useState<string | null>(null); // 직접 추가 입력 중인 값 `PC-100`
+  const penOptions = usePenModels();                         // 공용 목록 `PC-101`
   const [basis, setBasis] = useState(false);
   const [kepOpen, setKepOpen] = useState(false);
   const [logDraft, setLogDraft] = useState<{ id: number | null; kind: WorkKind; content: string }>({ id: null, kind: "요청", content: "" });
@@ -474,22 +467,17 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const rmMethod = (v: string) => setF("m", selMethods.filter((x) => x !== v).join(", "));
 
   const selPens = editing?.row.pmdl ? editing.row.pmdl.split(/[/,]/).map((s) => s.trim()).filter(Boolean) : [];
-  // 셀렉트에 보일 전체 목록 = 기본 + 직접 추가분 `PC-100`
-  const penOptions = [...PEN_MODELS, ...penExtra.filter((x) => !PEN_MODELS.includes(x))];
   const addPen = (v: string) => {
     if (v === PEN_NEW) { setPenNew(""); setPenPick(""); return; }   // 직접 추가 입력칸 열기
     if (v && !selPens.includes(v)) setF("pmdl", [...selPens, v].join(" / "));
     setPenPick("");
   };
-  // 직접 추가 — 목록에 없으면 저장해 두고, 이 교재에도 바로 넣는다 `PC-100`
+  // 직접 추가 — **공용 목록**에 넣고, 이 교재에도 바로 붙인다 `PC-100` `PC-101`
   const commitPenNew = () => {
     const v = (penNew ?? "").trim();
     if (!v) { setPenNew(null); return; }
-    if (!penOptions.includes(v)) {
-      const next = [...penExtra, v];
-      setPenExtra(next);
-      try { localStorage.setItem(PEN_ADD_KEY, JSON.stringify(next)); } catch { /* */ }
-    }
+    const r = addPenModel(v);                      // 이미 있으면 목록은 그대로 두고 넘어간다
+    if (!r.ok && r.msg !== "이미 있는 모델입니다.") { flash(r.msg); return; }
     if (!selPens.includes(v)) setF("pmdl", [...selPens, v].join(" / "));
     setPenNew(null);
   };

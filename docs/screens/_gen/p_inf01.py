@@ -5,7 +5,8 @@ from shell import page, frame
 CODE, NAME = 'INF-01', '코드 관리 정보'
 PRD = 'docs/prd/INF-01_코드 관리 정보.md'
 
-TABS = ('Code Info', '확장 언어 슬롯', '발급 구조', 'OID 관리대장', '알아야 할 사항')
+# 펜 모델은 교재 편집이 쓰는 **참조 목록**이라 여기서 공용 관리한다 `PC-101`
+TABS = ('Code Info', '확장 언어 슬롯', '발급 구조', 'OID 관리대장', '펜 모델', '알아야 할 사항')
 KEYS = ('owner', 'bookcode', 'page', 'length')
 KEYS4 = ('owner', 'bookcode', 'page', 'xy')   # PDS4(S-code)는 length 대신 xy `PC-042`
 
@@ -273,9 +274,10 @@ def must_know():
                            ('예정', 'color:#9ca3af')]]), '5')))
 
 
-def content(tab=0, flt='all'):
-    #   tab 3 = OID 관리대장(INF-04 에서 그린다) · tab 4 = 알아야 할 사항
-    body = {0: range_table, 1: lambda: lang_slots(flt), 2: issue_struct, 4: must_know}[tab]()
+def content(tab=0, flt='all', body=None):
+    #   tab 3 = OID 관리대장(INF-04 에서 그린다) · tab 4 = 펜 모델 · tab 5 = 알아야 할 사항
+    if body is None:
+        body = {0: range_table, 1: lambda: lang_slots(flt), 2: issue_struct, 5: must_know}[tab]()
     return tabs(tab) + body
 
 
@@ -297,7 +299,8 @@ def build():
         '<b>참조 전용 · 기능 없음</b> — 검증·오류 메시지가 없다. '
         '',
         frame('INF-01', '코드 관리 정보', content(0), height=1240),
-        [('탭', '클릭', '본문 교체', 'Code Info / 확장 언어 슬롯 / 발급 구조 / OID 관리대장 / 알아야 할 사항'),
+        [('탭', '클릭', '본문 교체',
+          'Code Info / 확장 언어 슬롯 / 발급 구조 / OID 관리대장 / <b>펜 모델</b> / 알아야 할 사항'),
          ('length(판형)', '조회', '—',
           '<b>코드를 입힐 수 있는 최대 크기</b> — 판형이 커지면 <b>Section이 달라진다</b>'),
          ('PDS2 범위 없는 Section', '표시', '—', '값이 <b>—</b>로 표시된다 (S5·S10·S11·S15)'),
@@ -350,11 +353,63 @@ def build():
          ('X·Y 좌표', '참고', '—',
           '<b>한 페이지 안의 위치는 추가로 X·Y 좌표로 지정됩니다. 겹침 없이 발급하는 것이 최우선.</b>')]))
 
+    # ── 펜 모델 관리 `PC-101`
+    def pen_body():
+        base = ('C30(PO)', 'C71(BH)', 'C71(BH2)', 'C71(BH5)', 'C71(BH6)', 'C90', 'C91',
+                'C133', 'C160', 'C161', 'C190', 'C192', 'C200', 'C1000(PO)',
+                'NSP-C1000-PO', '연구수업용')
+        chips = ''.join('<span class="tag" style="background:#f3f4f6;color:#6b7280;'
+                        'margin:0 4px 4px 0;display:inline-block">%s</span>' % m for m in base)
+        added = ('<span class="tag" style="background:#eef6ff;color:#2563eb;'
+                 'margin:0 4px 4px 0;display:inline-block">C250 ✕</span>')
+        return ('<div style="max-width:900px">'
+                '<div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap">'
+                '<b style="font-size:14px">펜 모델</b>'
+                '<span class="tag" style="background:#eef6ff;color:#2563eb;font-weight:700">17종</span>'
+                '<span style="font-size:11.5px;color:#9ca3af">편집 프로젝트 &#9656; 교재(책) 등록·수정의 '
+                '<b>[펜 모델]</b> 셀렉트가 이 목록을 씁니다</span></div>'
+                '<div class="row" style="gap:8px;margin-bottom:12px">'
+                '<div class="inp ph" style="max-width:260px">새 펜 모델명 (예: C250)</div>'
+                '<div class="btn pri">＋ 추가</div></div>'
+                '<div class="g2">'
+                '<div style="border:1px solid #eef0f4;border-radius:10px;padding:12px 14px">'
+                '<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px">기본 '
+                '<span style="color:#9ca3af;font-weight:400">· 16종 · 코드에서 관리</span></div>'
+                '<div>%s</div></div>'
+                '<div style="border:1px solid #eef0f4;border-radius:10px;padding:12px 14px">'
+                '<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px">추가한 모델 '
+                '<span style="color:#9ca3af;font-weight:400">· 1종 · 이 브라우저</span></div>'
+                '<div>%s</div></div></div>'
+                '<div style="font-size:11.5px;color:#6b7280;margin-top:10px;line-height:1.8;'
+                'border:1px solid #fde68a;background:#fffbeb;border-radius:9px;padding:10px 12px">'
+                '<b>추가한 모델은 이 브라우저에만 남습니다.</b> 서버 저장소가 없어 다른 담당자 화면에는 '
+                '나오지 않습니다 — 팀 전체가 쓰려면 여기 목록을 알려 주세요. <b>기본</b> 목록에 넣어 '
+                '배포하면 모두에게 반영됩니다.<br>교재에 이미 적어 둔 펜 모델은 목록에서 지워도 '
+                '<b>그대로 남습니다</b>(기록이므로).</div></div>'
+                % (chips, added))
+
     boards.append((
-        'S5', '알아야 할 사항', '기본',
+        'S5', '펜 모델 관리', '기본',
+        '교재(책) 등록·수정의 <b>[펜 모델]</b> 셀렉트가 쓰는 <b>참조 목록</b>을 여기서 공용으로 관리한다 '
+        '<code>PC-101</code>. 화면마다 따로 늘리지 않고 <b>한 곳에서 보고 고친다</b>. '
+        '<b>기본</b>(코드에서 관리 · 16종)과 <b>추가한 모델</b>을 나눠 보여 주며, '
+        '<b>추가분만 지울 수 있다</b>. '
+        '⚠ 서버 저장소가 없어 추가분은 <b>브라우저 단위</b>다 — 팀 전체 반영은 기본 목록에 넣어 배포한다.',
+        frame('INF-01', '코드 관리 정보', content(4, body=pen_body()), height=620),
+        [('새 펜 모델명 + [＋ 추가]', '입력·클릭', '목록에 추가',
+          'Enter 로도 추가된다 · 이미 있으면 <b>이미 있는 모델입니다.</b>'),
+         ('추가한 모델의 ✕', '클릭', '확인창 → 삭제',
+          '<b>기본 모델은 지울 수 없다</b> · 교재에 적어 둔 값은 그대로 남는다'),
+         ('교재(책) 등록·수정', '반영', '<code>PRJ-04</code>',
+          '여기서 늘린 모델이 <b>[펜 모델] 셀렉트에 바로 나온다</b>'),
+         ('교재 화면의 [＋ 직접 추가…]', '—', '<b>같은 목록</b>',
+          '거기서 추가해도 이 목록에 들어온다 <code>PC-100</code>')]))
+
+    boards.append((
+        'S6', '알아야 할 사항', '기본',
         'PRD §4.4 — 코드 발급·편집 운영에서 <b>반드시 알아야 할 기준</b>을 번호 붙은 섹션으로 정리한다. '
         '단가의 정본은 <code>P-16</code>이며 고객사별 단가는 <code>MEM-02</code>에서 지정한다.',
-        frame('INF-01', '코드 관리 정보', content(4), height=900),
+        frame('INF-01', '코드 관리 정보', content(5), height=900),
         [('① 편집 비용 산출', '조회', '—', '소리펜·필기펜 모두 <b>페이지 수 + 심볼 갯수</b> · <b>심볼 갯수 = 작업량</b>'),
          ('② 산출물·저장 위치', '조회', '—',
           'mp3·ncp2 = <b>디바이스</b>(파랑) / nproj·PDF·JPG·썸네일 = <b>서버 등록</b>(초록)'),
@@ -364,10 +419,14 @@ def build():
          ('단가 지정하러 가기', '이동', '<code>MEM-01</code> → <code>MEM-02</code>', ''),
          ('SOBP 실시간 발급', '—', '<b>미구현</b>', '⚠ §7 — 이 메뉴의 탭으로 넣을지 협의')]))
 
-    intro = ('코드 발급·편집 업무에 필요한 <b>참조 정보</b>를 <b>밑줄 탭 4개</b>로 제공한다 — '
-             'Code Info(Section별 발급 범위 — PDS2·PDS3·PDS4) · 확장 언어 슬롯 · 발급 구조 · OID 관리대장 · 알아야 할 사항. '
-             '<b>참조 전용 · 기능 없음</b>이며 권한은 전 역할(STAFF / ADMIN). '
-             '탭 2~4는 각각 <code>LangSlotView</code> · <code>NcodeInfoView</code> · '
+    intro = ('코드 발급·편집 업무에 필요한 <b>참조 정보</b>를 <b>밑줄 탭 6개</b>로 제공한다 — '
+             'Code Info(Section별 발급 범위 — PDS2·PDS3·PDS4) · 확장 언어 슬롯 · 발급 구조 · '
+             'OID 관리대장 · <b>펜 모델</b> · 알아야 할 사항. '
+             '대부분 <b>참조 전용</b>이고 <b>[펜 모델] 탭만 목록을 고칠 수 있다</b> <code>PC-101</code> — '
+             '교재(책) 등록·수정이 쓰는 참조 목록을 여기서 공용으로 관리한다. '
+             '권한은 전 역할(STAFF / ADMIN). '
+             '탭 2~6은 각각 <code>LangSlotView</code> · <code>NcodeInfoView</code> · '
+             '<code>OidView</code> · <code>PenModelsView</code> · '
              '<code>NcodeGuideView</code>를 <code>embedded</code>로 불러 쓴다. '
              '')
     return page(CODE, NAME, PRD, intro, boards)
