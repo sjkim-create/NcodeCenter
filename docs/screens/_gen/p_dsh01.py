@@ -2,7 +2,7 @@
 """DSH-01 대시보드 — 실제 화면 구조 그대로.
 
 분야별 4개 구역을 위에서 아래로 배치한다.
-  ① 코드(SOBP)  : 요약 3장 + Section별 소유 현황 · 업체별 점유 Top 10
+  ① 코드(SOBP)  : 요약 3장 + 업체별 점유 Top 10  (Section별 소유 현황은 뺐다 `PC-102`)
   ② 편집(CasterN): 요약 3장 + 편집 진행 상태 분포
   ③ 정산         : 요약 3장
   ④ 운영         : 운영 알림 · 최근 활동
@@ -92,25 +92,7 @@ def code_kpis(hot=True):
     ])
 
 
-def sec_card(hot=True):
-    rows = ''
-    for s, owned, cap, test in SECTIONS:
-        use = owned * 100.0 / cap
-        warn = hot and use >= 50
-        badge = ('<span style="font-size:9px;color:#6d5bd0;background:#eceafd;border-radius:4px;'
-                 'padding:0 4px;margin-left:4px" title="상용 미출시 · 개발/테스트 전용">테스트/개발</span>') if test else ''
-        pctxt = ('<span style="color:#b45309;font-weight:700;font-size:11px"> %d%%</span>'
-                 % round(use)) if warn else ''
-        rows += ('<div style="display:flex;align-items:center;gap:10px">'
-                 '<div style="width:92px;font-size:12.5px;flex:none">Section %d%s</div>'
-                 '<div style="flex:1;display:flex;height:16px;border-radius:5px;overflow:hidden;'
-                 'background:#f1f3f7"><div style="width:%.1f%%;background:%s"></div></div>'
-                 '<div style="width:108px;text-align:right;font-size:12px;color:#6b7280;flex:none">'
-                 '%s<span style="color:#c7cbd4;font-size:11px"> / %s</span>%s</div></div>'
-                 % (s, badge, owned * 100.0 / MAX_SEC, '#f59e0b' if warn else '#5f8ff0',
-                    '{:,}'.format(owned), '{:,}'.format(cap), pctxt))
-    return dcard(chead('Section별 소유 현황', '소유 owner / 정원') +
-                 '<div style="display:flex;flex-direction:column;gap:9px;margin-top:4px">%s</div>' % rows)
+# Section별 소유 현황 카드는 뺐다 `PC-102` — 같은 정보를 SOBP 맵(SOB-01)에서 본다
 
 
 def top10_card():
@@ -239,7 +221,7 @@ def act_card(empty=False):
 
 def content(empty=False, hot=True, zero=False, est=True, dist=(6893, 1240, 350), note=False):
     return (shead('코드 (SOBP)', '발급 여력과 점유 분포', 'SOBP 맵') +
-            code_kpis(hot) + grid2(sec_card(hot), top10_card()) +
+            code_kpis(hot) + top10_card() +
             shead('편집 (CasterN)', '편집 프로젝트 규모와 진행 상태', '편집 프로젝트') +
             edit_kpis(dist[1], sum(dist)) + edit_dist(dist, note) +
             shead('정산', '편집 청구액과 Key 발급 과금', 'N Key 관리') + bill_kpis(est) +
@@ -293,13 +275,11 @@ def build():
 
     boards.append((
         'S3', 'Section 정원 경고', '변형',
-        '사용률이 <b>50% 이상</b>인 Section 은 막대를 강조하고 <b>비율(%)</b>을 함께 적는다. '
-        '운영 알림에도 해당 Section 목록이 올라온다. 코드 여력은 늦게 알면 손쓸 수 없으므로 '
-        '미발급 요약 카드에도 <b>사용률이 가장 높은 Section</b> 을 표기한다.',
+        '사용률이 <b>50% 이상</b>인 Section 이 있으면 <b>미발급 요약 카드</b>의 부가 표기와 '
+        '<b>운영 알림</b>에 해당 Section 과 비율(%)이 올라온다. Section별 막대 카드는 뺐으므로 '
+        '<code>PC-102</code> 세부 분포는 SOBP 맵에서 본다.',
         F(content()),
-        [('Section 5', '표시', '—', '<b>163 / 256 · 64%</b> — 경고 대상'),
-         ('Section 3', '표시', '—', '212 / 4,096 · 5% — 해당 없음'),
-         ('미발급 요약 카드', '조회', '—', '부가 표기 <b>Section 5 사용률 63.7%</b>'),
+        [('미발급 요약 카드', '조회', '—', '부가 표기 <b>Section 5 사용률 63.7%</b>'),
          ('운영 알림 [정원 50% 이상]', '클릭', '<code>SOB-01</code>', '여력 확인'),
          ('⚠ 참고', '—', '<code>SOB-01</code> 과 기준이 다르다',
           'SOB-01 의 <b>추천제외</b>는 이 배지와 별개 값이다')]))

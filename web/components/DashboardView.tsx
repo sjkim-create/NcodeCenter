@@ -1,7 +1,7 @@
 "use client";
 
 // DSH-01 대시보드 — 분야별로 나눠 본다.
-//   ① 코드(SOBP)  : 할당율 · Section별 소유 · 업체별 점유
+//   ① 코드(SOBP)  : 할당율 · 업체별 점유  (Section별 소유 현황은 뺐다 `PC-102` — SOBP 맵에서 본다)
 //   ② 편집(CasterN): 고객사·교재 규모 · 진행 상태 · 전용 단가 적용
 //   ③ 정산         : 편집 청구액 · 미정산 금액 추정 · 정산 미등록
 //   ④ 운영         : 액션 필요 알림 · 최근 활동
@@ -36,7 +36,6 @@ const sectionStats = DATA.sections.map((s) => ({
   owned: s.owned ?? new Set(s.records.map((r) => r.owner)).size,
   cap: s.total_owners ?? 0,
 }));
-const maxSec = Math.max(1, ...sectionStats.map((s) => s.owned));
 const ownerCap = sectionStats.reduce((n, s) => n + s.cap, 0);
 const ownerUsed = sectionStats.reduce((n, s) => n + s.owned, 0);
 const ownerFree = Math.max(0, ownerCap - ownerUsed);
@@ -141,46 +140,21 @@ export default function DashboardView() {
         <Kpi icon="🧩" label="발급 owner" value={fmt(ownerUsed)} sub={`레코드 ${fmt(DATA.meta.records)}건 · 업체 ${fmt(DATA.meta.account_count)}곳`} tone="#5f8ff0" href="/projects" />
         <Kpi icon="🕳" label="미발급 owner" value={fmt(ownerFree)} sub={tightSections.length ? `Section ${tightSections[0].section} 사용률 ${pct1(tightSections[0].owned / tightSections[0].cap * 100)}` : "여유 있음"} tone="#94a3b8" href="/ownership" />
       </div>
-      <div style={S.grid2}>
-        <Card title="Section별 소유 현황" hint="소유 owner / 정원">
-          <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 4 }}>
-            {sectionStats.map((s) => {
-              const use = s.cap ? (s.owned / s.cap) * 100 : 0;
-              const hot = use >= 50;
-              return (
-                <div key={s.section} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 92, fontSize: 12.5, flex: "none" }}>
-                    Section {s.section}
-                    {s.test_dev ? <span style={S.testdev} title="상용 미출시 · 개발/테스트 전용">테스트/개발</span>
-                      : s.legacy ? <span style={S.legacy}>레거시</span> : null}
-                  </div>
-                  <div style={{ flex: 1, display: "flex", height: 16, borderRadius: 5, overflow: "hidden", background: "#f1f3f7" }}>
-                    <div title={`소유 owner ${s.owned} / 정원 ${s.cap}`} style={{ width: `${(s.owned / maxSec) * 100}%`, background: hot ? "#f59e0b" : "#5f8ff0" }} />
-                  </div>
-                  <div style={{ width: 108, textAlign: "right", fontSize: 12, color: "#6b7280", flex: "none" }}>
-                    {fmt(s.owned)}<span style={{ color: "#c7cbd4", fontSize: 11 }}> / {fmt(s.cap)}</span>
-                    {hot && <span style={{ color: "#b45309", fontWeight: 700, fontSize: 11 }}> {Math.round(use)}%</span>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-        <Card title="업체별 점유 Top 10" hint="소유 owner 수">
-          <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 4 }}>
-            {topAccounts.map((a, i) => (
-              <div key={a.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 20, color: "#9ca3af", fontSize: 12, flex: "none" }}>{i + 1}</div>
-                <div style={{ width: 130, fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: "none" }} title={a.name}>{a.name}</div>
-                <div style={{ flex: 1, height: 14, borderRadius: 5, background: "#f1f3f7", overflow: "hidden" }}>
-                  <div style={{ width: `${(a.owners / maxAcc) * 100}%`, height: "100%", background: `hsl(${(i * 42) % 360} 62% 55%)` }} />
-                </div>
-                <div style={{ width: 62, textAlign: "right", fontSize: 12, color: "#6b7280", flex: "none" }}>owner {a.owners}</div>
+      {/* Section별 소유 현황 카드는 뺐다 `PC-102` — 같은 정보를 SOBP 맵에서 본다. 업체별 점유만 전폭으로 */}
+      <Card title="업체별 점유 Top 10" hint="소유 owner 수">
+        <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 4 }}>
+          {topAccounts.map((a, i) => (
+            <div key={a.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 20, color: "#9ca3af", fontSize: 12, flex: "none" }}>{i + 1}</div>
+              <div style={{ width: 130, fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: "none" }} title={a.name}>{a.name}</div>
+              <div style={{ flex: 1, height: 14, borderRadius: 5, background: "#f1f3f7", overflow: "hidden" }}>
+                <div style={{ width: `${(a.owners / maxAcc) * 100}%`, height: "100%", background: `hsl(${(i * 42) % 360} 62% 55%)` }} />
               </div>
-            ))}
-          </div>
-        </Card>
-      </div>
+              <div style={{ width: 62, textAlign: "right", fontSize: 12, color: "#6b7280", flex: "none" }}>owner {a.owners}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       {/* ② 편집 (CasterN) */}
       <SectionHead title="편집 (CasterN)" note="편집 프로젝트 규모와 진행 상태" href="/projects/editing" action="편집 프로젝트" />
@@ -333,6 +307,4 @@ const S: Record<string, React.CSSProperties> = {
   grid2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, alignItems: "start" },
   card: { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "15px 16px" },
   kpiIcon: { width: 30, height: 30, borderRadius: 9, display: "grid", placeItems: "center", fontSize: 15 },
-  legacy: { fontSize: 9, color: "#92400e", background: "#fef3c7", borderRadius: 4, padding: "0 4px", marginLeft: 4 },
-  testdev: { fontSize: 9, color: "#6d5bd0", background: "#eceafd", borderRadius: 4, padding: "0 4px", marginLeft: 4 },
 };
