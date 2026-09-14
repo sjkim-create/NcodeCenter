@@ -18,7 +18,8 @@ import { servicesOfCompany } from "@/lib/serviceCustomers";
 import { codeKind, patternOf, patternTypeParam, CODE_KINDS, type CodeKind, type TicketPattern } from "@/lib/codeKind";
 import {
   caster, useCaster, genAppKey, ACCOUNT_SERVICES, accountServiceLabel, accountServiceReady,
-  CASTERN_PERMS, ALL_PERMS, permLabel, casternPerms, hasService, SDK_ONLY_LABEL,
+  CASTERN_PERMS, ALL_PERMS, SOUND_PERMS, WRITE_PERMS, PERM_GROUPS, permLabel, casternPerms, hasService, SDK_ONLY_LABEL,
+  keyRanges, rangeText, rangeBooks, type KeyRange,
   type AccountService, type CasterPerm, type CasterAccount, type AccountSettings,
 } from "@/lib/accountStore";
 
@@ -47,12 +48,14 @@ export function AccountsListView() {
   return (
     <div style={{ padding: "18px 20px" }}>
       {/* 요약 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 12 }}>
         {[
           ["등록 계정", cast.accounts.length.toLocaleString(), "#111827"],
           ["App Key 연동", cast.accounts.filter((a) => keysOf(a.id).length).length.toLocaleString(), "#2563eb"],
           ["App Key 없음", cast.accounts.filter((a) => !keysOf(a.id).length).length.toLocaleString(), "#92400e"],
           ["발급 App Key", cast.appKeys.length.toLocaleString(), "#7c3aed"],
+          // 개발팀 대장에서 들어온 계정 `PC-103`
+          ["대장 계정", cast.accounts.filter((a) => a.seeded).length.toLocaleString(), "#0f766e"],
         ].map(([l, v, c]) => (
           <div key={l} style={{ ...S.card, padding: "10px 12px" }}>
             <div style={{ fontSize: 11, color: "#6b7280" }}>{l}</div>
@@ -79,9 +82,9 @@ export function AccountsListView() {
 
       {/* 목록 */}
       <div style={{ ...S.card, padding: 0, overflowX: "auto" }}>
-        <table style={{ ...S.table, minWidth: 1120 }}>
+        <table style={{ ...S.table, minWidth: 1320 }}>
           <thead>
-            <tr>{["고객사", "ID (EMAIL)", "이름", "인증 서비스", "App Key", "등록일", ""].map((h) => (
+            <tr>{["고객사", "ID (EMAIL)", "이름", "인증 서비스", "App Key", "코드 범위", "사용기간", "등록일", ""].map((h) => (
               <th key={h} style={S.th}>{h}</th>
             ))}</tr>
           </thead>
@@ -116,9 +119,22 @@ export function AccountsListView() {
                     onClick={(e) => { e.stopPropagation(); router.push(accountHref(a.id, "key")); }}>
                     {keys.length === 0
                       ? <span style={{ ...S.tag, background: "#f3f4f6", color: "#9ca3af" }}>미발급</span>
-                      : <code style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, color: "#2563eb", wordBreak: "break-all" }}>{keys[0].key}</code>}
+                      : keys[0].key
+                        ? <code style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, color: "#2563eb", wordBreak: "break-all" }}>{keys[0].key}</code>
+                        // 대장에 코드 범위는 있는데 키 값이 안 적힌 계정 `PC-103`
+                        : <span style={{ ...S.tag, background: "#fef3c7", color: "#92400e", fontWeight: 700 }} title="대장에 App Key 값이 적혀 있지 않습니다">키 미기재</span>}
                   </td>
-                  <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#6b7280" }}>{a.createdAt?.slice(0, 10)}</td>
+                  {/* 코드 범위 수 · 사용기간 `PC-103` */}
+                  <td style={{ ...S.td, whiteSpace: "nowrap" }} title={keys[0] ? keyRanges(keys[0]).map(rangeText).join("\n") : undefined}
+                    onClick={(e) => { e.stopPropagation(); router.push(accountHref(a.id, "key")); }}>
+                    {keys[0] ? <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>{keyRanges(keys[0]).length}개</span> : <span style={{ color: "#c7cbd4" }}>—</span>}
+                  </td>
+                  <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#6b7280", whiteSpace: "nowrap", fontSize: 11.5 }}>
+                    {a.since || a.until ? `${a.since || "—"} ~ ${a.until || "—"}` : <span style={{ color: "#c7cbd4" }}>—</span>}
+                  </td>
+                  <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#6b7280" }}>
+                    {a.seeded ? <span style={{ ...S.tag, background: "#f0fdfa", color: "#0f766e", fontWeight: 700 }} title="개발팀 대장에서 들어온 계정">대장</span> : a.createdAt?.slice(0, 10)}
+                  </td>
                   <td style={{ ...S.td, textAlign: "right", whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
                     <Link href={accountHref(a.id)} style={{ ...S.linkBtn, textDecoration: "none" }}>상세</Link>
                     <button onClick={() => { if (confirm("이 계정과 연동 App Key를 삭제할까요?")) caster.removeAccount(a.id); }} style={{ ...S.linkBtn, color: "#dc2626" }}>삭제</button>
@@ -210,28 +226,49 @@ function SecHead({ t, d, tip }: { t: string; d?: string; tip?: string }) {
 const SEC: React.CSSProperties = { border: "1px solid #eef0f4", borderRadius: 10, padding: "14px 16px", marginTop: 12 };
 
 // CasterN 권한 6종 — 개별 선택 / [모두 선택]·[모두 해제] `PC-058`
+// 권한 = Web Caster 권한 키 20종 `PC-103` — 분류(Project·Edit·Export·Settings·Tool·Ncode·Nproj)로 묶고,
+//   대장의 B2B 기본값 두 벌을 **프리셋**(소리펜 / 필기펜)으로 한 번에 넣는다.
+const sameSet = (a: string[], b: string[]) => a.length === b.length && b.every((x) => a.includes(x));
 function PermPicker({ value, onChange }: { value: CasterPerm[]; onChange: (v: CasterPerm[]) => void }) {
   const all = value.length === ALL_PERMS.length;
   const toggle = (p: CasterPerm) => onChange(value.includes(p) ? value.filter((x) => x !== p) : [...value, p]);
+  const preset = (label: string, set: CasterPerm[], tip: string) => {
+    const on = sameSet(value, set);
+    return (
+      <button key={label} onClick={() => onChange([...set])} title={tip}
+        style={{ ...S.smallBtn, ...(on ? { background: "#eef6ff", color: "#1d4ed8", borderColor: "#c7ddff", fontWeight: 700 } : {}) }}>{label}</button>
+    );
+  };
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 11.5, color: "#6b7280" }}>선택 {value.length} / {ALL_PERMS.length}</span>
+        <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 6 }}>프리셋</span>
+        {preset("소리펜 (B2B)", SOUND_PERMS, "대장의 B2B 소리펜 기본값")}
+        {preset("필기펜 (B2B)", WRITE_PERMS, "대장의 B2B 필기펜 기본값")}
         <span style={{ flex: 1 }} />
         <button onClick={() => onChange(all ? [] : [...ALL_PERMS])} style={S.smallBtn}>{all ? "모두 해제" : "모두 선택"}</button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 6 }}>
-        {CASTERN_PERMS.map((p) => {
-          const on = value.includes(p.v);
-          return (
-            <label key={p.v} title={p.desc}
-              style={{ display: "flex", alignItems: "center", gap: 7, border: `1px solid ${on ? "#c7ddff" : "#eef0f4"}`, background: on ? "#f7faff" : "#fff", borderRadius: 9, padding: "8px 10px", fontSize: 12.5, cursor: "pointer" }}>
-              <input type="checkbox" checked={on} onChange={() => toggle(p.v)} />
-              <span style={{ color: on ? "#1d4ed8" : "#374151", fontWeight: on ? 700 : 400 }}>{p.label}</span>
-            </label>
-          );
-        })}
-      </div>
+      {PERM_GROUPS.map((g) => (
+        <div key={g} style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", margin: "4px 0 4px", letterSpacing: .2 }}>{g}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 6 }}>
+            {CASTERN_PERMS.filter((p) => p.group === g).map((p) => {
+              const on = value.includes(p.v);
+              return (
+                <label key={p.v} title={p.v}
+                  style={{ display: "flex", alignItems: "flex-start", gap: 7, border: `1px solid ${on ? "#c7ddff" : "#eef0f4"}`, background: on ? "#f7faff" : "#fff", borderRadius: 9, padding: "7px 10px", fontSize: 12, cursor: "pointer" }}>
+                  <input type="checkbox" checked={on} onChange={() => toggle(p.v)} style={{ marginTop: 2 }} />
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ color: on ? "#1d4ed8" : "#374151", fontWeight: on ? 700 : 400, fontFamily: "ui-monospace,monospace", fontSize: 11.5 }}>{p.label}</span>
+                    <div style={{ fontSize: 10.5, color: "#9ca3af", marginTop: 1, lineHeight: 1.5 }}>{p.desc}</div>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -395,7 +432,9 @@ function issueAppKey(acc: CasterAccount, range: SobpRange, bookStart: number, bo
   const key = genKeyStr();
   const rec = caster.addAppKey({ key, accountId: acc.id, services, company: acc.company, pt: range.pt,
     section: range.section, owner: range.owner, bookStart: bs, bookEnd: be, bookVol,
-    pageStart, pageEnd: pageStart + pageVol - 1, pageVol, until });
+    pageStart, pageEnd: pageStart + pageVol - 1, pageVol, until,
+    ranges: [{ pt: range.pt, section: range.section, owner: range.owner, bookStart: bs, bookEnd: be, bookVol,
+               pageStart, pageEnd: pageStart + pageVol - 1, pageVol }] });   // 코드 범위 목록 `PC-103`
   if (!rec) return "";                                  // 이미 발급된 계정
   const svcText = services.map(accountServiceLabel).join(" · ") || "미지정";
   const summary = `계정 ${acc.id} · ${svcText} · ${range.pt} S${range.section}/O${range.owner}/B${bs}~${be}(${bookVol}권) · P${pageStart}~${pageStart + pageVol - 1} · ${until}`;
@@ -606,6 +645,8 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const [pwd, setPwd] = useState("");
   const [addr, setAddr] = useState("");
   const [homepage, setHomepage] = useState("");
+  const [since, setSince] = useState("");                     // 사용기간 `PC-103`
+  const [accUntil, setAccUntil] = useState("");
   const [services, setServices] = useState<AccountService[]>([]);
   const [settings, setSettings] = useState<AccountSettings>({});
   const [loaded, setLoaded] = useState(false);
@@ -627,6 +668,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   useEffect(() => {
     if (!acc || loaded) return;
     setName(acc.name); setPwd(acc.pwd); setAddr(acc.addr); setHomepage(acc.homepage);
+    setSince(acc.since ?? ""); setAccUntil(acc.until ?? "");
     setServices(acc.services ?? []); setSettings(acc.settings ?? {});
     setLoaded(true);
   }, [acc, loaded]);
@@ -659,13 +701,15 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   }
 
   const save = () => {
-    if (!pwd.trim()) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
+    // 대장 계정은 비밀번호를 저장하지 않았으므로 비워 둘 수 있다 `PC-103`
+    if (!pwd.trim() && !acc.seeded) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
 
     const kept: AccountSettings = {};
     for (const sv of services) if (settings[sv]) kept[sv] = settings[sv];
 
     const r = caster.updateAccount(acc.id, {
       name: name.trim(), pwd: pwd.trim(), addr: addr.trim(), homepage: homepage.trim(),
+      since: since.trim(), until: accUntil.trim(),
       services, settings: kept,
     });
     if (!r.ok) { setToast({ ok: false, text: r.msg }); return; }
@@ -676,6 +720,16 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const keyBS = bStart ?? range?.bookStart ?? 0;
   const keyVol = Math.max(1, Math.min(bVol ?? (range?.bookCount ?? 1), range ? range.bookEnd - keyBS + 1 : 1));
   const keyPVol = Math.max(1, pVol ?? PAGE_DEFAULT);
+  // 발급된 키에 코드 범위를 하나 더 `PC-103`
+  const addRange = () => {
+    if (!range || !myKey) return;
+    const r: KeyRange = { pt: range.pt, section: range.section, owner: range.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, bookVol: keyVol,
+      pageStart: pStart, pageEnd: pStart + keyPVol - 1, pageVol: keyPVol };
+    caster.addKeyRange(myKey.id, r);
+    logActivity("ticket", `App Key 범위 추가 · ${acc?.company} · ${acc?.id} · ${rangeText(r)}`, me?.name);
+    setSobpIdx(-1); setBStart(null); setBVol(null);
+    setToast({ ok: true, text: `코드 범위 추가 — ${rangeText(r)}` });
+  };
   const addKey = () => {
     if (!range) { setToast({ ok: false, text: "할당된 SOBP 범위를 선택하세요." }); return; }
     if (myKey) { setToast({ ok: false, text: "App Key 는 계정당 1개입니다. 기존 키를 삭제한 뒤 다시 발급하세요." }); return; }
@@ -688,8 +742,24 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const appKeyBlock = (
     <>
       {myKey ? (
-        // 안내는 제목 툴팁으로 옮겼다 `PC-071` — 발급 폼 자리에는 아무것도 두지 않는다
-        null
+        // 키가 있으면 새 키는 못 만들고(계정당 1개) **코드 범위를 더 물린다** `PC-103`
+        <>
+          <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 5 }}>코드 범위 추가 — SOBP 맵에서 발급된 S / O <span style={{ color: "#9ca3af" }}>(고르면 Book 범위가 따라옵니다)</span></div>
+          <SobpRangePicker company ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = ranges[i]; if (r) setCtype(CT_OF[r.pt] ?? "PDS3"); }} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 12 }}>
+            <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
+                              onStart={setBStart} onVol={setBVol} onPStart={setPStart} onPVol={setPVol} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+            {range && (
+              <span style={{ fontSize: 11.5, color: "#6b7280" }}>
+                추가 범위 <b>{range.pt} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권 · <b>P{pStart}~{pStart + keyPVol - 1}</b>
+              </span>
+            )}
+            <span style={{ flex: 1 }} />
+            <button onClick={addRange} disabled={!range} style={{ ...S.primary, ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>범위 추가</button>
+          </div>
+        </>
       ) : (acc?.services ?? []).length === 0 ? (
         <div style={{ fontSize: 11.5, color: "#9ca3af", lineHeight: 1.6 }}>
 <b>[저장]</b> 하면 App Key 를 발급할 수 있습니다.
@@ -763,21 +833,35 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
           <Field label="회사정보 (고객사)"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{acc.company}</div></Field>
           <Field label="NAME (담당자/사용자명)"><input style={S.input} value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <Field label="ID (EMAIL)"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280", fontFamily: "ui-monospace,monospace" }}>{acc.id}</div></Field>
-          <Field label="PWD *">
+          <Field label={acc.seeded ? "PWD" : "PWD *"}>
             <div style={{ display: "flex", gap: 6 }}>
-              <input style={S.input} value={pwd} onChange={(e) => setPwd(e.target.value)} />
+              {/* 대장 계정 — 비밀번호는 저장소에 두지 않았다 `PC-103` */}
+              <input style={S.input} value={pwd} onChange={(e) => setPwd(e.target.value)} placeholder={acc.seeded ? "대장 참조 (저장소에 두지 않음)" : ""} />
               <button onClick={() => setPwd(genPwdStr())} style={{ ...S.smallBtn, whiteSpace: "nowrap" }}>임의 생성</button>
             </div>
           </Field>
           <Field label="ADDR (주소)"><input style={S.input} value={addr} onChange={(e) => setAddr(e.target.value)} /></Field>
           <Field label="HOMEPAGE"><input style={S.input} value={homepage} onChange={(e) => setHomepage(e.target.value)} placeholder="https://" /></Field>
+          {/* 사용기간 — 대장의 「사용기간」 `PC-103` */}
+          <Field label="사용기간 시작"><input type="date" style={S.input} value={since} onChange={(e) => setSince(e.target.value)} /></Field>
+          <Field label="사용기간 끝">
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input type="date" style={{ ...S.input, opacity: accUntil === "무제한" ? 0.5 : 1 }} value={accUntil === "무제한" ? "" : accUntil} disabled={accUntil === "무제한"} onChange={(e) => setAccUntil(e.target.value)} />
+              <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
+                <input type="checkbox" checked={accUntil === "무제한"} onChange={(e) => setAccUntil(e.target.checked ? "무제한" : "")} /> 무제한
+              </label>
+            </div>
+          </Field>
         </div>
+        {acc.note && (
+          <div style={{ marginTop: 10, fontSize: 11.5, color: "#92400e", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 9, padding: "8px 11px", whiteSpace: "pre-line", lineHeight: 1.7 }}>{acc.note}</div>
+        )}
 
         </div>
 
         {/* App Key 발급 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
-          <SecHead t="App Key 발급" d={`· 계정당 1개 · 발급된 키 ${keys.length}개`} tip={myKey ? "이 계정에는 이미 App Key 가 발급돼 있습니다 — 계정당 1개입니다. 범위를 바꾸려면 발급 내역에서 키를 삭제한 뒤 다시 발급하세요." : "고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (인증 서비스 전체 공통)"} />
+          <SecHead t="App Key 발급" d={`· 계정당 1개 · 발급된 키 ${keys.length}개`} tip={myKey ? "이 계정에는 이미 App Key 가 발급돼 있습니다 — 계정당 1개입니다. 코드 범위는 여기서 더 물릴 수 있고(PC-103), 키 자체를 바꾸려면 발급 내역에서 삭제한 뒤 다시 발급하세요." : "고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (인증 서비스 전체 공통)"} />
           {appKeyBlock}
         </div>
 
@@ -801,16 +885,32 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
               </div>
             ) : keys.map((k) => {
               const linked = (acc.services ?? []).length > 0;   // 키는 사용처 전체 공통 `PC-050`
+              const rs = keyRanges(k);                           // 코드 범위 여러 개 `PC-103`
               return (
-              <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${linked ? "#eef0f4" : "#fecaca"}`, background: linked ? "#fff" : "#fff7f7", borderRadius: 9, padding: "8px 10px", fontSize: 11.5, color: "#6b7280", flexWrap: "wrap" }}>
-                <code style={{ fontFamily: "ui-monospace,monospace" }}>{k.key}</code>
-                <span style={{ ...S.tag, background: k.pt === "PDS3" ? "#eef6ff" : "#fef3c7", color: k.pt === "PDS3" ? "#2563eb" : "#92400e" }}>{k.pt} S{k.section}/O{k.owner}/B{k.bookStart}~{k.bookEnd} · {k.bookVol ?? (k.bookEnd - k.bookStart + 1)}권</span>
-                <span>{(k.services ?? []).map(accountServiceLabel).join(" · ") || "미지정"}</span>
-                {!linked && <span style={{ ...S.tag, background: "#fef2f2", color: "#b91c1c", fontWeight: 700 }} title="계정 사용처에서 이 서비스가 빠져 로그인에 쓸 수 없습니다">연동 끊김</span>}
-                <span>유효 {k.until}</span>
-                <span style={{ flex: 1 }} />
-                <span style={{ fontFamily: "ui-monospace,monospace" }}>{k.createdAt}</span>
-                <button onClick={() => caster.removeAppKey(k.id)} style={{ ...S.linkBtn, color: "#dc2626" }}>키 삭제</button>
+              <div key={k.id} style={{ border: `1px solid ${linked ? "#eef0f4" : "#fecaca"}`, background: linked ? "#fff" : "#fff7f7", borderRadius: 9, padding: "8px 10px", fontSize: 11.5, color: "#6b7280" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  {k.key
+                    ? <code style={{ fontFamily: "ui-monospace,monospace" }}>{k.key}</code>
+                    : <span style={{ ...S.tag, background: "#fef3c7", color: "#92400e", fontWeight: 700 }} title="대장에 App Key 값이 적혀 있지 않습니다">키 미기재</span>}
+                  <span>{(k.services ?? []).map(accountServiceLabel).join(" · ") || SDK_ONLY_LABEL}</span>
+                  {!linked && k.key && <span style={{ ...S.tag, background: "#fef2f2", color: "#b91c1c", fontWeight: 700 }} title="계정 사용처에서 이 서비스가 빠져 로그인에 쓸 수 없습니다">연동 끊김</span>}
+                  <span>유효 {k.until}</span>
+                  <span style={{ flex: 1 }} />
+                  <span style={{ fontFamily: "ui-monospace,monospace" }}>{k.createdAt}</span>
+                  <button onClick={() => caster.removeAppKey(k.id)} style={{ ...S.linkBtn, color: "#dc2626" }}>키 삭제</button>
+                </div>
+                {/* 코드 범위 목록 — 한 키에 여러 범위 `PC-103` */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
+                  {rs.map((r, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ ...S.tag, background: r.pt === "PDS3" ? "#eef6ff" : r.pt === "PDS2" ? "#fef3c7" : "#f3e8ff", color: r.pt === "PDS3" ? "#2563eb" : r.pt === "PDS2" ? "#92400e" : "#7e22ce", fontFamily: "ui-monospace,monospace" }}>{rangeText(r)}</span>
+                      <span>{rangeBooks(r) != null ? `${rangeBooks(r)!.toLocaleString()}권` : "권수 —"}</span>
+                      {r.note && <span style={{ color: "#9ca3af" }}>{r.note}</span>}
+                      <span style={{ flex: 1 }} />
+                      {rs.length > 1 && <button onClick={() => caster.removeKeyRange(k.id, i)} style={{ ...S.linkBtn, color: "#dc2626" }}>범위 삭제</button>}
+                    </div>
+                  ))}
+                </div>
               </div>
               );
             })}
@@ -818,7 +918,16 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
           <SecHead t="Key 정보" d="· 이 계정에 발급된 App Key · 계정당 1개" />
           {/* N Key 는 이 화면에서 발급하지 않는다 — [N Key 관리] 메뉴에서 다룬다 `PC-068` */}
-          <KeyCard title="App Key" params={appTicket?.params} empty="위에서 발급하세요." />
+          <KeyCard title="App Key" empty="위에서 발급하세요."
+            params={appTicket?.params ?? (myKey ? {
+              // 대장 시드 키는 발급 티켓이 없어 키 자체로 채운다 `PC-103`
+              "Company Name": acc.company, "Account Id": acc.id,
+              Service: (myKey.services ?? []).map(accountServiceLabel).join(" · ") || SDK_ONLY_LABEL,
+              "App Key": myKey.key || "미기재",
+              "Valid Until Time": myKey.until === "무제한" ? "99999999 (무제한)" : myKey.until.replace(/-/g, ""),
+              ...Object.fromEntries(keyRanges(myKey).map((r, i) => [`Range ${i + 1}`, rangeText(r)])),
+              "Ticket Type": myKey.until === "무제한" ? "Unlimited" : "Period",
+            } : undefined)} />
         </div>
 
         {/* 이동·저장 버튼은 화면 맨 아래에 모은다 `PC-069` */}

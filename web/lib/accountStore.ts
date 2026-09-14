@@ -10,6 +10,7 @@
 // - settings(서비스별 설정): 서비스마다 권한·설정 항목이 다르다.
 //   지금 권한 체계가 정의된 서비스는 CasterN 뿐이고, 나머지는 준비중이라 설정 항목이 없다.
 import { useSyncExternalStore } from "react";
+import casterLedger from "@/data/caster-ledger.json";
 
 // 사용처(연동 서비스) — 계정 로그인 허용 범위를 가르는 값
 // ── 인증 서비스 `PC-076` ──────────────────────────
@@ -33,21 +34,29 @@ export const authServiceText = (svcs?: AccountService[]) => {
 // 권한·설정 화면이 준비된 서비스인지 — false면 등록 화면에서 「준비중」으로 노출한다.
 export const accountServiceReady = (v?: string) => ACCOUNT_SERVICES.find((s) => s.v === v)?.ready ?? false;
 
-// CasterN 사용자 권한 6종 — 계정마다 개별 선택 또는 모두 선택한다. (사용처에 CasterN 이 포함될 때만 의미)
-//   ※ 「App 페이지 설정」 은 권한 항목에서 뺐다 `PC-058` — 옛 데이터에 남아 있어도 화면에 나오지 않는다.
-export type CasterPerm =
-  | "PROJECT_CREATE" | "SYMBOL_EDIT" | "RESOURCE_EDIT"
-  | "EXPORT_NCODE_PDF" | "EXPORT_NCP2" | "EXPORT_APP_PACKAGE";
-export const CASTERN_PERMS: { v: CasterPerm; label: string; desc: string }[] = [
-  { v: "PROJECT_CREATE", label: "프로젝트 생성", desc: "편집 프로젝트를 새로 만든다" },
-  { v: "SYMBOL_EDIT", label: "심볼 편집", desc: "심볼(코드 영역) 편집" },
-  { v: "RESOURCE_EDIT", label: "리소스 편집", desc: "음원·이미지 등 리소스 편집" },
-  { v: "EXPORT_NCODE_PDF", label: "Ncode PDF 내보내기", desc: "Ncode가 입혀진 PDF 출력" },
-  { v: "EXPORT_NCP2", label: "NCP2 내보내기", desc: "NCP2 파일 내보내기" },
-  { v: "EXPORT_APP_PACKAGE", label: "App용 패키지 내보내기", desc: "App에서 쓰는 패키지 내보내기" },
-];
+// CasterN 사용자 권한 — **Web Caster 권한 키 20종** `PC-103`
+//   개발팀 대장(db/source/Caster_계정_퍼미션_티켓.xlsx ▸ 「Web Caster 권한 설정」)의 키를 그대로 쓴다.
+//   값은 "Project/New/Enabled" 같은 **권한 키 문자열**이고, 분류(Project·Edit·Export·Settings·Tool·Ncode·Nproj)로 묶는다.
+//   B2B 기본값 두 벌(소리펜 / 필기펜)이 대장에 있어 **프리셋**으로 제공한다.
+//   ※ 옛 6종(PROJECT_CREATE …)은 hydrate 에서 새 키로 옮긴다(아래 OLD_PERM).
+export type CasterPerm = string;
+export type PermDef = { key: string; group: string; desc: string; sound: boolean; write: boolean };
+const permShort = (k: string) => k.replace(/\/Enabled$/, "");
+export const CASTERN_PERMS: { v: CasterPerm; label: string; desc: string; group: string; sound: boolean; write: boolean }[] =
+  (casterLedger.perms as PermDef[]).map((p) => ({ v: p.key, label: permShort(p.key), desc: p.desc, group: p.group, sound: p.sound, write: p.write }));
 export const ALL_PERMS: CasterPerm[] = CASTERN_PERMS.map((p) => p.v);
+export const SOUND_PERMS: CasterPerm[] = CASTERN_PERMS.filter((p) => p.sound).map((p) => p.v);   // B2B 소리펜 기본
+export const WRITE_PERMS: CasterPerm[] = CASTERN_PERMS.filter((p) => p.write).map((p) => p.v);   // B2B 필기펜 기본
+export const PERM_GROUPS: string[] = [...new Set(CASTERN_PERMS.map((p) => p.group))];
 export const permLabel = (v: string) => CASTERN_PERMS.find((p) => p.v === v)?.label ?? v;
+// 옛 권한 6종 → 새 키 `PC-103`
+const OLD_PERM: Record<string, string[]> = {
+  PROJECT_CREATE: ["Project/New/Enabled"], SYMBOL_EDIT: ["Edit/Symbol/Enabled"],
+  RESOURCE_EDIT: ["Edit/Resource/Add/Enabled", "Edit/Resource/Delete/Enabled", "Edit/Resource/DragDrop/Enabled"],
+  EXPORT_NCODE_PDF: ["Export/NcodePDF/Enabled"], EXPORT_NCP2: ["Export/NCP/Enabled"], EXPORT_APP_PACKAGE: ["Export/PackageForApp/Enabled"],
+  APP_PAGE_ATTR: ["Settings/PageAttrForApp/Enabled"],
+};
+const migratePerms = (ps?: string[]): CasterPerm[] => [...new Set((ps ?? []).flatMap((p) => OLD_PERM[p] ?? [p]))];
 
 // 서비스별 설정 — 서비스마다 지정 항목이 다르다.
 // CasterN: 사용자 권한 6종. 나머지 서비스는 아직 정의된 항목이 없다(준비중).
@@ -64,6 +73,11 @@ export type CasterAccount = {
   company: string;     // 회사명
   addr: string;
   homepage: string;
+  phone?: string;
+  since?: string;      // 사용기간 시작 (YYYY-MM-DD) `PC-103`
+  until?: string;      // 사용기간 끝 (YYYY-MM-DD / "무제한" / "") `PC-103`
+  seeded?: boolean;    // 개발팀 대장에서 들어온 계정 — 비밀번호는 저장하지 않았다(「대장 참조」) `PC-103`
+  note?: string;       // 대장의 안내문(영업용 테스트 계정 등)
   createdAt: string;
   /** @deprecated 단일 사용처 시절 필드 — hydrate 에서 services 로 옮긴다 */
   service?: AccountService;
@@ -77,12 +91,26 @@ export const casternPerms = (a?: CasterAccount): CasterPerm[] =>
 export const hasService = (a: CasterAccount | undefined, s: AccountService) => !!a?.services?.includes(s);
 // App Key — **한 계정에 1개**만 발급하고, 그 계정의 **사용처 전체에 공통**으로 쓴다 `PC-050`
 //   좌표는 **고객사가 가진 S/O** 안에서 **B·P 영역만 계정마다 다르게** 잡는다 `PC-059`.
+// 코드 범위(티켓) — App Key 하나에 **여러 개**를 물릴 수 있다 `PC-103`
+//   대장에서 한 계정이 PDS2·PDS3 를 함께 쓰거나(네오랩), 같은 Owner 안에서 Book 구간을 여러 번 받은(tranwisdom) 경우가 있다.
+//   S·O 는 대장이 구간(0~1023)으로 준 것도 있어 *End 를 둔다. Book·Page 가 비어 있으면 null.
+export type KeyRange = {
+  pt: string;
+  section: number; sectionEnd?: number | null;
+  owner: number; ownerEnd?: number | null;
+  bookStart: number | null; bookEnd: number | null; bookVol?: number;
+  pageStart: number | null; pageEnd: number | null; pageVol?: number;
+  count?: number | null;   // 대장의 수량(권수)
+  note?: string;
+};
 export type AppKey = {
   id: number;
-  key: string;         // 발급 App Key — **영문·숫자 29자 난수** `PC-066`
+  key: string;         // 발급 App Key — **영문·숫자 29자 난수** `PC-066` · 대장에 키가 없으면 "" (미기재)
   accountId: string;   // 연동 계정(email)
   services: AccountService[];   // 사용처 — 계정의 사용처 전체(공통)
   company: string;
+  ranges?: KeyRange[]; // 코드 범위 목록 `PC-103` — 아래 낱개 필드는 첫 범위(옛 데이터 호환)
+  seeded?: boolean;    // 대장 시드 `PC-103`
   pt: string; section: number; owner: number; bookStart: number; bookEnd: number;
   bookVol: number;     // Book Volume — 발급 권수 (bookEnd = bookStart + bookVol - 1)
   pageStart: number; pageEnd: number;
@@ -105,6 +133,17 @@ const isAppKey = (v: string) => new RegExp(`^[0-9A-Za-z]{${APP_KEY_LEN}}$`).test
 // 계정의 App Key — 1개만 있다
 export const appKeyOf = (s: { appKeys: AppKey[] }, accountId: string) =>
   s.appKeys.find((k) => k.accountId === accountId);
+// App Key 의 코드 범위 목록 — ranges 가 없으면 낱개 필드를 한 범위로 `PC-103`
+export const keyRanges = (k: AppKey): KeyRange[] =>
+  k.ranges?.length ? k.ranges : [{ pt: k.pt, section: k.section, owner: k.owner, bookStart: k.bookStart, bookEnd: k.bookEnd,
+    bookVol: k.bookVol, pageStart: k.pageStart, pageEnd: k.pageEnd, pageVol: k.pageVol }];
+const span = (a: number | null | undefined, b?: number | null) =>
+  a == null ? "—" : b != null && b !== a ? `${a}~${b}` : `${a}`;
+/** 범위 한 줄 표기 — "PDS3 S3/O450/B0~238/P0~511" */
+export const rangeText = (r: KeyRange) =>
+  `${r.pt} S${span(r.section, r.sectionEnd)}/O${span(r.owner, r.ownerEnd)}/B${span(r.bookStart, r.bookEnd)}/P${span(r.pageStart, r.pageEnd)}`;
+export const rangeBooks = (r: KeyRange) =>
+  r.count ?? (r.bookStart != null && r.bookEnd != null ? r.bookEnd - r.bookStart + 1 : null);
 type State = { accounts: CasterAccount[]; appKeys: AppKey[] };
 
 const KEY = "ncc-caster-v1";
@@ -122,6 +161,9 @@ function commit(next: State) { state = next; persist(); subs.forEach((f) => f())
 const dropSdk = (v?: AccountService[]) => (v ?? []).filter((x) => x !== "SDK");
 function migrate(s: State): State {
   const accounts = s.accounts.map((a) => {
+    // 권한 키는 옛 6종 → Web Caster 20종으로 `PC-103`
+    if (a.settings?.CASTERN?.perms) a = { ...a, settings: { ...a.settings, CASTERN: { ...a.settings.CASTERN, perms: migratePerms(a.settings.CASTERN.perms) } } };
+    if (a.perms) a = { ...a, perms: migratePerms(a.perms) };
     if (a.services?.length && a.settings) return { ...a, services: dropSdk(a.services) };
     const services = dropSdk(a.services?.length ? a.services : a.service ? [a.service] : []);
     const settings: AccountSettings = { ...a.settings };
@@ -131,6 +173,7 @@ function migrate(s: State): State {
   });
   // App Key: 사용처별(service) → 계정 공통(services) `PC-050`
   const appKeys = s.appKeys.map((k) => {
+    if (k.seeded) return k;                                   // 대장 시드는 키 값을 다시 만들지 않는다 `PC-103`
     if (k.services?.length && isAppKey(k.key)) return { ...k, services: dropSdk(k.services) };
     if (k.services?.length) return { ...k, key: genAppKey(), services: dropSdk(k.services) };   // 키 형식만 갱신 `PC-066`
     const acc = accounts.find((a) => a.id === k.accountId);
@@ -144,6 +187,50 @@ function migrate(s: State): State {
   return { ...s, accounts, appKeys };
 }
 
+// ── 개발팀 대장 시드 `PC-103` ─────────────────────────────
+//   web/data/caster-ledger.json (db/import/build_caster_ledger.py) 의 계정·권한·코드 범위를 **1회** 넣는다.
+//   이미 같은 ID 가 있으면 건너뛴다. 지운 계정은 다시 들어오지 않는다(표식 SEED_KEY).
+//   비밀번호는 대장에 있어도 **저장하지 않는다** — pwd "" · 화면에는 「대장 참조」.
+const SEED_KEY = "ncc-caster-seeded-v1";
+type LedgerAccount = {
+  sheet: string; company: string; companyId: number; id: string; name: string; since: string; until: string;
+  appKey: string; perms: Record<string, boolean>; ranges: KeyRange[]; note: string; addr: string; phone: string; homepage: string;
+};
+function seedFromLedger(s: State): State {
+  const rows = casterLedger.accounts as LedgerAccount[];
+  const have = new Set(s.accounts.map((a) => a.id.toLowerCase()));
+  const accounts = [...s.accounts];
+  const appKeys = [...s.appKeys];
+  for (const r of rows) {
+    const id = r.id || `${r.company} (계정 미기재)`;          // 대장에 계정이 비어 있는 시트(영신사)
+    if (have.has(id.toLowerCase())) continue;
+    have.add(id.toLowerCase());
+    const permKeys = Object.keys(r.perms);
+    const on = permKeys.filter((k) => r.perms[k]);
+    // Web Caster 권한이 적혀 있으면 CasterN 계정, 아니면 App Key 만 받는 SDK 연동(선택 없음)
+    const services: AccountService[] = permKeys.length ? ["CASTERN"] : [];
+    accounts.push({
+      id, services, settings: permKeys.length ? { CASTERN: { perms: on } } : {},
+      pwd: "", name: r.name || "", companyId: r.companyId, company: r.company,
+      addr: r.addr || "", homepage: r.homepage || "", phone: r.phone || "",
+      since: r.since || "", until: r.until || "", seeded: true, note: r.note || "",
+      createdAt: r.since ? `${r.since} 00:00:00` : "대장",
+    });
+    if (r.ranges.length || r.appKey) {
+      const f = r.ranges[0];
+      appKeys.push({
+        id: seq++, key: r.appKey || "", accountId: id, services, company: r.company,
+        ranges: r.ranges, seeded: true,
+        pt: f?.pt ?? "PDS3", section: f?.section ?? 0, owner: f?.owner ?? 0,
+        bookStart: f?.bookStart ?? 0, bookEnd: f?.bookEnd ?? 0, bookVol: rangeBooks(f ?? { pt: "", section: 0, owner: 0, bookStart: null, bookEnd: null, pageStart: null, pageEnd: null }) ?? 0,
+        pageStart: f?.pageStart ?? 0, pageEnd: f?.pageEnd ?? 0,
+        until: r.until || "무제한", createdAt: r.since ? `${r.since} 00:00:00` : "대장",
+      });
+    }
+  }
+  return { accounts, appKeys };
+}
+
 function hydrate() {
   if (hydrated || typeof window === "undefined") return;
   hydrated = true;
@@ -152,9 +239,14 @@ function hydrate() {
     if (raw) {
       state = migrate(JSON.parse(raw));
       seq = Math.max(0, ...state.appKeys.map((k) => k.id)) + 1;
-      persist();
-      subs.forEach((f) => f());
     }
+    if (!localStorage.getItem(SEED_KEY)) {                 // 대장 시드 1회 `PC-103`
+      state = seedFromLedger(state);
+      seq = Math.max(0, ...state.appKeys.map((k) => k.id)) + 1;
+      localStorage.setItem(SEED_KEY, "1");
+    }
+    persist();
+    subs.forEach((f) => f());
   } catch { /* */ }
 }
 
@@ -189,6 +281,20 @@ export const caster = {
     return rec;
   },
   removeAppKey(id: number) { commit({ ...state, appKeys: state.appKeys.filter((k) => k.id !== id) }); },
+  // 발급된 App Key 에 코드 범위를 하나 더 물린다 `PC-103`
+  addKeyRange(id: number, r: KeyRange) {
+    const appKeys = state.appKeys.map((k) => (k.id === id ? { ...k, ranges: [...keyRanges(k), r] } : k));
+    commit({ ...state, appKeys });
+  },
+  removeKeyRange(id: number, idx: number) {
+    const appKeys = state.appKeys.map((k) => {
+      if (k.id !== id) return k;
+      const rs = keyRanges(k).filter((_, i) => i !== idx);
+      const f = rs[0];
+      return { ...k, ranges: rs, ...(f ? { pt: f.pt, section: f.section, owner: f.owner, bookStart: f.bookStart ?? 0, bookEnd: f.bookEnd ?? 0, pageStart: f.pageStart ?? 0, pageEnd: f.pageEnd ?? 0 } : {}) };
+    });
+    commit({ ...state, appKeys });
+  },
 
   // 고객사별 계정 목록 — 한 고객사에 여러 계정을 둘 수 있다(제한 없음).
   accountsOfCompany(companyId: number) { return state.accounts.filter((a) => a.companyId === companyId); },

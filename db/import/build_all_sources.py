@@ -819,6 +819,27 @@ for _ck, _names in member_json.items():
         _sub_added += 1
 print(f"하위(공통코드 사용) 고객사 회사레코드 생성 {_sub_added}건 → 총 고객사 {len(companies)}")
 
+# ── Caster 계정 대장의 고객사도 회사 레코드로 `PC-103` ─────────────────
+#   App Key 관리(계정 발급)의 계정은 반드시 등록된 고객사에 속해야 한다.
+#   대장(db/source/Caster_계정_퍼미션_티켓.xlsx)에만 있고 코드 대장에 없는 고객사는 최소 정보로 만든다.
+#   시트명 → 회사명 별칭은 build_caster_ledger.py 의 COMPANY_ALIAS 와 같아야 한다.
+_CASTER_SRC = os.path.join(SRC, "Caster_계정_퍼미션_티켓.xlsx")
+_CASTER_ALIAS = {"Xiom HealthCare": "Xiom Healthcare-304", "Luginbühl & Cie SA": "Luginbühl & Cie SA (TruxReport)",
+                 "Liangshishu": "Liangshishu-111", "tranwisdom": "Tranwisdom", "Copy of NHN EDU": "에듀프레소"}
+_caster_added = 0
+if os.path.exists(_CASTER_SRC):
+    _cwb = load_workbook(_CASTER_SRC, read_only=True)
+    for _sn in _cwb.sheetnames[1:]:
+        _nm = _CASTER_ALIAS.get(_sn, _sn)
+        if nz(_nm) in _existing_nz: continue
+        _existing_nz.add(nz(_nm))
+        _next_cid += 1
+        companies.append({"id": _next_cid, "name": _nm, "manager": "", "contact": "", "address": "",
+                          "bizNo": "", "bankName": "", "accountNo": "", "docs": [], "casterLedger": True})
+        _caster_added += 1
+    _cwb.close()
+print(f"Caster 계정 대장 고객사 회사레코드 생성 {_caster_added}건 → 총 고객사 {len(companies)}")
+
 for f, ns, nb in stat: print(f"  {f}: 시트 {ns} · 교재 {nb:,}")
 if skipped: print("  (미인식/빈 시트):", ", ".join(skipped))
 print(f"고객사 {len(companies)} · 프로젝트 {len(projects)} · 교재 {T_books:,} · 페이지 {int(T_pages):,} · 심볼 {int(T_sym):,}")
