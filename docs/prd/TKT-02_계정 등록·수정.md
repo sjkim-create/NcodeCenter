@@ -24,6 +24,9 @@
 | v2.7 | 2026-09-01 | 서비스기획팀 | **App Key 발급 내역을 [Key 정보] 위로** · 설명글을 **제목 툴팁**으로 정리 `PC-070` — 「고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급」 |
 | v2.8 | 2026-09-01 | 서비스기획팀 | **App Key 발급 폼 정리** `PC-071` — [함께 발급] 체크박스 폐지(탭을 열면 바로 입력·범위를 고르면 발급), **Code Type·만료일을 한 줄**로, **Section·Owner·Ticket Type·Ticket Version 은 한 줄 요약**으로. 「이미 발급됨」 안내도 제목 툴팁으로 |
 | v2.9 | 2026-09-01 | 서비스기획팀 | **사용 서비스 및 권한 설명도 제목 툴팁으로** `PC-073` — 제목 옆에는 선택 개수만 남긴다 |
+| v3.4 | 2026-09-15 | 서비스기획팀 | **권한 키 표기** `PC-106` — 6종의 값을 소문자 키(project_new · symbol_edit · resource_edit · export_ncode_pdf · export_ncp2 · export_app_package)로 두고 화면에 「라벨 (키)」 로 보인다 |
+| v3.3 | 2026-09-14 | 서비스기획팀 | **CasterN 권한을 6종 체크로 복귀** `PC-105` — `PC-103` 의 20종 그룹·프리셋 표시를 되돌린다. 대장의 Web Caster 권한 키는 6종으로 접어서 시드한다(Project/New → 프로젝트 생성, Edit/Symbol → 심볼 편집, Edit/Resource/* → 리소스 편집, Export/NcodePDF·NCP·PackageForApp → 내보내기 3종) |
+| v3.2 | 2026-09-14 | 서비스기획팀 | **CasterN 체크의 뜻 안내** `PC-104` — CasterN 탭 안에 「casterN 서비스를 사용하기 위한 계정과 App Key 를 발급하여, 발급된 계정으로 CasterN 서비스를 직접 사용하는 고객사」 안내를 두고, 고객사 관리의 casterN(우리가 편집)과 다른 값임을 적는다 |
 | v3.1 | 2026-09-14 | 서비스기획팀 | **CasterN 권한을 Web Caster 권한 키 20종으로** `PC-103` — 개발팀 대장의 키(Project/New/Enabled …)를 그대로 쓰고 분류 7개로 묶는다. B2B 기본값 **소리펜 / 필기펜 프리셋**. **App Key 하나에 코드 범위 여러 개** — 키가 있으면 발급 폼 자리에 **코드 범위 추가** 폼. 계정에 **사용기간**. 대장 시드 계정은 **대장** 배지 · PWD 「대장 참조」(비워 둔 채 저장 가능) |
 | v3.0 | 2026-09-02 | 서비스기획팀 | **「사용 서비스」→「인증 서비스」로 이름 정리** `PC-076` — 이 값은 *외부 고객사가 우리 서비스 어디에 로그인하나* 다. *우리가 그 고객사를 어느 서비스로 다루나* 는 고객사 속성이라 `MEM-02` 로 옮겼다. 탭은 **CasterN · 폼솔루션 2개**(SDK 선택지 폐지)이고 **0개 선택 = SDK 연동(코드만 할당)** 이라 등록을 막지 않는다. 자동 체크의 기준도 SOBP 맵 `PC-057` → **고객사의 사용 서비스** 로 바뀐다 |
 
@@ -58,7 +61,7 @@ TKT-01 계정 목록
    ├─ [＋ 계정 추가] ─▶ TKT-02 등록
    │      ① 계정 정보(고객사·NAME·ID·PWD·ADDR·HOMEPAGE)
    │      ② 인증 서비스 · 권한  ─ 탭: CasterN / 폼솔루션 / SDK 연동
-   │            └ CasterN 탭 ─ 사용자 권한 20종 (Web Caster 권한 키 · 프리셋 소리펜/필기펜)
+   │            └ CasterN 탭 ─ 사용자 권한 6종
    │      └ ③ App Key 발급(선택) ─▶ 할당 SOBP 범위 + Book Start · Book Volume + 만료일 `PC-050`
    │                                              └─(범위 없음)─▶ SOB-02 로 이동
    │      └─ [계정 추가] ─▶ TKT-01 목록에 노출 (+체크 시 App Key 동시 발급)
@@ -114,7 +117,7 @@ TKT-01 계정 목록
 
 | 서비스 | 선택 | 조건 |
 |---|---|---|
-| **CasterN** | 가능 | 사용자 권한 6종 `PC-058` |
+| **CasterN** | 가능 | 사용자 권한 6종 `PC-105`. 탭 안 맨 위에 안내 `PC-104` — **CasterN 체크 = casterN 서비스를 사용하기 위한 계정과 App Key 를 발급하여, 발급된 계정으로 CasterN 서비스를 직접 사용하는 고객사.** 고객사 관리의 casterN(우리가 편집해 주는 고객사 · `MEM-02`)과는 다른 값이다 |
 | **폼솔루션** | 가능 | **준비중** — 조건 항목 없음 |
 | *(0개 선택)* | — | **SDK 연동 (코드만 할당)** · 제목 옆에 그대로 표기된다. 오류가 아니라 **정상 상태**이며 App Key 만 발급한다 `PC-076` |
 
@@ -123,44 +126,31 @@ TKT-01 계정 목록
 | 상황 | 패널 내용 |
 |---|---|
 | 인증 서비스로 선택 안 함 | *인증 서비스로 선택하면 이 서비스의 조건을 설정할 수 있습니다.* |
-| CasterN 선택 | 사용자 권한 20종 `PC-103` |
+| CasterN 선택 | 사용자 권한 6종 `PC-058` `PC-105` |
 | 폼솔루션 선택 | **준비중** — *이 서비스의 권한·설정 항목은 아직 정의되지 않았습니다. 인증 서비스 연동만 등록됩니다.* |
 
-**CasterN 사용자 권한 20종** `PC-103` — 개발팀 대장 「Web Caster 권한 설정」의 **권한 키**를 그대로 쓴다(`web/data/caster-ledger.json`). 항목명은 키에서 `/Enabled` 를 뺀 것이고, 아래 설명이 붙는다. 옛 6종(`PC-031` `PC-058`)은 새 키로 옮긴다(리소스 편집 → Add·Delete·DragDrop 3개).
+**CasterN 사용자 권한 6종** `PC-031` `PC-058` `PC-105`
 
-| 분류 | 권한 키 | 설명 | 소리펜 | 필기펜 |
-|---|---|---|---|---|
-| Project | Project/New | 새 프로젝트 생성 | O | O |
-| Project | Project/Review | nproj 불러오기 | O | O |
-| Edit | Edit/Symbol | 심볼 편집 | O | O |
-| Edit | Edit/Symbol/RectWithText/Create | 사전 편집용 (PDF 배경 텍스트를 함께 추출) | X | O |
-| Edit | Edit/Resource/Add | 소리펜용 리소스 추가 | O | X |
-| Edit | Edit/Resource/Delete | 소리펜용 리소스 삭제 | O | X |
-| Edit | Edit/Resource/DragDrop | 소리펜용 리소스 Drag & Drop | O | X |
-| Export | Export/NcodePDF | Ncode PDF 익스포트 | O | O |
-| Export | Export/NCP | NCP2 익스포트 | O | X |
-| Export | Export/PackageForApp | App용 패키지 익스포트 | X | O |
-| Export | Export/NcodePDF/CustomExport4HyundaiMotor | 현대차 전용 커스텀 익스포트(고객사 시트에만) | X | X |
-| Settings | Settings/Ncode | Ncode 설정 (부여 받은 Code 범위 내에서) | O | O |
-| Settings | Settings/Project | Project 설정 | O | O |
-| Settings | Settings/PageAttrForApp | App용 페이지 설정 (보이기/안보이기) | X | O |
-| Settings | Settings/PageAlias/Import | 페이지 param 값을 .csv 에서 가져오기 | O | O |
-| Settings | Settings/ActionTable/Import | 심볼 액션 명칭을 .csv 에서 가져오기 | O | O |
-| Settings | Settings/DrawingPreset/Configure | 툴바 드로잉 명령 재구성 | O | O |
-| Tool | ResourcesView/Tool | 리소스 뷰의 툴 기능 | O | X |
-| Ncode | Ncode/Mode/ExtendedBookCode | Ncode 확장모드 (book code 에 owner+book) | X | X |
-| Nproj | Nproj/Writer/StartPageSideAttr | .nproj 저장 시 시작페이지 면(side) 속성 기록 | O | O |
+| # | 권한 (키) `PC-106` | 설명 | 대장(Web Caster)의 권한 키 |
+|---|---|---|---|
+| 1 | 프로젝트 생성 (`project_new`) | 편집 프로젝트를 새로 만든다 | Project/New |
+| 2 | 심볼 편집 (`symbol_edit`) | 심볼(코드 영역) 편집 | Edit/Symbol |
+| 3 | 리소스 편집 (`resource_edit`) | 음원·이미지 등 리소스 편집 | Edit/Resource/Add · Delete · DragDrop (하나라도 true) |
+| 4 | Ncode PDF 내보내기 (`export_ncode_pdf`) | Ncode가 입혀진 PDF 출력 | Export/NcodePDF |
+| 5 | NCP2 내보내기 (`export_ncp2`) | NCP2 파일 내보내기 | Export/NCP |
+| 6 | App용 패키지 내보내기 (`export_app_package`) | App에서 쓰는 패키지 내보내기 | Export/PackageForApp |
 
-소리펜·필기펜 열 = 대장의 **B2B 기본값**이며 화면의 **[소리펜 (B2B)] · [필기펜 (B2B)] 프리셋** 버튼이 이 값을 한 번에 넣는다. 현재 선택과 프리셋이 같으면 버튼이 파랗게 표시된다.
+화면에는 **「라벨 (키)」** 로 보인다 — 예: 프로젝트 생성 (project_new). 키는 서비스(CasterN)가 계정 권한을 조회할 때 쓰는 값이다.
+
+> `PC-103` 에서 대장의 권한 키 20종을 그대로 화면에 두었다가 **6종 체크로 되돌렸다** `PC-105`. 대장 계정을 시드할 때 위 매핑으로 접는다. 대장에만 있는 나머지 키(Settings·Tool·Ncode·Nproj 등)는 화면에 두지 않는다 — 원본은 `web/data/caster-ledger.json` 에 그대로 남아 있다.
 
 | 동작 | 결과 |
 |---|---|
 | 권한 항목 선택 | 개별 on/off |
-| [소리펜 (B2B)] / [필기펜 (B2B)] | 프리셋 — 대장의 B2B 기본값으로 **한 번에** 바꾼다 `PC-103` |
-| [모두 선택] / [모두 해제] | 20개 일괄 · 선택 수에 따라 라벨이 바뀐다 |
-| 선택 수 표시 | **선택 {n} / 20** |
+| [모두 선택] / [모두 해제] | 6개 일괄 · 선택 수에 따라 라벨이 바뀐다 |
+| 선택 수 표시 | **선택 {n} / 6** |
 | 권한 0개 저장 | 허용. 목록에는 **미지정**으로 표시된다 |
-| CasterN 을 새로 켬 | 권한이 **20종 모두 선택**된 상태로 시작한다 |
+| CasterN 을 새로 켬 | 권한이 **6종 모두 선택**된 상태로 시작한다 |
 
 > 인증 서비스에서 뺀 서비스의 조건은 **저장하지 않는다.**
 
@@ -231,9 +221,9 @@ App Key는 SOBP 범위를 편집툴에 연동하는 키라 **CasterN 인증 서�
 
 | 상태 | 화면 | 화면 번호 |
 |---|---|---|
-| 등록 진입 | 고객사 미선택 · 인증 서비스 **CasterN** 기본 · 권한 20/20 · App Key 체크 해제 | S1 |
+| 등록 진입 | 고객사 미선택 · 인증 서비스 **CasterN** 기본 · 권한 6/6 · App Key 체크 해제 | S1 |
 | 인증 서비스 중복 선택 | 여러 서비스에 선택 표시. 탭을 바꿔도 아래로 쌓이지 않는다 | S2 |
-| CasterN 탭 — 권한 개별 · 프리셋 | 예) 필기펜 프리셋 **선택 14 / 20** · 프리셋 버튼 파랗게 | S3 |
+| CasterN 탭 — 권한 개별 | 예) **선택 3 / 6** | S3 |
 | 폼솔루션 · SDK 탭 | **준비중** 안내. 인증 서비스 연동만 등록된다 | S4 |
 | 인증 서비스로 선택 안 한 탭 | *인증 서비스로 선택하면 이 서비스의 조건을 설정할 수 있습니다.* | S4 |
 | App Key 함께 발급 | CasterN 탭 안에 SOBP 범위 + 만료일 | S5 |
@@ -286,7 +276,7 @@ App Key는 SOBP 범위를 편집툴에 연동하는 키라 **CasterN 인증 서�
 
 ## 7. 미결 · 협의
 
-- [ ] **권한 기본값** — 현재 CasterN 을 켜면 20종 모두 선택. 소리펜/필기펜 프리셋 중 하나를 기본으로 할지 확정 필요
+- [ ] **권한 기본값** — 현재 CasterN 을 켜면 6종 모두 선택. 최소 권한으로 시작할지 확정 필요
 - [ ] **대장 비밀번호** — 저장소에 두지 않았다. 계정별 비밀번호 전달 경로(대장 원본 참조) 유지 여부
 - [ ] **대장 계정의 SOBP** — 네오랩·tranwisdom 등은 코드 프로젝트 할당 범위 밖(전체 Section)이라 코드 범위 추가 시 선택할 SOBP 가 없다. 대장 범위를 SOBP 맵에 어떻게 반영할지
 - [ ] **권한 연동 시점** — CasterN이 계정 권한을 조회하는 규격·갱신 주기 (개발팀 협의)

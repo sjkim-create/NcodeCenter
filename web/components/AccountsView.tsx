@@ -18,7 +18,7 @@ import { servicesOfCompany } from "@/lib/serviceCustomers";
 import { codeKind, patternOf, patternTypeParam, CODE_KINDS, type CodeKind, type TicketPattern } from "@/lib/codeKind";
 import {
   caster, useCaster, genAppKey, ACCOUNT_SERVICES, accountServiceLabel, accountServiceReady,
-  CASTERN_PERMS, ALL_PERMS, SOUND_PERMS, WRITE_PERMS, PERM_GROUPS, permLabel, casternPerms, hasService, SDK_ONLY_LABEL,
+  CASTERN_PERMS, ALL_PERMS, permLabel, casternPerms, hasService, SDK_ONLY_LABEL,
   keyRanges, rangeText, rangeBooks, type KeyRange,
   type AccountService, type CasterPerm, type CasterAccount, type AccountSettings,
 } from "@/lib/accountStore";
@@ -226,49 +226,31 @@ function SecHead({ t, d, tip }: { t: string; d?: string; tip?: string }) {
 const SEC: React.CSSProperties = { border: "1px solid #eef0f4", borderRadius: 10, padding: "14px 16px", marginTop: 12 };
 
 // CasterN 권한 6종 — 개별 선택 / [모두 선택]·[모두 해제] `PC-058`
-// 권한 = Web Caster 권한 키 20종 `PC-103` — 분류(Project·Edit·Export·Settings·Tool·Ncode·Nproj)로 묶고,
-//   대장의 B2B 기본값 두 벌을 **프리셋**(소리펜 / 필기펜)으로 한 번에 넣는다.
-const sameSet = (a: string[], b: string[]) => a.length === b.length && b.every((x) => a.includes(x));
+// CasterN 권한 6종 체크 `PC-105` (20종 그룹 표시는 되돌렸다)
 function PermPicker({ value, onChange }: { value: CasterPerm[]; onChange: (v: CasterPerm[]) => void }) {
   const all = value.length === ALL_PERMS.length;
   const toggle = (p: CasterPerm) => onChange(value.includes(p) ? value.filter((x) => x !== p) : [...value, p]);
-  const preset = (label: string, set: CasterPerm[], tip: string) => {
-    const on = sameSet(value, set);
-    return (
-      <button key={label} onClick={() => onChange([...set])} title={tip}
-        style={{ ...S.smallBtn, ...(on ? { background: "#eef6ff", color: "#1d4ed8", borderColor: "#c7ddff", fontWeight: 700 } : {}) }}>{label}</button>
-    );
-  };
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <span style={{ fontSize: 11.5, color: "#6b7280" }}>선택 {value.length} / {ALL_PERMS.length}</span>
-        <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 6 }}>프리셋</span>
-        {preset("소리펜 (B2B)", SOUND_PERMS, "대장의 B2B 소리펜 기본값")}
-        {preset("필기펜 (B2B)", WRITE_PERMS, "대장의 B2B 필기펜 기본값")}
         <span style={{ flex: 1 }} />
         <button onClick={() => onChange(all ? [] : [...ALL_PERMS])} style={S.smallBtn}>{all ? "모두 해제" : "모두 선택"}</button>
       </div>
-      {PERM_GROUPS.map((g) => (
-        <div key={g} style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", margin: "4px 0 4px", letterSpacing: .2 }}>{g}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 6 }}>
-            {CASTERN_PERMS.filter((p) => p.group === g).map((p) => {
-              const on = value.includes(p.v);
-              return (
-                <label key={p.v} title={p.v}
-                  style={{ display: "flex", alignItems: "flex-start", gap: 7, border: `1px solid ${on ? "#c7ddff" : "#eef0f4"}`, background: on ? "#f7faff" : "#fff", borderRadius: 9, padding: "7px 10px", fontSize: 12, cursor: "pointer" }}>
-                  <input type="checkbox" checked={on} onChange={() => toggle(p.v)} style={{ marginTop: 2 }} />
-                  <span style={{ minWidth: 0 }}>
-                    <span style={{ color: on ? "#1d4ed8" : "#374151", fontWeight: on ? 700 : 400, fontFamily: "ui-monospace,monospace", fontSize: 11.5 }}>{p.label}</span>
-                    <div style={{ fontSize: 10.5, color: "#9ca3af", marginTop: 1, lineHeight: 1.5 }}>{p.desc}</div>
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 6 }}>
+        {CASTERN_PERMS.map((p) => {
+          const on = value.includes(p.v);
+          return (
+            <label key={p.v} title={p.desc}
+              style={{ display: "flex", alignItems: "center", gap: 7, border: `1px solid ${on ? "#c7ddff" : "#eef0f4"}`, background: on ? "#f7faff" : "#fff", borderRadius: 9, padding: "8px 10px", fontSize: 12.5, cursor: "pointer" }}>
+              <input type="checkbox" checked={on} onChange={() => toggle(p.v)} />
+              <span style={{ color: on ? "#1d4ed8" : "#374151", fontWeight: on ? 700 : 400 }}>
+                {p.label} <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, color: on ? "#3b82f6" : "#9ca3af", fontWeight: 400 }}>({p.v})</span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -324,6 +306,11 @@ function ServiceTabs({ services, settings, onServices, onSettings, casternExtra 
             <div style={{ fontSize: 11.5, color: "#9ca3af" }}>인증 서비스로 선택하면 이 서비스의 조건을 설정할 수 있습니다.</div>
           ) : tab === "CASTERN" ? (
             <>
+              {/* CasterN 체크의 뜻 `PC-104` */}
+              <div style={{ fontSize: 11.5, color: "#1e3a8a", background: "#eef6ff", border: "1px solid #c7ddff", borderRadius: 9, padding: "8px 11px", marginBottom: 10, lineHeight: 1.7 }}>
+                <b>CasterN 체크</b> = casterN 서비스를 사용하기 위한 <b>계정과 App Key 를 발급</b>하여, 발급된 계정으로 <b>CasterN 서비스를 직접 사용하는 고객사</b>입니다.
+                고객사 관리의 casterN(우리가 편집해 주는 고객사)과는 다른 값입니다.
+              </div>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
                 사용자 권한 <span style={{ fontWeight: 400, color: "#9ca3af" }}>· 개별 또는 모두 선택</span>
               </div>

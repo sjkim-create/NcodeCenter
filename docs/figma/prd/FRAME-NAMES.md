@@ -118,7 +118,7 @@ TKT-01:S05 계정 삭제 확인창
 ```
 TKT-02:S01 계정 등록 — 진입
 TKT-02:S02 인증 서비스 중복 선택
-TKT-02:S03 CasterN 탭 — 권한 개별 선택 · 프리셋
+TKT-02:S03 CasterN 탭 — 권한 개별 선택
 TKT-02:S04 폼솔루션 · SDK 탭 — 준비중
 TKT-02:S05 ③ App Key 함께 발급
 TKT-02:S06 인증 서비스를 바꿔도 App Key 는 그대로

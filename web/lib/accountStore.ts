@@ -22,7 +22,8 @@ export type AccountService = "CASTERN" | "FORMSOLUTION" | "SDK";
 export const SDK_ONLY_LABEL = "SDK 연동 (코드만 할당)";
 // ready=false → 인증 서비스로 선택은 되지만 권한·설정은 아직 정의되지 않음(준비중)
 export const ACCOUNT_SERVICES: { v: AccountService; label: string; desc: string; ready: boolean }[] = [
-  { v: "CASTERN", label: "CasterN", desc: "Caster U 웹 편집툴 · 계정 로그인", ready: true },
+  // 안내문 `PC-104` — 고객사 관리의 casterN(우리가 편집)과 구분한다
+  { v: "CASTERN", label: "CasterN", desc: "casterN 서비스를 사용하기 위한 계정과 App Key 를 발급하여, 발급된 계정으로 CasterN 서비스를 직접 사용하는 고객사", ready: true },
   { v: "FORMSOLUTION", label: "폼솔루션", desc: "폼솔루션 서비스 · 계정 로그인", ready: false },
 ];
 export const accountServiceLabel = (v?: string) => ACCOUNT_SERVICES.find((s) => s.v === v)?.label ?? "미지정";
@@ -34,29 +35,42 @@ export const authServiceText = (svcs?: AccountService[]) => {
 // 권한·설정 화면이 준비된 서비스인지 — false면 등록 화면에서 「준비중」으로 노출한다.
 export const accountServiceReady = (v?: string) => ACCOUNT_SERVICES.find((s) => s.v === v)?.ready ?? false;
 
-// CasterN 사용자 권한 — **Web Caster 권한 키 20종** `PC-103`
-//   개발팀 대장(db/source/Caster_계정_퍼미션_티켓.xlsx ▸ 「Web Caster 권한 설정」)의 키를 그대로 쓴다.
-//   값은 "Project/New/Enabled" 같은 **권한 키 문자열**이고, 분류(Project·Edit·Export·Settings·Tool·Ncode·Nproj)로 묶는다.
-//   B2B 기본값 두 벌(소리펜 / 필기펜)이 대장에 있어 **프리셋**으로 제공한다.
-//   ※ 옛 6종(PROJECT_CREATE …)은 hydrate 에서 새 키로 옮긴다(아래 OLD_PERM).
-export type CasterPerm = string;
-export type PermDef = { key: string; group: string; desc: string; sound: boolean; write: boolean };
-const permShort = (k: string) => k.replace(/\/Enabled$/, "");
-export const CASTERN_PERMS: { v: CasterPerm; label: string; desc: string; group: string; sound: boolean; write: boolean }[] =
-  (casterLedger.perms as PermDef[]).map((p) => ({ v: p.key, label: permShort(p.key), desc: p.desc, group: p.group, sound: p.sound, write: p.write }));
+// CasterN 사용자 권한 6종 — 계정마다 개별 선택 또는 모두 선택한다. (사용처에 CasterN 이 포함될 때만 의미)
+//   ※ 「App 페이지 설정」 은 권한 항목에서 뺐다 `PC-058`.
+//   ※ `PC-103` 에서 대장의 Web Caster 권한 키 20종으로 바꿨다가 **6종 체크로 되돌렸다** `PC-105` —
+//      대장의 키는 아래 LEDGER_TO_PERM 으로 6종에 접어서 넣는다(리소스 Add·Delete·DragDrop 중 하나라도 true → 리소스 편집).
+//   ※ 권한 키는 **소문자 snake_case** 이고 화면에는 「라벨 (키)」 로 보인다 `PC-106` — 예: 프로젝트 생성 (project_new)
+export type CasterPerm =
+  | "project_new" | "symbol_edit" | "resource_edit"
+  | "export_ncode_pdf" | "export_ncp2" | "export_app_package";
+export const CASTERN_PERMS: { v: CasterPerm; label: string; desc: string }[] = [
+  { v: "project_new", label: "프로젝트 생성", desc: "편집 프로젝트를 새로 만든다" },
+  { v: "symbol_edit", label: "심볼 편집", desc: "심볼(코드 영역) 편집" },
+  { v: "resource_edit", label: "리소스 편집", desc: "음원·이미지 등 리소스 편집" },
+  { v: "export_ncode_pdf", label: "Ncode PDF 내보내기", desc: "Ncode가 입혀진 PDF 출력" },
+  { v: "export_ncp2", label: "NCP2 내보내기", desc: "NCP2 파일 내보내기" },
+  { v: "export_app_package", label: "App용 패키지 내보내기", desc: "App에서 쓰는 패키지 내보내기" },
+];
 export const ALL_PERMS: CasterPerm[] = CASTERN_PERMS.map((p) => p.v);
-export const SOUND_PERMS: CasterPerm[] = CASTERN_PERMS.filter((p) => p.sound).map((p) => p.v);   // B2B 소리펜 기본
-export const WRITE_PERMS: CasterPerm[] = CASTERN_PERMS.filter((p) => p.write).map((p) => p.v);   // B2B 필기펜 기본
-export const PERM_GROUPS: string[] = [...new Set(CASTERN_PERMS.map((p) => p.group))];
-export const permLabel = (v: string) => CASTERN_PERMS.find((p) => p.v === v)?.label ?? v;
-// 옛 권한 6종 → 새 키 `PC-103`
-const OLD_PERM: Record<string, string[]> = {
-  PROJECT_CREATE: ["Project/New/Enabled"], SYMBOL_EDIT: ["Edit/Symbol/Enabled"],
-  RESOURCE_EDIT: ["Edit/Resource/Add/Enabled", "Edit/Resource/Delete/Enabled", "Edit/Resource/DragDrop/Enabled"],
-  EXPORT_NCODE_PDF: ["Export/NcodePDF/Enabled"], EXPORT_NCP2: ["Export/NCP/Enabled"], EXPORT_APP_PACKAGE: ["Export/PackageForApp/Enabled"],
-  APP_PAGE_ATTR: ["Settings/PageAttrForApp/Enabled"],
+/** 화면 표기 — 「라벨 (키)」 `PC-106` */
+export const permLabel = (v: string) => { const p = CASTERN_PERMS.find((x) => x.v === v); return p ? `${p.label} (${p.v})` : v; };
+// 옛 대문자 키(PROJECT_CREATE …) → 소문자 키 `PC-106`
+const OLD_UPPER: Record<string, CasterPerm> = {
+  PROJECT_CREATE: "project_new", SYMBOL_EDIT: "symbol_edit", RESOURCE_EDIT: "resource_edit",
+  EXPORT_NCODE_PDF: "export_ncode_pdf", EXPORT_NCP2: "export_ncp2", EXPORT_APP_PACKAGE: "export_app_package",
 };
-const migratePerms = (ps?: string[]): CasterPerm[] => [...new Set((ps ?? []).flatMap((p) => OLD_PERM[p] ?? [p]))];
+// 대장(Web Caster)의 권한 키 → 6종 `PC-105`. 여기 없는 키(Settings·Tool·Ncode·Nproj 등)는 화면에 두지 않는다.
+const LEDGER_TO_PERM: Record<string, CasterPerm> = {
+  "Project/New/Enabled": "project_new",
+  "Edit/Symbol/Enabled": "symbol_edit",
+  "Edit/Resource/Add/Enabled": "resource_edit", "Edit/Resource/Delete/Enabled": "resource_edit", "Edit/Resource/DragDrop/Enabled": "resource_edit",
+  "Export/NcodePDF/Enabled": "export_ncode_pdf",
+  "Export/NCP/Enabled": "export_ncp2",
+  "Export/PackageForApp/Enabled": "export_app_package",
+};
+// 저장된 권한 정리 — 옛 6종은 그대로, `PC-103` 때 저장된 키 형식은 6종으로 접는다
+const migratePerms = (ps?: string[]): CasterPerm[] =>
+  [...new Set((ps ?? []).map((p) => (ALL_PERMS as string[]).includes(p) ? (p as CasterPerm) : OLD_UPPER[p] ?? LEDGER_TO_PERM[p]).filter(Boolean) as CasterPerm[])];
 
 // 서비스별 설정 — 서비스마다 지정 항목이 다르다.
 // CasterN: 사용자 권한 6종. 나머지 서비스는 아직 정의된 항목이 없다(준비중).
@@ -206,7 +220,7 @@ function seedFromLedger(s: State): State {
     if (have.has(id.toLowerCase())) continue;
     have.add(id.toLowerCase());
     const permKeys = Object.keys(r.perms);
-    const on = permKeys.filter((k) => r.perms[k]);
+    const on = migratePerms(permKeys.filter((k) => r.perms[k]));   // 대장 키 → 6종 `PC-105`
     // Web Caster 권한이 적혀 있으면 CasterN 계정, 아니면 App Key 만 받는 SDK 연동(선택 없음)
     const services: AccountService[] = permKeys.length ? ["CASTERN"] : [];
     accounts.push({

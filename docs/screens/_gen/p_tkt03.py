@@ -254,9 +254,9 @@ def build():
              '계정은 <b>고객사당 여러 개</b>(제한 없음)를 둘 수 있고 ID(email)만 전체에서 '
              '유일하면 된다 <code>PC-029</code>. <b>App Key 발급은 선택</b>이라 '
              '계정만 먼저 만들어 두었다가 나중에 상세 화면에서 키를 붙일 수 있다.<br>'
-             'CasterN 계정은 <b>Web Caster 권한 키 20종</b>(Project · Edit · Export · Settings · '
-             'Tool · Ncode · Nproj)을 개별 또는 프리셋(소리펜 / 필기펜)으로 지정한다 '
-             '<code>PC-103</code>.<br>'
+             'CasterN 계정은 <b>권한 6종</b>(프로젝트 생성 · 심볼 편집 · 리소스 편집 · '
+             'Ncode PDF 내보내기 · NCP2 내보내기 · App용 패키지 내보내기)을 '
+             '개별 또는 모두 지정한다 <code>PC-031</code> <code>PC-058</code> <code>PC-105</code>.<br>'
              '처음 열면 <b>개발팀 대장</b>(db/source/Caster_계정_퍼미션_티켓.xlsx)의 계정 15건이 '
              '시드로 들어와 있다 <code>PC-103</code> — SDK 를 쓰는 고객이 반드시 받아야 하는 '
              'App Key 의 관리 대장이다. 대장의 <b>비밀번호는 저장하지 않는다</b>.')

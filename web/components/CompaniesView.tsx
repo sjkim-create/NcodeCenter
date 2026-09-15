@@ -433,11 +433,7 @@ export function CompanyFormView({ companyId }: { companyId: number }) {
                             </div>
                           </div>
                         </div>
-                      ) : (
-                        <div style={{ marginTop: 10, fontSize: 11.5, color: "#9ca3af", lineHeight: 1.7 }}>
-                          casterN 으로 선택하면 <b>프로젝트 상태</b>·<b>공통코드 사용 고객사</b> 를 지정할 수 있습니다 <code>PC-077</code>.
-                        </div>
-                      ))}
+                      ) : null)}   {/* 꺼져 있을 때 안내문은 뺐다 `PC-104` */}
 
                       {/* 폼솔루션 — 지금은 지정할 항목이 없다. 어디에 나타나는지만 알려 준다 `PC-077` */}
                       {sv.v === "FORMSOLUTION" && (
@@ -451,9 +447,7 @@ export function CompanyFormView({ companyId }: { companyId: number }) {
                   );
                 })}
               </div>
-              <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6, lineHeight: 1.7 }}>
-                <b>아무것도 고르지 않으면 「{SDK_ONLY}」</b> 입니다 — 우리 서비스를 거치지 않고 코드만 받아 직접 연동하는 고객사입니다 <code>PC-076</code>.
-              </div>
+              {/* 「아무것도 고르지 않으면 SDK 연동」 안내문은 뺐다 `PC-104` */}
             </Field>
           </div>
 

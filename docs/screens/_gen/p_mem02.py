@@ -122,17 +122,11 @@ def basic_card(name_err=False, empty=False, closed=False):
     on_cast = not empty
     cast_panel = (svc_check('casterN (편집툴)',
                             '우리가 이 고객사 자료를 편집한다 — [편집 프로젝트]의 대상이 된다', on_cast)
-                  + (st if on_cast else
-                     '<div style="margin-top:10px;font-size:11.5px;color:#9ca3af;line-height:1.7">'
-                     'casterN 으로 선택하면 <b>프로젝트 상태</b>·<b>공통코드 사용 고객사</b> 를 '
-                     '지정할 수 있습니다.</div>'))
+                  + (st if on_cast else ''))     # 꺼져 있을 때 안내문은 뺐다 `PC-104`
 
     svc = ('<div class="fld" style="grid-column:1/-1"><span class="lbl">사용 서비스</span>'
            '<div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">'
-           '%s<div style="padding:12px 14px">%s</div></div>'
-           '<div style="font-size:11px;color:#9ca3af;margin-top:6px;line-height:1.7">'
-           '<b>아무것도 고르지 않으면 「SDK 연동 (코드만 할당)」</b> 입니다 — 우리 서비스를 거치지 않고 '
-           '코드만 받아 직접 연동하는 고객사입니다.</div></div>'
+           '%s<div style="padding:12px 14px">%s</div></div></div>'   # SDK 연동 안내문은 뺐다 `PC-104`
            % (svc_tabbar('CASTERN', on_cast), cast_panel))
 
     closed_fs = ''

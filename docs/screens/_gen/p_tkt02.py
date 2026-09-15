@@ -15,19 +15,13 @@ import io as _io
 import json as _json
 import os as _os
 
-# lib/accountStore.ts CASTERN_PERMS — **Web Caster 권한 키 20종** `PC-103`
-#   원본 = web/data/caster-ledger.json (개발팀 대장 「Web Caster 권한 설정」). JSX 와 같은 파일을 읽는다.
-#   (key, group, desc, 소리펜 기본, 필기펜 기본)
-_LEDGER = _json.load(_io.open(_os.path.join(_os.path.dirname(__file__), '..', '..', '..',
-                                            'web', 'data', 'caster-ledger.json'), encoding='utf-8'))
-PERM_DEFS = [(d['key'], d['group'], d['desc'], d['sound'], d['write']) for d in _LEDGER['perms']]
-PERMS = tuple(k for k, _g, _d, _s, _w in PERM_DEFS)
-PERM_GROUPS = []
-for _k, _g, _d, _s, _w in PERM_DEFS:
-    if _g not in PERM_GROUPS: PERM_GROUPS.append(_g)
-SOUND_PERMS = tuple(k for k, _g, _d, s, _w in PERM_DEFS if s)
-WRITE_PERMS = tuple(k for k, _g, _d, _s, w in PERM_DEFS if w)
-_short = lambda k: k[:-8] if k.endswith('/Enabled') else k
+# lib/accountStore.ts CASTERN_PERMS — CasterN 사용자 권한 6종 (`PC-103` 20종 → `PC-105` 6종 복귀)
+# 「App 페이지 설정」 은 뺐다 `PC-058`. 대장의 Web Caster 키는 이 6종으로 접어서 넣는다.
+# 라벨 옆에 소문자 키를 붙여 보인다 `PC-106`
+_KEY = '<span style="font-family:ui-monospace,monospace;font-size:11px;color:#9ca3af;font-weight:400">(%s)</span>'
+PERMS = ('프로젝트 생성 ' + _KEY % 'project_new', '심볼 편집 ' + _KEY % 'symbol_edit',
+         '리소스 편집 ' + _KEY % 'resource_edit', 'Ncode PDF 내보내기 ' + _KEY % 'export_ncode_pdf',
+         'NCP2 내보내기 ' + _KEY % 'export_ncp2', 'App용 패키지 내보내기 ' + _KEY % 'export_app_package')
 
 # 상세 화면의 App Key — 계정당 1개 · 인증 서비스 전체 공통 `PC-050`
 #   (키, 인증 서비스, 유효, 생성일시, 범위 목록[(코드종류, 'S/O/B/P', 권수), ...])
@@ -191,7 +185,8 @@ def result_box():
 
 
 # 고르는 인증 서비스는 2종뿐 — 0개 선택이 곧 SDK 연동(코드만 할당) `PC-076`
-SERVICES = (('CasterN', 'Caster U 웹 편집툴 · 계정 로그인', True),
+SERVICES = (('CasterN', 'casterN 서비스를 사용하기 위한 계정과 App Key 를 발급하여, 발급된 계정으로 '
+             'CasterN 서비스를 직접 사용하는 고객사', True),     # `PC-104`
             ('폼솔루션', '폼솔루션 서비스 · 계정 로그인', False))
 
 
@@ -230,51 +225,42 @@ def svc_panel(name, on, ready, inner=''):
                 'padding:10px 12px"><b style="color:#c2410c">준비중</b> — 이 서비스의 '
                 '권한·설정 항목은 아직 정의되지 않았습니다. 인증 서비스 연동만 등록됩니다.</div>')
     else:
-        body = inner
+        # CasterN 체크의 뜻 `PC-104` — 고객사 관리의 casterN(우리가 편집)과 구분
+        note = ('<div style="font-size:11.5px;color:#1e3a8a;background:#eef6ff;border:1px solid #c7ddff;'
+                'border-radius:9px;padding:8px 11px;margin-bottom:10px;line-height:1.7">'
+                '<b>CasterN 체크</b> = casterN 서비스를 사용하기 위한 <b>계정과 App Key 를 발급</b>하여, '
+                '발급된 계정으로 <b>CasterN 서비스를 직접 사용하는 고객사</b>입니다. '
+                '고객사 관리의 casterN(우리가 편집해 주는 고객사)과는 다른 값입니다.</div>'
+                if name == 'CasterN' else '')
+        body = note + inner
     return chk + '<div style="margin-top:10px">%s</div>' % body
 
 
 def perms_only(selected=None):
-    """CasterN 사용자 권한 — Web Caster 권한 키 20종 · 분류별 묶음 · 프리셋(소리펜/필기펜) `PC-103`"""
+    """CasterN 사용자 권한 6종 `PC-105`"""
     sel_set = set(PERMS if selected is None else selected)
+    cells = ''
+    for p in PERMS:
+        on = p in sel_set
+        cells += ('<div style="display:flex;align-items:center;gap:7px;border:1px solid '
+                  + ('#c7ddff' if on else '#eef0f4') + ';background:'
+                  + ('#f7faff' if on else '#fff') + ';border-radius:9px;padding:8px 10px;'
+                  'font-size:12.5px"><span style="width:13px;height:13px;border-radius:3px;'
+                  'border:1px solid ' + ('#2563eb' if on else '#cbd5e1') + ';background:'
+                  + ('#2563eb' if on else '#fff') + ';color:#fff;font-size:9px;'
+                  'display:grid;place-items:center">' + ('✓' if on else '') + '</span>'
+                  '<span style="color:' + ('#1d4ed8' if on else '#374151') + ';'
+                  + ('font-weight:700' if on else '') + '">' + p + '</span></div>')
     n = len(sel_set)
-
-    def preset(label, keys):
-        on = sel_set == set(keys)
-        return ('<div class="btn sm"' + (' style="background:#eef6ff;color:#1d4ed8;'
-                'border-color:#c7ddff;font-weight:700"' if on else '') + '>' + label + '</div>')
     title = ('<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">'
              '사용자 권한 <span style="font-weight:400;color:#9ca3af">'
              '· 개별 또는 모두 선택</span></div>')
-    bar = ('<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">'
-           '<span style="font-size:11.5px;color:#6b7280">선택 ' + str(n) + ' / ' + str(len(PERMS))
-           + '</span><span style="font-size:11px;color:#9ca3af;margin-left:6px">프리셋</span>'
-           + preset('소리펜 (B2B)', SOUND_PERMS) + preset('필기펜 (B2B)', WRITE_PERMS)
-           + '<span style="flex:1"></span><div class="btn sm">'
-           + ('모두 해제' if n == len(PERMS) else '모두 선택') + '</div></div>')
-    groups = ''
-    for g in PERM_GROUPS:
-        cells = ''
-        for k, gg, desc, _s, _w in PERM_DEFS:
-            if gg != g: continue
-            on = k in sel_set
-            cells += ('<div style="display:flex;align-items:flex-start;gap:7px;border:1px solid '
-                      + ('#c7ddff' if on else '#eef0f4') + ';background:'
-                      + ('#f7faff' if on else '#fff') + ';border-radius:9px;padding:7px 10px;'
-                      'font-size:12px"><span style="width:13px;height:13px;border-radius:3px;'
-                      'flex:none;margin-top:2px;border:1px solid ' + ('#2563eb' if on else '#cbd5e1')
-                      + ';background:' + ('#2563eb' if on else '#fff') + ';color:#fff;font-size:9px;'
-                      'display:grid;place-items:center">' + ('✓' if on else '') + '</span>'
-                      '<span style="min-width:0"><span style="font-family:ui-monospace,monospace;'
-                      'font-size:11.5px;color:' + ('#1d4ed8' if on else '#374151') + ';'
-                      + ('font-weight:700' if on else '') + '">' + _short(k) + '</span>'
-                      '<div style="font-size:10.5px;color:#9ca3af;margin-top:1px;line-height:1.5">'
-                      + desc + '</div></span></div>')
-        groups += ('<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;'
-                   'color:#6b7280;margin:4px 0">' + g + '</div>'
-                   '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">'
-                   + cells + '</div></div>')
-    return title + bar + groups
+    bar = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+           '<span style="font-size:11.5px;color:#6b7280">선택 ' + str(n) + ' / 6</span>'
+           '<span style="flex:1"></span><div class="btn sm">'
+           + ('모두 해제' if n == 6 else '모두 선택') + '</div></div>')
+    return (title + bar + '<div style="display:grid;grid-template-columns:repeat(3,1fr);'
+            'gap:6px">' + cells + '</div>')
 
 
 def range_note(start='400', vol='100'):
@@ -365,10 +351,6 @@ def new_form(picked=('CasterN',), tab='CasterN', perms=None, withkey=False, rng=
 
 def edit_form(picked=('CasterN',), tab='CasterN', perms=None, rng='closed', issued=False,
               toast=None, broken=False, seeded=False):
-    if seeded and perms is None:       # 네오랩 대장 권한 17/20 `PC-103`
-        perms = tuple(k for k in PERMS if k not in (
-            'Export/NcodePDF/CustomExport4HyundaiMotor/Enabled',
-            'Settings/DrawingPreset/Configure/Enabled', 'Ncode/Mode/ExtendedBookCode/Enabled'))
     inner = perms_only(perms)          # App Key 는 탭 밖 ③ 단계 `PC-050`
     panel = svc_panel(tab, tab in picked,
                       dict((n, r) for n, _d, r in SERVICES)[tab], inner)
@@ -396,11 +378,11 @@ def edit_form(picked=('CasterN',), tab='CasterN', perms=None, rng='closed', issu
            + '</div></div></div>'
 
 
-def scr_new(h=1750, **kw):
+def scr_new(h=1250, **kw):
     return frame('TKT-01', '계정 등록', new_form(**kw), height=h)
 
 
-def scr_edit(h=2000, **kw):
+def scr_edit(h=1500, **kw):
     return frame('TKT-01', '계정 상세 · 수정', edit_form(**kw), height=h)
 
 
@@ -425,7 +407,7 @@ def build():
         '등록은 <b>2단계</b>다 — ① 계정 정보 → ② <b>인증 서비스</b>·권한 <code>PC-076</code>. '
         '⚠ 옛 ③ App Key 단계는 폐기되어 <b>CasterN 탭 안</b>으로 들어갔다. '
         '인증 서비스는 고른 고객사의 <b>사용 서비스</b>(<code>MEM-02</code>)대로 자동 체크되고, '
-        'CasterN 이 켜지면 권한은 <b>20종 모두 선택</b>된 상태로 시작한다 <code>PC-103</code>.',
+        'CasterN 이 켜지면 권한은 <b>6종 모두 선택</b>된 상태로 시작한다 <code>PC-105</code>.',
         scr_new(),
         [('① 회사정보', '선택', 'ADDR 자동 입력', '<code>MEM-01</code> 등록 고객사'),
          ('① ID (EMAIL)', '입력', '이메일 형식', '전체에서 <b>유일</b>'),
@@ -450,18 +432,15 @@ def build():
          ('선택 안 한 서비스', '—', '조건 저장 안 함', '뺀 서비스의 조건은 버린다')]))
 
     B.append((
-        'S3', 'CasterN 탭 — 권한 개별 선택 · 프리셋', '분기',
-        '권한은 <b>Web Caster 권한 키 20종</b>이며 분류(Project · Edit · Export · Settings · Tool · '
-        'Ncode · Nproj)로 묶여 있다 <code>PC-103</code>. 개별로 켜고 끄거나 대장의 B2B 기본값 '
-        '<b>[소리펜 (B2B)] · [필기펜 (B2B)]</b> 프리셋으로 한 번에 넣는다. 선택 수가 '
-        '<b>선택 {n} / 20</b> 로 표시되고 버튼 라벨이 <b>[모두 선택]</b> ⇄ <b>[모두 해제]</b> 로 바뀐다. '
-        '권한 0개로 저장해도 되며 목록에는 <b>미지정</b>으로 나온다.',
-        scr_new(perms=WRITE_PERMS, h=1750),
-        [('권한 항목', '클릭', '개별 on/off', '항목명은 권한 키(예: Project/New) · 아래 설명'),
-         ('[소리펜 (B2B)] · [필기펜 (B2B)]', '클릭', '프리셋 적용',
-          '대장의 B2B 기본값 두 벌 — 현재 선택과 같으면 파랗게 표시 <code>PC-103</code>'),
-         ('선택 수', '표시', '<b>선택 %d / 20</b>' % len(WRITE_PERMS), '필기펜 프리셋'),
-         ('[모두 선택]', '클릭', '20개 일괄', '전부 선택되면 <b>[모두 해제]</b> 로 바뀐다'),
+        'S3', 'CasterN 탭 — 권한 개별 선택', '분기',
+        '권한은 <b>6종</b>을 개별로 켜고 끈다 <code>PC-105</code>(`PC-103` 의 20종 그룹 표시는 되돌렸다). '
+        '선택 수가 <b>선택 {n} / 6</b> 로 표시되고 버튼 라벨이 <b>[모두 선택]</b> ⇄ <b>[모두 해제]</b> 로 바뀐다. '
+        '권한 0개로 저장해도 되며 목록에는 <b>미지정</b>으로 나온다. '
+        '대장 계정의 Web Caster 권한 키는 이 6종으로 접어서 들어온다(리소스 Add·Delete·DragDrop → 리소스 편집).',
+        scr_new(perms=PERMS[:3], h=1200),
+        [('권한 항목', '클릭', '개별 on/off', ''),
+         ('선택 수', '표시', '<b>선택 3 / 6</b>', ''),
+         ('[모두 선택]', '클릭', '6개 일괄', '전부 선택되면 <b>[모두 해제]</b> 로 바뀐다'),
          ('권한 0개', '저장', '허용', '<code>TKT-01</code> 목록에 <b>미지정</b>')]))
 
     B.append((
@@ -483,7 +462,7 @@ def build():
         'App Key 는 그 계정의 <b>인증 서비스 전체에 공통</b>으로 쓰이고 <b>계정당 1개</b>다 '
         '<code>PC-050</code>. 그래서 탭 안이 아니라 <b>③ 단계</b>로 따로 둔다. '
         '체크하면 할당된 SOBP 범위와 <b>Book Start · Book Volume(권수)</b> · 만료일이 열린다.',
-        scr_new(withkey=True, rng='open', h=2000),
+        scr_new(withkey=True, rng='open', h=1500),
         [('[App Key도 함께 발급]', '체크', '범위·Book·만료 표시', '선택 사항'),
          ('할당된 SOBP 범위', '선택', '순번 + S·O·B·P', '<b>직접 입력하지 않는다</b>'),
          ('Book Start', '입력', '숫자', '할당 범위 안에서만 <code>PC-050</code>'),
@@ -506,7 +485,7 @@ def build():
         'S7', '등록 검증 실패', '검증',
         '검사는 <b>회사 → ID 형식 → 비밀번호 → 범위 → ID 중복</b> 순서로 진행하고 '
         '하나라도 걸리면 그 자리에서 멈춘다. 메시지는 버튼 아래 한 줄로 나온다.',
-        scr_new(err='id', toast='계정 ID는 이메일 형식이어야 합니다.', h=1750),
+        scr_new(err='id', toast='계정 ID는 이메일 형식이어야 합니다.', h=1250),
         [('① 회사 미선택', '검증', '중단', '<b>회사(고객사)를 선택하세요.</b>'),
          ('② ID 형식', '검증', '중단', '<b>계정 ID는 이메일 형식이어야 합니다.</b>'),
          ('③ 비밀번호', '검증', '중단',
@@ -538,7 +517,7 @@ def build():
         '<b>계정 ID · PWD · App Key</b> 가 나오고 <b>[전체 복사]</b> 로 세 값을 한 번에 '
         '복사한다. 키는 아래 내역에 줄로 추가되고 <code>TKT-03</code>·<code>LOG-01</code> '
         '에 자동 기록된다.',
-        scr_edit(rng='sel', issued=True, h=2250,
+        scr_edit(rng='sel', issued=True, h=1750,
                  toast='App Key 발급 완료 — 계정과 연동되어 서비스 DB에 등록되었습니다.'),
         [('[App Key 발급]', '클릭', '키 생성', '범위 선택 전에는 <b>비활성</b>'),
          ('Book Start · Volume', '입력', '발급 범위 확정',
@@ -556,7 +535,7 @@ def build():
         '(대장에서 한 계정이 PDS2·PDS3 를 함께 쓰거나 Book 구간을 여러 번 받은 경우). '
         '키 자체를 바꾸려면 <b>키를 삭제한 뒤</b> 다시 발급한다. '
         '(인증 서비스를 빼도 키 연동은 끊기지 않는다 — 「연동 끊김」 처리는 폐지)',
-        scr_edit(picked=('폼솔루션',), tab='CasterN', rng='sel', h=2100),
+        scr_edit(picked=('폼솔루션',), tab='CasterN', rng='sel', h=1600),
         [('코드 범위 추가', '표시', '범위 선택 + Book·Page', '발급 폼과 같은 입력 · 만료일은 키 공통이라 없음'),
          ('[범위 추가]', '클릭', '내역에 줄 추가', '범위 선택 전에는 <b>비활성</b> · <code>LOG-01</code> 기록'),
          ('[범위 삭제]', '클릭', '그 범위만 삭제', '범위가 2개 이상일 때만 · 마지막 하나는 [키 삭제]로'),
@@ -566,7 +545,7 @@ def build():
     B.append((
         'S11', '계정 삭제 확인', '차단',
         '<b>[계정 삭제]</b> 는 확인을 거친다. 계정과 <b>연동된 App Key가 함께</b> 삭제된다.',
-        frame('TKT-01', '계정 상세 · 수정', edit_form(), height=2000,
+        frame('TKT-01', '계정 상세 · 수정', edit_form(), height=1500,
               overlay=dlg('계정 삭제', '이 계정과 연동 App Key를 삭제할까요?', '삭제')),
         [('[계정 삭제]', '클릭', '확인창', '<b>이 계정과 연동 App Key를 삭제할까요?</b>'),
          ('[삭제]', '클릭', '<code>TKT-01</code>', '계정 + 연동 키 삭제 후 목록으로'),
@@ -579,7 +558,7 @@ def build():
         '<b>사용기간</b>은 대장의 값(무제한 또는 시작~끝)이다. App Key 발급 내역에는 대장에 키 값이 없으면 '
         '<b>키 미기재</b>, 그 아래 대장의 <b>코드 범위</b>가 모두 나온다(네오랩 = PDS2 2 · PDS3 3 · PDS4 1). '
         '위 발급 폼 자리는 S10 과 같은 <b>코드 범위 추가</b> 폼이다.',
-        scr_edit(seeded=True, h=2350),
+        scr_edit(seeded=True, h=1850),
         [('대장 배지', '표시', '—', '시드 계정 · 지우면 다시 들어오지 않는다'),
          ('PWD', '표시', '「대장 참조」', '비워 둔 채 [저장] 가능 — 저장소에 평문 비밀번호를 두지 않는다'),
          ('사용기간', '표시', '대장 값', '시작 없음 · 끝 무제한'),
@@ -597,6 +576,6 @@ def build():
              '다른 값이며, 고객사를 고르면 그 값대로 <b>자동 체크</b>된다. '
              'App Key 는 <b>계정당 1개 · 인증 서비스 전체 공통</b> <code>PC-050</code>이며 '
              '한 키에 <b>코드 범위를 여러 개</b> 물린다 <code>PC-103</code>. '
-             'CasterN 권한은 <b>Web Caster 권한 키 20종</b>(개발팀 대장)이고 소리펜/필기펜 프리셋이 있다. '
+             'CasterN 권한은 <b>6종 체크</b>다 <code>PC-105</code>(대장의 Web Caster 키는 6종으로 접는다). '
              '로그인 허용 판정은 PRD §4.6.')
     return page(CODE, NAME, PRD, intro, B)
