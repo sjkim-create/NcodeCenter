@@ -177,17 +177,36 @@ def book_range(v):
     a = int(m[0])
     return (a, int(m[1]) if len(m) > 1 else a)
 
+def merged_inherit(ws, hrow):
+    """세로 병합 셀의 하위 칸 → 상위(값 있는) 칸 값. {(row, col0): value}
+    한 book 아래 작업물(ncp2 파일)이 여러 개면 Book·교재명을 병합해 두는 표기가 원장에 있다
+    (예: 교원구몬 S0/O10/B1108 『영어 A』= 학생용·교사용·필기펜 3행). 하위 행도 **별도 작업 행**으로 살린다 `PC-110`."""
+    from openpyxl.utils import range_boundaries
+    out = {}
+    for m in ws.merged_cells.ranges:
+        c1, r1, c2, r2 = range_boundaries(str(m))
+        if r2 <= r1 or r1 <= hrow: continue          # 가로 병합·헤더 위 병합은 무관
+        for c in range(c1, c2 + 1):
+            v = ws.cell(r1, c).value
+            if v in (None, ""): continue
+            for rr in range(r1 + 1, r2 + 1): out[(rr, c - 1)] = v
+    return out
+
 def parse_sheet(ws, default_ty, s_hint=None, o_hint=None, common=False):
     hrow, cm, has_sym = find_header(ws)
     if not cm: return []
     tb_s, tb_o = top_block_so(ws)                    # 상단 블록의 Section/Owner
+    inherit = merged_inherit(ws, hrow)
     books = []
     last_s = tb_s if tb_s is not None else s_hint
     last_o = tb_o if tb_o is not None else o_hint
     last_k = None
-    for row in ws.iter_rows(min_row=hrow + 1, values_only=True):
+    for ridx, row in enumerate(ws.iter_rows(min_row=hrow + 1, values_only=True), start=hrow + 1):
         if not row: continue
-        g = lambda f: (row[cm[f]] if (f in cm and len(row) > cm[f]) else None)
+        def g(f):
+            if f not in cm or len(row) <= cm[f]: return None
+            v = row[cm[f]]
+            return inherit.get((ridx, cm[f])) if v in (None, "") else v
 
         kind_raw = str(g("kind") or "").upper()
         if "PDS" in kind_raw or "IDS" in kind_raw or "OID" in kind_raw:
@@ -253,7 +272,7 @@ def parse_sheet(ws, default_ty, s_hint=None, o_hint=None, common=False):
                 v = txt(row[idx]) if len(row) > idx else ""
                 if v: b[key] = {"mode": "link", "value": v, "note": ""}
             ty = txt(row[33]) if len(row) > 33 else ""
-            if ty: b["ty"] = ty
+            if ty: b["ty"] = ty; b["tyx"] = 1              # 타입 열에 명시된 값(이식 시 원장 행 타입을 덮는다)
             lg = []
             for idx in (35, 36, 37):
                 v = txt(row[idx]) if len(row) > idx else ""
@@ -406,33 +425,50 @@ for src, fname, skip in FILES:
     stat.append((fname, n_sheet, n_book))
 print(f"편집 books 대장 귀속 완료 · orphan(대장에 없는 코드) {n_orphan:,}건")
 
-# ── 편집현황 파일 → 편집여부·심볼을 코드(k/s/o/b)로 매칭 이식 ──────────────
-#   시트명(고객사)은 원장과 어긋나므로 무시하고, 코드가 일치하는 원장 책에만 적용한다.
-edit_by_code = {}      # (k,s,o,b) → {"sm":[..], "pm":[..]}
+# ── 편집현황 파일 → 편집여부·심볼을 **작업(코드 + ncp2 파일명)** 단위로 매칭 이식 ──────
+#   시트명(고객사)은 원장과 어긋나므로 무시하고, 코드가 일치하는 원장 행에만 적용한다.
+#   같은 코드(k/s/o/b)에 작업물이 여럿이면(학생용·교사용·필기펜 ncp2) 파일명으로 행을 가른다 `PC-110`.
+#   파일명이 없는 행끼리는 빈 키("")로 짝을 짓고, 코드에 작업 행이 양쪽 다 1건뿐이면 파일명이 달라도 그 1건에 맞춘다.
+def fkey(b): return nz(b.get("f")) if txt(b.get("f")) else ""
+def wkey(b): return (b["k"], b["s"], b["o"], b["b"], fkey(b))
+edit_by_work = {}      # (k,s,o,b,파일) → {"sm":[..], "pm":[..]}   · 같은 작업이 겹쳐 적히면 max
 epath = os.path.join(SRC, EDIT_FILE)
 if os.path.exists(epath):
     ewb = load_workbook(epath, data_only=True)
     for ws in ewb.worksheets:
         for b in parse_sheet(ws, "소리펜"):
             if b.get("nb"): continue
-            e = edit_by_code.setdefault((b["k"], b["s"], b["o"], b["b"]), {"sm": [0] * SOUND_N, "pm": [0] * PEN_N})
+            e = edit_by_work.setdefault(wkey(b), {"sm": [0] * SOUND_N, "pm": [0] * PEN_N})
             e["sm"] = [max(a, c) for a, c in zip(e["sm"], b["sm"])]
             e["pm"] = [max(a, c) for a, c in zip(e["pm"], b["pm"])]
-    # (k 불일치 대비) 코드종류를 뺀 (s,o,b) 키도 보조로 둔다 — 원장 k 를 신뢰
-    edit_by_sob = {}
-    for (k, s, o, bk), e in edit_by_code.items():
-        t = edit_by_sob.setdefault((s, o, bk), {"sm": [0] * SOUND_N, "pm": [0] * PEN_N})
-        t["sm"] = [max(a, c) for a, c in zip(t["sm"], e["sm"])]
-        t["pm"] = [max(a, c) for a, c in zip(t["pm"], e["pm"])]
-    n_ed = n_sym = 0
+            if b.get("tyx"): e["ty"] = b["ty"]           # 편집현황의 명시 타입(소리펜/필기펜) — 같은 코드의 필기펜 작업 행 구분
+    # 보조 인덱스 — (k 불일치 대비) 코드종류를 뺀 (s,o,b,파일) · 코드별 작업 목록(단일 작업 폴백용)
+    edit_by_sobf = {}
+    edit_works_of = {}                          # (s,o,b) → [작업 키…]
+    for key, e in edit_by_work.items():
+        k, s, o, bk, f = key
+        edit_by_sobf.setdefault((s, o, bk, f), e)
+        edit_works_of.setdefault((s, o, bk), []).append(key)
+    ledger_works_of = {}                        # 원장 쪽 코드별 작업 행 수
     for _c in custs.values():
         for b in _c["books"]:
-            e = edit_by_code.get((b["k"], b["s"], b["o"], b["b"])) or edit_by_sob.get((b["s"], b["o"], b["b"]))
+            if not b.get("nb"): ledger_works_of[(b["s"], b["o"], b["b"])] = ledger_works_of.get((b["s"], b["o"], b["b"]), 0) + 1
+    n_ed = n_sym = n_fb = 0
+    for _c in custs.values():
+        for b in _c["books"]:
+            k, s, o, bk = b["k"], b["s"], b["o"], b["b"]
+            e = edit_by_work.get(wkey(b)) or edit_by_sobf.get((s, o, bk, fkey(b)))
+            if not e:
+                # 양쪽 다 이 코드에 작업 행이 1건뿐이면 파일명 표기가 달라도 같은 작업이다
+                ws_ = edit_works_of.get((s, o, bk)) or []
+                if len(ws_) == 1 and ledger_works_of.get((s, o, bk)) == 1 and not b.get("nb"):
+                    e = edit_by_work[ws_[0]]; n_fb += 1
             if not e: continue
             b["ed"] = True; n_ed += 1
+            if e.get("ty"): b["ty"] = e["ty"]
             if any(e["sm"]) or any(e["pm"]):
                 b["sm"] = list(e["sm"]); b["pm"] = list(e["pm"]); n_sym += 1
-    print(f"편집현황 코드매칭: 편집표시 {n_ed:,}건 · 심볼적용 {n_sym:,}건 (편집파일 코드 {len(edit_by_code):,}종)")
+    print(f"편집현황 작업매칭: 편집표시 {n_ed:,}건 · 심볼적용 {n_sym:,}건 · 단일작업 폴백 {n_fb:,}건 (편집파일 작업 {len(edit_by_work):,}건)")
 else:
     print("!! 편집현황 파일 없음:", EDIT_FILE)
 
@@ -440,16 +476,36 @@ else:
 #   지금까지 적용비는 Total Page 로 계산했다. 그 페이지 수를 **그 책 자신의 값**으로 옮겨 담아
 #   기존 청구액을 그대로 유지한다. 이후에는 담당자가 이 칸을 직접 고친다.
 #   ※ 편집현황 이식(위)이 끝난 뒤에 채운다 — 먼저 채우면 `any(sm)` 판정이 흐려져 남의 값이 덮인다.
-_n_pg = 0
+#   ※ 한 코드에 작업 행이 여럿이면(학생용·교사용·필기펜 ncp2) **첫 작업 행에만** 옮긴다 — Ncode 적용은
+#      코드(책)당 1회이지 작업물마다가 아니다. Total Page(pg) 자체는 모든 행에 남는다(목록 표시용) `PC-110`.
+_n_pg = _n_pg_skip = 0
 for _c in custs.values():
+    _seen_code = set()
     for b in _c["books"]:
         if not b.get("pg"): continue
         if not b.get("sm"): b["sm"] = [0] * SOUND_N
         if not b.get("pm"): b["pm"] = [0] * PEN_N
+        code = (b["k"], b["s"], b["o"], b["b"])
+        if not b.get("nb") and code in _seen_code: _n_pg_skip += 1; continue
+        _seen_code.add(code)
         if "필기펜" in (b.get("ty") or ""): b["pm"][0] = b["pg"]
         else: b["sm"][0] = b["pg"]
         _n_pg += 1
-print(f"Ncode 적용 수량 이관: {_n_pg:,}건 (Total Page → 심볼 입력 0번) `PC-085`")
+print(f"Ncode 적용 수량 이관: {_n_pg:,}건 (Total Page → 심볼 입력 0번) · 같은 코드의 추가 작업 행 {_n_pg_skip:,}건 제외 `PC-085` `PC-110`")
+
+# ── 코드(k/s/o/b) 단위 유일 행 — 발급 규모(페이지·book 범위)·SOBP 맵은 작업 행이 아니라 코드로 센다 `PC-110`
+#   한 코드의 대표 행 = 첫 작업 행, 페이지 수(pg)는 작업 행 중 **최대값**(코드 용량은 작업물마다 더하지 않는다).
+def uniq_codes(bks):
+    seen, out = {}, []
+    for b in bks:
+        code = (b["k"], b["s"], b["o"], b["b"])
+        if b.get("nb"): out.append(b); continue
+        if code in seen:
+            rep = seen[code]
+            if (b.get("pg") or 0) > (rep.get("pg") or 0): rep["pg"] = b["pg"]
+            continue
+        rep = dict(b); seen[code] = rep; out.append(rep)
+    return out
 
 # OID 는 book 으로 나누지 않는 경우가 많다(북코드 없음) → 아래 nb 필터 전에 대장용으로 따로 모아 둔다 (PC-033)
 OID_ROWS = [(_c["name"], b) for _c in custs.values() for b in _c["books"] if b["k"] == "O"]
@@ -511,12 +567,12 @@ for _, c in sorted(custs.items(), key=lambda kv: -len(kv[1]["books"])):
     if nz(name) in CLOSED_ACCOUNTS:                    # 프로젝트 종료 고객사
         co["closed"] = True; co["closedNote"] = CLOSED_ACCOUNTS[nz(name)]
     companies.append(co)
-    pages = sum(b["pg"] for b in books)
+    pages = sum(b["pg"] for b in uniq_codes(books))          # 발급 페이지 = 코드 단위 `PC-110`
     size = sum(b["bytes"] for b in books)
     sym = sum(symsum(b) for b in books)
 
     groups = {}
-    for b in books:
+    for b in uniq_codes(books):
         g = groups.setdefault((b["k"], b["s"], b["o"]), {"bmin": b["b"], "bmax": b["b"], "pages": 0, "date": b["d"]})
         g["bmin"] = min(g["bmin"], b["b"]); g["bmax"] = max(g["bmax"], b["b"]); g["pages"] += b["pg"]
         if b["d"] and (not g["date"] or b["d"] < g["date"]): g["date"] = b["d"]
@@ -556,7 +612,7 @@ for _, c in sorted(custs.items(), key=lambda kv: -len(kv[1]["books"])):
     lid += 1
     logs.append({"id": 1000 + lid, "no": 1, "companyId": cid, "projectId": projects[-1]["id"] if projects else 0,
                  "date": "2026-03-02", "kind": "메모",
-                 "content": f"{name} · 교재 {len(books):,}건 · 발급 {int(pages):,}p · 심볼 {int(sym):,}", "author": "이영업"})
+                 "content": f"{name} · 교재 {len(uniq_codes(books)):,}건(작업 {len(books):,}행) · 발급 {int(pages):,}p · 심볼 {int(sym):,}", "author": "이영업"})
 
     # 편집 프로젝트 고객사 1건 생성 (공통코드 홀더는 코드 타입·섹션별로 여러 건으로 분리)
     def _emit(cname, bks):
@@ -698,7 +754,7 @@ for c in edit_customers:
 edit_only.sort(key=lambda c: -c["symbols"])
 
 # 번들 축소 — 빈 값/0 배열/화면에서 안 쓰는 키는 빼고 내보낸다 (앱에서 기본값 복원)
-DROP_KEYS = {"src", "cg", "_do"}
+DROP_KEYS = {"src", "cg", "_do", "tyx"}
 def slim(b):
     o = {}
     for k, v in b.items():
@@ -709,6 +765,21 @@ def slim(b):
         o[k] = v
     o["b"] = b["b"]; o["s"] = b["s"]; o["o"] = b["o"]; o["k"] = b["k"]   # 키는 항상 유지
     return o
+# 같은 코드(k/s/o/b)에 작업 행이 여럿이면 순번을 매긴다 — wn=작업 번호 · wc=그 코드의 작업 수 (화면 배지용) `PC-110`
+_n_multi = 0
+for c in edit_only:
+    _cnt = {}
+    for b in c["bookRows"]:
+        if b.get("nb"): continue
+        _cnt[(b["k"], b["s"], b["o"], b["b"])] = _cnt.get((b["k"], b["s"], b["o"], b["b"]), 0) + 1
+    _seq = {}
+    for b in c["bookRows"]:
+        code = (b["k"], b["s"], b["o"], b["b"])
+        if b.get("nb") or _cnt[code] < 2: continue
+        _seq[code] = _seq.get(code, 0) + 1
+        b["wn"], b["wc"] = _seq[code], _cnt[code]
+    _n_multi += sum(1 for v in _cnt.values() if v > 1)
+print(f"작업 행이 여럿인 코드 {_n_multi:,}건 (wn/wc 표시) `PC-110`")
 for c in edit_only:
     c["bookRows"] = [slim(b) for b in c["bookRows"]]
     c.pop("soundBreakdown", None); c.pop("penBreakdown", None)
@@ -735,7 +806,17 @@ def crow(c, b):
     if not r["sp"]: del r["sp"]
     return r
 #   OID(k="O")도 좌표 종류의 하나로 지도·목록에서 필터한다 (PC-035). 업체별 index 목록은 oid-data.json.
-compact = [r for c in edit_customers for b in c["bookRows"] if (r := crow(c, b))]
+#   같은 코드의 작업 행이 여럿이면 지도에는 **코드 1건**만 싣고, 편집 여부는 작업 중 하나라도 편집이면 1 `PC-110`
+compact, _cidx = [], {}
+for c in edit_customers:
+    for b in c["bookRows"]:
+        r = crow(c, b)
+        if not r: continue
+        code = (r["k"], r["s"], r["o"], r["b"], r["c"])
+        if code in _cidx:
+            if r["e"]: compact[_cidx[code]]["e"] = 1
+            continue
+        _cidx[code] = len(compact); compact.append(r)
 # OID 는 분량이 적으면 book 을 나누지 않는다(북코드 없음) → 그런 행도 지도에 싣되 nb=1 로 표시한다.
 #   (book 카드가 아니라 OWNER 단위로만 노출 — 예: 한솔교육 S3/O25)
 n_oid_nb = 0

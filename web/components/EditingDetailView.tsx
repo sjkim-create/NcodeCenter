@@ -37,6 +37,8 @@ type BR = {
   cu?: string;   // 사용 고객사 — 공유 OWNER(레퍼런스 코드)일 때만 사용
   _cust?: string;   // 전체 고객사 보기에서만 채워지는 보유 고객사명 `PC-040`
   nhist?: { date: string; movedAt: string; by: string }[];   // 완료→진행중 전환 시 보관하는 ncp2 최종수정 이력
+  // 같은 코드(SOBP)에 작업물(ncp2)이 여럿인 교재 — wn=작업 번호 · wc=그 코드의 작업 수. 코드는 1개, 작업은 N행 `PC-110`
+  wn?: number; wc?: number;
 };
 type Cust = { customer: string; owner: string; owners?: number[]; codeKinds: string[]; books: number; pages: number; symbols: number; soundSymbols: number; penSymbols: number; sizeMB: number; topMethods?: [string, number][]; bookRows?: BR[] };
 const D = { customers: EDIT_CUSTOMERS as unknown as Cust[] };
@@ -727,7 +729,12 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                       : <span style={{ color: "#d1d5db" }}>-</span>}
                   </td>
                 )}
-                <td style={{ ...S.td, fontWeight: 600, textAlign: "left", maxWidth: 200 }}>{r.t || "-"}<div style={{ color: "#9ca3af", fontSize: 10.5 }}>{r.f}</div></td>
+                <td style={{ ...S.td, fontWeight: 600, textAlign: "left", maxWidth: 200 }}>
+                  {r.t || "-"}
+                  {/* 같은 코드의 작업이 여럿이면 몇 번째 작업인지 표시 — 코드 1개 · 작업 N행 `PC-110` */}
+                  {r.wc && r.wc > 1 && <span style={{ ...S.tag, marginLeft: 5, fontSize: 10, background: "#fff7ed", color: "#c2410c", fontWeight: 700 }} title={`같은 코드(S${r.s}/O${r.o}/B${r.b})에 작업물이 ${r.wc}건 — 이 행은 ${r.wn}번째`}>작업 {r.wn}/{r.wc}</span>}
+                  <div style={{ color: "#9ca3af", fontSize: 10.5 }}>{r.f}</div>
+                </td>
                 <td style={S.td}><span style={{ ...S.tag, background: kindMeta(codeKind(r.k, r.s)).bg, color: kindMeta(codeKind(r.k, r.s)).color, fontWeight: 700 }}>{kindMeta(codeKind(r.k, r.s)).short}</span></td>
                 <td style={{ ...S.td, fontSize: 11 }}>{r.ty}</td>
                 <td style={S.td}><SobpChips s={r.s} o={r.o} b={r.b} small /></td>
@@ -927,7 +934,14 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
 
           {/* 1행: 기본 정보 */}
           <div style={rowBox}>
-            <div style={rowHead}>기본 정보</div>
+            <div style={rowHead}>기본 정보
+              {/* 같은 코드의 작업이 여럿이면 안내 — 코드 1개 · 작업 N행, ncp2 파일명으로 구분 `PC-110` */}
+              {editing.row.wc && editing.row.wc > 1 && (
+                <span style={{ ...S.tag, marginLeft: 8, fontSize: 11, background: "#fff7ed", color: "#c2410c", fontWeight: 600 }}>
+                  같은 코드(S{editing.row.s}/O{editing.row.o}/B{editing.row.b})의 작업 {editing.row.wn}/{editing.row.wc} — ncp2 파일명으로 구분
+                </span>
+              )}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
               <Field label="교재명"><input style={S.input} value={editing.row.t} onChange={(e) => setF("t", e.target.value)} /></Field>
               <Field label="ncp2 파일명"><input style={S.input} value={editing.row.f} onChange={(e) => setF("f", e.target.value)} /></Field>
