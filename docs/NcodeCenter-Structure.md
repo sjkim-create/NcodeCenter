@@ -5,6 +5,7 @@
 > Ncode **자동관리 시스템**의 단일 구조 문서(=전체 지도). 시스템 정의·도메인 모델·역할·**메뉴 구조도(§4)**·**문서(MD) 구조도(§8)**·아키텍처를 한곳에 둔다. 새 MD는 §8 규칙대로 배치하고 여기서 링크한다.
 > - **DB 구조는 별도**: [`NcodeCenter-DB.md`](NcodeCenter-DB.md)
 > - **운영 정책(개발 반영 기준)**: [`NcodeCenter-Operations-Policy.md`](NcodeCenter-Operations-Policy.md) ★ **신규 화면 개발 시 반드시 참조·확인**
+> - **동작 흐름(한 장 지도)**: [`NcodeCenter-Flow.md`](NcodeCenter-Flow.md) — 전체 흐름 + 할당·발급·편집·실시간 발급 mermaid
 > - **데이터(실데이터/스냅샷)**: [`data/NcodeCenter-Dashboard-Data.md`](data/NcodeCenter-Dashboard-Data.md)
 > - **메뉴별 상세 MD**: `docs/menus/` 에 1메뉴=1파일(확정된 것부터). 각 메뉴 MD에는 **정책 준수 체크리스트** 포함.
 > 기반 참조: `webcaster.admin`(neostudio-team) · https://ndp-dev.neolab.net:14443/tickets
@@ -129,6 +130,8 @@ NcodeCenter
 
 ## 5. 핵심 화면 흐름
 
+> 📌 **mermaid 판(현행)** = [`NcodeCenter-Flow.md`](NcodeCenter-Flow.md). 아래 ASCII 도식은 초기 개념도로, 예약(RESERVED)·아이글 등 **폐기된 용어**를 포함한다.
+
 > **NcodeCenter는 내부 직원 운영 시스템**이다. **내부 직원이 업체/프로젝트를 직접 등록**하고 **코드를 할당**한다. **가입 요청·가입 승인은 폼솔루션(사용자)에게만** 해당하며, 폼솔루션은 미리 할당한 코드 풀에서 **사용자가 가입 승인 후 등급을 선택해 자동 배정**받는다. **편집툴·아이글·기타는 고객 요청 없이 직원이 등록·직접 할당**한다.
 
 ```
@@ -192,6 +195,8 @@ NcodeCenter/
 │   ├── NcodeCenter-Structure.md          ★ 구조 단일(지도). 정의·도메인·역할·메뉴구조도·문서구조도·아키텍처·로드맵
 │   ├── NcodeCenter-DB.md                 DB 구조(테이블·관계). 앱 뷰 = /db
 │   ├── NcodeCenter-Operations-Policy.md  운영 정책(개발 반영 기준). ★ 신규 화면 필수 참조
+│   ├── NcodeCenter-Flow.md               동작 흐름(mermaid). 전체 → 단계별(할당·발급·편집·NDP)
+│   ├── NcodeCenter-Flow.html             ↑ 의 보기·Figma 붙여넣기용 (생성물 — screens/_gen/mkflow.py)
 │   ├── NcodeCenter-SOBP-Allocation.md    SOBP 할당(NDP 연동) 참조 — 실시간 발급 흐름·인증 체인·재사용 정책
 │   ├── prd/                              ★ 화면별 PRD (1화면코드=1파일, `{화면code}_{화면명}.md`) — IA v2.0 기준 17개
 │   ├── menus/                            (구) 메뉴별 상세 — PRD로 이관 중
@@ -214,6 +219,7 @@ NcodeCenter/
 | **메뉴 상세(구)** | `docs/menus/NN-name.md` | PRD 이전의 메뉴 스펙 | 신규 작성 금지 — PRD로 대체 |
 | **DB 구조** | `docs/NcodeCenter-DB.md` | 테이블·관계 | 변경 시 `db/migrations/*` + `web/lib/dbSchema.ts`(=/db 뷰) 동기화 |
 | **운영 정책** | `docs/NcodeCenter-Operations-Policy.md` | 발급·할당 원칙 | 정책 추가/변경 → 관련 메뉴 MD 체크리스트 반영 |
+| **동작 흐름** | `docs/NcodeCenter-Flow.md` | 화면·단계를 잇는 동작 흐름(mermaid) | 흐름/선행조건이 바뀌면 갱신 → **`python docs/screens/_gen/mkflow.py`** 로 HTML 재생성. 화면 목록은 IA, 규칙은 운영 정책이 정본 |
 | **연동 참조** | `docs/NcodeCenter-SOBP-Allocation.md` | 외부(NDP 등) 연동 흐름 참조 | 정책성 내용은 **운영 정책에 요약**하고 상세만 참조 문서에 |
 | **데이터** | `docs/data/*.md` | 실데이터 스냅샷·매핑 | 데이터/파이프라인 변화 시 (json은 `web/data/`) |
 | **프로토타입** | `docs/prototypes/*.html` | 초기 실험(참고) | 정식 화면은 `web/`(Next.js)로 |

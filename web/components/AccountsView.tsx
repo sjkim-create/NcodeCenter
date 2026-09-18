@@ -306,11 +306,7 @@ function ServiceTabs({ services, settings, onServices, onSettings, casternExtra 
             <div style={{ fontSize: 11.5, color: "#9ca3af" }}>인증 서비스로 선택하면 이 서비스의 조건을 설정할 수 있습니다.</div>
           ) : tab === "CASTERN" ? (
             <>
-              {/* CasterN 체크의 뜻 `PC-104` */}
-              <div style={{ fontSize: 11.5, color: "#1e3a8a", background: "#eef6ff", border: "1px solid #c7ddff", borderRadius: 9, padding: "8px 11px", marginBottom: 10, lineHeight: 1.7 }}>
-                <b>CasterN 체크</b> = casterN 서비스를 사용하기 위한 <b>계정과 App Key 를 발급</b>하여, 발급된 계정으로 <b>CasterN 서비스를 직접 사용하는 고객사</b>입니다.
-                고객사 관리의 casterN(우리가 편집해 주는 고객사)과는 다른 값입니다.
-              </div>
+              {/* CasterN 체크의 뜻은 체크박스 옆 설명(ACCOUNT_SERVICES.desc)으로만 — 파란 안내 상자는 뺐다 `PC-107` */}
               <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
                 사용자 권한 <span style={{ fontWeight: 400, color: "#9ca3af" }}>· 개별 또는 모두 선택</span>
               </div>

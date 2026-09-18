@@ -121,7 +121,7 @@ def basic_card(name_err=False, empty=False, closed=False):
 
     on_cast = not empty
     cast_panel = (svc_check('casterN (편집툴)',
-                            '우리가 이 고객사 자료를 편집한다 — [편집 프로젝트]의 대상이 된다', on_cast)
+                            '[편집 프로젝트]의 대상이 된다', on_cast)     # `PC-108`
                   + (st if on_cast else ''))     # 꺼져 있을 때 안내문은 뺐다 `PC-104`
 
     svc = ('<div class="fld" style="grid-column:1/-1"><span class="lbl">사용 서비스</span>'

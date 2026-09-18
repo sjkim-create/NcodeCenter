@@ -24,6 +24,7 @@ const KIND_FG: Record<string, string> = { 요청: "#92400e", 처리: "#166534", 
 
 type Att = { mode: "file" | "link"; value: string; note: string };
 type BookLog = { id: number; no: number; kind: WorkKind; content: string; date: string; author: string; authorEmail?: string; edited?: boolean };
+const CU_NONE = "__CU_NONE__";   // 사용 고객사 필터의 (미입력) 값 `PC-109`
 type BR = {
   b: number; s: number; o: number; k: string; pg: number; t: string; f: string; bytes: number; ty: string;
   sm: number[]; pm: number[]; m: string; d: string;
@@ -204,7 +205,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const [fT, setFT] = useState("");                    // 타입 필터
   const [fK, setFK] = useState("");                    // 코드(PDS) 필터
   const [fSt, setFSt] = useState("");                  // 진행 상태 필터
-  const [fCu, setFCu] = useState("");                  // 사용 고객사 필터 (공유 코드)
+  const [fCu, setFCu] = useState("");                  // 사용 고객사 필터 · CU_NONE = (미입력) `PC-109`
   const [fOwnerCust, setFOwnerCust] = useState("");    // 고객사 필터 — 전체 고객사 보기 `PC-040`
   useSharedOwners();                                   // 공유 OWNER 변경 시 리렌더
   useEffect(() => { hydrateShared(); hydrateMembers(); }, []);
@@ -314,7 +315,10 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   // 공유 OWNER(레퍼런스 코드)를 쓰는 교재 → 실제 사용 고객사를 별도 항목으로 관리
   const isSharedRow = (r: BR) => !!sharedInfo(r.s, r.o, r.k);
   const hasSharedRows = rows.some(isSharedRow);
-  const custOpts = uniqS(rows.filter(isSharedRow).map((r) => r.cu ?? ""));
+  // 사용 고객사 열 — 공유 코드 고객사뿐 아니라 **교재에 사용 고객사 값이 하나라도 있는 고객사**(예: 네오노트-14-27)에도 보인다 `PC-109`
+  //   공유 목록(sharedOwners)에 없는 S/O 라도 편집 대장이 고객사별로 나눠 쓰던 코드면 같은 항목으로 관리한다.
+  const cuMode = hasSharedRows || rows.some((r) => (r.cu ?? "").trim());
+  const custOpts = uniqS(rows.map((r) => r.cu ?? ""));
   // 커먼 코드 사용 고객사 후보 — 중앙 멤버십(히스토리 + 고객사 등록)에서 이 코드(k/s/o)의 하위 고객사
   const commonCandidates = (k: string, sec: number, own: number) => membersOf(k, sec, own).map((m) => m.name);
   const filtered = rows.map((r, i) => [r, i] as const)
@@ -328,7 +332,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     .filter(([r]) => (fK ? codeKind(r.k, r.s) === fK : true))
     .filter(([r]) => (fOwnerCust ? r._cust === fOwnerCust : true))
     .filter(([r]) => (fSt ? stateOf(r.use) === fSt : true))
-    .filter(([r]) => (fCu ? (r.cu ?? "") === fCu : true))
+    .filter(([r]) => (fCu ? (fCu === CU_NONE ? !(r.cu ?? "").trim() : (r.cu ?? "") === fCu) : true))   // (미입력) 따로 검색 `PC-109`
     .filter(([r]) => (q ? `${r.t ?? ""} ${r.cu ?? ""}`.toLowerCase().includes(q.toLowerCase()) : true));   // 교재명·사용고객사 검색
   // 교재명(가나다) / 발급일(날짜) 정렬 — 값 없는 행은 항상 뒤로
   if (sort.key === "b") {
@@ -624,7 +628,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
         <table style={{ ...S.table, textAlign: "center", minWidth: 1120 }}>
           <thead>
             {/* 공유 OWNER를 쓰는 고객사면 "사용 고객사" 열이 교재명 왼쪽에 추가된다 */}
-            <tr>{["No", "상태", ...(readOnly ? ["고객사"] : []), ...(hasSharedRows ? ["사용 고객사"] : []), "교재명", "코드", "타입", "S/O/B", "페이지", "심볼 개수", "편집방식", "발급일", "최종 수정일", "메모", "ncp2 크기(byte)", "정산 (청구액)"].map((h) => {
+            <tr>{["No", "상태", ...(readOnly ? ["고객사"] : []), ...(cuMode ? ["사용 고객사"] : []), "교재명", "코드", "타입", "S/O/B", "페이지", "심볼 개수", "편집방식", "발급일", "최종 수정일", "메모", "ncp2 크기(byte)", "정산 (청구액)"].map((h) => {
               const k = h === "교재명" ? "t" : h === "발급일" ? "d" : null;   // 정렬 가능한 항목
               return (
                 <th key={h} style={{ ...S.th, textAlign: "center", cursor: k ? "pointer" : "default", userSelect: "none" }}
@@ -652,11 +656,12 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   </select>
                 </th>
               )}
-              {/* 사용 고객사 (공유 코드) */}
-              {hasSharedRows && (
+              {/* 사용 고객사 — 비어 있는 교재만 따로 볼 수 있다 `PC-109` */}
+              {cuMode && (
                 <th style={filterTh}>
                   <select value={fCu} onChange={(e) => setFCu(e.target.value)} style={{ ...fSel, maxWidth: 120 }} title="사용 고객사">
                     <option value="">전체</option>
+                    <option value={CU_NONE}>(미입력)</option>
                     {custOpts.map((v) => <option key={v} value={v}>{v}</option>)}
                   </select>
                 </th>
@@ -720,13 +725,12 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                 <td style={{ ...S.td, color: "#9ca3af", fontFamily: "ui-monospace,monospace" }}>{idx + 1}</td>
                 <td style={S.td}><span style={{ ...S.tag, fontSize: 10, ...ST_COLOR[stateOf(r.use)] }}>{stateOf(r.use)}</span></td>
                 {readOnly && <td style={{ ...S.td, fontSize: 11.5, textAlign: "left", maxWidth: 140, fontWeight: 600 }}>{r._cust ?? "-"}</td>}
-                {hasSharedRows && (
+                {cuMode && (
                   <td style={{ ...S.td, fontSize: 11.5, textAlign: "left", maxWidth: 130 }}>
-                    {isSharedRow(r)
-                      ? (r.cu
-                        ? <span style={{ ...S.tag, background: "#f3e8ff", color: "#7e22ce", fontWeight: 700 }}>{r.cu}</span>
-                        : <span style={{ color: "#d97706" }} title="공유 코드인데 사용 고객사가 비어 있습니다. 교재를 열어 입력하세요.">미입력</span>)
-                      : <span style={{ color: "#d1d5db" }}>-</span>}
+                    {/* 값이 없으면 공유 코드든 아니든 **미입력** `PC-109` */}
+                    {r.cu
+                      ? <span style={{ ...S.tag, background: "#f3e8ff", color: "#7e22ce", fontWeight: 700 }}>{r.cu}</span>
+                      : <span style={{ color: "#d97706" }} title="사용 고객사가 비어 있습니다. 교재를 열어 입력하세요.">미입력</span>}
                   </td>
                 )}
                 <td style={{ ...S.td, fontWeight: 600, textAlign: "left", maxWidth: 200 }}>
@@ -900,6 +904,14 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                       </Field>
                     );
                   })()}
+                  {!sh && cuMode && (
+                    /* 공유 목록에 없는 코드지만 이 고객사는 교재를 사용 고객사별로 나눠 쓴다 `PC-109` — 직접 적는다 */
+                    <Field label="사용 고객사">
+                      <input style={S.input} list="cu-opts" value={editing.row.cu ?? ""} placeholder="미입력"
+                        onChange={(e) => setF("cu", e.target.value)} />
+                      <datalist id="cu-opts">{custOpts.map((v) => <option key={v} value={v} />)}</datalist>
+                    </Field>
+                  )}
                   {sh && (() => {
                     const cands = commonCandidates(editing.row.k, editing.row.s, editing.row.o);
                     const cur = editing.row.cu ?? "";
@@ -926,7 +938,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                         {sh.group && <span style={{ color: "#9ca3af" }}> · {commonRangesText(sh.group)}</span>}
                         <br />여러 고객사가 Book 번호만 나눠 쓰는 코드입니다 — <b>{sh.group ? COMMON_LABEL[sh.group] : "커먼 코드"} 를 체크한 고객사만</b> 후보로 나옵니다.
                       </>
-                    : `이 S/O는 ${cust.customer} 전용입니다. 별도 고객사 입력이 필요 없습니다.`}
+                    : cuMode
+                      ? `이 S/O는 ${cust.customer} 코드입니다. 교재를 쓰는 고객사가 따로 있으면 사용 고객사에 적습니다.`
+                      : `이 S/O는 ${cust.customer} 전용입니다. 별도 고객사 입력이 필요 없습니다.`}
                 </div>
               </div>
             );

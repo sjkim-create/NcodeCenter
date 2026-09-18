@@ -225,14 +225,7 @@ def svc_panel(name, on, ready, inner=''):
                 'padding:10px 12px"><b style="color:#c2410c">준비중</b> — 이 서비스의 '
                 '권한·설정 항목은 아직 정의되지 않았습니다. 인증 서비스 연동만 등록됩니다.</div>')
     else:
-        # CasterN 체크의 뜻 `PC-104` — 고객사 관리의 casterN(우리가 편집)과 구분
-        note = ('<div style="font-size:11.5px;color:#1e3a8a;background:#eef6ff;border:1px solid #c7ddff;'
-                'border-radius:9px;padding:8px 11px;margin-bottom:10px;line-height:1.7">'
-                '<b>CasterN 체크</b> = casterN 서비스를 사용하기 위한 <b>계정과 App Key 를 발급</b>하여, '
-                '발급된 계정으로 <b>CasterN 서비스를 직접 사용하는 고객사</b>입니다. '
-                '고객사 관리의 casterN(우리가 편집해 주는 고객사)과는 다른 값입니다.</div>'
-                if name == 'CasterN' else '')
-        body = note + inner
+        body = inner          # 파란 안내 상자는 뺐다 `PC-107` — 뜻은 체크박스 옆 설명으로만
     return chk + '<div style="margin-top:10px">%s</div>' % body
 
 

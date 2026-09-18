@@ -11,7 +11,7 @@ export type ServiceType =
 // NONE 은 **고르는 값이 아니다** — 옛 데이터 호환용으로만 남긴다(= 선택 없음).
 export const SDK_ONLY = "SDK 연동 (코드만 할당)";
 export const SERVICE: { v: ServiceType; label: string; desc: string; ready: boolean }[] = [
-  { v: "CASTERN", label: "casterN (편집툴)", desc: "우리가 이 고객사 자료를 편집한다 — [편집 프로젝트]의 대상이 된다", ready: true },
+  { v: "CASTERN", label: "casterN (편집툴)", desc: "[편집 프로젝트]의 대상이 된다", ready: true },   // 「우리가 이 고객사 자료를 편집한다」 문구는 뺐다 `PC-108`
   { v: "FORMSOLUTION", label: "폼솔루션", desc: "폼솔루션 서비스로 관리한다 — 서비스 개발 전이라 아직 지정된 고객사가 없다", ready: false },
 ];
 const SERVICE_LABEL: Record<string, string> = { CASTERN: "casterN (편집툴)", FORMSOLUTION: "폼솔루션", NONE: SDK_ONLY };
