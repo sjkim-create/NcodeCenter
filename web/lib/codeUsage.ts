@@ -160,13 +160,18 @@ export function bookRecordsOf(k: string, sec: number, owner: number, extra: Book
 
 // 편집 프로젝트 '교재 추가'용 — 편집 안 된(=사용 가능) Book 번호.
 //   발급된 SO 아래의 Book 은 편집되기 전까지 모두 '사용 가능'(isBookEdited 로 SOBP 맵과 동일 판정).
-export function editableBookNumbers(k: string, sec: number, owner: number, max: number, limit = 300, keep?: number, extra: BookRec[] = []): number[] {
+//   **사용한 Book 은 노출하지 않는다** `PC-112` — 편집 여부와 무관하게 교재(책)가 등록된 Book(정본 원장 + 화면에서 추가한 행 `used`)은
+//   사용 가능 번호에서 뺀다. 같은 S/O/B 교재는 [복제]로만 만든다.
+export function editableBookNumbers(k: string, sec: number, owner: number, max: number, limit = 300, keep?: number, extra: BookRec[] = [], used?: Set<number>): number[] {
   const byBook = bookRecordsOf(k, sec, owner, extra);
   const out: number[] = [];
   for (let b = 0; b < max && out.length < limit; b++) {
     if (b === keep) { out.push(b); continue; }
-    if (isBookEdited(byBook.get(b))) continue;   // 실제 편집된 코드만 제외
-    out.push(b);                                   // 편집 안 됨 = 사용 가능
+    if (used?.has(b)) continue;                                        // 이 고객사 교재 목록에 이미 있는 Book
+    const recs = byBook.get(b);
+    if (recs?.some((r) => !r.fromProject)) continue;                   // 원장에 교재가 등록된 Book (편집 전이라도 사용한 것)
+    if (isBookEdited(recs)) continue;
+    out.push(b);                                                       // 등록된 교재 없음 = 사용 가능
   }
   if (keep != null && !out.includes(keep)) out.unshift(keep);
   return out;

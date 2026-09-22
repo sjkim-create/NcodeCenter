@@ -79,8 +79,11 @@ def split_customer_name(name, k, s):
 SOUND_N, PEN_N = 8, 4
 SOUND_I = [13, 14, 15, 16, 17, 18, 19]   # 심볼 블록(편집현황 표준 레이아웃)
 # 필기펜 열 — pricing.ts PEN_QTY 순서와 **자리로 맞춘다**(기본 편집 · Custom · 노트서버 업로드).
-#   `PC-084`: action 변경 편집(열 22) 은 폐지 — 실데이터도 전부 0 이었다.
-PEN_I = [20, 21, 23]
+#   편집현황 실제 열: 20 필기펜 기본 · 21 캘린더 연동 · 22 링크 연동 · 23 교원구몬/KEP `PC-113`
+#   `PC-084` 가 열 22 를 "action" 으로 보고 뺐으나 실제로는 링크 연동(=노트서버 업로드 자리)이고, 열 23(교원구몬/KEP,
+#   105,350심볼 · 전부 구몬학습)이 노트서버 업로드 자리에 들어가 있었다. → 열 23 은 **기본 편집(pm[1])에 합산**한다.
+PEN_I = [20, 21, 22]
+KEP_I = 23               # 교원구몬/KEP → 기본 편집에 합산 `PC-113`
 TOT_I = 24
 
 # 심볼 합계 — 배열 0번은 [Ncode 적용] **페이지 수**라 심볼로 세지 않는다 `PC-085`
@@ -258,6 +261,7 @@ def parse_sheet(ws, default_ty, s_hint=None, o_hint=None, common=False):
             # 0번은 [Ncode 적용] 자리로 비워 두고, 엑셀 열은 1번부터 담는다 `PC-085`
             sm = [0] + [int(num(row[i])) if len(row) > i else 0 for i in SOUND_I]
             pm = [0] + [int(num(row[i])) if len(row) > i else 0 for i in PEN_I]
+            if len(row) > KEP_I: pm[1] += int(num(row[KEP_I]))     # 교원구몬/KEP 열 → 기본 편집 `PC-113`
             total = int(num(row[TOT_I])) if len(row) > TOT_I else 0
             if sum(sm) + sum(pm) == 0 and total > 0:
                 if "필기펜" in default_ty: pm[1] = total
@@ -431,17 +435,28 @@ print(f"편집 books 대장 귀속 완료 · orphan(대장에 없는 코드) {n_
 #   파일명이 없는 행끼리는 빈 키("")로 짝을 짓고, 코드에 작업 행이 양쪽 다 1건뿐이면 파일명이 달라도 그 1건에 맞춘다.
 def fkey(b): return nz(b.get("f")) if txt(b.get("f")) else ""
 def wkey(b): return (b["k"], b["s"], b["o"], b["b"], fkey(b))
-edit_by_work = {}      # (k,s,o,b,파일) → {"sm":[..], "pm":[..]}   · 같은 작업이 겹쳐 적히면 max
+#   편집현황은 한 작업을 **페이지 구간(Start Page)별로 나눠 적기도 한다**(구몬 20p 단위: 중국어 B = 1~20 · 21~40 … 18구간).
+#   같은 작업 키의 행이 Start Page 가 서로 다르면 **구간 분할 → 합산(sum)**, 같으면 겹쳐 적은 것 → max `PC-111`.
+edit_by_work = {}      # (k,s,o,b,파일) → {"sm":[..], "pm":[..], "ty"?}
+_work_rows = {}        # (k,s,o,b,파일) → [편집현황 행…]
 epath = os.path.join(SRC, EDIT_FILE)
 if os.path.exists(epath):
     ewb = load_workbook(epath, data_only=True)
     for ws in ewb.worksheets:
         for b in parse_sheet(ws, "소리펜"):
             if b.get("nb"): continue
-            e = edit_by_work.setdefault(wkey(b), {"sm": [0] * SOUND_N, "pm": [0] * PEN_N})
-            e["sm"] = [max(a, c) for a, c in zip(e["sm"], b["sm"])]
-            e["pm"] = [max(a, c) for a, c in zip(e["pm"], b["pm"])]
-            if b.get("tyx"): e["ty"] = b["ty"]           # 편집현황의 명시 타입(소리펜/필기펜) — 같은 코드의 필기펜 작업 행 구분
+            _work_rows.setdefault(wkey(b), []).append(b)
+    n_split = 0
+    for key, rows in _work_rows.items():
+        split = len({r.get("sp") for r in rows}) > 1          # Start Page 가 다르면 페이지 구간 분할
+        agg = sum if split else max
+        e = {"sm": [agg(r["sm"][i] for r in rows) for i in range(SOUND_N)],
+             "pm": [agg(r["pm"][i] for r in rows) for i in range(PEN_N)]}
+        for r in rows:
+            if r.get("tyx"): e["ty"] = r["ty"]           # 편집현황의 명시 타입(소리펜/필기펜) — 같은 코드의 필기펜 작업 행 구분
+        if split: n_split += 1
+        edit_by_work[key] = e
+    print(f"편집현황 페이지 구간 분할 작업 {n_split}건 → 심볼 합산 `PC-111`")
     # 보조 인덱스 — (k 불일치 대비) 코드종류를 뺀 (s,o,b,파일) · 코드별 작업 목록(단일 작업 폴백용)
     edit_by_sobf = {}
     edit_works_of = {}                          # (s,o,b) → [작업 키…]

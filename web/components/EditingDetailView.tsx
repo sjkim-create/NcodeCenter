@@ -140,6 +140,8 @@ function BookPicker({ value, list, more, step, onPick, onMore }: {
     </div>
   );
 }
+// ncp2 파일명 비교 키 — 공백·대소문자·.ncp2 확장자 차이는 같은 파일로 본다 `PC-112`
+const normFile = (f?: string) => (f ?? "").trim().toLowerCase().replace(/\.ncp2$/, "").replace(/\s+/g, "");
 const EMPTY = (o: number): BR => ({ b: 0, s: 0, o, k: "N", pg: 0, t: "", f: "", bytes: 0, ty: "소리펜", sm: zeros(SOUND_N), pm: zeros(PEN_N), m: "", d: "" });
 
 // bookIdx — 교재 편집 화면(모달이 아니라 별도 페이지)에서만 넘어온다.
@@ -222,7 +224,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const customRates = hasCustomRates(myCompany);    // 고객사 전용 단가 존재 여부
   const applyUnit = rateMap.s_page;   // 적용 단가(페이지) — 표시용 대표값
   const editUnit = rateMap.s_edit;    // 편집(기본) 단가 — 표시용 대표값
-  const [editing, setEditing] = useState<{ idx: number; row: BR } | null>(null);
+  // dupOf — [복제]로 연 등록 폼: 원본 행 인덱스. 코드(S/O/B·종류)는 원본에 고정하고 기본 정보·심볼은 초기화한다 `PC-112`
+  const [editing, setEditing] = useState<{ idx: number; row: BR; dupOf?: number } | null>(null);
   const [pick, setPick] = useState("");
   const [penPick, setPenPick] = useState("");
   const [penNew, setPenNew] = useState<string | null>(null); // 직접 추가 입력 중인 값 `PC-100`
@@ -276,6 +279,15 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   // 산출물(세트 개수·세부내역·출력용파일·APP 데이터)이 있는 프로젝트인지 `PC-089`
   //   옛 판정에 있던 `pm[4] > 0`(교원구몬/KEP 항목)은 뺐다 — 그 단가 항목은 폐지됐다 `PC-084`.
   const hasKep = (cust?.bookRows ?? []).some((r) => r.det || r.out || r.app || r.use || r.set);
+  // 같은 코드(k/s/o/b)의 작업 순번 — 행 인덱스 → {wn, wc}. 목록 기준으로 세므로 [복제]한 행도 바로 반영된다 `PC-110` `PC-112`
+  const workSeq = useMemo(() => {
+    const cnt = new Map<string, number>(); const m = new Map<number, { wn: number; wc: number }>();
+    const key = (r: BR) => `${r.k}/${r.s}/${r.o}/${r.b}`;
+    for (const r of rows) cnt.set(key(r), (cnt.get(key(r)) ?? 0) + 1);
+    const seq = new Map<string, number>();
+    rows.forEach((r, i) => { const k = key(r); seq.set(k, (seq.get(k) ?? 0) + 1); m.set(i, { wn: seq.get(k)!, wc: cnt.get(k)! }); });
+    return m;
+  }, [rows]);
   const bookHasKep = (r: BR) => !!(r.det || r.out || r.app || r.use || r.set);
 
   // 업무요청 메모 = 교재(책) 단위 (메모1~3 대체). editing.row.logs 에 저장.
@@ -385,11 +397,16 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
 
   // 사용 가능한 Book 번호 — 발급된 SO 아래 편집 안 된(사용 가능) Book 을 노출 (편집된 Book 만 제외)
   //   한 번에 다 그리면 느려서 **100개씩** 보여 주고 [더 보기] 로 100씩 늘린다 `PC-046`
-  const freeBooks = (k: string, sec: number, own: number, keep?: number, limit = bookLimit) =>
-    editableBookNumbers(k, sec, own, BOOK_MAX[k]?.[sec] ?? 4096, limit, keep, allocBooks);
+  //   **사용한 Book 은 노출하지 않는다** `PC-112` — 이 고객사 교재 목록(화면에서 추가한 행 포함)에 있는 Book 도 뺀다.
+  const freeBooks = (k: string, sec: number, own: number, keep?: number, limit = bookLimit) => {
+    const used = new Set(rows.filter((r) => r.k === k && r.s === sec && r.o === own && r.b !== keep).map((r) => r.b));
+    return editableBookNumbers(k, sec, own, BOOK_MAX[k]?.[sec] ?? 4096, limit, keep, allocBooks, used);
+  };
 
   // 교재 편집은 별도 페이지 — 목록에서는 이동만 하고, 편집 상태는 그 페이지에서 만든다.
   const openAdd = () => router.push(bookHref("new"));
+  // [복제] — 같은 코드(S/O/B)에 작업물을 하나 더 만든다. 코드는 고정, 기본 정보·심볼은 초기화 `PC-112`
+  const openDup = (idx: number) => router.push(`${bookHref("new")}${q$ ? "&" : "?"}dup=${idx}`);
   const openEdit = (idx: number) => router.push(bookHref(idx));
 
   // 편집 페이지 진입 시 대상 교재를 폼에 올린다 (rows 가 localStorage 로 채워진 뒤)
@@ -398,11 +415,19 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     //   먼저 만들면 시드값이 올라가고, 이 효과는 editing 이 생긴 뒤 다시 돌지 않는다.
     if (!bookMode || editing || loadedKey !== key) return;
     if (bookIdx === "new") {
-      const a = assignedSO[0];                      // 할당된 S/O 기본값 (수정 불가)
+      const dupIdx = sp.get("dup") != null ? Number(sp.get("dup")) : null;
+      const src = dupIdx != null ? rows[dupIdx] : undefined;
       const row = EMPTY(Number(owner) || 0);
-      if (a) { row.k = a.k; row.s = a.s; row.o = a.o; row.b = freeBooks(a.k, a.s, a.o)[0] ?? 0; }
+      if (src) {
+        // 복제 — 코드(종류·S/O/B)와 교재명·사용 고객사만 물려받고 나머지(파일·크기·날짜·타입·편집 방식·심볼·산출물)는 비운다 `PC-112`
+        row.k = src.k; row.s = src.s; row.o = src.o; row.b = src.b; row.t = src.t;
+        if (src.cu) row.cu = src.cu;
+      } else {
+        const a = assignedSO[0];                      // 할당된 S/O 기본값 (수정 불가)
+        if (a) { row.k = a.k; row.s = a.s; row.o = a.o; row.b = freeBooks(a.k, a.s, a.o)[0] ?? 0; }
+      }
       setKepOpen(true); setLogDraft({ id: null, kind: "요청", content: "" });
-      setEditing({ idx: -1, row });
+      setEditing(src ? { idx: -1, row, dupOf: dupIdx! } : { idx: -1, row });
       return;
     }
     const idx = Number(bookIdx);
@@ -448,6 +473,17 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     // 공유 OWNER는 여러 고객사가 함께 쓰므로 어느 고객사 것인지 반드시 남긴다
     if (isSharedRow(editing.row) && !(editing.row.cu ?? "").trim()) {
       alert(`S${editing.row.s}/O${editing.row.o} 는 공유 코드입니다. 사용 고객사를 입력하세요.`); return;
+    }
+    // 같은 코드(S/O/B) 교재는 [복제]로만 만든다 — 일반 추가에서 겹치면 막는다 `PC-112`
+    if (editing.idx === -1 && editing.dupOf == null && rows.some((r) => r.k === editing.row.k && r.s === editing.row.s && r.o === editing.row.o && r.b === editing.row.b)) {
+      alert(`S${editing.row.s}/O${editing.row.o}/B${editing.row.b} 에는 이미 교재가 있습니다. 같은 코드에 작업물을 더 만들려면 목록의 [복제]를 쓰세요.`); return;
+    }
+    // ncp2 파일명은 겹치면 안 된다 — 서버의 파일명과 비교한다(프로토타입은 적재된 전체 교재 + 이 고객사 목록) `PC-112`
+    const fn = normFile(editing.row.f);
+    if (fn) {
+      const hitLocal = rows.some((r, i) => i !== editing.idx && normFile(r.f) === fn);
+      const hitSeed = !hitLocal && EDIT_CUSTOMERS.some((c) => c.customer !== cust?.customer && (c.bookRows ?? []).some((r) => normFile((r as BR).f) === fn));
+      if (hitLocal || hitSeed) { alert(`ncp2 파일명 "${editing.row.f}" 은 이미 다른 교재에 있습니다. 파일명은 겹칠 수 없습니다.`); return; }
     }
     // 단가 스냅샷 — 신규 교재는 현재 고객사 단가로 고정한다.
     // 스냅샷이 없는 구 교재도 저장 시점에 현재 적용 단가로 고정해, 이후 단가 변경의 영향을 받지 않게 한다.
@@ -628,7 +664,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
         <table style={{ ...S.table, textAlign: "center", minWidth: 1120 }}>
           <thead>
             {/* 공유 OWNER를 쓰는 고객사면 "사용 고객사" 열이 교재명 왼쪽에 추가된다 */}
-            <tr>{["No", "상태", ...(readOnly ? ["고객사"] : []), ...(cuMode ? ["사용 고객사"] : []), "교재명", "코드", "타입", "S/O/B", "페이지", "심볼 개수", "편집방식", "발급일", "최종 수정일", "메모", "ncp2 크기(byte)", "정산 (청구액)"].map((h) => {
+            <tr>{["No", "상태", ...(readOnly ? ["고객사"] : []), ...(cuMode ? ["사용 고객사"] : []), "교재명", "코드", "타입", "S/O/B", "페이지", "심볼 개수", "편집방식", "발급일", "최종 수정일", "메모", "ncp2 크기(byte)", "정산 (청구액)", ...(readOnly ? [] : ["복제"])].map((h) => {
               const k = h === "교재명" ? "t" : h === "발급일" ? "d" : null;   // 정렬 가능한 항목
               return (
                 <th key={h} style={{ ...S.th, textAlign: "center", cursor: k ? "pointer" : "default", userSelect: "none" }}
@@ -715,8 +751,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   {methodOpts.map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
               </th>
-              {/* 발급일 · 최종 수정일 · 메모 · ncp2 · 정산 */}
-              {Array.from({ length: 5 }, (_, i) => <th key={`t${i}`} style={filterTh} />)}
+              {/* 발급일 · 최종 수정일 · 메모 · ncp2 · 정산 (· 복제) */}
+              {Array.from({ length: readOnly ? 5 : 6 }, (_, i) => <th key={`t${i}`} style={filterTh} />)}
             </tr>
           </thead>
           <tbody>
@@ -736,7 +772,10 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                 <td style={{ ...S.td, fontWeight: 600, textAlign: "left", maxWidth: 200 }}>
                   {r.t || "-"}
                   {/* 같은 코드의 작업이 여럿이면 몇 번째 작업인지 표시 — 코드 1개 · 작업 N행 `PC-110` */}
-                  {r.wc && r.wc > 1 && <span style={{ ...S.tag, marginLeft: 5, fontSize: 10, background: "#fff7ed", color: "#c2410c", fontWeight: 700 }} title={`같은 코드(S${r.s}/O${r.o}/B${r.b})에 작업물이 ${r.wc}건 — 이 행은 ${r.wn}번째`}>작업 {r.wn}/{r.wc}</span>}
+                  {(() => {   // 같은 코드의 작업 수는 현재 목록에서 센다([복제]로 늘어난 행 포함) `PC-112`
+                    const w = workSeq.get(idx);
+                    return w && w.wc > 1 ? <span style={{ ...S.tag, marginLeft: 5, fontSize: 10, background: "#fff7ed", color: "#c2410c", fontWeight: 700 }} title={`같은 코드(S${r.s}/O${r.o}/B${r.b})에 작업물이 ${w.wc}건 — 이 행은 ${w.wn}번째`}>작업 {w.wn}/{w.wc}</span> : null;
+                  })()}
                   <div style={{ color: "#9ca3af", fontSize: 10.5 }}>{r.f}</div>
                 </td>
                 <td style={S.td}><span style={{ ...S.tag, background: kindMeta(codeKind(r.k, r.s)).bg, color: kindMeta(codeKind(r.k, r.s)).color, fontWeight: 700 }}>{kindMeta(codeKind(r.k, r.s)).short}</span></td>
@@ -767,6 +806,12 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                     );
                   })()}
                 </td>
+                {!readOnly && (
+                  <td style={S.td} onClick={(e) => e.stopPropagation()}>
+                    {/* 같은 코드에 작업물을 하나 더 — 코드 고정 · 기본 정보·심볼 초기화 `PC-112` */}
+                    <button onClick={() => openDup(idx)} style={{ ...S.ghost, padding: "3px 8px", fontSize: 11 }} title="같은 S/O/B 코드로 교재 행을 하나 더 만듭니다 (ncp2 파일명이 다른 작업물)">복제</button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -806,7 +851,13 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
       {bookMode && editing && (
         <div style={{ ...S.card, padding: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>{editing.idx === -1 ? "교재(책) 추가" : "교재(책) 편집 수정"}</div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{editing.idx === -1 ? (editing.dupOf != null ? "교재(책) 복제 추가" : "교재(책) 추가") : "교재(책) 편집 수정"}</div>
+            {/* 복제 — 코드는 원본에 고정, 기본 정보·심볼은 새로 입력 `PC-112` */}
+            {editing.dupOf != null && (
+              <span style={{ ...S.tag, background: "#fff7ed", color: "#c2410c", fontWeight: 600, fontSize: 11 }}>
+                복제 · 코드 S{editing.row.s}/O{editing.row.o}/B{editing.row.b} 고정 — 기본 정보·심볼 입력은 초기화됨 · ncp2 파일명은 원본과 달라야 합니다
+              </span>
+            )}
             {editing.idx !== -1 && editing.row.t && <span style={{ ...S.tag, background: "#f3f4f6", color: "#6b7280" }}>{editing.row.t}</span>}
             <span style={{ ...S.tag, fontFamily: "ui-monospace,monospace" }}>S{editing.row.s}/O{editing.row.o}/B{editing.row.b}</span>
           </div>
@@ -846,8 +897,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: sh ? "1.3fr 0.9fr 0.9fr 1.1fr" : "1.3fr 0.9fr 0.9fr", gap: 10 }}>
                   {/* 좌표만 고른다 `PC-083` — 종류는 뒤의 [코드 종류]에서 정한다 `PC-054` */}
-                  <Field label={`할당된 S / O${editing.idx === -1 && assignedCoords.length > 0 ? " (선택)" : " (수정 불가)"}`}>
-                    {editing.idx === -1 && assignedCoords.length > 0 ? (
+                  <Field label={`할당된 S / O${editing.idx === -1 && editing.dupOf == null && assignedCoords.length > 0 ? " (선택)" : " (수정 불가)"}`}>
+                    {editing.idx === -1 && editing.dupOf == null && assignedCoords.length > 0 ? (
                       <select style={S.input} value={`${editing.row.s}/${editing.row.o}`}
                         onChange={(e) => {
                           const [sv, ov] = e.target.value.split("/").map(Number);
@@ -872,8 +923,18 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   </Field>
                   {/* Book — 목록을 **열어 둔 채** 100개씩 이어 볼 수 있어야 해서 직접 만든 드롭다운을 쓴다 `PC-057` */}
                   {(() => {
-                    const keepB = editing.idx === -1 ? undefined : editing.row.b;
-                    const probe = freeBooks(editing.row.k, editing.row.s, editing.row.o, keepB, bookLimit + 1);
+                    // 복제·수정에서는 Book 을 바꾸지 않는다(코드 고정) `PC-112`
+                    if (editing.dupOf != null || editing.idx !== -1) {
+                      return (
+                        <Field label="Book (수정 불가)">
+                          <div style={{ ...S.input, background: "#f9fafb", color: "#374151", display: "flex", alignItems: "center", gap: 6 }}>
+                            <b style={{ fontFamily: "ui-monospace,monospace" }}>B{editing.row.b}</b>
+                            <span style={{ fontSize: 11, color: "#9ca3af" }}>{editing.dupOf != null ? "복제 원본의 코드" : "등록된 코드"}</span>
+                          </div>
+                        </Field>
+                      );
+                    }
+                    const probe = freeBooks(editing.row.k, editing.row.s, editing.row.o, undefined, bookLimit + 1);
                     const more = probe.length > bookLimit;
                     const list = more ? probe.slice(0, bookLimit) : probe;
                     return (
@@ -892,7 +953,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                     const cur = codeKind(editing.row.k, editing.row.s);
                     return (
                       <Field label="코드 종류">
-                        <select style={{ ...S.input, background: "#fff" }} value={cur} disabled={isP4 || editing.idx !== -1}
+                        <select style={{ ...S.input, background: "#fff" }} value={cur} disabled={isP4 || editing.idx !== -1 || editing.dupOf != null}
                           onChange={(e) => {
                             const hit = opts.find((o) => o.v === (e.target.value as CodeKind));
                             if (!hit) return;
