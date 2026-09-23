@@ -32,7 +32,7 @@ export const RATE_ITEMS: RateItem[] = [
   { key: "s_group",  pen: "sound", label: "그룹재생",          unit: "each",   base: 5000 },
   { key: "s_game",   pen: "sound", label: "게임",              unit: "each",   base: 50000 },
   { key: "s_prompt", pen: "sound", label: "프롬프트 편집",     unit: "each",   base: 50000 },
-  { key: "s_pron",   pen: "sound", label: "발음평가 편집",     unit: "each",   base: 50000 },  // 신설 `PC-115` · 단가 ⚠ 확인 필요
+  { key: "s_pron",   pen: "sound", label: "발음평가 편집",     unit: "each",   base: 50000 },  // 신설 `PC-115` · 단가 확정(2026-09-23)
   // 폐지 `PC-115` — s_rag(RAG 데이터 업로드) · s_4color(4도 Ncode 출력) 은 원장에 데이터가 없다.
   // 필기펜
   { key: "w_page",   pen: "pen",   label: "Ncode 적용",        unit: "page",   base: 500 },
