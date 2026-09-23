@@ -15,7 +15,7 @@ BASIC = (('업체명', '✔', '웅진씽크빅'), ('담당자', '', '김태호')
          ('세금계산서 발행용 이메일', '', 'tax@wjthinkbig.com'))
 
 # lib/pricing.ts RATE_ITEMS — (항목, 단위, 기본단가, 전용여부)
-# 소리펜 16항목 · 필기펜 6항목 — 양쪽 모두 'Ncode 적용'(페이지당)을 포함한다.
+# 소리펜 14항목 · 필기펜 4항목 `PC-115` `PC-084` — 양쪽 모두 'Ncode 적용'(페이지당)을 포함한다.
 PRICE_NSP = (('Ncode 적용', '페이지당', '500', False),
              ('Ncode 편집(기본)', '심볼당', '1,200', True),
              ('Compound 2언어', '심볼당', '1,300', False),
@@ -38,7 +38,7 @@ PRICE_NWP = (('Ncode 적용', '페이지당', '500', False),
 
 MEMOS = (('3', '요청', '고객사', '2026-08-24 16:20', '김순정', '범블비 전집 OID 북코드 33권 추가 발급 요청'),
          ('2', '처리', '내부', '2026-08-22 11:05', '김순정', 'S3/O17 Book 431~464 할당 완료 · 티켓 전달'),
-         ('1', '메모', '내부', '2026-08-20 09:41', '박지훈', '2026년 편집 단가 협의 — 편집/게임/4도출력 3항목 전용가 적용'))
+         ('1', '메모', '내부', '2026-08-20 09:41', '박지훈', '2026년 편집 단가 협의 — 편집/게임 2항목 전용가 적용'))
 
 
 def fld(label, req, val, ro=False, ph=False, err=False):
@@ -186,7 +186,7 @@ def common_card(is_parent=False):
             '<div class="bd">%s%s</div></div>' % (li, note))
 
 
-def price_card(n_custom=3):
+def price_card(n_custom=2):   # 전용 단가 예시 = 편집 · 게임 2항목 `PC-115`
     """항목별 단가 입력 — 2열 그리드. 기본값과 다르면 주황으로 강조된다."""
     def group(title, note, items, tone):
         # 소리펜·필기펜은 정산 단위가 다른 별개 묶음이라 카드로 나눠 색을 달리한다
@@ -308,7 +308,7 @@ def footer(save_label='저장', edit=False):
             % (left, save_label))
 
 
-def panel(tab, name_err=False, empty=False, closed=False, is_parent=False, n_custom=3):
+def panel(tab, name_err=False, empty=False, closed=False, is_parent=False, n_custom=2):
     """좌측 입력 — 항목이 길어 탭으로 나눈다. 조건이 아래로 쌓이지 않는다."""
     if tab == 'base':
         # 사용 서비스 탭 `PC-077` — casterN 딸림 설정(공통코드) · 폼솔루션 탭 안내를 함께 보인다
@@ -333,7 +333,7 @@ def reg_mode(tab='base', name_err=False, n_custom=0):
                footer('등록')))
 
 
-def edit_mode(tab='base', is_parent=False, closed=False, n_custom=3, draft='', hi=None):
+def edit_mode(tab='base', is_parent=False, closed=False, n_custom=2, draft='', hi=None):
     left = wrap(tab, panel(tab, closed=closed, is_parent=is_parent, n_custom=n_custom),
                 n_custom, 3)
     return ('<div style="max-width:1100px">'
@@ -421,8 +421,8 @@ def build():
         'PRD §4.4 · §5 — 기본값과 다른 항목이 있으면 <b>전용 {n}항목</b> 배지가 붙는다. '
         '<code>PRJ-03</code>에서 <b>신규 교재</b>부터 이 단가로 계산된다. '
         '단가 3단 구조: 기본 단가 → <b>이 화면의 고객사 단가</b> → 교재별 할인(<code>PRJ-04</code>).',
-        frame('MEM-01', '고객사 상세 · 수정', edit_mode(n_custom=3), height=1580),
-        [('전용 n항목 배지', '표시', '—', '기본값과 다른 항목 수 — 여기서는 편집·게임·4도출력 3항목'),
+        frame('MEM-01', '고객사 상세 · 수정', edit_mode(n_custom=2), height=1580),
+        [('전용 n항목 배지', '표시', '—', '기본값과 다른 항목 수 — 여기서는 편집·게임 2항목'),
          ('항목별 단가 입력', '입력', '전용 단가로 전환', '항목마다 단위(페이지·심볼·건) 표시'),
          ('[전체 기본값]', '클릭', '전 항목 기본 단가로 복귀', '전용 배지 사라짐'),
          ('저장 후 새 교재 등록', '<code>PRJ-04</code>', '<b>새 단가</b>로 계산', ''),
