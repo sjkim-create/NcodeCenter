@@ -50,10 +50,15 @@ def status_row(st='진행중', locked=False, need_date=False, released=False):
 
 
 def coord(mode='edit', share=False, sub_err=False):
-    so = ('<div class="inp ro">S3 / O17 <span style="color:#9ca3af;font-size:11px">(수정 불가)</span></div>'
+    # mode='dup' — [복제]로 연 등록 폼: 코드(S/O·Book·종류)를 **원본에 고정**한다 `PC-112`
+    dup = (mode == 'dup')
+    so = ('<div class="inp ro">S0 / O10 <span style="color:#9ca3af;font-size:11px">(수정 불가)</span></div>'
+          if dup else
+          '<div class="inp ro">S3 / O17 <span style="color:#9ca3af;font-size:11px">(수정 불가)</span></div>'
           if mode == 'edit' else sel('S3 / O17'))
     # 좌표만 보여 준다 `PC-083` — 종류(N·G)는 뒤의 [코드 종류]에서 고른다
-    hint = ('수정 모드에서는 <b>변경 불가</b> · 종류 배지는 붙이지 않는다 <code>PC-083</code>'
+    hint = ('<b>복제 원본의 코드</b> — 바꿀 수 없다 <code>PC-112</code>' if dup
+            else '수정 모드에서는 <b>변경 불가</b> · 종류 배지는 붙이지 않는다 <code>PC-083</code>'
             if mode == 'edit'
             else '할당된 S/O가 여러 개면 선택 · <b>좌표만</b> 나온다 <code>PC-083</code>')
     sub = ''
@@ -63,15 +68,30 @@ def coord(mode='edit', share=False, sub_err=False):
                     '공유 코드입니다. 사용 고객사를 입력하세요.' if sub_err else None,
                     '공유(커먼) 코드 Owner인 경우에만 표시·<b>필수</b> <code>P-12</code>')
     # 코드 종류는 **Book 다음**에 온다 `PC-054`
-    kind_f = field('코드 종류', sel('PDS3'), True, None,
-                   '<b>PDS2 · PDS3 · PDS4 · OID</b> 중 선택 <code>PC-052</code>')
-    book_f = field('Book (사용 가능 번호)', sel('B431'), True, None,
-                   '입력칸에 번호를 <b>바로 칠 수 있고</b>, 목록 아래 <b>＋ 100개 더 보기</b> 를 눌러도 '
-                   '<b>셀렉트가 닫히지 않는다</b> <code>PC-054</code> <code>PC-057</code>')
-    return ('<div class="card"><div class="hd">코드 좌표</div><div class="bd">'
+    if dup:
+        kind_f = field('코드 종류 (수정 불가)',
+                       '<div class="inp ro">PDS2</div>', True, None,
+                       '복제는 <b>원본과 같은 코드</b>다')
+        book_f = field('Book (수정 불가)',
+                       '<div class="inp ro">B1108 '
+                       '<span style="color:#9ca3af;font-size:11px">복제 원본의 코드</span></div>',
+                       True, None, '같은 코드에 작업물을 하나 더 만드는 것이라 바꾸지 않는다')
+    else:
+        kind_f = field('코드 종류', sel('PDS3'), True, None,
+                       '<b>PDS2 · PDS3 · PDS4 · OID</b> 중 선택 <code>PC-052</code>')
+        book_f = field('Book (사용 가능 번호)', sel('B431'), True, None,
+                       '<b>이미 쓴 Book 은 나오지 않는다</b> <code>PC-112</code> · '
+                       '입력칸에 번호를 <b>바로 칠 수 있고</b>, 목록 아래 <b>＋ 100개 더 보기</b> 를 눌러도 '
+                       '<b>셀렉트가 닫히지 않는다</b> <code>PC-054</code> <code>PC-057</code>')
+    banner = ''
+    if dup:
+        banner = ('<div class="toast" style="margin-bottom:10px;background:#fff7ed;'
+                  'border-color:#fed7aa;color:#c2410c">복제 · 코드 S0/O10/B1108 고정 — '
+                  '기본 정보·심볼 입력은 초기화됨 · ncp2 파일명은 원본과 달라야 합니다</div>')
+    return ('<div class="card"><div class="hd">코드 좌표</div><div class="bd">%s'
             '<div class="g3">%s%s%s</div>'
             '<div class="g3" style="margin-top:10px">%s</div></div></div>'
-            % (field('할당된 S / O', so, True, None, hint), book_f, kind_f, sub))
+            % (banner, field('할당된 S / O', so, True, None, hint), book_f, kind_f, sub))
 
 
 # span-5 칸 안을 다시 5열로 — 셀렉트 **2칸**, 칩 **3칸** `PC-099`
@@ -308,7 +328,7 @@ def extra(hi=None):
 def content(mode='edit', st='진행중', locked=False, need_date=False, released=False,
             share=False, sub_err=False, empty=False, pen='소리펜', badge='fixed',
             discount=True, mod_date=True, hi=None, toast=''):
-    save = '추가' if mode == 'new' else '저장'
+    save = '추가' if mode in ('new', 'dup') else '저장'
     return (toast
             + status_row(st, locked, need_date, released) + '<div style="height:12px"></div>'
             + coord(mode, share, sub_err) + '<div style="height:12px"></div>'
@@ -322,7 +342,7 @@ def content(mode='edit', st='진행중', locked=False, need_date=False, released
               '%s<span style="flex:1"></span><div class="btn gho">목록</div>'
               '<div class="btn pri">%s</div></div>'
             % ('<div class="btn gho" style="color:#dc2626;border-color:#fecaca">교재 삭제</div>'
-               if (mode != 'new' and not locked) else '', save))
+               if (mode not in ('new', 'dup') and not locked) else '', save))
 
 
 def ovl(title, msg, danger=False):
@@ -509,6 +529,52 @@ def build():
           '새 탭으로 열 수 있다 · ⚠ §7 — 파일 업로드 전환 여부 미결'),
          ('저장 공간 부족', '상단 알림', '—',
           '<b>⚠ 브라우저 저장 공간이 가득 차 저장하지 못했습니다. 다른 사이트 데이터를 정리한 뒤 다시 저장하세요.</b>')]))
+
+    boards.append((
+        'S11', '복제 등록 — 같은 코드에 작업물 하나 더', '기본',
+        '<code>PRJ-03</code> 교재 목록의 <b>[복제]</b> 로 진입 <code>PC-112</code>. 화면 제목 '
+        '<b>교재(책) 복제 추가</b>. 같은 코드(S/O/B)에 <b>ncp2 파일명이 다른 작업물</b>을 하나 더 '
+        '만들 때 쓴다 <code>PC-110</code> — 학생용 · 교사용 · 필기펜처럼. '
+        '<b>코드 좌표 3칸(할당된 S/O · Book · 코드 종류)이 모두 수정 불가</b>이고, '
+        '교재명·사용 고객사만 원본에서 물려받은 채 <b>기본 정보 · 심볼 입력 · 산출물은 빈 값</b>으로 열린다. '
+        '일반 <b>[＋ 교재(책) 추가]</b> 의 Book 목록에는 <b>이미 쓴 Book 이 나오지 않으므로</b>(S1) '
+        '같은 S/O/B 교재는 이 화면으로만 만들어진다.',
+        frame('PRJ-03', '교재(책) 복제 추가',
+              content(mode='dup', empty=True, badge='new', discount=False, mod_date=False),
+              height=2100),
+        [('안내 배너', '표시', '—',
+          '<b>복제 · 코드 S{s}/O{o}/B{b} 고정 — 기본 정보·심볼 입력은 초기화됨 · '
+          'ncp2 파일명은 원본과 달라야 합니다</b>'),
+         ('할당된 S / O · Book · 코드 종류', '—', '<b>수정 불가</b>',
+          '복제 원본의 코드 — 세 칸 모두 회색 고정 <code>PC-112</code>'),
+         ('교재명 · 사용 고객사', '표시', '—', '원본에서 물려받는다(고칠 수 있다)'),
+         ('ncp2 파일명', '입력 (필수)', '<b>중복 금지</b>',
+          '원본과 같으면 저장할 수 없다 — 실서비스는 <b>서버(노트서버) 파일명과 비교</b>'),
+         ('심볼 입력 · 산출물', '—', '<b>초기화</b>', '원본 값을 가져오지 않는다'),
+         ('[추가]', '클릭', '<code>PRJ-03</code> 갱신',
+          '목록에 행이 늘고 <b>「작업 n/N」 배지의 N 이 하나 커진다</b>'),
+         ('[교재 삭제]', '—', '<b>숨김</b>', '등록 모드라 삭제 버튼이 없다'),
+         ('[목록]', '클릭', '<code>PRJ-03</code>', '입력값은 저장되지 않는다')]))
+
+    boards.append((
+        'S12', 'ncp2 파일명 중복 · 같은 코드 중복', '오류',
+        '<code>PC-112</code> — 저장할 때 두 가지를 막는다. ① <b>ncp2 파일명</b>이 다른 교재(이 고객사 목록 + '
+        '적재된 전체)와 겹치면 저장되지 않는다(공백·대소문자·<code>.ncp2</code> 차이는 같은 파일로 본다). '
+        '② 일반 등록에서 <b>같은 S/O/B</b> 교재가 이미 있으면 막고 <b>[복제]</b> 를 안내한다.',
+        frame('PRJ-03', '교재(책) 복제 추가',
+              content(mode='dup', empty=True, badge='new', discount=False, mod_date=False),
+              overlay=ovl('저장할 수 없습니다',
+                          'ncp2 파일명 "ENGLISH_A_BOOK" 은 이미 다른 교재에 있습니다. '
+                          '파일명은 겹칠 수 없습니다.'),
+              height=2100),
+        [('[추가] · [저장]', '클릭', '<b>차단</b>',
+          '<b>ncp2 파일명 "{파일명}" 은 이미 다른 교재에 있습니다. 파일명은 겹칠 수 없습니다.</b>'),
+         ('같은 S/O/B (일반 등록)', '[추가]', '<b>차단</b>',
+          '<b>S{s}/O{o}/B{b} 에는 이미 교재가 있습니다. 같은 코드에 작업물을 더 만들려면 '
+          '목록의 [복제]를 쓰세요.</b>'),
+         ('비교 대상', '참고', '—',
+          '프로토타입은 <b>이 고객사 목록 + 적재된 전체 교재</b> · 실서비스는 <b>서버 파일명</b>'),
+         ('[확인]', '클릭', '폼 복귀', '입력값은 그대로 남는다')]))
 
     intro = ('교재(책) 1권의 <b>편집 내역과 정산 근거를 입력</b>하는 화면. '
              '<b>등록과 수정이 같은 화면</b>이며 진입 방법으로 모드가 갈린다 — '

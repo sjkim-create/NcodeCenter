@@ -37,6 +37,24 @@ BOOKS = (
      1488640, '708,700', ('746,000', 5)),
 )
 
+# 같은 코드(S/O/B)에 작업물(ncp2)이 여럿인 교재 — [복제] 상태(S13)용 `PC-110` `PC-112`
+#   교원구몬-10 S0/O10/B1108 『영어 A』 = 학생용 · 교사용 · 필기펜
+BOOKS_DUP = (
+    (1, '완료', None, '영어 A', 'ENGLISH_A_BOOK', 'G', '소리펜',
+     (0, 10, 1108), '1~400', 400, 1016, '기본, 게임(0x02)', '2012-12-21', '2023-06-21', 1,
+     148372192, '1,216,000', None),
+    (2, '완료', None, '영어 A', 'ENGLISH_A_BOOK_INSTRUCTOR', 'G', '소리펜',
+     (0, 10, 1108), '1~400', 400, 2819, '기본, 게임(0x02)', '2012-12-21', '2023-06-08', 0,
+     168691552, '2,819,000', None),
+    (3, '진행중', None, '영어 A', '—', 'G', '필기펜',
+     (0, 10, 1108), '1~400', 400, 2356, '기본', '2012-12-21', '2024-12-10', 0,
+     0, '2,356,000', None),
+    (4, '완료', None, '영어 2A', 'ENGLISH_2A_BOOK', 'G', '소리펜',
+     (0, 10, 1107), '1~400', 400, 980, '기본', '2012-12-21', '2023-05-02', 0,
+     141203040, '1,180,000', None),
+)
+WORK_DUP = {1: (1, 3), 2: (2, 3), 3: (3, 3)}      # No → (작업 n, 전체 N)
+
 STATE_C = {'완료': ('#dcfce7', '#166534'), '진행중': ('#eef6ff', '#2563eb'),
            '보류': ('#fef3c7', '#92400e')}
 
@@ -325,10 +343,13 @@ def sob(s, o, b):
 
 
 def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
-              hf=False, page=True):
+              hf=False, page=True, dup=False, work=None):
+    # dup — 행 맨 끝 [복제] 열(조회 전용에는 없다) · work — {No: (n, N)} 「작업 n/N」 배지 `PC-112`
     cols = list(HEAD3)
     if share:
         cols.insert(2, '사용 고객사')
+    if dup:
+        cols.append('복제')
     th = ''
     for h in cols:
         k = 't' if h == '교재명' else ('d' if h == '발급일' else None)
@@ -363,7 +384,7 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                   '<span style="color:#9ca3af">B 전체</span>'
                   '<span style="color:#9ca3af;font-size:9px">&#9662;</span></div></th>')
         fr += blank + fsel('PDS2', 58, True) + fsel('전체', 74) + bcombo + blank * 2
-        fr += fsel('편집방식 전체', 130) + blank * 5 + '</tr>'
+        fr += fsel('편집방식 전체', 130) + blank * (6 if dup else 5) + '</tr>'
 
     body = ''
     if empty:
@@ -383,6 +404,18 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                          '비어 있습니다. 교재를 열어 입력하세요.">미입력</span>')   # `PC-109`
                 cell_cu = ('<td style="font-size:11.5px;text-align:left;max-width:130px">%s</td>'
                            % v)
+            # 같은 코드(S/O/B)에 작업물이 여럿이면 교재명 옆에 「작업 n/N」 `PC-110` `PC-112`
+            wbadge = ''
+            if work and no in work:
+                wn, wc = work[no]
+                wbadge = ('<span style="margin-left:5px;font-size:10px;background:#fff7ed;'
+                          'color:#c2410c;border-radius:5px;padding:2px 6px;font-weight:700">'
+                          '작업 %d/%d</span>' % (wn, wc))
+            cell_dup = ''
+            if dup:
+                cell_dup = ('<td><span style="font-size:11px;border:1px solid #e5e7eb;'
+                            'border-radius:6px;padding:3px 8px;background:#fff;color:#374151">'
+                            '복제</span></td>')
             dcv = ''
             if dc:
                 dcv = ('<div style="font-size:10px;color:#9ca3af;font-weight:400">'
@@ -392,7 +425,7 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                      '<td style="color:#9ca3af;font-family:ui-monospace,monospace">%d</td>'
                      '<td><span style="font-size:10px;background:%s;color:%s;border-radius:5px;'
                      'padding:2px 7px;font-weight:700;white-space:nowrap">%s</span></td>%s'
-                     '<td style="font-weight:600;text-align:left;max-width:200px">%s'
+                     '<td style="font-weight:600;text-align:left;max-width:200px">%s%s'
                      '<div style="color:#9ca3af;font-size:10.5px">%s</div></td>'
                      '<td><span style="font-size:11px;background:%s;color:%s;border-radius:5px;'
                      'padding:2px 7px">%s</span></td>'
@@ -407,8 +440,8 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                      '<td style="color:#9ca3af;font-family:ui-monospace,monospace;'
                      'font-size:11px">%s</td>'
                      '<td style="color:#2563eb;font-weight:600;white-space:nowrap">₩%s%s</td>'
-                     '</tr>'
-                     % (no, bgc, fgc, st, cell_cu, t, fn,
+                     '%s</tr>'
+                     % (no, bgc, fgc, st, cell_cu, t, wbadge, fn,
                         '#eef6ff' if k == 'N' else '#fef3c7',
                         '#2563eb' if k == 'N' else '#92400e', k, ty, sob(s, o, b),
                         prange, pg, '{:,}'.format(sym), mth, d,
@@ -416,7 +449,7 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                         ('<span style="font-size:11px;background:#eef6ff;color:#2563eb;'
                          'border-radius:5px;padding:2px 7px">%d</span>' % logs) if logs
                         else '<span style="color:#d1d5db">0</span>',
-                        '{:,}'.format(by), amt, dcv))
+                        '{:,}'.format(by), amt, dcv, cell_dup))
     pgn = ''
     if page and not empty:
         nums = ''.join('<span style="min-width:24px;text-align:center;font-size:11.5px;'
@@ -449,7 +482,7 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
 
 def detail(empty=False, share=False, filtered=False, base_price=False, discount=True,
            list_empty=False, basis=False, unfilter=False, search='', sort=None,
-           hf=False, toast3=''):
+           hf=False, toast3='', dup=False, work=None, rows=None):
     if empty:
         return ('<div class="card"><div class="bd"><div class="empty" style="padding:90px 10px">'
                 '<span class="em">✏️</span>좌측에서 고객사를 선택하세요.</div></div></div>')
@@ -468,8 +501,8 @@ def detail(empty=False, share=False, filtered=False, base_price=False, discount=
     return ('<div>%s%s%s%s</div>'
             % (head, ts, summary(filtered, base_price, discount, basis, unfilter,
                                  search, share),
-               book_list(share=share, filtered=filtered, empty=list_empty, sort=sort,
-                         hf=hf, page=not list_empty)))
+               book_list(rows=rows, share=share, filtered=filtered, empty=list_empty,
+                         sort=sort, hf=hf, page=not list_empty, dup=dup, work=work)))
 
 
 # 첫 화면 — 특정 고객사가 아니라 전체 고객사 요약 표 (PC-038)
@@ -515,7 +548,8 @@ def all_customers(kind='전체', n=71):
 def content(sel_cust='웅진씽크빅', kind='전체', search='', left_empty=False, all_view=False,
             empty_detail=False, share=False, filtered=False, base_price=False,
             discount=True, list_empty=False, toast='', top_row=True,
-            basis=False, unfilter=False, bsearch='', sort=None, hf=False, toast3=''):
+            basis=False, unfilter=False, bsearch='', sort=None, hf=False, toast3='',
+            dup=False, work=None, rows=None):
     head = top(kind, search) if top_row else ''
     return (toast + head
             + '<div style="display:flex;gap:16px;align-items:flex-start">'
@@ -524,7 +558,7 @@ def content(sel_cust='웅진씽크빅', kind='전체', search='', left_empty=Fal
             % (left('' if all_view else sel_cust, kind, search, left_empty),
                all_customers(kind) if all_view else
                detail(empty_detail, share, filtered, base_price, discount, list_empty,
-                      basis, unfilter, bsearch, sort, hf, toast3)))
+                      basis, unfilter, bsearch, sort, hf, toast3, dup, work, rows)))
 
 
 OWNER_OPTS = (('N', 3, 306), ('N', 3, 307), ('G', 0, 88))
@@ -966,6 +1000,32 @@ def build3():
          ('저장 실패', '알림', '—',
           '<b>⚠ 브라우저 저장 공간이 가득 차 저장하지 못했습니다. '
           '다른 사이트 데이터를 정리한 뒤 다시 저장하세요.</b>')] + NAV3))
+
+    B.append((
+        'S13', '같은 코드의 작업물 — 「작업 n/N」 배지 · [복제]', '분기',
+        '<b>코드(S/O/B)는 1개, 작업은 N행</b>이다 <code>PC-110</code> — 같은 코드라도 '
+        '<b>ncp2 파일명이 다르면 다른 작업</b>(학생용·교사용·필기펜)이라 행을 묶지 않는다. '
+        '작업이 여럿인 교재는 교재명 옆에 <b>「작업 n/N」</b> 배지가 붙고, 행 맨 끝 <b>[복제]</b> 로 '
+        '같은 코드에 작업물을 하나 더 만든다 <code>PC-112</code>. '
+        '교재 추가([＋ 교재(책) 추가])의 Book 목록에는 <b>이미 쓴 Book 이 나오지 않으므로</b> '
+        '같은 S/O/B 교재는 <b>[복제]로만</b> 만들어진다. '
+        '<b>전체 고객사 보기(조회 전용)에는 [복제] 열이 없다</b>.',
+        frame('PRJ-02', '편집 프로젝트',
+              content(sel_cust='교원구몬', dup=True, work=WORK_DUP, rows=BOOKS_DUP),
+              height=H3),
+        [('작업 n/N', '표시', '—',
+          '같은 <b>S/O/B</b> 에 작업물이 N건일 때만 — 이 행이 몇 번째인지. '
+          '<b>현재 목록 기준</b>이라 복제 직후 바로 N 이 늘어난다'),
+         ('작업 n/N', 'hover', '툴팁',
+          '<b>같은 코드(S{s}/O{o}/B{b})에 작업물이 {N}건 — 이 행은 {n}번째</b>'),
+         ('[복제]', '클릭', '<code>PRJ-04</code> 복제 등록',
+          '코드(종류·S/O/B)는 <b>원본에 고정(수정 불가)</b> · 교재명·사용 고객사만 물려받고 '
+          '<b>기본 정보·심볼 입력·산출물은 초기화</b>'),
+         ('[복제] 행 클릭', '참고', '—', '버튼만 복제로 동작 — 행 자체를 누르면 수정으로 들어간다'),
+         ('ncp2 파일명', '규칙', '중복 금지',
+          '복제본은 <b>원본과 다른 파일명</b>이어야 저장된다 — 실서비스는 <b>서버 파일명과 비교</b> '
+          '<code>PC-112</code>'),
+         ('전체 보기', '참고', '조회 전용', '[복제] 열이 없다 <code>PC-040</code>')] + NAV3))
 
     intro = ('한 고객사의 <b>편집 내역과 정산</b>을 보는 화면. '
              '<code>PRJ-02</code> 목록에서 고객사를 고르면 <b>같은 화면 오른쪽</b>에 열린다.<br>'
