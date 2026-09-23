@@ -171,7 +171,7 @@ export const TABLES: Table[] = [
       { name: "issued_at / deleted_at", type: "date", note: "북코드 발급/삭제일자" },
       { name: "ncp2_modified_at", type: "date", note: "ncp2 최종 수정 날짜" },
       { name: "issuer", type: "text", note: "발급인" },
-      { name: "sound_symbols", type: "jsonb", note: "소리펜 항목별 수량(15): Ncode적용·편집기본·Compound2~8언어·슬롯전환·그룹재생·게임·프롬프트·RAG·4도출력 `PC-085`" },
+      { name: "sound_symbols", type: "jsonb", note: "소리펜 항목별 수량(14): Ncode적용·편집기본·Compound2~8언어·슬롯전환·그룹재생·게임·프롬프트 편집·발음평가 편집 `PC-115`" },
       { name: "pen_symbols", type: "jsonb", note: "필기펜 항목별 수량(4): Ncode적용·기본편집·Custom·노트서버업로드 `PC-084` `PC-085`" },
       { name: "symbol_total", type: "int", note: "소리펜합 + 필기펜합" },
       { name: "edit_methods", type: "text[]", note: "편집방식 복수" },

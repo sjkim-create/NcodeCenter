@@ -185,7 +185,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     ?? seedCustomer ?? customSeed;
   const st = useStore(); // 코드 프로젝트(발급 내역) — 할당된 S/O 조회용
 
-  const key = `ncc-edit13-${cust?.customer ?? owner}`;   // v13: 심볼 배열에 [Ncode 적용] 자리 추가 `PC-085` — 옛 캐시 폐기
+  const key = `ncc-edit14-${cust?.customer ?? owner}`;   // v14: 심볼 배열 자리 재정렬(발음평가 편집 추가 · RAG·4도 폐기) `PC-115` — 옛 캐시 폐기
   const readOnly = !!allCustomers;                        // 전체 고객사 보기 = 조회 전용
   // 구버전 데이터(mb=MB) → bytes 로 정규화
   // 빌드 데이터는 빈 값/0 배열을 빼서 내보내므로 여기서 기본값을 복원한다 (구버전 mb=MB → bytes 도 정규화)

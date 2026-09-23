@@ -32,8 +32,8 @@ export const RATE_ITEMS: RateItem[] = [
   { key: "s_group",  pen: "sound", label: "그룹재생",          unit: "each",   base: 5000 },
   { key: "s_game",   pen: "sound", label: "게임",              unit: "each",   base: 50000 },
   { key: "s_prompt", pen: "sound", label: "프롬프트 편집",     unit: "each",   base: 50000 },
-  { key: "s_rag",    pen: "sound", label: "RAG 데이터 업로드", unit: "each",   base: 50000 },
-  { key: "s_4color", pen: "sound", label: "4도 Ncode 출력",    unit: "page",   base: 1000 },
+  { key: "s_pron",   pen: "sound", label: "발음평가 편집",     unit: "each",   base: 50000 },  // 신설 `PC-115` · 단가 ⚠ 확인 필요
+  // 폐지 `PC-115` — s_rag(RAG 데이터 업로드) · s_4color(4도 Ncode 출력) 은 원장에 데이터가 없다.
   // 필기펜
   { key: "w_page",   pen: "pen",   label: "Ncode 적용",        unit: "page",   base: 500 },
   { key: "w_none",   pen: "pen",   label: "기본 편집",         unit: "symbol", base: 1000 },  // (구 none 편집비용) `PC-084`
@@ -47,8 +47,13 @@ export const PEN_ITEMS = RATE_ITEMS.filter((r) => r.pen === "pen");
 // 편집 상세 심볼 배열(수량) 순서 = **RATE_ITEMS 순서 그대로** `PC-085`
 //   [Ncode 적용] 도 직접 입력하는 항목이다 — 적용 비용은 이 수량으로 계산한다.
 //   (Total Page(book.pg) 는 목록 표시용으로만 쓴다)
-export const SOUND_QTY = SOUND_ITEMS;   // 15개 — Ncode 적용 + 편집 14
+export const SOUND_QTY = SOUND_ITEMS;   // 14개 — Ncode 적용 + 편집 13 `PC-115`
 export const PEN_QTY = PEN_ITEMS;       // 4개  — Ncode 적용 + 기본 편집·Custom·노트서버 업로드
+// 원장(엑셀) 열이 채우는 항목과 **담당자가 직접 입력**하는 항목 `PC-115`
+//   엑셀 채움 — s_edit(기본) · s_cmp2(Compound mode) · s_slot(슬롯전환 function) · s_group(전체듣기 function)
+//              · s_game(게임 function) · s_prompt(프롬프트) · s_pron(발음평가)
+//              · w_none(필기펜 기본 + 교원구몬/KEP `PC-113`) · w_custom(캘린더 연동 + 링크 연동)
+//   수동 입력 — s_page·w_page(Ncode 적용) · s_cmp3~s_cmp8(Compound 3~8언어) · w_upload(노트서버 업로드)
 // 적용(페이지) 항목의 자리 — 심볼 합계에서 빼고, 적용비로 따로 센다 `PC-085`
 export const S_PAGE_I = SOUND_QTY.findIndex((r) => r.key === "s_page");
 export const W_PAGE_I = PEN_QTY.findIndex((r) => r.key === "w_page");

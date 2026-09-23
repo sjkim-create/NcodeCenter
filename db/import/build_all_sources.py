@@ -75,15 +75,24 @@ def split_customer_name(name, k, s):
     base, _, own = name.rpartition("-")            # "네오노트-27" → ("네오노트","-","27")
     return f"{base}-IDS-{own}" if k == "A" else f"{base}-{s}-{own}"
 
-# 배열 0번은 **[Ncode 적용] 수량** 자리다 `PC-085` — 엑셀 열이 아니라 그 교재의 페이지 수(pg)로 채운다.
-SOUND_N, PEN_N = 8, 4
-SOUND_I = [13, 14, 15, 16, 17, 18, 19]   # 심볼 블록(편집현황 표준 레이아웃)
-# 필기펜 열 — pricing.ts PEN_QTY 순서와 **자리로 맞춘다**(기본 편집 · Custom · 노트서버 업로드).
-#   편집현황 실제 열: 20 필기펜 기본 · 21 캘린더 연동 · 22 링크 연동 · 23 교원구몬/KEP `PC-113`
-#   `PC-084` 가 열 22 를 "action" 으로 보고 뺐으나 실제로는 링크 연동(=노트서버 업로드 자리)이고, 열 23(교원구몬/KEP,
-#   105,350심볼 · 전부 구몬학습)이 노트서버 업로드 자리에 들어가 있었다. → 열 23 은 **기본 편집(pm[1])에 합산**한다.
-PEN_I = [20, 21, 22]
-KEP_I = 23               # 교원구몬/KEP → 기본 편집에 합산 `PC-113`
+# ── 심볼 배열 자리 = pricing.ts 의 SOUND_QTY · PEN_QTY 순서 `PC-115` ──────────────
+#   **자리(index)가 아니라 항목 키로 엑셀 열을 잇는다** — 예전에는 열을 순서대로 담아
+#   열 15~19(슬롯전환·전체듣기·게임·프롬프트·발음평가)가 Compound 3~7언어 자리로 밀려 있었다.
+SOUND_KEYS = ["s_page", "s_edit", "s_cmp2", "s_cmp3", "s_cmp4", "s_cmp5", "s_cmp6", "s_cmp7",
+              "s_cmp8", "s_slot", "s_group", "s_game", "s_prompt", "s_pron"]
+PEN_KEYS = ["w_page", "w_none", "w_custom", "w_upload"]
+SOUND_N, PEN_N = len(SOUND_KEYS), len(PEN_KEYS)
+SI = {k: i for i, k in enumerate(SOUND_KEYS)}
+PI = {k: i for i, k in enumerate(PEN_KEYS)}
+# 엑셀(편집현황·원장 표준 레이아웃) 열 → 항목. 값이 여럿이면 **합산**한다.
+#   13 기본 · 14 Compound mode · 15 슬롯전환 function · 16 전체듣기 function · 17 게임 function
+#   18 프롬프트 · 19 발음평가 · 20 필기펜 기본 · 21 캘린더 연동 · 22 링크 연동 · 23 교원구몬/KEP
+SOUND_COL = {"s_edit": [13], "s_cmp2": [14], "s_slot": [15], "s_group": [16],
+             "s_game": [17], "s_prompt": [18], "s_pron": [19]}
+PEN_COL = {"w_none": [20, 23],        # 필기펜 기본 + 교원구몬/KEP `PC-113`
+           "w_custom": [21, 22]}      # 캘린더 연동 + 링크 연동 `PC-115`
+#   자리만 두고 엑셀에서 채우지 않는 항목(담당자 직접 입력): s_page·w_page(Ncode 적용 `PC-085`) ·
+#   s_cmp3~s_cmp8(Compound 3~8언어) · w_upload(노트서버 업로드)
 TOT_I = 24
 
 # 심볼 합계 — 배열 0번은 [Ncode 적용] **페이지 수**라 심볼로 세지 않는다 `PC-085`
@@ -256,16 +265,17 @@ def parse_sheet(ws, default_ty, s_hint=None, o_hint=None, common=False):
         if pmdl: b["pmdl"] = pmdl
 
         if "sym" in cm:
-            b["sm"][1] = int(num(g("sym")))   # 0번은 [Ncode 적용] 자리 `PC-085`
+            b["sm"][SI["s_edit"]] = int(num(g("sym")))   # 매핑개수 = Ncode 편집(기본)
         elif has_sym:
-            # 0번은 [Ncode 적용] 자리로 비워 두고, 엑셀 열은 1번부터 담는다 `PC-085`
-            sm = [0] + [int(num(row[i])) if len(row) > i else 0 for i in SOUND_I]
-            pm = [0] + [int(num(row[i])) if len(row) > i else 0 for i in PEN_I]
-            if len(row) > KEP_I: pm[1] += int(num(row[KEP_I]))     # 교원구몬/KEP 열 → 기본 편집 `PC-113`
-            total = int(num(row[TOT_I])) if len(row) > TOT_I else 0
+            # 엑셀 열을 **항목 키 자리**에 담는다 `PC-115` (Ncode 적용 자리는 pg 로 따로 채운다 `PC-085`)
+            sm, pm = [0] * SOUND_N, [0] * PEN_N
+            cell = lambda i: int(num(row[i])) if len(row) > i else 0
+            for _k, _cols in SOUND_COL.items(): sm[SI[_k]] = sum(cell(i) for i in _cols)
+            for _k, _cols in PEN_COL.items():   pm[PI[_k]] = sum(cell(i) for i in _cols)
+            total = cell(TOT_I)
             if sum(sm) + sum(pm) == 0 and total > 0:
-                if "필기펜" in default_ty: pm[1] = total
-                else: sm[1] = total
+                if "필기펜" in default_ty: pm[PI["w_none"]] = total
+                else: sm[SI["s_edit"]] = total
             b["sm"], b["pm"] = sm, pm
             for key, idx in [("iss", 26), ("use", 28), ("pmdl", 34)]:
                 v = txt(row[idx]) if len(row) > idx else ""
@@ -503,8 +513,8 @@ for _c in custs.values():
         code = (b["k"], b["s"], b["o"], b["b"])
         if not b.get("nb") and code in _seen_code: _n_pg_skip += 1; continue
         _seen_code.add(code)
-        if "필기펜" in (b.get("ty") or ""): b["pm"][0] = b["pg"]
-        else: b["sm"][0] = b["pg"]
+        if "필기펜" in (b.get("ty") or ""): b["pm"][PI["w_page"]] = b["pg"]
+        else: b["sm"][SI["s_page"]] = b["pg"]
         _n_pg += 1
 print(f"Ncode 적용 수량 이관: {_n_pg:,}건 (Total Page → 심볼 입력 0번) · 같은 코드의 추가 작업 행 {_n_pg_skip:,}건 제외 `PC-085` `PC-110`")
 

@@ -237,7 +237,7 @@ CREATE TABLE editing_books (
   issued_at        DATE, deleted_at DATE,             -- 북코드 발급/삭제일
   ncp2_modified_at DATE,
   issuer           TEXT,                              -- 발급인
-  sound_symbols    JSONB,                             -- 소리펜 항목별 수량(14): 편집기본·Compound2~8·슬롯전환·그룹재생·게임·프롬프트·RAG·4도출력
+  sound_symbols    JSONB,                             -- 소리펜 항목별 수량(14): Ncode적용·편집기본·Compound2~8·슬롯전환·그룹재생·게임·프롬프트·RAG·4도출력
   pen_symbols      JSONB,                             -- 필기펜 항목별 수량(5): none편집·Custom·action변경·노트서버업로드·교원구몬/KEP
   symbol_total     INT,                               -- 소리펜합+필기펜합
   edit_methods     TEXT[],                            -- 편집방식(복수)
