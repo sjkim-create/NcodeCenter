@@ -10,6 +10,8 @@ import { S, Field, Modal, AutoTextarea, BLUE } from "./ui";
 import { store, useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
+import { onboarding, useOnboarding, onboardServiceToCompany, onboardServiceLabel,
+         type OnboardingRequest } from "@/lib/onboardingStore";
 import { Company, CompanyDoc, WorkKind, WorkLog, projectCodes, nextId,
          SERVICE, SDK_ONLY, companyServices, type ServiceType } from "@/lib/customerData";
 import { SOUND_ITEMS, PEN_ITEMS, rateMapOf, customRateCount, type RateItem } from "@/lib/pricing";
@@ -34,11 +36,17 @@ const isMemberCo = (name: string) => !isHolderCo(name) && memberCodesOf(name).le
 export default function CompaniesView() {
   const router = useRouter();
   const { companies, projects, logs } = useStore();
+  const me = currentUser(useAuth());
+  const onb = useOnboarding();                                     // 온보딩(승인요청) 피드 `PC-116`
+  const pending = onb.requests.filter((r) => r.status === "PENDING");
+  const [approved, setApproved] = useState<{ companyId: number; email: string; org: string } | null>(null);
+  const [showOnboard, setShowOnboard] = useState(false);   // 가입 승인 요청 모달 `PC-119`
   const [delTarget, setDelTarget] = useState<Company | null>(null);
   const [toast, setToast] = useState("");
   const [q, setQ] = useState("");   // 업체 검색
   const [classFilter, setClassFilter] = useState<"" | "holder" | "member" | "solo">("");   // 구분 필터: 상위/하위/단독
-  const [sortDir, setSortDir] = useState<0 | 1 | -1>(1);  // 업체명 정렬: 1 오름(기본) / -1 내림
+  // 정렬: 0 최근순(기본, createdAt desc) `PC-119` / 1 이름 오름 / -1 이름 내림
+  const [sortDir, setSortDir] = useState<0 | 1 | -1>(0);
   useEffect(() => { hydrateMembers(); }, []);
   useCommonMembers();   // 멤버십(하위 귀속) 변경 시 재렌더
 
@@ -48,17 +56,24 @@ export default function CompaniesView() {
   const shown = companies
     .filter((c) => (q ? norm(`${c.name} ${c.manager} ${c.contact} ${c.bizNo} ${c.address}`).includes(norm(q)) : true))
     .filter((c) => (classFilter ? classOf(c.name) === classFilter : true));
-  const toggleSort = () => setSortDir((d) => (d === -1 ? 1 : -1));
+  // 클릭 순환: 최근순(0) → 이름 오름(1) → 이름 내림(-1) → 최근순
+  const toggleSort = () => setSortDir((d) => (d === 0 ? 1 : d === 1 ? -1 : 0));
 
   // 페이지네이션 (편집 프로젝트 목록과 동일 · 기본 50건씩)
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
   useEffect(() => { setPage(1); }, [q, classFilter, sortDir]);
-  // 이름 기준 정렬 (하위 고객사도 정식 회사 레코드라 같은 목록에 섞여 노출)
-  const dir = sortDir === -1 ? -1 : 1;
+  // 정렬 — 최근순(등록시각 desc, 없으면 뒤로) 기본, 또는 이름 오름/내림 `PC-119`
   const allRows = shown
     .map((c) => ({ kind: "co" as const, c }))
-    .sort((a, b) => a.c.name.localeCompare(b.c.name, "ko") * dir);
+    .sort((a, b) => {
+      if (sortDir === 0) {
+        const ca = a.c.createdAt ?? "", cb = b.c.createdAt ?? "";
+        if (ca !== cb) return ca < cb ? 1 : -1;   // 최근(큰 날짜)이 위로
+        return a.c.name.localeCompare(b.c.name, "ko");
+      }
+      return a.c.name.localeCompare(b.c.name, "ko") * (sortDir === -1 ? -1 : 1);
+    });
   const totalPages = Math.max(1, Math.ceil(allRows.length / perPage));
   const curPage = Math.min(page, totalPages);
   const pageRows = allRows.slice((curPage - 1) * perPage, curPage * perPage);
@@ -66,8 +81,81 @@ export default function CompaniesView() {
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 4000); };
   const logCount = (cid: number) => logs.filter((l) => l.companyId === cid).length;
 
+  // ── 온보딩 승인요청 처리 `PC-116` ───────────────────────────────
+  // 승인 → 같은 이름 고객사가 있으면 연결, 없으면 신규 등록. 그 뒤 App Key 발급으로 안내.
+  const approveReq = (r: OnboardingRequest) => {
+    const svc = onboardServiceToCompany(r.service);
+    const existing = companies.find((c) => norm(c.name) === norm(r.org));
+    let cid: number;
+    if (existing) {
+      cid = existing.id;
+      if (svc && !(existing.services ?? []).includes(svc))
+        store.upsertCompany({ ...existing, services: [...(existing.services ?? []), svc] });
+    } else {
+      cid = store.upsertCompany({
+        id: 0, name: r.org, manager: r.name, contact: r.email, address: "", bizNo: "",
+        bankName: "", accountNo: "", taxEmail: r.email, docs: [], services: svc ? [svc] : [],
+      });
+    }
+    onboarding.approve(r.id, cid, me?.name);
+    logActivity("company", `온보딩 승인 · ${r.org} (${r.email})${existing ? " · 기존 고객사 연결" : " · 신규 등록"}`, me?.name);
+    setApproved({ companyId: cid, email: r.email, org: r.org });
+    flash(`승인됨 · ${r.org} ${existing ? "연결" : "고객사 등록"} · App Key 관리에서 계정·권한을 발급하세요`);
+  };
+  const rejectReq = (r: OnboardingRequest) => {
+    if (!confirm(`${r.org} (${r.email}) 의 가입 요청을 거절할까요?`)) return;
+    onboarding.reject(r.id, me?.name);
+    logActivity("company", `온보딩 거절 · ${r.org} (${r.email})`, me?.name);
+    flash(`거절됨 · ${r.org}`);
+  };
+  // 시뮬레이션 — 로그인 기록 서버가 새 고객 SSO 로그인을 밀어 넣는 상황을 원클릭으로 만든다.
+  //   프로토타입이라 실제 데이터가 없으므로, 클릭할 때마다 가상의 신규 고객 1건이 승인 대기로 유입된다.
+  const DEMO_POOL: { org: string; domain: string; name: string; service: "CASTERN" | "FORMSOLUTION" | "SDK" }[] = [
+    { org: "미래출판", domain: "miraebooks.co.kr", name: "정출판", service: "CASTERN" },
+    { org: "한빛교육", domain: "hanbitedu.kr", name: "오한빛", service: "FORMSOLUTION" },
+    { org: "코드리더", domain: "codereader.io", name: "S. Lee", service: "SDK" },
+    { org: "에듀팜", domain: "edufarm.co.kr", name: "김에듀", service: "CASTERN" },
+    { org: "노트플러스", domain: "noteplus.kr", name: "박노트", service: "FORMSOLUTION" },
+    { org: "펜메이커", domain: "penmaker.io", name: "최펜", service: "CASTERN" },
+  ];
+  const simulateLogin = () => {
+    const used = new Set(onb.requests.map((r) => r.domain));
+    const pick = DEMO_POOL.find((d) => !used.has(d.domain))
+      ?? { ...DEMO_POOL[Math.floor(Math.random() * DEMO_POOL.length)], domain: `co${Date.now() % 100000}.kr` };
+    const email = `${["kim", "lee", "park", "choi", "dev", "admin"][Math.floor(Math.random() * 6)]}@${pick.domain}`;
+    onboarding.recordLogin({ email, name: pick.name, org: pick.org, service: pick.service });
+    flash(`새 SSO 로그인 유입 — ${pick.org} (${email}) 승인 대기 추가됨`);
+  };
+
   return (
     <div style={{ padding: "20px 22px" }}>
+      {/* 가입 승인 요청 — **카드로 건수만** 표시, 클릭하면 모달로 목록·승인 `PC-119` */}
+      {pending.length > 0 && (
+        <button onClick={() => setShowOnboard(true)}
+          style={{ width: "100%", textAlign: "left", cursor: "pointer", border: "1px solid #fcd34d", background: "#fffbeb",
+            borderRadius: 12, padding: "13px 16px", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 16 }}>🔔</span>
+          <b style={{ fontSize: 13.5, color: "#92400e" }}>가입 승인 요청 {pending.length}건</b>
+          <span style={{ fontSize: 11.5, color: "#b45309" }}>· 새 고객이 우리 서비스에 SSO 로그인했습니다. 클릭하여 확인·승인하세요.</span>
+          <span style={{ flex: 1 }} />
+          <span style={{ ...S.primary, padding: "6px 14px", pointerEvents: "none" }}>확인·승인 →</span>
+        </button>
+      )}
+
+      {/* 승인 직후 — 그 고객사 기준으로 계정·App Key 발급 안내 `PC-116` */}
+      {approved && (
+        <div style={{ border: "1px solid #a7f3d0", background: "#ecfdf5", borderRadius: 12, padding: "12px 16px", marginBottom: 14,
+          display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 15 }}>✅</span>
+          <b style={{ fontSize: 13, color: "#065f46" }}>{approved.org} 승인 완료</b>
+          <span style={{ fontSize: 12, color: "#047857" }}>이 고객사 기준으로 App Key 관리에서 계정과 권한을 발급하세요.</span>
+          <span style={{ flex: 1 }} />
+          <Link href={`/tickets/account/new?company=${approved.companyId}&email=${encodeURIComponent(approved.email)}`}
+            style={{ ...S.primary, textDecoration: "none", padding: "6px 14px" }}>계정·App Key 발급 →</Link>
+          <button onClick={() => setApproved(null)} style={{ ...S.ghost, padding: "6px 10px" }}>닫기</button>
+        </div>
+      )}
+
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         <p style={{ margin: 0, color: "#6b7280", fontSize: 13 }}>
           업체(고객사) 마스터 · 사업자/계좌/서류/업무 원장. 행을 클릭하면 상세·수정 화면으로 이동합니다. 고객사 {companies.length}곳 · 프로젝트 {projects.length}건
@@ -79,6 +167,8 @@ export default function CompaniesView() {
           {q && <button onClick={() => setQ("")} title="검색어 지우기"
             style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", border: 0, background: "none", color: "#9ca3af", cursor: "pointer", fontSize: 15, lineHeight: 1 }}>×</button>}
         </div>
+        <button onClick={simulateLogin} style={{ ...S.ghost, borderColor: "#fcd34d", color: "#92400e", background: "#fffbeb" }}
+          title="프로토타입 시뮬레이션 — 새 고객이 우리 서비스에 SSO 로그인한 상황을 만들어 승인 대기에 1건 추가합니다">🧪 새 SSO 로그인 (시뮬레이션)</button>
         <button onClick={() => { if (confirm("테스트 데이터를 초기화할까요? (엑셀 시드로 복원)")) store.reset(); }} style={S.ghost}>초기화</button>
         <Link href="/companies/new" style={{ ...S.primary, textDecoration: "none" }}>＋ 고객사 등록</Link>
       </div>
@@ -109,8 +199,8 @@ export default function CompaniesView() {
           <thead>
             <tr>{["No", "업체명", "담당자 / 연락처", "사업자번호", "은행 / 계좌", "커먼 코드", "편집 단가", "주소", "서류", "업무", "작업"].map((h) => (
               h === "업체명"
-                ? <th key={h} style={{ ...S.th, textAlign: "center", cursor: "pointer", userSelect: "none" }} onClick={toggleSort} title="클릭하면 가나다 정렬">
-                    {h}<span style={{ marginLeft: 3, color: sortDir !== 0 ? "#2563eb" : "#d1d5db" }}>{sortDir === 1 ? "▲" : sortDir === -1 ? "▼" : "↕"}</span>
+                ? <th key={h} style={{ ...S.th, textAlign: "center", cursor: "pointer", userSelect: "none" }} onClick={toggleSort} title="정렬: 최근순 → 가나다 오름 → 가나다 내림">
+                    {h}<span style={{ marginLeft: 3, fontSize: 10, color: sortDir === 0 ? "#2563eb" : "#9ca3af" }}>{sortDir === 0 ? "최근순" : sortDir === 1 ? "▲" : "▼"}</span>
                   </th>
                 : <th key={h} style={{ ...S.th, textAlign: "center" }}>{h}</th>
             ))}</tr>
@@ -183,6 +273,38 @@ export default function CompaniesView() {
           </div>
         )}
       </div>
+
+      {/* 가입 승인 요청 모달 `PC-119` — 카드 클릭 시 목록·승인 */}
+      {showOnboard && (
+        <Modal onClose={() => setShowOnboard(false)} title={`가입 승인 요청 ${pending.length}건`}>
+          <p style={{ fontSize: 12.5, color: "#6b7280", margin: "0 0 12px", lineHeight: 1.6 }}>
+            새 고객이 우리 서비스에 SSO 로그인한 기록입니다. 승인하면 고객사로 등록되고, App Key 관리에서 계정·권한을 발급할 수 있습니다.
+          </p>
+          {pending.length === 0 ? (
+            <div style={{ fontSize: 13, color: "#6b7280", padding: "18px 0", textAlign: "center" }}>대기 중인 요청이 없습니다. ✅</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 440, overflow: "auto" }}>
+              {pending.map((r) => (
+                <div key={r.id} style={{ border: "1px solid #fde68a", background: "#fffbeb", borderRadius: 10, padding: "10px 12px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+                    <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>{onboardServiceLabel(r.service)}</span>
+                    <b style={{ fontSize: 13 }}>{r.org}</b>
+                    <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11.5, color: "#2563eb" }}>{r.email}</span>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "#9ca3af", marginBottom: 8 }}>{r.name} · {r.provider} SSO · 로그인 {r.loginCount}회 · {r.firstLoginAt}</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => approveReq(r)} style={{ ...S.primary, padding: "6px 14px" }}>승인 → 고객사 등록</button>
+                    <button onClick={() => rejectReq(r)} style={{ ...S.ghost, padding: "6px 12px", color: "#dc2626", borderColor: "#fecaca" }}>거절</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+            <button onClick={() => setShowOnboard(false)} style={S.ghost}>닫기</button>
+          </div>
+        </Modal>
+      )}
 
       {delTarget && (
         <DeleteCompanyModal target={delTarget} projects={projects}

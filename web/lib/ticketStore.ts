@@ -96,7 +96,7 @@ const PARAM_ORDER = [
   "Company Name", "Account Id", "App Key", "Service", "Usage", "Used Customer",
   "Section", "Owner", "Book Start", "Book Volume", "Book End",
   "Page Start", "Page Volume", "Page End",
-  "Code Type", "Issued Time", "Valid Until Time", "Ticket Type", "Ticket Version",
+  "Code Type", "Issued Time", "Valid From Time", "Valid Until Time", "Ticket Type", "Ticket Version",
   "Separate Each Book",
 ];
 const orderParams = (p: Ticket["params"]): Ticket["params"] => {

@@ -56,6 +56,8 @@ def toolbar(search='', filtered=None):
             '<div style="position:relative">'
             '<div style="width:240px;padding:8px 26px 8px 10px;border:1px solid #e5e7eb;'
             'border-radius:8px;font-size:13px;background:#fff">%s</div>%s</div>'
+            '<span style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;border-radius:9px;'
+            'padding:9px 16px;font-size:13px">🧪 새 SSO 로그인 (시뮬레이션)</span>'
             '<span style="background:#fff;color:#374151;border:1px solid #e5e7eb;border-radius:9px;'
             'padding:9px 16px;font-size:13px">초기화</span>'
             '<span style="background:#5f8ff0;color:#fff;border-radius:9px;padding:9px 16px;'
@@ -96,7 +98,7 @@ def table(rows, search=''):
             '편집 단가', '주소', '서류', '업무', '작업']
     th = ''
     for h in HEAD:
-        sort = ('<span style="margin-left:3px;color:#2563eb">▲</span>' if h == '업체명' else '')
+        sort = ('<span style="margin-left:3px;font-size:10px;color:#2563eb">최근순</span>' if h == '업체명' else '')
         th += ('<th style="text-align:center;padding:10px 12px;color:#6b7280;font-weight:600;'
                'background:#fafbfc;font-size:11.5px;%s">%s%s</th>'
                % ('cursor:pointer' if h == '업체명' else '', h, sort))
@@ -171,9 +173,66 @@ def table(rows, search=''):
             % (th, tb, foot))
 
 
-def content(rows=None, search='', tier='', shown=None, toast=''):
+# ── 가입 승인 요청(온보딩) `PC-119` ─────────────────────────────────
+PEND = [
+    ('CasterN', '학원북스', 'kim@hakwonbooks.co.kr', '김대표', 'google', 3, '2026-09-27 10:12:33'),
+    ('폼솔루션', '스마트에듀', 'admin@smartedu.kr', '이지현', 'google', 1, '2026-09-28 14:40:02'),
+    ('SDK 연동', '펜톡', 'dev@pentalk.io', 'Park J.', 'google', 2, '2026-09-29 09:05:51'),
+]
+
+
+def onboard_card(n=3):
+    return ('<div style="width:100%%;border:1px solid #fcd34d;background:#fffbeb;border-radius:12px;'
+            'padding:13px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">'
+            '<span style="font-size:16px">🔔</span>'
+            '<b style="font-size:13.5px;color:#92400e">가입 승인 요청 %d건</b>'
+            '<span style="font-size:11.5px;color:#b45309">· 새 고객이 우리 서비스에 SSO 로그인했습니다. '
+            '클릭하여 확인·승인하세요.</span><span style="flex:1"></span>'
+            '<span style="background:#5f8ff0;color:#fff;border-radius:9px;padding:6px 14px;'
+            'font-size:13px;font-weight:600">확인·승인 →</span></div>' % n)
+
+
+def onboard_modal(rows=PEND):
+    items = ''
+    for svc, org, email, name, prov, cnt, at in rows:
+        items += ('<div style="border:1px solid #fde68a;background:#fffbeb;border-radius:10px;'
+                  'padding:10px 12px;margin-bottom:8px">'
+                  '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">'
+                  '<span class="tag b">%s</span><b style="font-size:13px">%s</b>'
+                  '<span style="font-family:ui-monospace,monospace;font-size:11.5px;color:#2563eb">%s</span></div>'
+                  '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:8px">%s · %s SSO · 로그인 %d회 · %s</div>'
+                  '<div style="display:flex;gap:8px">'
+                  '<span class="btn pri" style="padding:6px 14px">승인 → 고객사 등록</span>'
+                  '<span class="btn gho" style="padding:6px 12px;color:#dc2626;border-color:#fecaca">거절</span>'
+                  '</div></div>' % (svc, org, email, name, prov, cnt, at))
+    return ('<div class="ovl"><div class="mdl w"><div class="mh">'
+            '<div class="mt">가입 승인 요청 %d건</div><div class="mx">✕</div></div>'
+            '<div style="font-size:12.5px;color:#6b7280;margin-bottom:12px;line-height:1.6">'
+            '새 고객이 우리 서비스에 SSO 로그인한 기록입니다. 승인하면 고객사로 등록되고, '
+            'App Key 관리에서 계정·권한을 발급할 수 있습니다.</div>%s'
+            '<div class="mf"><div class="btn gho">닫기</div></div></div></div>' % (len(rows), items))
+
+
+def approved_card(org='학원북스'):
+    return ('<div style="border:1px solid #a7f3d0;background:#ecfdf5;border-radius:12px;'
+            'padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+            '<span style="font-size:15px">✅</span>'
+            '<b style="font-size:13px;color:#065f46">%s 승인 완료</b>'
+            '<span style="font-size:12px;color:#047857">이 고객사 기준으로 App Key 관리에서 계정과 권한을 발급하세요.</span>'
+            '<span style="flex:1"></span>'
+            '<span style="background:#5f8ff0;color:#fff;border-radius:9px;padding:6px 14px;'
+            'font-size:13px;font-weight:600">계정·App Key 발급 →</span>'
+            '<span class="btn gho" style="padding:6px 10px">닫기</span></div>' % org)
+
+
+def content(rows=None, search='', tier='', shown=None, toast='', onboard=None, approved=None):
     rows = ROWS if rows is None else rows
-    return toolbar(search) + tier_filter(tier, shown) + toast + table(rows, search)
+    top = ''
+    if onboard:
+        top += onboard_card(onboard)
+    if approved:
+        top += approved_card(approved)
+    return top + toolbar(search) + tier_filter(tier, shown) + toast + table(rows, search)
 
 
 BASE = [
@@ -310,6 +369,40 @@ def build():
          ('코드 할당하러 가기', '좌측 메뉴', '<code>SOB-01</code> → <code>SOB-02</code>', ''),
          ('코드 보유 현황', '좌측 메뉴', '<code>PRJ-01</code>', ''),
          ('편집 실적·정산', '좌측 메뉴', '<code>PRJ-02</code> → <code>PRJ-03</code>', '')]))
+
+    # ── 가입 승인 요청(온보딩) `PC-119` ─────────────────────────────
+    boards.append((
+        'S10', '가입 승인 요청 카드', '변형',
+        '<code>PC-119</code> — 새 고객이 우리 서비스(CasterN·폼솔루션 등)에 <b>SSO 로그인</b>하면 그 기록이 '
+        '<b>가입 승인 요청</b>으로 잡힌다. 목록 상단에 <b>건수만 담은 카드</b>가 뜨고(인라인 목록 아님), '
+        '<b>카드를 클릭하면 모달</b>로 확인·승인한다. 사이드바 [고객사 관리]와 상단 🔔에도 대기 건수 배지가 붙는다.',
+        frame('MEM-01', '고객사 관리', content(onboard=3), height=940),
+        [('가입 승인 요청 카드', '클릭', 'S11 (모달)', '노랑 카드 · 건수만 표시'),
+         ('[🧪 새 SSO 로그인 (시뮬레이션)]', '클릭', '대기 +1', '프로토타입 — 가상 신규 고객 유입'),
+         ('사이드바 [고객사 관리] 배지 · 🔔', '표시', '—', '대기 건수 빨간 배지')]))
+
+    boards.append((
+        'S11', '가입 승인 모달', '모달',
+        '카드를 누르면 모달로 <b>대기 요청 목록</b>이 뜬다. 각 건에 <b>서비스 · 회사 · SSO 이메일 · 로그인 정보</b>와 '
+        '<b>[승인 → 고객사 등록] / [거절]</b> 버튼. 승인하면 목록에서 사라지고 여러 건을 연속 처리한다.',
+        frame('MEM-01', '고객사 관리', content(onboard=3), overlay=onboard_modal(), height=940),
+        [('[승인 → 고객사 등록]', '클릭', 'S12 · 고객사 등록', '같은 이름 있으면 연결, 없으면 신규 등록'),
+         ('[거절]', '클릭', 'confirm 후 목록에서 제거', '거절로 기록'),
+         ('[닫기] · [✕]', '클릭', 'S10 복귀', '')]))
+
+    boards.append((
+        'S12', '승인 완료 · 최근 상단', '성공',
+        '승인하면 고객사로 등록되고 <b>최근 등록 고객사가 목록 최상단</b>에 온다(<code>PC-119</code> · createdAt 내림차순). '
+        '상단 초록 카드의 <b>[계정·App Key 발급 →]</b>로 그 고객사 기준 계정·권한 발급 화면(<code>TKT-02</code>)으로 바로 간다(고객사·이메일 프리필).',
+        frame('MEM-01', '고객사 관리',
+              content(rows=[('학원북스', 'solo', '김대표', 'kim@hakwonbooks.co.kr', '—', '—', '—',
+                             None, 0, '—', 0, 0, False)] + ROWS,
+                      onboard=2, approved='학원북스'),
+              height=1020),
+        [('초록 완료 카드', '표시', '—', '<b>{org} 승인 완료</b>'),
+         ('[계정·App Key 발급 →]', '클릭', '<code>TKT-02</code>', '고객사·SSO 이메일 프리필 (<code>?company=&email=</code>)'),
+         ('목록 최상단', '자동', '최근 고객사', 'createdAt 내림차순 기본 정렬'),
+         ('업체명 헤더', '클릭', '최근순 → 가나다↑ → ↓', '정렬 순환')]))
 
     intro = ('코드를 발급받는 <b>업체(고객사) 마스터</b>. 사업자·계좌·서류·편집 단가·업무 이력을 관리한다. '
              '<b>모든 코드 발급과 티켓 발급의 선행 조건</b>이며, 여기에 등록되지 않은 업체에는 코드를 할당할 수 없다. '

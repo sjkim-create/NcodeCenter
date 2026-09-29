@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { signOut } from "next-auth/react";
 import { MENU, titleOf, type MenuItem } from "@/lib/menu";
 import { useAuth, currentUser, auth } from "@/lib/authStore";
+import { useOnboarding } from "@/lib/onboardingStore";
 import { S as UIS, Modal, Field } from "./ui";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -20,6 +20,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const toggleGroup = (label: string) => setCollapsed((c) => ({ ...c, [label]: !c[label] }));
   const authState = useAuth();
   const me = currentUser(authState);
+  const onbPending = useOnboarding().requests.filter((r) => r.status === "PENDING").length;   // 승인요청 배지 `PC-116`
   const isAdmin = me?.role === "ADMIN";   // 활동 로그 등 admin 전용 메뉴 노출 기준
 
   // 로그인 화면 도달 시 로그아웃 전환 화면 해제
@@ -27,9 +28,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const doLogout = () => {
     setMenuOpen(false);
     setLoggingOut(true);        // 셸 대신 전환 화면 → "비로그인" 잔상 방지
+    auth.logout();              // currentEmail 해제 + 데모 세션 쿠키 제거
     router.replace("/login");
-    auth.logout();
-    signOut({ redirect: false });
   };
   const saveProfile = () => {
     if (!me || !profile) return;
@@ -80,7 +80,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             return (
               <div key={gi} style={{ marginBottom: 10 }}>
                 {grp.group && <div style={S.groupLabel}>{grp.group}</div>}
-                {renderItems(items, best, collapsed, toggleGroup)}
+                {renderItems(items, best, collapsed, toggleGroup, onbPending)}
               </div>
             );
           })}
@@ -107,7 +107,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <header style={S.topbar}>
           <div style={{ fontWeight: 700, fontSize: 16 }}>{titleOf(pathname)}</div>
           <div style={{ flex: 1 }} />
-          <div style={S.iconBtn}>🔔</div>
+          {/* 알림 — 승인 대기 건수 `PC-116` · 누르면 고객사 관리로 */}
+          <button onClick={() => router.push("/companies")} title={onbPending > 0 ? `가입 승인 요청 ${onbPending}건` : "알림 없음"}
+            style={{ ...S.iconBtn, position: "relative", border: 0 }}>
+            🔔
+            {onbPending > 0 && (
+              <span style={{ position: "absolute", top: -4, right: -4, background: "#ef4444", color: "#fff", fontSize: 10, fontWeight: 700,
+                borderRadius: 999, minWidth: 17, height: 17, display: "grid", placeItems: "center", padding: "0 4px" }}>{onbPending}</span>
+            )}
+          </button>
           <div style={{ position: "relative" }}>
             <button
               onClick={() => (me ? setMenuOpen((v) => !v) : router.push("/login"))}
@@ -150,7 +158,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
 // 헤더(그룹) + 하위메뉴 렌더 — 헤더를 누르면 하위 메뉴가 접혔다 펼쳐진다.
 // 기본은 펼침이며, 하위 화면에 있는 동안에는 접어도 강제로 펼친다(현재 위치를 잃지 않도록).
-function renderItems(items: MenuItem[], best: string, collapsed: Record<string, boolean>, toggleGroup: (label: string) => void) {
+function renderItems(items: MenuItem[], best: string, collapsed: Record<string, boolean>, toggleGroup: (label: string) => void, onbPending = 0) {
   const out: React.ReactNode[] = [];
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
@@ -187,6 +195,10 @@ function renderItems(items: MenuItem[], best: string, collapsed: Record<string, 
         <Link key={it.path} href={it.path} style={{ ...S.item, ...(active ? S.itemActive : {}) }}>
           <span style={S.itemIcon}>{it.icon}</span>
           <span style={{ flex: 1 }}>{it.label}</span>
+          {/* 고객사 관리 — 승인 대기 건수 배지 `PC-116` */}
+          {it.path === "/companies" && onbPending > 0 && (
+            <span style={{ ...(active ? S.badgeOn : S.badge) }}>{onbPending}</span>
+          )}
           {!it.ready && <span style={S.soon}>예정</span>}
         </Link>
       );
@@ -228,6 +240,9 @@ const S: Record<string, React.CSSProperties> = {
   itemActive: { background: BLUE, color: "#fff", fontWeight: 700, boxShadow: "0 4px 12px rgba(95,143,240,.28)" },
   itemIcon: { width: 18, textAlign: "center", fontSize: 14 },
   soon: { fontSize: 9, background: "#f1f5f9", color: "#94a3b8", borderRadius: 5, padding: "1px 5px" },
+  // 승인 대기 배지 `PC-116` — 기본은 붉은 알약, 액티브(파란 배경) 위에서는 흰 알약
+  badge: { fontSize: 10, fontWeight: 700, background: "#ef4444", color: "#fff", borderRadius: 999, padding: "1px 7px", minWidth: 18, textAlign: "center" as const },
+  badgeOn: { fontSize: 10, fontWeight: 700, background: "#fff", color: "#dc2626", borderRadius: 999, padding: "1px 7px", minWidth: 18, textAlign: "center" as const },
   upsell: { margin: 12, padding: "12px 14px", background: "#eff5ff", borderRadius: 10, fontSize: 12, fontWeight: 600, color: "#1e40af" },
   topbar: {
     position: "sticky", top: 0, zIndex: 5, height: 60, background: "#fff",

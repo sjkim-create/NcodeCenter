@@ -12,14 +12,14 @@ import { S, Field, BLUE } from "./ui";
 import { useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
-import { addTicket, hydrateTickets, ticketsOfAccount, useTickets } from "@/lib/ticketStore";
+import { addTicket, deleteTicket, hydrateTickets, useTickets } from "@/lib/ticketStore";
 import { SobpRangePicker, type SobpRange } from "./TicketsView";
 import { servicesOfCompany } from "@/lib/serviceCustomers";
 import { codeKind, patternOf, patternTypeParam, CODE_KINDS, type CodeKind, type TicketPattern } from "@/lib/codeKind";
 import {
   caster, useCaster, genAppKey, ACCOUNT_SERVICES, accountServiceLabel, accountServiceReady,
   CASTERN_PERMS, ALL_PERMS, permLabel, casternPerms, hasService, SDK_ONLY_LABEL,
-  keyRanges, rangeText, rangeBooks, type KeyRange,
+  keyRanges, rangeText, rangeBooks, rangePeriod, type KeyRange,
   type AccountService, type CasterPerm, type CasterAccount, type AccountSettings,
 } from "@/lib/accountStore";
 
@@ -129,8 +129,14 @@ export function AccountsListView() {
                     onClick={(e) => { e.stopPropagation(); router.push(accountHref(a.id, "key")); }}>
                     {keys[0] ? <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>{keyRanges(keys[0]).length}개</span> : <span style={{ color: "#c7cbd4" }}>—</span>}
                   </td>
+                  {/* 사용기간 = 코드 범위(=티켓)별 기간 `PC-118` — 목록엔 첫 범위 기준 요약 */}
                   <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#6b7280", whiteSpace: "nowrap", fontSize: 11.5 }}>
-                    {a.since || a.until ? `${a.since || "—"} ~ ${a.until || "—"}` : <span style={{ color: "#c7cbd4" }}>—</span>}
+                    {(() => {
+                      const k0 = keys[0]; if (!k0) return <span style={{ color: "#c7cbd4" }}>—</span>;
+                      const rs = keyRanges(k0); if (rs.length === 0) return <span style={{ color: "#c7cbd4" }}>—</span>;
+                      const p = rangePeriod(k0, rs[0]);
+                      return `${p.since || "즉시"} ~ ${p.until}${rs.length > 1 ? ` 외 ${rs.length - 1}` : ""}`;
+                    })()}
                   </td>
                   <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#6b7280" }}>
                     {a.seeded ? <span style={{ ...S.tag, background: "#f0fdfa", color: "#0f766e", fontWeight: 700 }} title="개발팀 대장에서 들어온 계정">대장</span> : a.createdAt?.slice(0, 10)}
@@ -409,23 +415,20 @@ function BookRangeFields({ range, bookStart, bookVol, pageStart, pageVol, onStar
 // App Key 는 **계정당 1개**이고 그 계정의 **사용처 전체에 공통**이다 `PC-050`.
 // 발급 시 **Book Start · Book Volume(권수)** 를 지정한다 — bookEnd = start + volume - 1.
 function issueAppKey(acc: CasterAccount, range: SobpRange, bookStart: number, bookVol: number,
-                     pageStart: number, pageVol: number, ctype: CodeKind, until: string, by?: string) {
+                     pageStart: number, pageVol: number, ctype: CodeKind, until: string, by?: string, since = "") {
   const services = acc.services ?? [];
   const bs = bookStart, be = bookStart + bookVol - 1;
   const key = genKeyStr();
-  const rec = caster.addAppKey({ key, accountId: acc.id, services, company: acc.company, pt: range.pt,
-    section: range.section, owner: range.owner, bookStart: bs, bookEnd: be, bookVol,
-    pageStart, pageEnd: pageStart + pageVol - 1, pageVol, until,
-    ranges: [{ pt: range.pt, section: range.section, owner: range.owner, bookStart: bs, bookEnd: be, bookVol,
-               pageStart, pageEnd: pageStart + pageVol - 1, pageVol }] });   // 코드 범위 목록 `PC-103`
-  if (!rec) return "";                                  // 이미 발급된 계정
   const svcText = services.map(accountServiceLabel).join(" · ") || "미지정";
-  const summary = `계정 ${acc.id} · ${svcText} · ${range.pt} S${range.section}/O${range.owner}/B${bs}~${be}(${bookVol}권) · P${pageStart}~${pageStart + pageVol - 1} · ${until}`;
-  addTicket({ kind: "APP", companyId: acc.companyId, company: acc.company, accountId: acc.id, by: by ?? "", summary,
+  const periodText = `${since || "즉시"}~${until}`;
+  const summary = `계정 ${acc.id} · ${svcText} · ${range.pt} S${range.section}/O${range.owner}/B${bs}~${be}(${bookVol}권) · P${pageStart}~${pageStart + pageVol - 1} · 기간 ${periodText}`;
+  // 원장 티켓을 먼저 만들어 그 id 를 범위에 연결한다 — [티켓 삭제] 시 함께 제거 `PC-121`
+  const t = addTicket({ kind: "APP", companyId: acc.companyId, company: acc.company, accountId: acc.id, by: by ?? "", summary,
     params: {
       "Company Name": acc.company, "Account Id": acc.id, Service: svcText, Usage: svcText,
       "App Key": key,
       "Issued Time": new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, ""),
+      "Valid From Time": since ? since.replace(/-/g, "") : "즉시",
       "Valid Until Time": until === "무제한" ? "99999999 (무제한)" : until.replace(/-/g, ""),
       Section: range.section, Owner: range.owner,
       "Ticket Version": 1,
@@ -434,6 +437,12 @@ function issueAppKey(acc: CasterAccount, range: SobpRange, bookStart: number, bo
       "Code Type": ctype,
       "Ticket Type": until === "무제한" ? "Unlimited" : "Period",
     } });
+  const rec = caster.addAppKey({ key, accountId: acc.id, services, company: acc.company, pt: range.pt,
+    section: range.section, owner: range.owner, bookStart: bs, bookEnd: be, bookVol,
+    pageStart, pageEnd: pageStart + pageVol - 1, pageVol, since, until,   // 사용기간=티켓 기간 `PC-117`
+    ranges: [{ pt: range.pt, section: range.section, owner: range.owner, bookStart: bs, bookEnd: be, bookVol,
+               pageStart, pageEnd: pageStart + pageVol - 1, pageVol, since, until, ticketId: t.id }] });   // 범위=티켓 `PC-118`·`PC-121`
+  if (!rec) { deleteTicket(t.id); return ""; }          // 이미 발급된 계정 → 티켓 롤백
   logActivity("ticket", `App Key · ${acc.company} · ${summary} · ${key}`, by);
   return key;
 }
@@ -461,6 +470,7 @@ export function AccountNewView() {
   const [pStart, setPStart] = useState(1);              // 계정별 Page 영역 `PC-059`
   const [ctype, setCtype] = useState<CodeKind>("PDS3"); // Code Type — 직접 고른다 `PC-064`
   const [pVol, setPVol] = useState<number | null>(null);
+  const [since, setSince] = useState("");              // 사용기간 시작 — 티켓(발급)별 기간 `PC-117`
   const [until, setUntil] = useState("");
   const [unlimited, setUnlimited] = useState(true);
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
@@ -490,6 +500,23 @@ export function AccountNewView() {
     setSettings(next.includes("CASTERN") ? { CASTERN: { perms: [...ALL_PERMS] } } : {});
   };
 
+  // 온보딩 승인에서 넘어온 경우 — 고객사·계정 ID(SSO 이메일) 자동 선택 `PC-116`
+  //   고객사 목록은 localStorage 하이드레이트 뒤에 채워지므로, 대상 고객사가 목록에
+  //   나타날 때까지 재시도한다(그 전엔 prefilled 를 세우지 않는다).
+  const sp = useSearchParams();
+  const [prefilled, setPrefilled] = useState(false);
+  useEffect(() => {
+    if (prefilled) return;
+    const cid = Number(sp.get("company") || 0);
+    const email = sp.get("email") || "";
+    if (email) setId(email);                                   // 이메일은 즉시(멱등)
+    if (cid) {
+      if (!companies.some((c) => c.id === cid)) return;        // 아직 하이드레이트 전 → 다음 렌더에 재시도
+      onCompany(cid);
+    }
+    setPrefilled(true);
+  }, [sp, companies, prefilled]);
+
   const submit = () => {
     if (!company) { setToast({ ok: false, text: "회사(고객사)를 선택하세요." }); return; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(id.trim())) { setToast({ ok: false, text: "계정 ID는 이메일 형식이어야 합니다." }); return; }
@@ -510,7 +537,7 @@ export function AccountNewView() {
     const r = caster.addAccount(acc);
     if (!r.ok) { setToast({ ok: false, text: r.msg }); return; }
     logActivity("ticket", `계정 등록 · ${company.name} · ${acc.id} · ${services.map(accountServiceLabel).join(" · ")}`, me?.name);
-    if (wantKey && range) issueAppKey(acc, range, keyBS, keyVol, pStart, keyPVol, ctype, unlimited ? "무제한" : (until || "무제한"), me?.name);
+    if (wantKey && range) issueAppKey(acc, range, keyBS, keyVol, pStart, keyPVol, ctype, unlimited ? "무제한" : (until || "무제한"), me?.name, since);
     router.push("/tickets/account");        // 목록에 노출
   };
 
@@ -527,16 +554,19 @@ export function AccountNewView() {
         <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
                           onStart={setBStart} onVol={setBVol} onPStart={setPStart} onPVol={setPVol} />
       </div>
-      {/* 고르는 값 — Code Type · 만료일 `PC-071` */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 10, marginTop: 10 }}>
+      {/* 고르는 값 — Code Type · 사용기간(시작~끝) `PC-071` · 기간은 티켓별 `PC-117` */}
+      <div style={{ display: "grid", gridTemplateColumns: "0.9fr 1fr 1.4fr", gap: 10, marginTop: 10 }}>
         <Field label="Code Type">
           <select style={S.input} value={ctype} disabled={!range} onChange={(e) => setCtype(e.target.value as CodeKind)}>
             {CODE_KINDS.map((k) => <option key={k.v} value={k.v}>{k.short}</option>)}
           </select>
         </Field>
-        <Field label="만료일 (기간)">
+        <Field label="사용기간 시작">
+          <input type="date" style={S.input} value={since} disabled={!range} onChange={(e) => setSince(e.target.value)} />
+        </Field>
+        <Field label="사용기간 끝 (만료)">
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited} onChange={(e) => setUntil(e.target.value)} />
+            <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited || !range} min={since || undefined} onChange={(e) => setUntil(e.target.value)} />
             <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
               <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> 무제한
             </label>
@@ -628,8 +658,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const [pwd, setPwd] = useState("");
   const [addr, setAddr] = useState("");
   const [homepage, setHomepage] = useState("");
-  const [since, setSince] = useState("");                     // 사용기간 `PC-103`
-  const [accUntil, setAccUntil] = useState("");
+  const [since, setSince] = useState("");                     // 사용기간 시작(범위 발급 시) — 범위별 기간 `PC-118`
   const [services, setServices] = useState<AccountService[]>([]);
   const [settings, setSettings] = useState<AccountSettings>({});
   const [loaded, setLoaded] = useState(false);
@@ -645,13 +674,13 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const [until, setUntil] = useState("");
   const [unlimited, setUnlimited] = useState(true);
   const [issued, setIssued] = useState<string | null>(null);
+  const [selRange, setSelRange] = useState<{ keyId: number; idx: number } | null>(null);   // 발급 내역 선택 → 아래 Key 정보 `PC-120`
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
 
   // 계정 값 주입 (최초 1회 — 편집 중 스토어 변경에 덮이지 않도록)
   useEffect(() => {
     if (!acc || loaded) return;
     setName(acc.name); setPwd(acc.pwd); setAddr(acc.addr); setHomepage(acc.homepage);
-    setSince(acc.since ?? ""); setAccUntil(acc.until ?? "");
     setServices(acc.services ?? []); setSettings(acc.settings ?? {});
     setLoaded(true);
   }, [acc, loaded]);
@@ -661,10 +690,11 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const keys = cast.appKeys.filter((k) => k.accountId === accountId);
   // App Key 는 **계정당 1개**이고 **사용처 전체에 공통**이다 `PC-050`
   const myKey = keys[0];
-  // 이 계정에 매핑된 티켓(Key 정보) — 계정 : App Key = 1:1 · 계정 : N Key = 1:1 `PC-059`
+  // 발급 내역 항목(=키의 각 코드 범위/티켓) — 선택하면 아래 Key 정보에 표시 `PC-120`
+  const rangeItems = keys.flatMap((k) => keyRanges(k).map((r, i) => ({ k, r, i })));
+  const selected = (selRange && rangeItems.find((x) => x.k.id === selRange.keyId && x.i === selRange.idx)) || rangeItems[0] || null;
+  // 티켓 원장 변경(범위 발급 등) 시 재렌더 — Key 정보는 선택한 범위에서 만든다 `PC-120`
   useTickets();
-  const myTickets = ticketsOfAccount(accountId);
-  const appTicket = myTickets.find((x) => x.kind === "APP");
   const keyable = (acc?.services ?? []).length > 0 && !myKey;
 
   // 사용처를 새로 켜면 그 서비스의 기본 설정을 채운다.
@@ -692,7 +722,6 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
     const r = caster.updateAccount(acc.id, {
       name: name.trim(), pwd: pwd.trim(), addr: addr.trim(), homepage: homepage.trim(),
-      since: since.trim(), until: accUntil.trim(),
       services, settings: kept,
     });
     if (!r.ok) { setToast({ ok: false, text: r.msg }); return; }
@@ -703,45 +732,129 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const keyBS = bStart ?? range?.bookStart ?? 0;
   const keyVol = Math.max(1, Math.min(bVol ?? (range?.bookCount ?? 1), range ? range.bookEnd - keyBS + 1 : 1));
   const keyPVol = Math.max(1, pVol ?? PAGE_DEFAULT);
-  // 발급된 키에 코드 범위를 하나 더 `PC-103`
+  const untilVal = () => (unlimited ? "무제한" : (until || "무제한"));
+  const resetIssueForm = () => { setSobpIdx(-1); setBStart(null); setBVol(null); setSince(""); setUntil(""); setUnlimited(true); };
+  // 발급된 키에 코드 범위(=티켓)를 하나 더 발급 — **범위마다 사용기간을 함께 지정** `PC-118`
+  //   범위 발급 = 티켓 발급이므로 **원장(Key 발급 목록)에도 티켓 1건을 남긴다** `PC-119`
   const addRange = () => {
     if (!range || !myKey) return;
+    const untilStr = untilVal();
     const r: KeyRange = { pt: range.pt, section: range.section, owner: range.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, bookVol: keyVol,
-      pageStart: pStart, pageEnd: pStart + keyPVol - 1, pageVol: keyPVol };
-    caster.addKeyRange(myKey.id, r);
-    logActivity("ticket", `App Key 범위 추가 · ${acc?.company} · ${acc?.id} · ${rangeText(r)}`, me?.name);
-    setSobpIdx(-1); setBStart(null); setBVol(null);
-    setToast({ ok: true, text: `코드 범위 추가 — ${rangeText(r)}` });
+      pageStart: pStart, pageEnd: pStart + keyPVol - 1, pageVol: keyPVol, since, until: untilStr };
+    // 원장 티켓을 먼저 만들어 그 id 를 범위에 연결한다 `PC-119`·`PC-121`
+    const svcText = (acc.services ?? []).map(accountServiceLabel).join(" · ") || "미지정";
+    const t = addTicket({ kind: "APP", companyId: acc.companyId, company: acc.company, accountId: acc.id, by: me?.name ?? "",
+      summary: `계정 ${acc.id} · ${svcText} · ${rangeText(r)} · 기간 ${since || "즉시"}~${untilStr}`,
+      params: {
+        "Company Name": acc.company, "Account Id": acc.id, Service: svcText, Usage: svcText,
+        "App Key": myKey.key || "미기재",
+        "Issued Time": new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, ""),
+        "Valid From Time": since ? since.replace(/-/g, "") : "즉시",
+        "Valid Until Time": untilStr === "무제한" ? "99999999 (무제한)" : untilStr.replace(/-/g, ""),
+        Section: r.section, Owner: r.owner, "Ticket Version": 1,
+        "Book Start": r.bookStart ?? 0, "Book Volume": r.bookVol ?? 0, "Book End": r.bookEnd ?? 0,
+        "Page Start": r.pageStart ?? 0, "Page Volume": r.pageVol ?? 0, "Page End": r.pageEnd ?? 0,
+        "Code Type": ctype,
+        "Ticket Type": untilStr === "무제한" ? "Unlimited" : "Period",
+      } });
+    caster.addKeyRange(myKey.id, { ...r, ticketId: t.id });
+    logActivity("ticket", `App Key 티켓 발급 · ${acc?.company} · ${acc?.id} · ${rangeText(r)} · 기간 ${since || "즉시"}~${untilStr}`, me?.name);
+    resetIssueForm();
+    setToast({ ok: true, text: `티켓 발급 — ${rangeText(r)} · ${since || "즉시"}~${untilStr}` });
+  };
+  // 티켓 삭제 — 이 코드 범위(=티켓)와 연결된 원장 티켓을 함께 제거 `PC-121`.
+  //   마지막 티켓이면 App Key 도 함께 삭제(빈 키 방지). [키 삭제]와 구분된다.
+  const delTicket = (k: typeof keys[number], i: number) => {
+    const rs = keyRanges(k);
+    const r = rs[i];
+    if (!r) return;
+    const last = rs.length <= 1;
+    if (last && !confirm(`마지막 티켓입니다. 삭제하면 이 App Key 도 함께 삭제됩니다.\n${rangeText(r)}\n진행할까요?`)) return;
+    if (r.ticketId) deleteTicket(r.ticketId);          // 원장 티켓 제거
+    if (last) caster.removeAppKey(k.id); else caster.removeKeyRange(k.id, i);
+    setSelRange(null);
+    logActivity("ticket", `App Key 티켓 삭제 · ${acc.company} · ${acc.id} · ${rangeText(r)}`, me?.name);
+    setToast({ ok: true, text: `티켓 삭제 — ${rangeText(r)}` });
   };
   const addKey = () => {
     if (!range) { setToast({ ok: false, text: "할당된 SOBP 범위를 선택하세요." }); return; }
-    if (myKey) { setToast({ ok: false, text: "App Key 는 계정당 1개입니다. 기존 키를 삭제한 뒤 다시 발급하세요." }); return; }
-    const key = issueAppKey(acc, range, keyBS, keyVol, pStart, keyPVol, ctype, unlimited ? "무제한" : (until || "무제한"), me?.name);
+    if (myKey) { setToast({ ok: false, text: "App Key 는 계정당 1개입니다. 아래에서 코드 범위를 더 발급하세요." }); return; }
+    const key = issueAppKey(acc, range, keyBS, keyVol, pStart, keyPVol, ctype, untilVal(), me?.name, since);
     setIssued(key);
     setToast({ ok: true, text: "App Key 발급 완료 — 계정과 연동되어 서비스 DB에 등록되었습니다." });
   };
+
+  // 발급·재발급 공용 — Code Type · 사용기간(시작~끝). 기간은 티켓별로 유지된다 `PC-117`
+  const periodFields = (
+    <div style={{ display: "grid", gridTemplateColumns: "0.9fr 1fr 1.4fr", gap: 10, marginTop: 10 }}>
+      <Field label="Code Type">
+        <select style={S.input} value={ctype} disabled={!range} onChange={(e) => setCtype(e.target.value as CodeKind)}>
+          {CODE_KINDS.map((k) => <option key={k.v} value={k.v}>{k.short}</option>)}
+        </select>
+      </Field>
+      <Field label="사용기간 시작">
+        <input type="date" style={S.input} value={since} disabled={!range} onChange={(e) => setSince(e.target.value)} />
+      </Field>
+      <Field label="사용기간 끝 (만료)">
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited || !range} min={since || undefined} onChange={(e) => setUntil(e.target.value)} />
+          <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
+            <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> 무제한
+          </label>
+        </div>
+      </Field>
+    </div>
+  );
+
+  // 발급 완료 안내(신규·재발급 공용)
+  const issuedCard = issued && (
+    <div style={{ marginTop: 12, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "12px 14px" }}>
+      <div style={{ fontSize: 12, color: "#92400e", fontWeight: 700, marginBottom: 6 }}>발급 완료 — App Key (서비스 DB 등록됨)</div>
+      <div style={{ fontSize: 12.5, color: "#111827", lineHeight: 1.9 }}>
+        <div>계정 ID: <code style={{ fontFamily: "ui-monospace,monospace" }}>{acc.id}</code></div>
+        <div>PWD: <code style={{ fontFamily: "ui-monospace,monospace" }}>{pwd}</code></div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          App Key: <code style={{ flex: 1, fontFamily: "ui-monospace,monospace", wordBreak: "break-all" }}>{issued}</code>
+          <button onClick={() => { try { navigator.clipboard.writeText(`ID: ${acc.id}\nPWD: ${pwd}\nAppKey: ${issued}`); setToast({ ok: true, text: "계정·키 정보가 복사되었습니다." }); } catch { /* */ } }} style={S.smallBtn}>전체 복사</button>
+        </div>
+      </div>
+    </div>
+  );
 
   // App Key 발급 — CasterN 전용 조건이라 ② 의 CasterN 탭 안에서만 노출한다.
   const appKeyBlock = (
     <>
       {myKey ? (
-        // 키가 있으면 새 키는 못 만들고(계정당 1개) **코드 범위를 더 물린다** `PC-103`
         <>
-          <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 5 }}>코드 범위 추가 — SOBP 맵에서 발급된 S / O <span style={{ color: "#9ca3af" }}>(고르면 Book 범위가 따라옵니다)</span></div>
+          {/* 현재 App Key — 사용기간은 아래 각 범위(=티켓)마다 지정한다 `PC-118` */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12,
+            border: "1px solid #eef0f4", background: "#fafbfc", borderRadius: 9, padding: "10px 12px", fontSize: 12.5 }}>
+            {myKey.key
+              ? <code style={{ fontFamily: "ui-monospace,monospace", color: "#2563eb", wordBreak: "break-all" }}>{myKey.key}</code>
+              : <span style={{ ...S.tag, background: "#fef3c7", color: "#92400e", fontWeight: 700 }}>키 미기재</span>}
+            <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>코드 범위 {keyRanges(myKey).length}개</span>
+            <span style={{ color: "#9ca3af", fontSize: 11.5 }}>· 사용기간은 범위마다 지정</span>
+          </div>
+
+          {/* 코드 범위 발급 — 범위마다 사용기간을 함께 지정 `PC-118` */}
+          <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 5 }}>코드 범위 발급 — SOBP 맵에서 발급된 S / O <span style={{ color: "#9ca3af" }}>(고르면 Book 범위가 따라옵니다 · 사용기간을 함께 지정)</span></div>
           <SobpRangePicker company ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = ranges[i]; if (r) setCtype(CT_OF[r.pt] ?? "PDS3"); }} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 12 }}>
             <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
                               onStart={setBStart} onVol={setBVol} onPStart={setPStart} onPVol={setPVol} />
           </div>
+          {periodFields}
+          <FixedKeyFields range={range} unlimited={unlimited || !until} />
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
             {range && (
               <span style={{ fontSize: 11.5, color: "#6b7280" }}>
-                추가 범위 <b>{range.pt} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권 · <b>P{pStart}~{pStart + keyPVol - 1}</b>
+                발급 범위 <b>{range.pt} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권 · <b>P{pStart}~{pStart + keyPVol - 1}</b> · 기간 {since || "즉시"}~{untilVal()}
               </span>
             )}
             <span style={{ flex: 1 }} />
-            <button onClick={addRange} disabled={!range} style={{ ...S.primary, ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>범위 추가</button>
+            <button onClick={addRange} disabled={!range} style={{ ...S.primary, ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>코드 범위 발급</button>
           </div>
+          {issuedCard}
         </>
       ) : (acc?.services ?? []).length === 0 ? (
         <div style={{ fontSize: 11.5, color: "#9ca3af", lineHeight: 1.6 }}>
@@ -755,43 +868,19 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
             <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
                               onStart={setBStart} onVol={setBVol} onPStart={setPStart} onPVol={setPVol} />
           </div>
-          {/* 고르는 값 — Code Type · 만료일 `PC-071` */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr auto", gap: 10, alignItems: "end", marginTop: 10 }}>
-            <Field label="Code Type">
-              <select style={S.input} value={ctype} disabled={!range} onChange={(e) => setCtype(e.target.value as CodeKind)}>
-                {CODE_KINDS.map((k) => <option key={k.v} value={k.v}>{k.short}</option>)}
-              </select>
-            </Field>
-            <Field label="만료일 (기간)">
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited} onChange={(e) => setUntil(e.target.value)} />
-                <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
-                  <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> 무제한
-                </label>
-              </div>
-            </Field>
+          {periodFields}
+          <FixedKeyFields range={range} unlimited={unlimited || !until} />
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+            {range && (
+              <span style={{ fontSize: 11.5, color: "#6b7280" }}>
+                발급 범위 <b>{range.pt} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권 · <b>P{pStart}~{pStart + keyPVol - 1}</b> · 기간 {since || "즉시"}~{untilVal()}
+                <span style={{ color: "#9ca3af" }}> (할당 B{range.bookStart}~{range.bookEnd})</span>
+              </span>
+            )}
+            <span style={{ flex: 1 }} />
             <button onClick={addKey} disabled={!range} style={{ ...S.primary, ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>App Key 발급</button>
           </div>
-          <FixedKeyFields range={range} unlimited={unlimited || !until} />
-          {range && (
-            <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 6 }}>
-              발급 범위 <b>{range.pt} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권 · <b>P{pStart}~{pStart + keyPVol - 1}</b>
-              <span style={{ color: "#9ca3af" }}> (할당 B{range.bookStart}~{range.bookEnd})</span>
-            </div>
-          )}
-          {issued && (
-            <div style={{ marginTop: 12, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "12px 14px" }}>
-              <div style={{ fontSize: 12, color: "#92400e", fontWeight: 700, marginBottom: 6 }}>발급 완료 — App Key (서비스 DB 등록됨)</div>
-              <div style={{ fontSize: 12.5, color: "#111827", lineHeight: 1.9 }}>
-                <div>계정 ID: <code style={{ fontFamily: "ui-monospace,monospace" }}>{acc.id}</code></div>
-                <div>PWD: <code style={{ fontFamily: "ui-monospace,monospace" }}>{pwd}</code></div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  App Key: <code style={{ flex: 1, fontFamily: "ui-monospace,monospace", wordBreak: "break-all" }}>{issued}</code>
-                  <button onClick={() => { try { navigator.clipboard.writeText(`ID: ${acc.id}\nPWD: ${pwd}\nAppKey: ${issued}`); setToast({ ok: true, text: "계정·키 정보가 복사되었습니다." }); } catch { /* */ } }} style={S.smallBtn}>전체 복사</button>
-                </div>
-              </div>
-            </div>
-          )}
+          {issuedCard}
         </>
       )}
     </>
@@ -825,16 +914,10 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
           </Field>
           <Field label="ADDR (주소)"><input style={S.input} value={addr} onChange={(e) => setAddr(e.target.value)} /></Field>
           <Field label="HOMEPAGE"><input style={S.input} value={homepage} onChange={(e) => setHomepage(e.target.value)} placeholder="https://" /></Field>
-          {/* 사용기간 — 대장의 「사용기간」 `PC-103` */}
-          <Field label="사용기간 시작"><input type="date" style={S.input} value={since} onChange={(e) => setSince(e.target.value)} /></Field>
-          <Field label="사용기간 끝">
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input type="date" style={{ ...S.input, opacity: accUntil === "무제한" ? 0.5 : 1 }} value={accUntil === "무제한" ? "" : accUntil} disabled={accUntil === "무제한"} onChange={(e) => setAccUntil(e.target.value)} />
-              <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
-                <input type="checkbox" checked={accUntil === "무제한"} onChange={(e) => setAccUntil(e.target.checked ? "무제한" : "")} /> 무제한
-              </label>
-            </div>
-          </Field>
+        </div>
+        {/* 사용기간은 계정이 아니라 **코드 범위(=티켓)별 기간**이다 `PC-118` → [App Key 발급] 탭에서 범위 발급 시 설정 */}
+        <div style={{ marginTop: 10, fontSize: 11.5, color: "#6b7280", background: "#fafbfc", border: "1px solid #eef0f4", borderRadius: 9, padding: "8px 11px" }}>
+          사용기간(시작·끝)은 계정 속성이 아니라 <b>코드 범위(=티켓)마다 유지되는 기간</b>입니다. <b>[App Key 발급]</b> 탭에서 <b>코드 범위를 발급할 때</b> 함께 지정합니다.
         </div>
         {acc.note && (
           <div style={{ marginTop: 10, fontSize: 11.5, color: "#92400e", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 9, padding: "8px 11px", whiteSpace: "pre-line", lineHeight: 1.7 }}>{acc.note}</div>
@@ -844,7 +927,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
         {/* App Key 발급 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
-          <SecHead t="App Key 발급" d={`· 계정당 1개 · 발급된 키 ${keys.length}개`} tip={myKey ? "이 계정에는 이미 App Key 가 발급돼 있습니다 — 계정당 1개입니다. 코드 범위는 여기서 더 물릴 수 있고(PC-103), 키 자체를 바꾸려면 발급 내역에서 삭제한 뒤 다시 발급하세요." : "고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (인증 서비스 전체 공통)"} />
+          <SecHead t="App Key 발급" d={`· 계정당 1개 · 발급된 키 ${keys.length}개`} tip={myKey ? "이 계정에는 이미 App Key 가 발급돼 있습니다 — 계정당 1개입니다. 코드 범위(=티켓)를 더 발급할 수 있고, **사용기간은 범위마다 함께 지정**합니다(PC-118). 키 자체를 바꾸려면 발급 내역에서 삭제한 뒤 다시 발급하세요." : "고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (인증 서비스 전체 공통)"} />
           {appKeyBlock}
         </div>
 
@@ -877,40 +960,65 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
                     : <span style={{ ...S.tag, background: "#fef3c7", color: "#92400e", fontWeight: 700 }} title="대장에 App Key 값이 적혀 있지 않습니다">키 미기재</span>}
                   <span>{(k.services ?? []).map(accountServiceLabel).join(" · ") || SDK_ONLY_LABEL}</span>
                   {!linked && k.key && <span style={{ ...S.tag, background: "#fef2f2", color: "#b91c1c", fontWeight: 700 }} title="계정 사용처에서 이 서비스가 빠져 로그인에 쓸 수 없습니다">연동 끊김</span>}
-                  <span>유효 {k.until}</span>
+                  <span title="사용기간은 각 코드 범위(=티켓)마다 지정됩니다 `PC-118`">코드 범위 {rs.length}개</span>
                   <span style={{ flex: 1 }} />
                   <span style={{ fontFamily: "ui-monospace,monospace" }}>{k.createdAt}</span>
-                  <button onClick={() => caster.removeAppKey(k.id)} style={{ ...S.linkBtn, color: "#dc2626" }}>키 삭제</button>
+                  {/* 키 삭제 — 키 전체 제거(지금처럼). 버튼 스타일 `PC-121` */}
+                  <button onClick={() => caster.removeAppKey(k.id)}
+                    style={{ ...S.ghost, padding: "4px 12px", fontSize: 11.5, fontWeight: 600, color: "#dc2626", borderColor: "#fecaca", background: "#fff" }}>키 삭제</button>
                 </div>
                 {/* 코드 범위 목록 — 한 키에 여러 범위 `PC-103` */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
-                  {rs.map((r, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  {rs.map((r, i) => {
+                    // 발급 내역 항목 선택 → 아래 Key 정보에 표시 `PC-120`
+                    const isSel = !!selected && selected.k.id === k.id && selected.i === i;
+                    return (
+                    <div key={i} onClick={() => setSelRange({ keyId: k.id, idx: i })}
+                      title="선택하면 아래 [Key 정보]에 이 발급 내역이 표시됩니다"
+                      style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", cursor: "pointer",
+                        border: `1px solid ${isSel ? "#93c5fd" : "transparent"}`, background: isSel ? "#f0f7ff" : "transparent",
+                        borderRadius: 8, padding: "4px 6px" }}>
+                      <span style={{ color: isSel ? "#2563eb" : "#d1d5db", fontWeight: 700, fontSize: 11 }}>{isSel ? "▸" : "·"}</span>
                       <span style={{ ...S.tag, background: r.pt === "PDS3" ? "#eef6ff" : r.pt === "PDS2" ? "#fef3c7" : "#f3e8ff", color: r.pt === "PDS3" ? "#2563eb" : r.pt === "PDS2" ? "#92400e" : "#7e22ce", fontFamily: "ui-monospace,monospace" }}>{rangeText(r)}</span>
                       <span>{rangeBooks(r) != null ? `${rangeBooks(r)!.toLocaleString()}권` : "권수 —"}</span>
+                      {/* 범위(=티켓)별 사용기간 `PC-118` */}
+                      {(() => { const p = rangePeriod(k, r); return <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }} title="이 코드 범위의 사용기간">{p.since || "즉시"} ~ {p.until}</span>; })()}
                       {r.note && <span style={{ color: "#9ca3af" }}>{r.note}</span>}
                       <span style={{ flex: 1 }} />
-                      {rs.length > 1 && <button onClick={() => caster.removeKeyRange(k.id, i)} style={{ ...S.linkBtn, color: "#dc2626" }}>범위 삭제</button>}
+                      {/* 티켓(=발급 범위)마다 삭제 — 원장 티켓도 함께 제거 `PC-121` */}
+                      <button onClick={(e) => { e.stopPropagation(); delTicket(k, i); }}
+                        style={{ ...S.ghost, padding: "3px 10px", fontSize: 11, color: "#dc2626", borderColor: "#fecaca", background: "#fff" }}>티켓 삭제</button>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
               );
             })}
           </div>
 
-          <SecHead t="Key 정보" d="· 이 계정에 발급된 App Key · 계정당 1개" />
+          {/* 발급 내역에서 선택한 항목(범위=티켓)의 Key 정보 `PC-120` */}
+          <SecHead t="Key 정보" d={selected ? `· 선택한 발급 내역 (${rangeText(selected.r)})` : "· 발급 내역에서 항목을 선택하세요"} />
           {/* N Key 는 이 화면에서 발급하지 않는다 — [N Key 관리] 메뉴에서 다룬다 `PC-068` */}
-          <KeyCard title="App Key" empty="위에서 발급하세요."
-            params={appTicket?.params ?? (myKey ? {
-              // 대장 시드 키는 발급 티켓이 없어 키 자체로 채운다 `PC-103`
-              "Company Name": acc.company, "Account Id": acc.id,
-              Service: (myKey.services ?? []).map(accountServiceLabel).join(" · ") || SDK_ONLY_LABEL,
-              "App Key": myKey.key || "미기재",
-              "Valid Until Time": myKey.until === "무제한" ? "99999999 (무제한)" : myKey.until.replace(/-/g, ""),
-              ...Object.fromEntries(keyRanges(myKey).map((r, i) => [`Range ${i + 1}`, rangeText(r)])),
-              "Ticket Type": myKey.until === "무제한" ? "Unlimited" : "Period",
-            } : undefined)} />
+          {(() => {
+            const params = selected ? (() => {
+              const { k, r } = selected;
+              const p = rangePeriod(k, r);
+              return {
+                "Company Name": acc.company, "Account Id": acc.id,
+                Service: (k.services ?? []).map(accountServiceLabel).join(" · ") || SDK_ONLY_LABEL,
+                "App Key": k.key || "미기재",
+                "Code Type": r.pt,
+                Section: r.section, Owner: r.owner,
+                "Book Start": r.bookStart ?? "-", "Book Volume": rangeBooks(r) ?? "-", "Book End": r.bookEnd ?? "-",
+                "Page Start": r.pageStart ?? "-", "Page Volume": r.pageVol ?? "-", "Page End": r.pageEnd ?? "-",
+                "Valid From Time": p.since ? p.since.replace(/-/g, "") : "즉시",
+                "Valid Until Time": p.until === "무제한" ? "99999999 (무제한)" : (p.until || "").replace(/-/g, ""),
+                "Ticket Type": p.until === "무제한" ? "Unlimited" : "Period",
+              } as Record<string, string | number>;
+            })() : undefined;
+            return <KeyCard title="App Key" empty="위에서 App Key 를 발급하세요." params={params} />;
+          })()}
         </div>
 
         {/* 이동·저장 버튼은 화면 맨 아래에 모은다 `PC-069` */}

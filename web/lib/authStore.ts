@@ -32,6 +32,15 @@ let seq = 1000;
 const nid = () => ++seq;
 const today = () => new Date().toISOString().slice(0, 10);
 
+// 프로토타입 데모 세션 쿠키 — 미들웨어가 SSO 세션 대신 인정한다 `PC-116`.
+//   실 서비스용이 아니라 Google 없이 프로토타입을 열람/시연하기 위한 통로.
+function setDemoCookie(on: boolean) {
+  if (typeof document === "undefined") return;
+  document.cookie = on
+    ? "ncc_demo=1; path=/; max-age=86400; samesite=lax"
+    : "ncc_demo=; path=/; max-age=0; samesite=lax";
+}
+
 function persist() { if (typeof window !== "undefined") { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* */ } } }
 function commit(next: AuthState) { state = next; persist(); subs.forEach((f) => f()); }
 function hydrate() {
@@ -43,6 +52,9 @@ function hydrate() {
       state = JSON.parse(raw);
       const cur = state.currentEmail ? state.users.find((u) => u.email === state.currentEmail) : null;
       if (cur) setActivityActor(cur.name);   // 새로고침해도 활동 기록 작성자 유지
+      // 로그인 상태(currentEmail)면 데모 세션 쿠키를 다시 세워 미들웨어 게이트와 일치시킨다 `PC-116`.
+      //   (쿠키 만료 등으로 어긋나면 /login ↔ 게이트 리다이렉트 루프 = 화면 사라짐 → 방지)
+      setDemoCookie(!!cur);
       subs.forEach((f) => f());
     }
   } catch { /* */ }
@@ -96,14 +108,28 @@ export const auth = {
     if (u.password !== password) return { ok: false, msg: "비밀번호가 일치하지 않습니다. (초기 비밀번호 = 이메일)" };
     commit({ ...state, currentEmail: u.email });
     setActivityActor(u.name);
+    setDemoCookie(true);   // 데모 세션 → 미들웨어(SSO 게이트) 통과 `PC-116`
     try { localStorage.setItem("ncc-last-email", u.email); } catch { /* */ }   // 재로그인 시 계정 기억
     logActivity("login", `일반 접속 · ${u.email}`, u.name);
     return { ok: true, msg: `${u.name}(${u.role})으로 로그인` };
+  },
+  // 프로토타입 데모 로그인 — Google/비밀번호 없이 즉시 입장(관리자 우선) `PC-116`.
+  //   실제 데이터가 아니라 시연·검토용 통로. 데모 세션 쿠키를 심어 미들웨어(SSO 게이트)를 통과한다.
+  demoLogin(): { ok: boolean; msg: string } {
+    const u = state.users.find((x) => x.role === "ADMIN" && x.enabled)
+      ?? state.users.find((x) => x.enabled) ?? state.users[0];
+    if (!u) return { ok: false, msg: "데모로 로그인할 계정이 없습니다." };
+    commit({ ...state, currentEmail: u.email });
+    setActivityActor(u.name);
+    setDemoCookie(true);
+    logActivity("login", `프로토타입 데모 접속 · ${u.email}`, u.name);
+    return { ok: true, msg: `${u.name}(${u.role})으로 데모 로그인` };
   },
   logout() {
     const u = state.currentEmail ? state.users.find((x) => x.email === state.currentEmail) : null;
     if (u) logActivity("logout", `로그아웃 · ${u.email}`, u.name);
     setActivityActor("");
+    setDemoCookie(false);   // 데모 세션 쿠키 제거
     commit({ ...state, currentEmail: null });
   },
 

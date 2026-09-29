@@ -69,7 +69,9 @@ export const store = {
   upsertCompany(c: Company): number {
     if (c.id) { commit({ ...state, companies: state.companies.map((x) => (x.id === c.id ? c : x)) }); return c.id; }
     const id = Math.max(0, ...state.companies.map((x) => x.id)) + 1;
-    commit({ ...state, companies: [{ ...c, id }, ...state.companies] });
+    // 신규 등록 고객사는 등록 시각을 남겨 목록 상단(최근순)에 오르게 한다 `PC-119`
+    const createdAt = c.createdAt || new Date().toISOString().slice(0, 10);
+    commit({ ...state, companies: [{ ...c, id, createdAt }, ...state.companies] });
     return id;
   },
   deleteCompany(id: number) {

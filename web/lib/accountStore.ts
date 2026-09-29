@@ -88,8 +88,10 @@ export type CasterAccount = {
   addr: string;
   homepage: string;
   phone?: string;
-  since?: string;      // 사용기간 시작 (YYYY-MM-DD) `PC-103`
-  until?: string;      // 사용기간 끝 (YYYY-MM-DD / "무제한" / "") `PC-103`
+  /** @deprecated 사용기간은 **App Key(티켓)별 기간**으로 이동했다 `PC-117` — 계정 속성이 아니다. 옛 데이터 호환용으로만 남긴다(hydrate 에서 App Key.since 로 옮긴다). */
+  since?: string;
+  /** @deprecated `PC-117` — App Key.until 로 이동. */
+  until?: string;
   seeded?: boolean;    // 개발팀 대장에서 들어온 계정 — 비밀번호는 저장하지 않았다(「대장 참조」) `PC-103`
   note?: string;       // 대장의 안내문(영업용 테스트 계정 등)
   createdAt: string;
@@ -115,6 +117,11 @@ export type KeyRange = {
   bookStart: number | null; bookEnd: number | null; bookVol?: number;
   pageStart: number | null; pageEnd: number | null; pageVol?: number;
   count?: number | null;   // 대장의 수량(권수)
+  // 사용기간 — **범위(=티켓)별로 유지되는 기간** `PC-118`. 범위를 추가(=발급)할 때 함께 지정한다.
+  //   비어 있으면 App Key 의 since/until 로 대체(대장 시드 호환).
+  since?: string;          // 사용기간 시작 (YYYY-MM-DD)
+  until?: string;          // 사용기간 끝 (YYYY-MM-DD / "무제한")
+  ticketId?: number;       // 원장(Key 발급 목록) 티켓 id — [티켓 삭제] 시 함께 제거 `PC-121`
   note?: string;
 };
 export type AppKey = {
@@ -129,7 +136,9 @@ export type AppKey = {
   bookVol: number;     // Book Volume — 발급 권수 (bookEnd = bookStart + bookVol - 1)
   pageStart: number; pageEnd: number;
   pageVol?: number;    // Page Volume — 발급 페이지 수 (pageEnd = pageStart + pageVol - 1) `PC-059`
-  until: string;       // 만료(YYYY-MM-DD) / "무제한"
+  // 사용기간 — **티켓(발급)별로 유지되는 기간** `PC-117`. 계정 속성이 아니다(재발급 시 새 기간).
+  since?: string;      // 사용기간 시작 (YYYY-MM-DD)
+  until: string;       // 사용기간 끝 (만료 YYYY-MM-DD) / "무제한"
   createdAt: string;
   /** @deprecated 사용처별 키였던 시절 필드 — hydrate 에서 services 로 옮긴다 */
   service?: AccountService;
@@ -158,6 +167,11 @@ export const rangeText = (r: KeyRange) =>
   `${r.pt} S${span(r.section, r.sectionEnd)}/O${span(r.owner, r.ownerEnd)}/B${span(r.bookStart, r.bookEnd)}/P${span(r.pageStart, r.pageEnd)}`;
 export const rangeBooks = (r: KeyRange) =>
   r.count ?? (r.bookStart != null && r.bookEnd != null ? r.bookEnd - r.bookStart + 1 : null);
+// 범위(=티켓)의 사용기간 — 범위에 없으면 App Key 의 기간으로 대체(대장 시드) `PC-118`
+export const rangePeriod = (k: { since?: string; until?: string }, r: KeyRange) => ({
+  since: r.since ?? k.since ?? "",
+  until: r.until ?? k.until ?? "무제한",
+});
 type State = { accounts: CasterAccount[]; appKeys: AppKey[] };
 
 const KEY = "ncc-caster-v1";
@@ -187,6 +201,11 @@ function migrate(s: State): State {
   });
   // App Key: 사용처별(service) → 계정 공통(services) `PC-050`
   const appKeys = s.appKeys.map((k) => {
+    // 사용기간을 계정 → App Key(티켓)로 이관 `PC-117` (옛 데이터: 계정에만 since 가 있던 경우)
+    if (k.since === undefined) {
+      const acc0 = s.accounts.find((a) => a.id === k.accountId);
+      if (acc0?.since) k = { ...k, since: acc0.since };
+    }
     if (k.seeded) return k;                                   // 대장 시드는 키 값을 다시 만들지 않는다 `PC-103`
     if (k.services?.length && isAppKey(k.key)) return { ...k, services: dropSdk(k.services) };
     if (k.services?.length) return { ...k, key: genAppKey(), services: dropSdk(k.services) };   // 키 형식만 갱신 `PC-066`
@@ -227,7 +246,7 @@ function seedFromLedger(s: State): State {
       id, services, settings: permKeys.length ? { CASTERN: { perms: on } } : {},
       pwd: "", name: r.name || "", companyId: r.companyId, company: r.company,
       addr: r.addr || "", homepage: r.homepage || "", phone: r.phone || "",
-      since: r.since || "", until: r.until || "", seeded: true, note: r.note || "",
+      seeded: true, note: r.note || "",   // 사용기간은 App Key(티켓)로 옮겼다 `PC-117`
       createdAt: r.since ? `${r.since} 00:00:00` : "대장",
     });
     if (r.ranges.length || r.appKey) {
@@ -238,7 +257,7 @@ function seedFromLedger(s: State): State {
         pt: f?.pt ?? "PDS3", section: f?.section ?? 0, owner: f?.owner ?? 0,
         bookStart: f?.bookStart ?? 0, bookEnd: f?.bookEnd ?? 0, bookVol: rangeBooks(f ?? { pt: "", section: 0, owner: 0, bookStart: null, bookEnd: null, pageStart: null, pageEnd: null }) ?? 0,
         pageStart: f?.pageStart ?? 0, pageEnd: f?.pageEnd ?? 0,
-        until: r.until || "무제한", createdAt: r.since ? `${r.since} 00:00:00` : "대장",
+        since: r.since || "", until: r.until || "무제한", createdAt: r.since ? `${r.since} 00:00:00` : "대장",   // 사용기간=티켓 기간 `PC-117`
       });
     }
   }

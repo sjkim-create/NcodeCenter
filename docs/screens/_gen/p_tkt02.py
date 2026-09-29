@@ -26,16 +26,19 @@ PERMS = ('프로젝트 생성 ' + _KEY % 'project_new', '심볼 편집 ' + _KEY 
 # 상세 화면의 App Key — 계정당 1개 · 인증 서비스 전체 공통 `PC-050`
 #   (키, 인증 서비스, 유효, 생성일시, 범위 목록[(코드종류, 'S/O/B/P', 권수), ...])
 #   한 키에 코드 범위를 **여러 개** 물릴 수 있다 `PC-103`
+# 상세 화면의 App Key — 계정당 1개. 한 키에 **코드 범위(=티켓)를 여러 개** 물린다 `PC-118`.
+#   범위 튜플 = (코드종류, 'S/O/B/P', 권수, 사용기간) — **기간은 티켓(범위)마다** 유지 `PC-118`
 KEYS = (('7Kq3xF9dR2mA8pZ1vT6bN4sJ0wG5c', 'CasterN · 폼솔루션', '2027-12-31', '2026-08-20 14:02',
-         [('PDS2', 'S3/O17/B400~499/P1~512', '100권')]),)
+         [('PDS2', 'S3/O17/B400~499/P1~512', '100권', '2026-08-20 ~ 2027-12-31'),
+          ('PDS3', 'S3/O111/B1~50/P0~511', '50권', '2026-09-01 ~ 2027-09-01')]),)
 # 대장 시드 키 — 네오랩 (키 값 미기재 · 범위 6개) `PC-103`
 LEDGER_KEYS = (('', 'CasterN', '무제한', '대장',
-                [('PDS2', 'S0/O0~524287/B0~8191/P0~1024', '8,192권'),
-                 ('PDS2', 'S3/O0~4095/B0~8191/P0~4095', '8,192권'),
-                 ('PDS3', 'S0/O0~1023/B0~16384/P0~4095', '16,385권'),
-                 ('PDS3', 'S3/O0~1023/B0~8191/P0~511', '8,192권'),
-                 ('PDS3', 'S5/O0~255/B0~4096/P0~262143', '4,097권'),
-                 ('PDS4', 'S44/O27/B0~3/P0~255', '1,024권')]),)
+                [('PDS2', 'S0/O0~524287/B0~8191/P0~1024', '8,192권', '즉시 ~ 무제한'),
+                 ('PDS2', 'S3/O0~4095/B0~8191/P0~4095', '8,192권', '즉시 ~ 무제한'),
+                 ('PDS3', 'S0/O0~1023/B0~16384/P0~4095', '16,385권', '즉시 ~ 무제한'),
+                 ('PDS3', 'S3/O0~1023/B0~8191/P0~511', '8,192권', '즉시 ~ 무제한'),
+                 ('PDS3', 'S5/O0~255/B0~4096/P0~262143', '4,097권', '즉시 ~ 무제한'),
+                 ('PDS4', 'S44/O27/B0~3/P0~255', '1,024권', '즉시 ~ 무제한')]),)
 
 
 def acc_tabs(active='계정 정보'):
@@ -136,35 +139,86 @@ def until_field(unlimited=True):
                  '</label></div>')
 
 
+def period_fields():
+    """코드 범위(=티켓) 발급 시 함께 지정하는 사용기간 시작~끝 `PC-118`"""
+    return (field('사용기간 시작', '<div class="inp ph">yyyy-mm-dd</div>')
+            + field('사용기간 끝 (만료)',
+                    '<div style="display:flex;gap:8px;align-items:center">'
+                    '<div class="inp ph">yyyy-mm-dd</div>'
+                    '<label style="font-size:12.5px;color:#374151;display:flex;'
+                    'align-items:center;gap:4px;white-space:nowrap">'
+                    '<input type="checkbox" checked> 무제한</label></div>'))
+
+
 PT_BG = {'PDS2': ('#fef3c7', '#92400e'), 'PDS3': ('#eef6ff', '#2563eb'), 'PDS4': ('#f3e8ff', '#7e22ce')}
 
 
-def key_rows(keys=None):
-    """발급 내역 — 키 한 줄 + 그 키에 물린 **코드 범위 목록** `PC-103`"""
+def _del_btn(label):
+    return ('<span class="btn gho" style="padding:3px 10px;font-size:11px;color:#dc2626;'
+            'border-color:#fecaca;background:#fff">' + label + '</span>')
+
+
+def key_rows(keys=None, sel=(0, 0)):
+    """발급 내역 — 키 한 줄 + 그 키에 물린 **코드 범위(=티켓) 목록** `PC-118`·`PC-121`.
+       각 티켓마다 [티켓 삭제](원장 티켓도 함께 제거), 키 헤더에 [키 삭제](버튼). 선택된 티켓은 파란 강조.
+       sel = (키index, 범위index) — 선택된 발급 내역(아래 Key 정보에 표시)"""
     rows = ''
-    for k, svc, until, at, ranges in (KEYS if keys is None else keys):
+    for ki, (k, svc, until, at, ranges) in enumerate(KEYS if keys is None else keys):
         key_html = ('<code>' + k + '…</code>' if k
                     else tag('키 미기재', '#fef3c7', '#92400e'))   # 대장에 키 값이 없다 `PC-103`
         at_html = (tag('대장', '#f0fdfa', '#0f766e') if at == '대장' else '<code>' + at + '</code>')
         lines = ''
-        for pt, sobp, books in ranges:
+        for ri, r in enumerate(ranges):
+            pt, sobp, books = r[0], r[1], r[2]
+            period = r[3] if len(r) > 3 else '즉시 ~ 무제한'
             bg, fg = PT_BG.get(pt, PT_BG['PDS3'])
-            lines += ('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+            on = (ki, ri) == sel
+            mark = ('<span style="color:%s;font-weight:700;font-size:11px">%s</span>'
+                    % ('#2563eb' if on else '#d1d5db', '▸' if on else '·'))
+            lines += ('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;'
+                      'cursor:pointer;border:1px solid %s;background:%s;border-radius:8px;'
+                      'padding:4px 6px">' % ('#93c5fd' if on else 'transparent',
+                                             '#f0f7ff' if on else 'transparent')
+                      + mark
                       + tag(pt + ' ' + sobp, bg, fg, False).replace('<span style="',
                           '<span style="font-family:ui-monospace,monospace;', 1)
-                      + '<span>' + books + '</span><span style="flex:1"></span>'
-                      + ('<span class="lnk" style="color:#dc2626">범위 삭제</span>'
-                         if len(ranges) > 1 else '') + '</div>')
+                      + '<span>' + books + '</span>'
+                      + tag(period, '#eef6ff', '#2563eb')          # 티켓별 사용기간 `PC-118`
+                      + '<span style="flex:1"></span>' + _del_btn('티켓 삭제') + '</div>')
         rows += ('<div style="border:1px solid #eef0f4;border-radius:9px;padding:8px 10px;'
                  'font-size:11.5px;color:#6b7280">'
                  '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-                 + key_html + '<span>' + svc + '</span><span>유효 ' + until + '</span>'
-                 '<span style="flex:1"></span>' + at_html
-                 + '<span class="lnk" style="color:#dc2626">키 삭제</span></div>'
+                 + key_html + '<span>' + svc + '</span>'
+                 + tag('코드 범위 %d개' % len(ranges), '#eef6ff', '#2563eb')
+                 + '<span style="flex:1"></span>' + at_html
+                 + _del_btn('키 삭제') + '</div>'
                  '<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">'
                  + lines + '</div></div>')
     return ('<div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">'
             + rows + '</div>')
+
+
+def key_info_card(keys=None, sel=(0, 0)):
+    """Key 정보 — 발급 내역에서 **선택한 티켓(범위)** 의 값을 표시 `PC-120`"""
+    src = KEYS if keys is None else keys
+    ki, ri = sel
+    k, svc, _u, _a, ranges = src[ki]
+    pt, sobp, books = ranges[ri][0], ranges[ri][1], ranges[ri][2]
+    period = ranges[ri][3] if len(ranges[ri]) > 3 else '즉시 ~ 무제한'
+    kv = [('Company Name', '웅진씽크빅'), ('Account Id', 'wj_edit@wjthinkbig.com'),
+          ('Service', svc), ('App Key', (k + '…') if k else '미기재'),
+          ('Code Type', pt), ('코드 범위', sobp), ('권수', books), ('사용기간', period),
+          ('Ticket Type', 'Unlimited' if '무제한' in period else 'Period')]
+    rows = ''.join('<div style="display:flex;gap:8px;padding:5px 11px;font-size:11.5px;'
+                   'border-top:1px solid #f6f7f9"><span style="color:#6b7280;min-width:108px;'
+                   'font-family:ui-monospace,monospace">%s</span>'
+                   '<span style="color:#111827;word-break:break-all">%s</span></div>' % kvp
+                   for kvp in kv)
+    return ('<div style="margin-top:14px">' + step(5, 'Key 정보', '선택한 발급 내역 (%s %s)' % (pt, sobp))
+            + '<div style="border:1px solid #eef0f4;border-radius:10px;overflow:hidden">'
+            '<div style="display:flex;align-items:center;gap:6px;padding:8px 11px;'
+            'background:#fafbfc;border-bottom:1px solid #eef0f4"><b style="font-size:12.5px">App Key</b>'
+            + tag('발급됨', '#eef6ff', '#2563eb') + '</div>' + rows + '</div></div>')
 
 
 def result_box():
@@ -277,18 +331,21 @@ def appkey_block(mode='new', withkey=False, rng='closed', issued=False, has=True
                 + '<div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:12px;'
                   'margin-top:12px">' + book_fields() + until_field() + '</div>'
                 + (range_note() if rng != 'closed' else '') + '</div>')
-    if has:      # 이미 발급된 키가 있는 계정 — 새 키는 못 만들고 **코드 범위를 더 물린다** `PC-103`
-        return ('<div style="font-size:11.5px;color:#6b7280;margin-bottom:5px">코드 범위 추가 — '
-                'SOBP 맵에서 발급된 S / O <span style="color:#9ca3af">(고르면 Book 범위가 따라옵니다)'
+    if has:      # 이미 키가 있는 계정 — 코드 범위(=티켓)를 더 발급, **범위마다 사용기간** 지정 `PC-118`
+        return ('<div style="font-size:11.5px;color:#6b7280;margin-bottom:5px">코드 범위 발급 — '
+                'SOBP 맵에서 발급된 S / O <span style="color:#9ca3af">(고르면 Book 범위가 따라옵니다 · 사용기간을 함께 지정)'
                 '</span></div>' + picker(rng)
                 + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;'
                   'margin-top:12px">' + book_fields()
                 + field('Start Page', sel('1 (기본)')) + field('Page 볼륨', '<div class="inp">512</div>')
-                + '</div><div style="display:flex;align-items:center;gap:10px;margin-top:10px">'
-                + ('<span style="font-size:11.5px;color:#6b7280">추가 범위 <b>PDS2 S3/O17/B400~499</b> '
-                   '· 100권 · <b>P1~512</b></span>' if rng != 'closed' else '')
+                + '</div>'
+                + '<div style="display:grid;grid-template-columns:0.9fr 1fr 1.4fr;gap:10px;margin-top:10px">'
+                + field('Code Type', sel('PDS2')) + period_fields() + '</div>'
+                + '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">'
+                + ('<span style="font-size:11.5px;color:#6b7280">발급 범위 <b>PDS2 S3/O17/B400~499</b> '
+                   '· 100권 · <b>P1~512</b> · 기간 즉시~무제한</span>' if rng != 'closed' else '')
                 + '<span style="flex:1"></span><div class="btn '
-                + ('pri' if rng != 'closed' else 'dis') + '">범위 추가</div></div>')
+                + ('pri' if rng != 'closed' else 'dis') + '">코드 범위 발급</div></div>')
     btn = ('<div style="display:grid;grid-template-columns:1fr 1fr 1.4fr auto;gap:12px;'
            'align-items:end;margin-top:12px">' + book_fields() + until_field()
            + '<div class="btn ' + ('pri' if rng != 'closed' else 'dis')
@@ -297,9 +354,11 @@ def appkey_block(mode='new', withkey=False, rng='closed', issued=False, has=True
             + (result_box() if issued else ''))
 
 
-def key_history(broken=False, seeded=False):
-    """③ App Key 발급 내역 — 조회·삭제·범위 삭제. seeded = 대장 키(네오랩) `PC-103`"""
-    rows = key_rows(LEDGER_KEYS if seeded else None)
+def key_history(broken=False, seeded=False, sel=(0, 0)):
+    """③ App Key 발급 내역 — 코드 범위 발급 + 티켓별 [티켓 삭제]·[키 삭제] + 선택→Key 정보.
+       seeded = 대장 키(네오랩) `PC-103`. sel = 선택된 티켓(범위) → 아래 Key 정보에 표시 `PC-120`"""
+    keys = LEDGER_KEYS if seeded else None
+    rows = key_rows(keys, sel=sel)
     if broken:
         rows = rows.replace('CasterN', 'CasterN</span> '
                             '<span style="font-size:11px;background:#fef2f2;color:#b91c1c;'
@@ -309,7 +368,7 @@ def key_history(broken=False, seeded=False):
             + step(4, 'App Key 발급 내역', '발급된 키 1개')
             + '<div style="margin-bottom:12px">' + appkey_block('edit', has=True)
             + '</div>'
-            + rows + '</div>')
+            + rows + key_info_card(keys, sel=sel) + '</div>')
 
 
 def new_form(picked=('CasterN',), tab='CasterN', perms=None, withkey=False, rng='closed',
@@ -343,7 +402,7 @@ def new_form(picked=('CasterN',), tab='CasterN', perms=None, withkey=False, rng=
 
 
 def edit_form(picked=('CasterN',), tab='CasterN', perms=None, rng='closed', issued=False,
-              toast=None, broken=False, seeded=False):
+              toast=None, broken=False, seeded=False, sel=(0, 0)):
     inner = perms_only(perms)          # App Key 는 탭 밖 ③ 단계 `PC-050`
     panel = svc_panel(tab, tab in picked,
                       dict((n, r) for n, _d, r in SERVICES)[tab], inner)
@@ -366,7 +425,7 @@ def edit_form(picked=('CasterN',), tab='CasterN', perms=None, rng='closed', issu
     if toast:
         body += ('<div style="margin-top:10px;font-size:12.5px;color:#047857;'
                  'text-align:right">' + toast + '</div>')
-    body += key_history(broken, seeded)
+    body += key_history(broken, seeded, sel=sel)
     return '<div style="max-width:900px"><div class="card"><div class="bd">' + body \
            + '</div></div></div>'
 
@@ -498,9 +557,9 @@ def build():
         scr_edit(),
         [('① ID · 고객사', '표시', '<b>잠금</b>', '키 연동 기준값'),
          ('② 탭 구조', '조회', '등록과 동일', 'CasterN 탭에 App Key 발급'),
-         ('③ 발급 내역', '조회', '—',
-          '키 앞부분 · 인증 서비스 · 유효 기한 · 생성 일시 · [키 삭제] · 그 아래 <b>코드 범위 목록</b> '
-          '<code>PC-103</code>(범위가 2개 이상이면 [범위 삭제])'),
+         ('③ 발급 내역', '조회·선택', '아래 Key 정보 갱신',
+          '키 헤더(키·인증 서비스·<b>코드 범위 N개</b>·[키 삭제] 버튼) + 그 아래 <b>티켓(범위)별</b> 줄 — '
+          'SOBP·권수·<b>사용기간</b>·[티켓 삭제]. 줄을 <b>선택</b>하면 아래 <b>Key 정보</b>가 그 티켓으로 바뀐다 <code>PC-120</code>'),
          ('[저장]', '클릭', '반영', '<b>계정 정보가 저장되었습니다.</b>'),
          ('[계정 삭제]', '클릭', '확인창', 'S11')] + NAV))
 
@@ -517,23 +576,32 @@ def build():
           '<b>B{Start}~{Start+Volume−1}</b> 로 발급된다 <code>PC-050</code>'),
          ('발급 결과', '표시', '—', '계정 ID · PWD · App Key'),
          ('[전체 복사]', '클릭', '복사', '<b>계정·키 정보가 복사되었습니다.</b>'),
-         ('재발급', '—', '<b>불가</b>',
-          '계정당 1개 — 범위를 바꾸려면 <b>키를 삭제한 뒤</b> 다시 발급한다'),
+         ('원장 티켓', '자동', '<code>TKT-03</code> 등록',
+          '발급(=티켓)마다 원장에 1건 남는다 <code>PC-119</code> · [티켓 삭제] 시 함께 제거 <code>PC-121</code>'),
          ('자동 기록', '—', '<code>TKT-03</code> · <code>LOG-01</code>', '발급 이력·활동 로그')]))
 
     B.append((
-        'S10', '이미 발급된 계정 — 코드 범위 추가', '분기',
-        'App Key 는 <b>계정당 1개</b>다 <code>PC-050</code>. 이미 키가 있으면 발급 폼 자리에 '
-        '<b>코드 범위 추가</b> 폼이 나온다 <code>PC-103</code> — 같은 키에 S/O/B/P 범위를 더 물린다'
-        '(대장에서 한 계정이 PDS2·PDS3 를 함께 쓰거나 Book 구간을 여러 번 받은 경우). '
-        '키 자체를 바꾸려면 <b>키를 삭제한 뒤</b> 다시 발급한다. '
-        '(인증 서비스를 빼도 키 연동은 끊기지 않는다 — 「연동 끊김」 처리는 폐지)',
-        scr_edit(picked=('폼솔루션',), tab='CasterN', rng='sel', h=1600),
-        [('코드 범위 추가', '표시', '범위 선택 + Book·Page', '발급 폼과 같은 입력 · 만료일은 키 공통이라 없음'),
-         ('[범위 추가]', '클릭', '내역에 줄 추가', '범위 선택 전에는 <b>비활성</b> · <code>LOG-01</code> 기록'),
-         ('[범위 삭제]', '클릭', '그 범위만 삭제', '범위가 2개 이상일 때만 · 마지막 하나는 [키 삭제]로'),
-         ('[키 삭제]', '클릭', '발급 폼 복귀', '삭제 후 새 범위로 다시 발급한다'),
-         ('사용처 변경', '저장', '키 유지', '키는 인증 서비스 전체 공통이라 영향 없음')]))
+        'S10', '이미 발급된 계정 — 코드 범위(티켓) 발급', '분기',
+        'App Key 는 <b>계정당 1개</b>이고 <code>PC-050</code>, 그 아래 <b>코드 범위(=티켓)를 여러 건</b> 발급한다 '
+        '<code>PC-118</code>. 발급 폼에서 SOBP·Book·Page와 함께 <b>사용기간(시작~끝)을 지정</b>한다 — 기간은 '
+        '<b>티켓마다</b> 유지된다. 삭제는 두 가지 — <b>[티켓 삭제]</b>(그 티켓 + 연결 원장 티켓 <code>PC-121</code>)와 '
+        '<b>[키 삭제]</b>(버튼 · 키 전체). 재발급 개념은 폐지됐다.',
+        scr_edit(picked=('폼솔루션',), tab='CasterN', rng='sel', h=1750),
+        [('코드 범위 발급', '표시', '범위 선택 + Book·Page + <b>사용기간</b>', '기간은 티켓마다 지정 <code>PC-118</code>'),
+         ('[코드 범위 발급]', '클릭', '티켓 추가 + 원장 티켓', '범위 선택 전 <b>비활성</b> · <code>TKT-03</code>·<code>LOG-01</code> 기록'),
+         ('[티켓 삭제]', '클릭', '그 티켓만 삭제', '티켓마다 · 연결 원장 티켓도 함께 <code>PC-121</code> · 마지막이면 키도 함께'),
+         ('[키 삭제]', '클릭', '키 전체 삭제', '<b>버튼</b> · 키와 모든 티켓 제거(지금처럼)'),
+         ('발급 내역 선택', '클릭', 'Key 정보 갱신', '선택 티켓이 아래 Key 정보에 표시 <code>PC-120</code>')]))
+
+    B.append((
+        'S13', '발급 내역 선택 → Key 정보', '분기',
+        '<code>PC-120</code> — [App Key 발급 내역]의 <b>각 티켓(코드 범위)을 선택</b>하면(▸ 파란 강조) 아래 '
+        '<b>Key 정보</b>가 그 티켓의 값(Company · Account · Service · App Key · Code Type · S/O · B/P · '
+        '<b>사용기간</b> · Ticket Type)으로 갱신된다. <b>기본 선택은 첫 티켓</b>이다.',
+        scr_edit(sel=(0, 1), h=1750),
+        [('발급 내역 티켓', '클릭', 'Key 정보 갱신', '선택 티켓 파란 강조 ▸'),
+         ('기본 선택', '표시', '첫 티켓', '진입 시 첫 발급 내역이 선택됨'),
+         ('Key 정보', '조회', '선택 티켓 값', 'Valid From·Until = 그 티켓의 사용기간 <code>PC-118</code>')]))
 
     B.append((
         'S11', '계정 삭제 확인', '차단',
