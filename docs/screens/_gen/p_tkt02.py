@@ -108,17 +108,13 @@ def acct_inputs(edit=False, err=None, empty=True, seeded=False):
                    not seeded)
            + field('ADDR (주소)', '<div class="inp">' + addr + '</div>')
            + field('HOMEPAGE', '<div class="inp">' + home + '</div>'))
-    if edit:        # 사용기간 — 대장의 「사용기간」 `PC-103` (상세에만)
-        out += (field('사용기간 시작', '<div class="inp ph">yyyy-mm-dd</div>')
-                + field('사용기간 끝',
-                        '<div style="display:flex;gap:8px;align-items:center">'
-                        '<div class="inp" style="opacity:' + ('.5' if seeded else '1') + '">'
-                        + ('yyyy-mm-dd' if seeded else '2027-12-31') + '</div>'
-                        '<label style="font-size:12.5px;color:#374151;display:flex;'
-                        'align-items:center;gap:4px;white-space:nowrap">'
-                        '<input type="checkbox"' + (' checked' if seeded else '') + '> 무제한'
-                        '</label></div>'))
-    return out + '</div>'
+    html = out + '</div>'
+    if edit:        # 사용기간은 계정이 아니라 **코드 범위(=티켓)별 기간** 으로 이동 `PC-118`
+        html += ('<div style="margin-top:10px;font-size:11.5px;color:#6b7280;background:#fafbfc;'
+                 'border:1px solid #eef0f4;border-radius:9px;padding:8px 11px">'
+                 '사용기간(시작·끝)은 계정 속성이 아니라 <b>코드 범위(=티켓)마다 유지되는 기간</b>입니다. '
+                 '<b>[App Key 발급]</b> 탭에서 코드 범위를 발급할 때 함께 지정합니다.</div>')
+    return html
 
 
 def book_fields(start='400', vol='100'):
@@ -328,8 +324,12 @@ def appkey_block(mode='new', withkey=False, rng='closed', issued=False, has=True
         if not withkey:
             return chk
         return (chk + '<div style="margin-top:10px">' + picker(rng)
-                + '<div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:12px;'
-                  'margin-top:12px">' + book_fields() + until_field() + '</div>'
+                + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;'
+                  'margin-top:12px">' + book_fields()
+                + field('Start Page', sel('1 (기본)')) + field('Page 볼륨', '<div class="inp">512</div>')
+                + '</div>'
+                + '<div style="display:grid;grid-template-columns:0.9fr 1fr 1.4fr;gap:10px;margin-top:10px">'
+                + field('Code Type', sel('PDS3')) + period_fields() + '</div>'
                 + (range_note() if rng != 'closed' else '') + '</div>')
     if has:      # 이미 키가 있는 계정 — 코드 범위(=티켓)를 더 발급, **범위마다 사용기간** 지정 `PC-118`
         return ('<div style="font-size:11.5px;color:#6b7280;margin-bottom:5px">코드 범위 발급 — '
@@ -354,9 +354,34 @@ def appkey_block(mode='new', withkey=False, rng='closed', issued=False, has=True
             + (result_box() if issued else ''))
 
 
-def key_history(broken=False, seeded=False, sel=(0, 0)):
-    """③ App Key 발급 내역 — 코드 범위 발급 + 티켓별 [티켓 삭제]·[키 삭제] + 선택→Key 정보.
-       seeded = 대장 키(네오랩) `PC-103`. sel = 선택된 티켓(범위) → 아래 Key 정보에 표시 `PC-120`"""
+# 화면은 **탭 3개(계정 정보 · 인증 서비스 및 권한 · App Key 발급)** 로, 실제 앱처럼
+# 한 번에 **한 탭의 내용만** 보인다 `PC-062`. 각 상태 보드는 active 로 그 탭을 지정한다.
+
+
+def svc_panel_block(picked, tab, perms, edit=False):
+    """② 인증 서비스 및 권한 탭 내용"""
+    sp = svc_panel(tab, tab in picked, dict((n, r) for n, _d, r in SERVICES)[tab], perms_only(perms))
+    note = ('App Key 는 <b>인증 서비스 전체에 공통</b>이라 인증 서비스를 바꿔도 키는 그대로입니다 <code>PC-050</code>. '
+            if edit else
+            '인증 서비스는 <b>중복 선택</b>할 수 있습니다. 여러 서비스를 선택하면 '
+            '<b>한 계정으로 각 서비스에 로그인</b>합니다. ')
+    return (step(2, '인증 서비스 및 권한', '탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다')
+            + '<div style="font-size:10.5px;color:#9ca3af;margin-bottom:6px;line-height:1.5">'
+            + note + '선택 <b>' + str(len(picked)) + '</b> / 2</div>'
+            + svc_tabs(picked, tab, sp))
+
+
+def appkey_new_panel(withkey, rng):
+    """App Key 발급 탭(등록) — 계정과 함께 발급할지 선택"""
+    return (step(2, 'App Key 발급', '인증 서비스 전체 공통 · 계정당 1개 · 선택')
+            + '<div style="font-size:10.5px;color:#9ca3af;margin-bottom:8px;line-height:1.5">'
+              'App Key 는 <b>계정당 1개</b>이며 <b>인증 서비스 전체에 공통</b>입니다 <code>PC-050</code>. '
+              '체크하면 할당 SOBP 범위·Book·<b>사용기간</b>을 지정해 함께 발급합니다.</div>'
+            + appkey_block('new', withkey, rng))
+
+
+def appkey_edit_panel(broken=False, seeded=False, sel=(0, 0), issued=False):
+    """App Key 발급 탭(상세) — 코드 범위(=티켓) 발급 폼 + 발급 내역 + Key 정보"""
     keys = LEDGER_KEYS if seeded else None
     rows = key_rows(keys, sel=sel)
     if broken:
@@ -364,34 +389,26 @@ def key_history(broken=False, seeded=False, sel=(0, 0)):
                             '<span style="font-size:11px;background:#fef2f2;color:#b91c1c;'
                             'border-radius:5px;padding:2px 7px;font-weight:700">연동 끊김',
                             1)
-    return ('<div style="margin-top:18px;border-top:1px solid #eef0f4;padding-top:14px">'
-            + step(4, 'App Key 발급 내역', '발급된 키 1개')
-            + '<div style="margin-bottom:12px">' + appkey_block('edit', has=True)
-            + '</div>'
+    return (step(2, 'App Key 발급', '계정당 1개 · 발급된 키 1개 · 코드 범위(=티켓)마다 사용기간')
+            + appkey_block('edit', has=True)
+            + (result_box() if issued else '')
+            + '<div style="margin-top:18px;border-top:1px solid #eef0f4;padding-top:14px">'
+            + step(0, 'App Key 발급 내역', '발급된 키 1개 · 티켓 선택 → 아래 Key 정보')
             + rows + key_info_card(keys, sel=sel) + '</div>')
 
 
-def new_form(picked=('CasterN',), tab='CasterN', perms=None, withkey=False, rng='closed',
-             err=None, empty=True, toast=None):
-    inner = perms_only(perms)          # App Key 는 탭 밖 ③ 단계 `PC-050`
-    panel = svc_panel(tab, tab in picked,
-                      dict((n, r) for n, _d, r in SERVICES)[tab], inner)
-    body = (head('계정 등록', '') + acc_tabs('계정 정보')
-            + '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:12px">'
-              '한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). '
-              'App Key 는 <b>계정당 1개</b>이며 <b>인증 서비스 전체에 공통</b>으로 쓰입니다 '
-              '<code>PC-050</code>.</div>'
-            + step(1, '계정 정보', '서비스 로그인 계정') + acct_inputs(err=err, empty=empty)
-            + '<div style="margin-top:16px">'
-            + step(3, '인증 서비스 · 권한', '탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다')
-            + '<div style="font-size:10.5px;color:#9ca3af;margin-bottom:6px;line-height:1.5">'
-              '인증 서비스는 <b>중복 선택</b>할 수 있습니다. 여러 서비스를 선택하면 '
-              '<b>한 계정으로 각 서비스에 로그인</b>합니다. 선택 <b>'
-            + str(len(picked)) + '</b> / 3</div>'
-            + svc_tabs(picked, tab, panel) + '</div>'
-            + '<div style="margin-top:18px;border-top:1px solid #eef0f4;padding-top:14px">'
-            + step(2, 'App Key 발급', '인증 서비스 전체 공통 · 계정당 1개 · 선택')
-            + appkey_block('new', withkey, rng) + '</div>'
+def new_form(active='계정 정보', picked=('CasterN',), tab='CasterN', perms=None,
+             withkey=False, rng='closed', err=None, empty=True, toast=None):
+    if active == '인증 서비스 및 권한':
+        panel = svc_panel_block(picked, tab, perms)
+    elif active == 'App Key 발급':
+        panel = appkey_new_panel(withkey, rng)
+    else:                       # 계정 정보
+        panel = (step(1, '계정 정보', '서비스 로그인 계정') + acct_inputs(err=err, empty=empty)
+                 + '<div style="margin-top:12px;font-size:11.5px;color:#9ca3af">'
+                   '한 고객사에 계정을 <b>여러 개</b> 등록할 수 있습니다(개수 제한 없음). '
+                   'App Key 는 <b>계정당 1개</b>이며 <b>인증 서비스 전체에 공통</b>입니다 <code>PC-050</code>.</div>')
+    body = (head('계정 등록', '') + acc_tabs(active) + panel
             + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'
               '<div class="btn gho">취소</div><div class="btn pri">계정 추가</div></div>')
     if toast:
@@ -401,31 +418,26 @@ def new_form(picked=('CasterN',), tab='CasterN', perms=None, withkey=False, rng=
            + '</div></div></div>'
 
 
-def edit_form(picked=('CasterN',), tab='CasterN', perms=None, rng='closed', issued=False,
-              toast=None, broken=False, seeded=False, sel=(0, 0)):
-    inner = perms_only(perms)          # App Key 는 탭 밖 ③ 단계 `PC-050`
-    panel = svc_panel(tab, tab in picked,
-                      dict((n, r) for n, _d, r in SERVICES)[tab], inner)
+def edit_form(active='계정 정보', picked=('CasterN',), tab='CasterN', perms=None, rng='closed',
+              issued=False, toast=None, broken=False, seeded=False, sel=(0, 0)):
     chips = ('<code style="font-size:12.5px;color:#374151">'
              + ('neolab@neolab.net' if seeded else 'wj_edit@wjthinkbig.com') + '</code>'
              + tag('네오랩' if seeded else '웅진씽크빅', '#f3f4f6', '#6b7280', False)
              + (tag('대장', '#f0fdfa', '#0f766e') if seeded else ''))
-    body = (head('계정 상세 · 수정', '', '목록', chips) + acc_tabs('계정 정보')
-            + step(1, '계정 정보', 'ID(email) · 고객사는 변경할 수 없습니다')
-            + acct_inputs(edit=True, seeded=seeded)
-            + '<div style="margin-top:16px">'
-            + step(2, '인증 서비스 · 권한', '탭에서 서비스를 고르고 · 서비스마다 조건이 다릅니다')
-            + '<div style="font-size:10.5px;color:#9ca3af;margin-bottom:6px;line-height:1.5">'
-              'App Key 는 <b>인증 서비스 전체에 공통</b>이라 인증 서비스를 바꿔도 키는 그대로입니다 '
-              '<code>PC-050</code>. 선택 <b>' + str(len(picked)) + '</b> / 3</div>'
-            + svc_tabs(picked, tab, panel) + '</div>'
-            + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'
-              '<div class="btn gho" style="color:#dc2626;border-color:#fecaca">계정 삭제'
-              '</div><div class="btn pri">저장</div></div>')
+    if active == '인증 서비스 및 권한':
+        panel = svc_panel_block(picked, tab, perms, edit=True)
+    elif active == 'App Key 발급':
+        panel = appkey_edit_panel(broken, seeded, sel, issued)
+    else:                       # 계정 정보
+        panel = (step(1, '계정 정보', 'ID(email) · 고객사는 변경할 수 없습니다')
+                 + acct_inputs(edit=True, seeded=seeded))
+    body = head('계정 상세 · 수정', '', '목록', chips) + acc_tabs(active) + panel
     if toast:
         body += ('<div style="margin-top:10px;font-size:12.5px;color:#047857;'
                  'text-align:right">' + toast + '</div>')
-    body += key_history(broken, seeded, sel=sel)
+    body += ('<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'
+             '<div class="btn gho" style="color:#dc2626;border-color:#fecaca">계정 삭제'
+             '</div><div class="btn pri">저장</div></div>')
     return '<div style="max-width:900px"><div class="card"><div class="bd">' + body \
            + '</div></div></div>'
 
@@ -456,11 +468,10 @@ def build():
 
     B.append((
         'S1', '계정 등록 — 진입', '기본',
-        '등록은 <b>2단계</b>다 — ① 계정 정보 → ② <b>인증 서비스</b>·권한 <code>PC-076</code>. '
-        '⚠ 옛 ③ App Key 단계는 폐기되어 <b>CasterN 탭 안</b>으로 들어갔다. '
-        '인증 서비스는 고른 고객사의 <b>사용 서비스</b>(<code>MEM-02</code>)대로 자동 체크되고, '
-        'CasterN 이 켜지면 권한은 <b>6종 모두 선택</b>된 상태로 시작한다 <code>PC-105</code>.',
-        scr_new(),
+        '화면은 <b>탭 3개(계정 정보 · 인증 서비스 및 권한 · App Key 발급)</b> 이고 <b>한 번에 한 탭</b>만 보인다 <code>PC-062</code>. '
+        '진입 시 <b>계정 정보</b> 탭이며, 인증 서비스는 고른 고객사의 <b>사용 서비스</b>(<code>MEM-02</code>)대로 '
+        '자동 체크되고, CasterN 이 켜지면 권한은 <b>6종 모두 선택</b>된 상태로 시작한다 <code>PC-105</code>.',
+        scr_new(active='계정 정보', h=780),
         [('① 회사정보', '선택', 'ADDR 자동 입력', '<code>MEM-01</code> 등록 고객사'),
          ('① ID (EMAIL)', '입력', '이메일 형식', '전체에서 <b>유일</b>'),
          ('① PWD [임의 생성]', '클릭', '10자리 자동', '비밀번호 미요청 고객사'),
@@ -475,7 +486,7 @@ def build():
         '<b>중복 선택</b>이며, 여러 서비스를 골라도 조건이 아래로 쌓이지 않고 '
         '<b>탭을 바꿔야</b> 그 서비스의 조건이 나온다. '
         '<b>0개를 골라도 정상</b>이다 — 그때는 <b>SDK 연동 (코드만 할당)</b> 으로 App Key 만 발급한다.',
-        scr_new(picked=('CasterN', '폼솔루션'), tab='CasterN'),
+        scr_new(active='인증 서비스 및 권한', picked=('CasterN', '폼솔루션'), tab='CasterN', h=860),
         [('탭 바', '조회', '✓ CasterN · ✓ 폼솔루션', '선택 <b>2 / 2</b>'),
          ('탭 클릭', '클릭', '해당 서비스 조건', '한 번에 한 서비스만 보인다'),
          ('0개 선택', '—', '<b>SDK 연동 (코드만 할당)</b>',
@@ -489,7 +500,7 @@ def build():
         '선택 수가 <b>선택 {n} / 6</b> 로 표시되고 버튼 라벨이 <b>[모두 선택]</b> ⇄ <b>[모두 해제]</b> 로 바뀐다. '
         '권한 0개로 저장해도 되며 목록에는 <b>미지정</b>으로 나온다. '
         '대장 계정의 Web Caster 권한 키는 이 6종으로 접어서 들어온다(리소스 Add·Delete·DragDrop → 리소스 편집).',
-        scr_new(perms=PERMS[:3], h=1200),
+        scr_new(active='인증 서비스 및 권한', perms=PERMS[:3], h=860),
         [('권한 항목', '클릭', '개별 on/off', ''),
          ('선택 수', '표시', '<b>선택 3 / 6</b>', ''),
          ('[모두 선택]', '클릭', '6개 일괄', '전부 선택되면 <b>[모두 해제]</b> 로 바뀐다'),
@@ -500,7 +511,7 @@ def build():
         '조건이 정의된 서비스는 <b>CasterN 뿐</b>이다. 나머지 탭은 인증 서비스로 선택해도 '
         '<b>준비중</b> 안내만 나오고 지정할 항목이 없다. 인증 서비스로 선택하지 않은 탭은 '
         '<b>인증 서비스로 선택하면 이 서비스의 조건을 설정할 수 있습니다.</b> 로 비어 있다.',
-        scr_new(picked=('CasterN', '폼솔루션'), tab='폼솔루션', h=900),
+        scr_new(active='인증 서비스 및 권한', picked=('CasterN', '폼솔루션'), tab='폼솔루션', h=760),
         [('폼솔루션 탭', '조회', '<b>준비중</b>',
           '<b>이 서비스의 권한·설정 항목은 아직 정의되지 않았습니다. '
           '인증 서비스 연동만 등록됩니다.</b>'),
@@ -510,12 +521,12 @@ def build():
          ('App Key', '표시', '<b>없음</b>', 'CasterN 탭에만 있다')]))
 
     B.append((
-        'S5', '③ App Key 함께 발급', '분기',
+        'S5', 'App Key 발급 탭 — 함께 발급', '분기',
         'App Key 는 그 계정의 <b>인증 서비스 전체에 공통</b>으로 쓰이고 <b>계정당 1개</b>다 '
-        '<code>PC-050</code>. 그래서 탭 안이 아니라 <b>③ 단계</b>로 따로 둔다. '
-        '체크하면 할당된 SOBP 범위와 <b>Book Start · Book Volume(권수)</b> · 만료일이 열린다.',
-        scr_new(withkey=True, rng='open', h=1500),
-        [('[App Key도 함께 발급]', '체크', '범위·Book·만료 표시', '선택 사항'),
+        '<code>PC-050</code>. 등록 시 <b>[App Key 발급] 탭</b>에서 함께 발급할지 고른다. '
+        '체크하면 할당된 SOBP 범위와 <b>Book Start · Book Volume(권수)</b> · <b>사용기간(시작~끝)</b>이 열린다.',
+        scr_new(active='App Key 발급', withkey=True, rng='open', h=940),
+        [('[App Key도 함께 발급]', '체크', '범위·Book·사용기간 표시', '선택 사항'),
          ('할당된 SOBP 범위', '선택', '순번 + S·O·B·P', '<b>직접 입력하지 않는다</b>'),
          ('Book Start', '입력', '숫자', '할당 범위 안에서만 <code>PC-050</code>'),
          ('Book Volume (권수)', '입력', '숫자',
@@ -527,17 +538,18 @@ def build():
     B.append((
         'S6', '인증 서비스를 바꿔도 App Key 는 그대로', '변형',
         'App Key 는 <b>인증 서비스 전체 공통</b>이라 인증 서비스 구성을 바꿔도 키는 영향을 받지 않는다 '
-        '<code>PC-050</code>. 예전의 「CasterN 전용 · 연동 끊김」 처리는 <b>폐지</b>했다.',
-        scr_new(picked=('폼솔루션',), tab='CasterN', h=960),
+        '<code>PC-050</code>. 폼솔루션만 골라도 <b>[App Key 발급] 탭</b>은 그대로 쓴다. '
+        '예전의 「CasterN 전용 · 연동 끊김」 처리는 <b>폐지</b>했다.',
+        scr_new(active='App Key 발급', picked=('폼솔루션',), withkey=True, rng='open', h=940),
         [('인증 서비스 구성', '변경', 'App Key 영향 없음', '키는 계정 단위로 붙는다'),
-         ('③ App Key', '표시', '<b>항상 노출</b>', '탭과 무관한 단계다'),
+         ('App Key 발급 탭', '표시', '<b>항상 노출</b>', '인증 서비스 구성과 무관'),
          ('저장', '—', '가능', '계정은 고른 인증 서비스로 등록된다')]))
 
     B.append((
         'S7', '등록 검증 실패', '검증',
         '검사는 <b>회사 → ID 형식 → 비밀번호 → 범위 → ID 중복</b> 순서로 진행하고 '
         '하나라도 걸리면 그 자리에서 멈춘다. 메시지는 버튼 아래 한 줄로 나온다.',
-        scr_new(err='id', toast='계정 ID는 이메일 형식이어야 합니다.', h=1250),
+        scr_new(active='계정 정보', err='id', toast='계정 ID는 이메일 형식이어야 합니다.', h=840),
         [('① 회사 미선택', '검증', '중단', '<b>회사(고객사)를 선택하세요.</b>'),
          ('② ID 형식', '검증', '중단', '<b>계정 ID는 이메일 형식이어야 합니다.</b>'),
          ('③ 비밀번호', '검증', '중단',
@@ -550,14 +562,16 @@ def build():
          ('⑤ ID 중복', '검증', '중단', '<b>이미 등록된 ID(email)입니다.</b>')]))
 
     B.append((
-        'S8', '계정 상세 · 수정', '기본',
+        'S8', '계정 상세 — 계정 정보 탭', '기본',
         'ID(email)·고객사는 <b>잠금</b>이고 나머지를 고쳐 <b>[저장]</b> 한다. '
-        '②는 등록과 같은 탭 구조이며, 아래 <b>③ App Key 발급 내역</b>은 '
-        '<b>조회·삭제만</b> 한다 — 발급은 ② CasterN 탭에서 한다.',
-        scr_edit(),
+        '탭은 <b>계정 정보 · 인증 서비스 및 권한 · App Key 발급</b> 3개이며 이 상태는 '
+        '<b>계정 정보 탭</b>이다. <b>사용기간은 계정이 아니라 App Key(티켓)별 기간</b>이라 여기서 빠졌다 <code>PC-118</code> — '
+        '발급·발급 내역·Key 정보는 [App Key 발급] 탭(S9·S10·S13)에서 본다.',
+        scr_edit(active='계정 정보', h=760),
         [('① ID · 고객사', '표시', '<b>잠금</b>', '키 연동 기준값'),
-         ('② 탭 구조', '조회', '등록과 동일', 'CasterN 탭에 App Key 발급'),
-         ('③ 발급 내역', '조회·선택', '아래 Key 정보 갱신',
+         ('사용기간 안내', '표시', '—', '계정이 아니라 <b>코드 범위(=티켓)별 기간</b> · [App Key 발급] 탭에서 지정 <code>PC-118</code>'),
+         ('[App Key 발급] 탭', '클릭', 'S9·S10·S13', '발급 · 발급 내역 · Key 정보'),
+         ('~~③ 발급 내역~~', '이동', 'App Key 발급 탭',
           '키 헤더(키·인증 서비스·<b>코드 범위 N개</b>·[키 삭제] 버튼) + 그 아래 <b>티켓(범위)별</b> 줄 — '
           'SOBP·권수·<b>사용기간</b>·[티켓 삭제]. 줄을 <b>선택</b>하면 아래 <b>Key 정보</b>가 그 티켓으로 바뀐다 <code>PC-120</code>'),
          ('[저장]', '클릭', '반영', '<b>계정 정보가 저장되었습니다.</b>'),
@@ -569,7 +583,7 @@ def build():
         '<b>계정 ID · PWD · App Key</b> 가 나오고 <b>[전체 복사]</b> 로 세 값을 한 번에 '
         '복사한다. 키는 아래 내역에 줄로 추가되고 <code>TKT-03</code>·<code>LOG-01</code> '
         '에 자동 기록된다.',
-        scr_edit(rng='sel', issued=True, h=1750,
+        scr_edit(active='App Key 발급', rng='sel', issued=True, h=1560,
                  toast='App Key 발급 완료 — 계정과 연동되어 서비스 DB에 등록되었습니다.'),
         [('[App Key 발급]', '클릭', '키 생성', '범위 선택 전에는 <b>비활성</b>'),
          ('Book Start · Volume', '입력', '발급 범위 확정',
@@ -586,7 +600,7 @@ def build():
         '<code>PC-118</code>. 발급 폼에서 SOBP·Book·Page와 함께 <b>사용기간(시작~끝)을 지정</b>한다 — 기간은 '
         '<b>티켓마다</b> 유지된다. 삭제는 두 가지 — <b>[티켓 삭제]</b>(그 티켓 + 연결 원장 티켓 <code>PC-121</code>)와 '
         '<b>[키 삭제]</b>(버튼 · 키 전체). 재발급 개념은 폐지됐다.',
-        scr_edit(picked=('폼솔루션',), tab='CasterN', rng='sel', h=1750),
+        scr_edit(active='App Key 발급', rng='sel', h=1520),
         [('코드 범위 발급', '표시', '범위 선택 + Book·Page + <b>사용기간</b>', '기간은 티켓마다 지정 <code>PC-118</code>'),
          ('[코드 범위 발급]', '클릭', '티켓 추가 + 원장 티켓', '범위 선택 전 <b>비활성</b> · <code>TKT-03</code>·<code>LOG-01</code> 기록'),
          ('[티켓 삭제]', '클릭', '그 티켓만 삭제', '티켓마다 · 연결 원장 티켓도 함께 <code>PC-121</code> · 마지막이면 키도 함께'),
@@ -598,7 +612,7 @@ def build():
         '<code>PC-120</code> — [App Key 발급 내역]의 <b>각 티켓(코드 범위)을 선택</b>하면(▸ 파란 강조) 아래 '
         '<b>Key 정보</b>가 그 티켓의 값(Company · Account · Service · App Key · Code Type · S/O · B/P · '
         '<b>사용기간</b> · Ticket Type)으로 갱신된다. <b>기본 선택은 첫 티켓</b>이다.',
-        scr_edit(sel=(0, 1), h=1750),
+        scr_edit(active='App Key 발급', sel=(0, 1), h=1520),
         [('발급 내역 티켓', '클릭', 'Key 정보 갱신', '선택 티켓 파란 강조 ▸'),
          ('기본 선택', '표시', '첫 티켓', '진입 시 첫 발급 내역이 선택됨'),
          ('Key 정보', '조회', '선택 티켓 값', 'Valid From·Until = 그 티켓의 사용기간 <code>PC-118</code>')]))
@@ -606,26 +620,24 @@ def build():
     B.append((
         'S11', '계정 삭제 확인', '차단',
         '<b>[계정 삭제]</b> 는 확인을 거친다. 계정과 <b>연동된 App Key가 함께</b> 삭제된다.',
-        frame('TKT-01', '계정 상세 · 수정', edit_form(), height=1500,
+        frame('TKT-01', '계정 상세 · 수정', edit_form(active='계정 정보'), height=760,
               overlay=dlg('계정 삭제', '이 계정과 연동 App Key를 삭제할까요?', '삭제')),
         [('[계정 삭제]', '클릭', '확인창', '<b>이 계정과 연동 App Key를 삭제할까요?</b>'),
          ('[삭제]', '클릭', '<code>TKT-01</code>', '계정 + 연동 키 삭제 후 목록으로'),
          ('[취소] · ✕', '클릭', '변경 없음', '')]))
 
     B.append((
-        'S12', '대장 계정 상세 — 네오랩', '기본',
-        '<b>개발팀 대장</b>에서 시드로 들어온 계정 <code>PC-103</code>. 제목 옆에 <b>대장</b> 배지가 붙고, '
-        '<b>비밀번호는 저장하지 않았다</b> — PWD 칸은 「대장 참조」 자리표시이며 비워 둔 채 저장할 수 있다. '
-        '<b>사용기간</b>은 대장의 값(무제한 또는 시작~끝)이다. App Key 발급 내역에는 대장에 키 값이 없으면 '
-        '<b>키 미기재</b>, 그 아래 대장의 <b>코드 범위</b>가 모두 나온다(네오랩 = PDS2 2 · PDS3 3 · PDS4 1). '
-        '위 발급 폼 자리는 S10 과 같은 <b>코드 범위 추가</b> 폼이다.',
-        scr_edit(seeded=True, h=1850),
+        'S12', '대장 계정 — App Key 발급 탭(네오랩)', '기본',
+        '<b>개발팀 대장</b>에서 시드로 들어온 계정 <code>PC-103</code>. 제목 옆에 <b>대장</b> 배지가 붙는다. '
+        '이 상태는 <b>App Key 발급 탭</b> — 대장에 키 값이 없으면 <b>키 미기재</b>, 그 아래 대장의 '
+        '<b>코드 범위(=티켓) 6개</b>가 모두 나온다(네오랩 = PDS2 2 · PDS3 3 · PDS4 1). 각 티켓엔 사용기간(대장은 즉시~무제한). '
+        '(비밀번호 「대장 참조」·계정 정보는 <b>계정 정보 탭</b>에서 본다.)',
+        scr_edit(active='App Key 발급', seeded=True, h=1560),
         [('대장 배지', '표시', '—', '시드 계정 · 지우면 다시 들어오지 않는다'),
-         ('PWD', '표시', '「대장 참조」', '비워 둔 채 [저장] 가능 — 저장소에 평문 비밀번호를 두지 않는다'),
-         ('사용기간', '표시', '대장 값', '시작 없음 · 끝 무제한'),
          ('키 미기재', '표시', '—', '대장에 App Key 값이 적혀 있지 않음 · Luginbühl 만 키 값이 있다'),
-         ('코드 범위 6개', '조회', '—', 'S·O 도 구간(0~1023)으로 적힌 범위가 있다 · 권수는 대장의 수량'),
-         ('Key 정보 카드', '조회', '—', '발급 티켓이 없어 <b>키 자체</b>로 채운다 — Range 1~6')] + NAV))
+         ('코드 범위(티켓) 6개', '조회·선택', 'Key 정보 갱신', 'S·O 도 구간(0~1023)으로 적힌 범위가 있다 · 권수는 대장의 수량'),
+         ('티켓별 사용기간', '표시', '—', '대장 계정은 즉시~무제한'),
+         ('Key 정보 카드', '조회', '선택 티켓 값', '발급 티켓이 없어 <b>범위(티켓)</b> 값으로 채운다')] + NAV))
 
     intro = ('<code>TKT-01</code> 계정 목록에서 열리는 <b>등록</b>과 <b>상세·수정</b> 두 화면이다. '
              '<b>인증 서비스</b>(이 계정이 우리 서비스 어디에 로그인하나)는 <b>중복 선택</b>이며, '
