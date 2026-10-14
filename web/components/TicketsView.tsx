@@ -4,13 +4,16 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { S, Field, Modal, BLUE } from "./ui";
-import { useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { makeZip } from "@/lib/zip";
-import { codeKind, kindLabel, patternOf, patternTypeParam, CODE_KINDS, type CodeKind } from "@/lib/codeKind";
+import { codeKind, kindLabel, patternOf, patternTypeParam, CODE_KINDS, PAGE_CAP, BOOK_CAP, type CodeKind } from "@/lib/codeKind";
 import { codesOfCompany } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
+import { allTicketCustomers, rangesOfTicketCustomer, ticketCustomerById, useTicketCustomers } from "@/lib/ticketCustomerStore";
+import { useCaster } from "@/lib/accountStore";
+import { useStore } from "@/lib/store";
+import { TicketCustomerSelect, TicketCustomerAddForm } from "./TicketCustomerSelect";
 import {
   addTicket, allTickets, deleteTicket, hydrateTickets, setBilling, ticketById, updateTicket, useTickets,
   BILLINGS, BILLINGS_FILTER, BILL_COLOR, daysLeft, plusMonth, type Billing, type Ticket,
@@ -30,7 +33,6 @@ const readCompanyId = () => {
 //   · tab="nkey" → /tickets/nkey/new  N Key 생성 (Caster lite 티켓)
 // 목록은 **N Key 만** 다룬다 `PC-061`. App Key 는 계정 단위라 **계정 발급(계정 상세)** 에서 본다.
 export default function TicketsView({ tab }: { tab: Tab }) {
-  const { companies, projects } = useStore();
   const me = currentUser(useAuth());
   useTickets();
   useEffect(() => { hydrateTickets(); }, []);
@@ -46,8 +48,8 @@ export default function TicketsView({ tab }: { tab: Tab }) {
   return (
     <div style={{ padding: "18px 20px" }}>
       {/* 발급 화면은 **고객사를 고르지 않은 상태**로 시작한다 `PC-070` — 목록 필터 값을 물려받지 않는다 */}
-      {tab === "nkey" && <div style={{ maxWidth: 900 }}><NKeyForm companies={companies} projects={projects} me={me} companyId={newCompanyId} setCompanyId={setNewCompanyId} /></div>}
-      {tab === "list" && <TicketListView />}
+      {tab === "nkey" && <div style={{ maxWidth: 900 }}><NKeyForm me={me} companyId={newCompanyId} setCompanyId={setNewCompanyId} /></div>}
+      {tab === "list" && <ListTabs />}
     </div>
   );
 }
@@ -56,11 +58,114 @@ export default function TicketsView({ tab }: { tab: Tab }) {
 const won = (n: number) => `₩${Math.round(n).toLocaleString()}`;
 
 // 정산 등록·수정은 발급 상세(/tickets/nkey/[id])로 넘긴다 — 목록은 조회·이동만 한다.
-function TicketListView() {
+// N Key 관리 = [발급 목록 | 고객사] 두 탭 `PC-126`
+//   고객사 탭 = 티켓 고객사 명단(nkey(HLP) 대장 프로젝트명 + 티켓 화면 등록분) — 고객사 관리와 별개 `PC-123`
+const VIEW_KEY = "ncc-nkey-view";
+function ListTabs() {
+  const me = currentUser(useAuth());
+  const [view, setViewState] = useState<"list" | "cust">("list");
+  const [co, setCo] = useState("");          // 고객사 탭에서 고른 고객사 → 발급 목록 필터
+  useEffect(() => { try { if (sessionStorage.getItem(VIEW_KEY) === "cust") setViewState("cust"); } catch { /* */ } }, []);
+  const setView = (v: "list" | "cust") => { setViewState(v); try { sessionStorage.setItem(VIEW_KEY, v); } catch { /* */ } };
+  useTicketCustomers();
+  const n = allTicketCustomers().length;
+  const tabBtn = (v: "list" | "cust", label: string) => (
+    <button onClick={() => setView(v)}
+      style={{ padding: "8px 14px", border: 0, borderBottom: view === v ? "2px solid #2563eb" : "2px solid transparent",
+        background: "none", color: view === v ? "#2563eb" : "#6b7280", fontWeight: view === v ? 700 : 500, fontSize: 13, cursor: "pointer" }}>{label}</button>
+  );
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #e5e7eb", marginBottom: 12 }}>
+        {tabBtn("list", "발급 목록")}
+        {tabBtn("cust", `고객사 ${n}`)}
+      </div>
+      {view === "list"
+        ? <TicketListView key={co} initCo={co} />
+        : <TicketCustomersView me={me} onPick={(name) => { setCo(name); setView("list"); }} />}
+    </div>
+  );
+}
+
+// 티켓 고객사 명단 — 대장 고객사 + 신규 등록분. 행을 누르면 그 고객사의 발급 목록으로 간다.
+function TicketCustomersView({ me, onPick }: { me: ReturnType<typeof currentUser>; onPick: (name: string) => void }) {
+  useTickets();
+  useEffect(() => { hydrateTickets(); }, []);
+  const { projects } = useStore();
+  const cast = useCaster();
+  const [q, setQ] = useState("");
+  const [fSrc, setFSrc] = useState<"" | "ledger" | "manual">("");
+  const [adding, setAdding] = useState(false);
+  const norm = (x: string) => x.trim().toLowerCase();
+  const tickets = allTickets().filter((t) => t.kind === "N");
+  const rows = allTicketCustomers()
+    .filter((c) => (fSrc ? c.src === fSrc : true))
+    .filter((c) => (q ? c.name.toLowerCase().includes(q.toLowerCase()) : true))
+    .map((c) => {
+      const ts = tickets.filter((t) => norm(t.company) === norm(c.name));
+      return {
+        c, ranges: rangesOfTicketCustomer(c.name, projects),
+        ledgerN: ts.filter((t) => t.src === "ledger").length, newN: ts.filter((t) => t.src !== "ledger").length,
+        last: ts.map((t) => t.at.slice(0, 10)).sort().pop() ?? "",
+        accN: cast.accounts.filter((a) => norm(a.company) === norm(c.name)).length,
+      };
+    });
+  const th: React.CSSProperties = { ...S.th };
+  return (
+    <div>
+      <div style={{ ...S.card, padding: "10px 12px", marginBottom: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5 }}>
+        <select value={fSrc} onChange={(e) => setFSrc(e.target.value as "" | "ledger" | "manual")} style={{ ...S.input, width: 150 }}>
+          <option value="">구분 전체</option>
+          <option value="ledger">대장 (nkey HLP)</option>
+          <option value="manual">신규 등록</option>
+        </select>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="고객사 검색" style={{ ...S.input, width: 220 }} />
+        <span style={{ color: "#9ca3af" }}>{rows.length}곳 · 고객사 관리와 별개 명단</span>
+        <span style={{ flex: 1 }} />
+        <button onClick={() => setAdding((a) => !a)} style={S.primary}>{adding ? "닫기" : "＋ 고객사 등록"}</button>
+      </div>
+      {adding && <div style={{ marginBottom: 10 }}><TicketCustomerAddForm by={me?.name} onAdded={() => setAdding(false)} /></div>}
+      <div style={{ ...S.card, padding: 0, overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+          <thead>
+            <tr>
+              <th style={th}>No</th><th style={th}>고객사</th><th style={th}>구분</th><th style={{ ...th, minWidth: 330 }}>발급 범위 (대장 이력 · SOBP 할당)</th>
+              <th style={th}>N Key 발급</th><th style={th}>최근 발급</th><th style={{ ...th, whiteSpace: "nowrap" }}>App Key 계정</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ c, ranges, ledgerN, newN, last, accN }, i) => (
+              <tr key={c.id} onClick={() => onPick(c.name)} style={{ cursor: "pointer" }} title="이 고객사의 발급 목록 보기">
+                <td style={S.td}>{i + 1}</td>
+                <td style={{ ...S.td, fontWeight: 700 }}>{c.name}</td>
+                <td style={{ ...S.td, whiteSpace: "nowrap" }}>
+                  <span style={{ ...S.tag, background: c.src === "ledger" ? "#f3f4f6" : "#eef2ff", color: c.src === "ledger" ? "#6b7280" : "#4338ca" }}>
+                    {c.src === "ledger" ? "대장" : "신규"}
+                  </span>
+                </td>
+                <td style={S.td}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {ranges.length ? ranges.map((r, k) => <div key={k} style={{ whiteSpace: "nowrap" }}><Chips r={r} /></div>) : <span style={{ color: "#9ca3af" }}>-</span>}
+                  </div>
+                </td>
+                <td style={{ ...S.td, whiteSpace: "nowrap" }}>{ledgerN + newN}건 <span style={{ color: "#9ca3af", fontSize: 11 }}>(대장 {ledgerN} · 신규 {newN})</span></td>
+                <td style={{ ...S.td, whiteSpace: "nowrap" }}>{last || "-"}</td>
+                <td style={{ ...S.td, whiteSpace: "nowrap" }}>{accN ? `${accN}개` : "-"}</td>
+              </tr>
+            ))}
+            {!rows.length && <tr><td style={{ ...S.td, color: "#9ca3af", textAlign: "center" }} colSpan={7}>고객사가 없습니다.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function TicketListView({ initCo = "" }: { initCo?: string }) {
   const router = useRouter();   // 행을 누르면 상세로 이동 `PC-050`
   useTickets();
   const rows = allTickets();
-  const [fCo, setFCo] = useState("");
+  const [fCo, setFCo] = useState(initCo);
 
   const [fBill, setFBill] = useState<"" | Billing>("");
   const [fSrc, setFSrc] = useState<"" | "ledger" | "new">("");
@@ -99,7 +204,8 @@ function TicketListView() {
       return c * sort.dir || b.no - a.no;
     });
 
-  const coOpts = [...new Set(rows.map((t) => t.company))].sort((a, b) => a.localeCompare(b, "ko"));
+  // 고객사 필터 = 티켓 고객사 명단 + 발급 이력의 고객사 (발급 전인 신규 고객사도 고를 수 있게) `PC-126`
+  const coOpts = [...new Set([...allTicketCustomers().map((c) => c.name), ...rows.map((t) => t.company)])].sort((a, b) => a.localeCompare(b, "ko"));
   const agg = list.reduce((a, t) => ({
     paid: a.paid + (t.billing === "유료" ? 1 : 0), amount: a.amount + (t.billing === "유료" ? t.amount : 0),
     free: a.free + (t.billing === "무료" ? 1 : 0), trial: a.trial + (t.billing === "체험" ? 1 : 0),
@@ -449,28 +555,15 @@ export function TicketDetailView({ ticketId }: { ticketId: number }) {
 /* ── N Key: Caster lite 티켓 파라미터(회사이름·Section/Owner·Book·Page·PatternType 등) ── */
 const PATTERNS = ["OID", "PDS2", "PDS3", "Scode"] as const;
 type Pattern = (typeof PATTERNS)[number];
-// 패턴·섹션별 Page 가용 범위(자동 채움 참고값)
 // 범위의 pt(PDS3·PDS2·Scode·OID) → 코드 종류 `PC-064`
 const CT_OF: Record<string, CodeKind> = { PDS3: "PDS3", PDS2: "PDS2", Scode: "PDS4", OID: "OID" };
-const PAGE_CAP: Partial<Record<Pattern, Record<number, number>>> = {
-  PDS3: { 0: 4096, 3: 512, 5: 4096, 10: 1024, 11: 512, 14: 32, 15: 512 },
-  PDS2: { 0: 1024, 3: 4096, 14: 1024 },
-  Scode: { 44: 256 },          // PDS4 (S-code) — Section 44
-  OID: { 3: 4096 },            // OID — 인덱스 전용(같은 S/O 공유, B/P로 구분)
-};
-// 패턴·섹션별 Book 정원 (코드 관리 정보 기준)
-const BOOK_CAP: Partial<Record<Pattern, Record<number, number>>> = {
-  PDS3: { 0: 16384, 3: 8192, 5: 4096, 10: 4096, 11: 8192, 14: 8192, 15: 4096 },
-  PDS2: { 0: 8192, 3: 4096, 14: 4096 },
-  Scode: { 44: 256 },
-  OID: { 3: 8192 },
-};
 const yyyymmdd = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, ""); // KST
 
 // Caster lite 티켓을 붙여넣는 대상 폴더 (안내용)
 const CODE_TICKETS = "C:\\Users\\Documents\\NeoLab\\CodeTickets";
 
-function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { companies: ReturnType<typeof useStore>["companies"]; projects: ReturnType<typeof useStore>["projects"]; me: ReturnType<typeof currentUser>; companyId: number; setCompanyId: (n: number) => void }) {
+// 고객사 = **티켓 고객사**(nkey(HLP) 대장 프로젝트명 + 티켓 화면 등록분) — 고객사 관리와 별개 `PC-123`
+function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof currentUser>; companyId: number; setCompanyId: (n: number) => void }) {
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [bookStart, setBookStart] = useState(0);   // Start Book (할당 범위 안에서 직접 입력)
   const [books, setBooks] = useState(1);           // Book 볼륨(권)
@@ -485,7 +578,9 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
   useEffect(() => { hydrateTickets(); }, []);
   // 그 고객사의 계정 중 **아직 N Key 가 없는 계정**만 발급 대상이다 `PC-059`
 
-  const company = companies.find((c) => c.id === companyId);
+  useTicketCustomers();
+  const { projects } = useStore();      // SOBP 맵에서 (K) 로 직접 할당한 S/O 도 발급 범위 `PC-125`
+  const company = companyId ? ticketCustomerById(companyId) : undefined;
   const issuedTime = yyyymmdd();
 
   useEffect(() => { hydrateMembers(); }, []);
@@ -495,7 +590,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
   const commonCodes = useMemo(() => (company ? codesOfCompany(company.name).filter((c) => !c.historyOnly) : []), [company]);
   const isCommon = commonCodes.length > 0;
 
-  // 고객사 선택 시 할당된 SOBP 범위 (Section/Owner/BookStart/PatternType/PageVolume 자동)
+  // 고객사 선택 시 발급 범위 — **대장 이력의 S/O/B** (Section/Owner/BookStart/PatternType/PageVolume 자동) `PC-123`
   //   · 공통코드 회사면 공통코드를 범위로 제공 (Book/Page = 섹션 정원)
   const ranges = useMemo(() => {
     if (!company) return [];
@@ -506,11 +601,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
         return { pt, section: c.s, owner: c.o, bookStart: 0, bookEnd: bcap - 1, pageStart: 0, pageEnd: pcap - 1, bookCount: bcap };
       });
     }
-    return projects.filter((p) => p.companyId === company.id).flatMap((p) => p.issued.map((b) => {
-      const pt: Pattern = patternOf(codeKind(b.kind, b.section));
-      return { pt, section: b.section, owner: b.owner, bookStart: b.bookStart, bookEnd: b.bookEnd,
-        pageStart: b.pageStart, pageEnd: b.pageEnd, bookCount: Math.max(1, b.bookEnd - b.bookStart + 1) };
-    }));
+    return rangesOfTicketCustomer(company.name, projects);
   }, [company, isCommon, commonCodes, projects]);
   const range = ranges[sobpIdx];
 
@@ -566,7 +657,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
   const genKey = () => {
     if (!company) { setToast("고객사를 선택하세요."); return; }
     if (isCommon && !selCu) { setToast("공통코드 회사입니다. 사용 고객사를 선택하세요."); return; }
-    if (!range) { setToast("이 고객사에 할당된 SOBP 범위가 없습니다."); return; }
+    if (!range) { setToast("발급 범위를 선택하세요."); return; }
     if (bookStart < range.bookStart || bookStart > range.bookEnd) { setToast(`Start Book은 ${range.bookStart}~${range.bookEnd} 범위여야 합니다.`); return; }
     if (books < 1 || bookEnd > range.bookEnd) { setToast(`Book 볼륨은 1~${maxBooks}권이어야 합니다. (B${bookStart}~B${range.bookEnd})`); return; }
     if (pageVolume < 1) { setToast("Page 볼륨은 1 이상이어야 합니다."); return; }
@@ -626,10 +717,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 12, alignItems: "start" }}>
         <div>
           <Field label="회사이름 (고객사) *">
-            <select style={S.input} value={companyId} onChange={(e) => onCompany(+e.target.value)}>
-              <option value={0}>- 선택 -</option>
-              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <TicketCustomerSelect value={companyId} onChange={onCompany} by={me?.name} />
           </Field>
         </div>
         <div>
@@ -647,7 +735,7 @@ function NKeyForm({ companies, projects, me, companyId, setCompanyId }: { compan
             </>
           ) : (
             <>
-              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>할당된 SOBP 범위 * <span style={{ color: "#9ca3af" }}>(선택 시 Section·Owner·Book·Code Type 자동)</span></div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>발급 범위 (대장 이력 · SOBP 할당) * <span style={{ color: "#9ca3af" }}>(선택 시 Section·Owner·Book·Code Type 자동)</span></div>
               <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={onRange} />
             </>
           )}
@@ -836,7 +924,7 @@ export function SobpRangePicker({ company, ranges, value, onSelect }: { company:
   const [open, setOpen] = useState(false);
   const note = (t: string) => <div style={{ fontSize: 12, color: "#9ca3af", padding: "9px 12px", border: "1px solid #eef0f4", borderRadius: 10, background: "#fafbfc" }}>{t}</div>;
   if (!company) return note("고객사를 먼저 선택하세요.");
-  if (ranges.length === 0) return note("이 고객사에 할당된 SOBP 범위가 없습니다.");
+  if (ranges.length === 0) return note("이 고객사의 발급 범위(대장 이력)가 없습니다.");
   const sel = ranges[value];
   return (
     <div style={{ position: "relative" }}>

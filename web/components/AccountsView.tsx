@@ -7,19 +7,20 @@
 // App Key 는 CasterN 전용 조건이라 CasterN 탭 안에서만 노출한다.
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { S, Field, BLUE } from "./ui";
+import { useEffect, useState } from "react";
+import { S, Field } from "./ui";
 import { useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { addTicket, deleteTicket, hydrateTickets, useTickets } from "@/lib/ticketStore";
 import { SobpRangePicker, type SobpRange } from "./TicketsView";
-import { servicesOfCompany } from "@/lib/serviceCustomers";
-import { codeKind, patternOf, patternTypeParam, CODE_KINDS, type CodeKind, type TicketPattern } from "@/lib/codeKind";
+import { rangesOfTicketCustomer, ticketCustomerById, ticketCustomerByName, useTicketCustomers } from "@/lib/ticketCustomerStore";
+import { TicketCustomerSelect } from "./TicketCustomerSelect";
+import { CODE_KINDS, type CodeKind } from "@/lib/codeKind";
 import {
-  caster, useCaster, genAppKey, ACCOUNT_SERVICES, accountServiceLabel, accountServiceReady,
-  CASTERN_PERMS, ALL_PERMS, permLabel, casternPerms, hasService, SDK_ONLY_LABEL,
-  keyRanges, rangeText, rangeBooks, rangePeriod, type KeyRange,
+  caster, useCaster, genAppKey, ACCOUNT_SERVICES, accountServiceLabel,
+  CASTERN_PERMS, ALL_PERMS, SDK_ONLY_LABEL,
+  keyRanges, rangeText, rangeBooks, rangePeriod, accountScope, type KeyRange,
   type AccountService, type CasterPerm, type CasterAccount, type AccountSettings,
 } from "@/lib/accountStore";
 
@@ -32,30 +33,28 @@ const CT_OF: Record<string, CodeKind> = { PDS3: "PDS3", PDS2: "PDS2", Scode: "PD
 /* ── TKT-03 계정 목록 ───────────────────────────────────────────── */
 export function AccountsListView() {
   const router = useRouter();          // 레코드 클릭 → 상세 `PC-053`
-  const { companies } = useStore();
   const cast = useCaster();
-  const [fCo, setFCo] = useState(0);
-  const [fSvc, setFSvc] = useState<"" | AccountService>("");
+  const [fCo, setFCo] = useState("");      // 고객사 필터 = 계정의 고객사 이름(티켓 고객사) `PC-123`
   const [q, setQ] = useState("");
 
-  const rows = cast.accounts
-    .filter((a) => (fCo ? a.companyId === fCo : true))
-    .filter((a) => (fSvc ? hasService(a, fSvc) : true))
+  // App Key 관리 = **키 발급 계정**만 — 서비스 로그인 계정(권한)은 고객사 관리에서 다룬다 `PC-128`
+  const keyAccounts = cast.accounts.filter((a) => accountScope(a) === "key");
+  const rows = keyAccounts
+    .filter((a) => (fCo ? a.company === fCo : true))
     .filter((a) => (q ? `${a.id} ${a.name} ${a.company}`.toLowerCase().includes(q.toLowerCase()) : true));
   const keysOf = (id: string) => cast.appKeys.filter((k) => k.accountId === id);
-  const coOpts = companies.filter((c) => cast.accounts.some((a) => a.companyId === c.id));
+  const coOpts = [...new Set(keyAccounts.map((a) => a.company))].sort((a, b) => a.localeCompare(b, "ko"));
 
   return (
     <div style={{ padding: "18px 20px" }}>
       {/* 요약 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 12 }}>
         {[
-          ["등록 계정", cast.accounts.length.toLocaleString(), "#111827"],
-          ["App Key 연동", cast.accounts.filter((a) => keysOf(a.id).length).length.toLocaleString(), "#2563eb"],
-          ["App Key 없음", cast.accounts.filter((a) => !keysOf(a.id).length).length.toLocaleString(), "#92400e"],
-          ["발급 App Key", cast.appKeys.length.toLocaleString(), "#7c3aed"],
-          // 개발팀 대장에서 들어온 계정 `PC-103`
-          ["대장 계정", cast.accounts.filter((a) => a.seeded).length.toLocaleString(), "#0f766e"],
+          ["등록 계정", keyAccounts.length.toLocaleString(), "#111827"],
+          ["App Key 연동", keyAccounts.filter((a) => keysOf(a.id).length).length.toLocaleString(), "#2563eb"],
+          ["App Key 없음", keyAccounts.filter((a) => !keysOf(a.id).length).length.toLocaleString(), "#92400e"],
+          ["발급 App Key", keyAccounts.reduce((n, a) => n + keysOf(a.id).length, 0).toLocaleString(), "#7c3aed"],
+          ["티켓 고객사", new Set(keyAccounts.map((a) => a.company)).size.toLocaleString(), "#0f766e"],
         ].map(([l, v, c]) => (
           <div key={l} style={{ ...S.card, padding: "10px 12px" }}>
             <div style={{ fontSize: 11, color: "#6b7280" }}>{l}</div>
@@ -66,13 +65,9 @@ export function AccountsListView() {
 
       {/* 필터 + 계정 추가 */}
       <div style={{ ...S.card, padding: "10px 12px", marginBottom: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5 }}>
-        <select value={fCo} onChange={(e) => setFCo(+e.target.value)} style={{ ...S.input, width: 200 }}>
-          <option value={0}>고객사 전체</option>
-          {coOpts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select value={fSvc} onChange={(e) => setFSvc(e.target.value as AccountService | "")} style={{ ...S.input, width: 170 }}>
-          <option value="">인증 서비스 전체</option>
-          {ACCOUNT_SERVICES.map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
+        <select value={fCo} onChange={(e) => setFCo(e.target.value)} style={{ ...S.input, width: 200 }}>
+          <option value="">고객사 전체</option>
+          {coOpts.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ID(email) · 이름 · 고객사 검색" style={{ ...S.input, width: 240 }} />
         <span style={{ color: "#9ca3af" }}>{rows.length}건</span>
@@ -84,14 +79,13 @@ export function AccountsListView() {
       <div style={{ ...S.card, padding: 0, overflowX: "auto" }}>
         <table style={{ ...S.table, minWidth: 1320 }}>
           <thead>
-            <tr>{["고객사", "ID (EMAIL)", "이름", "인증 서비스", "App Key", "코드 범위", "사용기간", "등록일", ""].map((h) => (
+            <tr>{["고객사", "ID (EMAIL)", "이름", "App Key", "코드 범위", "사용기간", "등록일", ""].map((h) => (
               <th key={h} style={S.th}>{h}</th>
             ))}</tr>
           </thead>
           <tbody>
             {rows.map((a) => {
               const keys = keysOf(a.id);
-              const svcs = a.services ?? [];
               return (
                 // 레코드를 누르면 상세로 간다 `PC-053` — 항목마다 그 항목의 탭으로 `PC-067`
                 <tr key={a.id} onClick={() => router.push(accountHref(a.id))} title="클릭하면 계정 정보"
@@ -99,21 +93,6 @@ export function AccountsListView() {
                   <td style={S.td}>{a.company}</td>
                   <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#2563eb", fontWeight: 600 }}>{a.id}</td>
                   <td style={S.td}>{a.name || "—"}</td>
-                  {/* 인증 서비스 → [인증 서비스 및 권한] 탭 `PC-067` */}
-                  <td style={S.td} title="클릭하면 인증 서비스 및 권한"
-                    onClick={(e) => { e.stopPropagation(); router.push(accountHref(a.id, "svc")); }}>
-                    {/* 선택 없음 = SDK 연동(코드만 할당) — 오류가 아니다 `PC-076` */}
-                    {svcs.length === 0
-                      ? <span style={{ ...S.tag, background: "#f3f4f6", color: "#6b7280", fontWeight: 700 }} title="우리 서비스를 거치지 않고 코드만 받아 직접 연동합니다">{SDK_ONLY_LABEL}</span>
-                      : <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
-                          {svcs.map((sv) => (
-                            <span key={sv} title={accountServiceReady(sv) ? undefined : "권한·설정 준비중"}
-                              style={{ ...S.tag, background: "#ecfdf5", color: "#047857", fontWeight: 700, ...(accountServiceReady(sv) ? {} : { background: "#f3f4f6", color: "#6b7280" }) }}>
-                              {accountServiceLabel(sv)}{accountServiceReady(sv) ? "" : " · 준비중"}
-                            </span>
-                          ))}
-                        </span>}
-                  </td>
                   {/* App Key → [App Key 발급] 탭 · 키 값을 그대로 보여 준다 `PC-067` */}
                   <td style={{ ...S.td, textAlign: "left" }} title="클릭하면 App Key 발급"
                     onClick={(e) => { e.stopPropagation(); router.push(accountHref(a.id, "key")); }}>
@@ -194,9 +173,9 @@ function KeyCard({ title, params, empty, href }: {
 
 // 화면 탭 — 계정 정보 · 인증 서비스 및 권한 · App Key 발급 `PC-062`
 export type AccTab = "info" | "svc" | "key";
+// 「인증 서비스 및 권한」 탭은 고객사 관리(계정 · 사용 서비스 권한)로 옮겼다 `PC-128`
 const ACC_TABS: { v: AccTab; label: string }[] = [
   { v: "info", label: "계정 정보" },
-  { v: "svc", label: "인증 서비스 및 권한" },
   { v: "key", label: "App Key 발급" },
 ];
 function AccTabs({ tab, onTab, badge }: { tab: AccTab; onTab: (v: AccTab) => void; badge?: Partial<Record<AccTab, string>> }) {
@@ -233,7 +212,7 @@ const SEC: React.CSSProperties = { border: "1px solid #eef0f4", borderRadius: 10
 
 // CasterN 권한 6종 — 개별 선택 / [모두 선택]·[모두 해제] `PC-058`
 // CasterN 권한 6종 체크 `PC-105` (20종 그룹 표시는 되돌렸다)
-function PermPicker({ value, onChange }: { value: CasterPerm[]; onChange: (v: CasterPerm[]) => void }) {
+export function PermPicker({ value, onChange }: { value: CasterPerm[]; onChange: (v: CasterPerm[]) => void }) {
   const all = value.length === ALL_PERMS.length;
   const toggle = (p: CasterPerm) => onChange(value.includes(p) ? value.filter((x) => x !== p) : [...value, p]);
   return (
@@ -261,80 +240,6 @@ function PermPicker({ value, onChange }: { value: CasterPerm[]; onChange: (v: Ca
   );
 }
 
-// 사용처(연동 서비스) — 중복 선택. 한 계정으로 여러 서비스를 쓸 수 있다.
-// 사용처 · 서비스별 조건 — 탭 구조.
-// 탭 = 서비스 / 패널 = 그 서비스의 사용 여부 + 자기 조건.
-// 선택한 서비스의 설정이 아래로 쌓이지 않도록 한 번에 한 서비스만 보여준다.
-// casternExtra — CasterN 에만 딸린 조건(App Key 발급). CasterN 탭 안에서만 노출된다.
-function ServiceTabs({ services, settings, onServices, onSettings, casternExtra }: {
-  services: AccountService[];
-  settings: AccountSettings;
-  onServices: (v: AccountService[]) => void;
-  onSettings: (v: AccountSettings) => void;
-  casternExtra?: ReactNode;
-}) {
-  const [tab, setTab] = useState<AccountService>("CASTERN");
-  const meta = ACCOUNT_SERVICES.find((x) => x.v === tab);
-  const on = services.includes(tab);
-  const toggle = () => onServices(on ? services.filter((x) => x !== tab) : [...services, tab]);
-
-  return (
-    <div style={{ border: "1px solid #eef0f4", borderRadius: 10, overflow: "hidden" }}>
-      {/* 탭 바 — 체크된 서비스에 ✓ */}
-      <div style={{ display: "flex", borderBottom: "1px solid #eef0f4", background: "#fafbfc" }}>
-        {ACCOUNT_SERVICES.map((sv) => {
-          const active = sv.v === tab;
-          const picked = services.includes(sv.v);
-          return (
-            <button key={sv.v} onClick={() => setTab(sv.v)} title={sv.desc}
-              style={{ flex: 1, border: 0, borderBottom: `2px solid ${active ? BLUE : "transparent"}`,
-                background: active ? "#fff" : "transparent", padding: "9px 10px", fontSize: 12.5, cursor: "pointer",
-                color: active ? "#111827" : "#6b7280", fontWeight: active ? 700 : 400,
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 5, whiteSpace: "nowrap" }}>
-              <span style={{ color: picked ? "#047857" : "#d1d5db", fontWeight: 700 }}>{picked ? "✓" : "○"}</span>
-              {sv.label}
-              {!sv.ready && <span style={{ ...S.tag, background: "#fff7ed", color: "#c2410c", fontSize: 10 }}>준비중</span>}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 패널 — 현재 탭 서비스의 조건만 */}
-      <div style={{ padding: "12px 14px" }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, cursor: "pointer" }}>
-          <input type="checkbox" checked={on} onChange={toggle} />
-          <b style={{ color: on ? "#1d4ed8" : "#374151" }}>{meta?.label ?? tab}</b>
-          <span style={{ color: "#9ca3af", fontSize: 11.5 }}>· {meta?.desc}</span>
-        </label>
-
-        <div style={{ marginTop: 10 }}>
-          {!on ? (
-            <div style={{ fontSize: 11.5, color: "#9ca3af" }}>인증 서비스로 선택하면 이 서비스의 조건을 설정할 수 있습니다.</div>
-          ) : tab === "CASTERN" ? (
-            <>
-              {/* CasterN 체크의 뜻은 체크박스 옆 설명(ACCOUNT_SERVICES.desc)으로만 — 파란 안내 상자는 뺐다 `PC-107` */}
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
-                사용자 권한 <span style={{ fontWeight: 400, color: "#9ca3af" }}>· 개별 또는 모두 선택</span>
-              </div>
-              <PermPicker
-                value={settings.CASTERN?.perms ?? []}
-                onChange={(perms) => onSettings({ ...settings, CASTERN: { ...settings.CASTERN, perms } })}
-              />
-              {casternExtra && (
-                <div style={{ marginTop: 14, borderTop: "1px solid #eef0f4", paddingTop: 12 }}>{casternExtra}</div>
-              )}
-            </>
-          ) : (
-            <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.6, border: "1px solid #eef0f4", background: "#fafbfc", borderRadius: 9, padding: "10px 12px" }}>
-              <b style={{ color: "#c2410c" }}>준비중</b> — 이 서비스의 권한·설정 항목은 아직 정의되지 않았습니다. 인증 서비스 연동만 등록됩니다.
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const genPwdStr = () => {
   const buf = new Uint8Array(9);
   (globalThis.crypto ?? window.crypto).getRandomValues(buf);
@@ -343,17 +248,12 @@ const genPwdStr = () => {
 // App Key 값 생성은 스토어의 규칙을 그대로 쓴다 — 영문·숫자 29자 `PC-066`
 const genKeyStr = genAppKey;
 
-// 고객사가 할당받은 SOBP 범위 목록
-function useRanges(companyId: number): SobpRange[] {
-  const { projects } = useStore();
-  return useMemo(() => {
-    if (!companyId) return [];
-    return projects.filter((p) => p.companyId === companyId).flatMap((p) => p.issued.map((b) => {
-      const pt = patternOf(codeKind(b.kind, b.section));
-      return { pt, section: b.section, owner: b.owner, bookStart: b.bookStart, bookEnd: b.bookEnd,
-        pageStart: b.pageStart, pageEnd: b.pageEnd, bookCount: Math.max(1, b.bookEnd - b.bookStart + 1) };
-    }));
-  }, [projects, companyId]);
+// 티켓 고객사의 발급 범위 — 고객사 관리의 SOBP 할당이 아니라 **nkey(HLP) 대장 이력의 S/O/B** `PC-123`
+//   계정은 고객사 **이름**으로 티켓 고객사와 잇는다.
+function useRanges(companyName?: string): SobpRange[] {
+  useTicketCustomers();
+  const { projects } = useStore();     // SOBP 맵에서 (K) 로 직접 할당한 S/O 포함 `PC-125`
+  return rangesOfTicketCustomer(companyName, projects);
 }
 
 // App Key 발급 — 계정 등록·상세에서 공용으로 쓴다.
@@ -450,9 +350,10 @@ function issueAppKey(acc: CasterAccount, range: SobpRange, bookStart: number, bo
 /* ── TKT-06 계정 등록 ───────────────────────────────────────────── */
 export function AccountNewView() {
   const router = useRouter();
-  const { companies } = useStore();
+  const { companies } = useStore();        // 온보딩 연결(고객사 관리 id → 이름)에만 쓴다
   const me = currentUser(useAuth());
   useCaster();
+  useTicketCustomers();
   useEffect(() => { hydrateTickets(); }, []);   // App Key 발급분이 Key 발급 목록에 쌓이도록 원장 로드
 
   const [companyId, setCompanyId] = useState(0);
@@ -461,8 +362,9 @@ export function AccountNewView() {
   const [name, setName] = useState("");
   const [addr, setAddr] = useState("");
   const [homepage, setHomepage] = useState("");
-  const [services, setServices] = useState<AccountService[]>(["CASTERN"]);
-  const [settings, setSettings] = useState<AccountSettings>({ CASTERN: { perms: [...ALL_PERMS] } });
+  // 키 발급 계정 — 서비스(인증)·권한은 고객사 관리의 서비스 계정에서 다룬다 `PC-128`
+  const services: AccountService[] = [];
+  const settings: AccountSettings = {};
   const [tab, setTab] = useState<AccTab>("info");        // 화면 탭 `PC-062`
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [bStart, setBStart] = useState<number | null>(null);
@@ -475,29 +377,14 @@ export function AccountNewView() {
   const [unlimited, setUnlimited] = useState(true);
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const company = companies.find((c) => c.id === companyId);
-  const ranges = useRanges(companyId);
-  const { projects } = useStore();
+  // 고객사 = **티켓 고객사**(nkey(HLP) 대장 프로젝트명 + 티켓 화면 등록분) — 고객사 관리와 별개 `PC-123`
+  const company = companyId ? ticketCustomerById(companyId) : undefined;
+  const ranges = useRanges(company?.name);
   const range = ranges[sobpIdx];
-
-  const hasCastern = services.includes("CASTERN");
-
-  // 사용처를 새로 켜면 그 서비스의 기본 설정을 채운다. (CasterN 은 전체 권한이 기본)
-  const onServices = (next: AccountService[]) => {
-    setServices(next);
-    if (next.includes("CASTERN") && !settings.CASTERN) setSettings({ ...settings, CASTERN: { perms: [...ALL_PERMS] } });
-  };
 
   const onCompany = (cid: number) => {
     setCompanyId(cid); setSobpIdx(-1);
-    const c = companies.find((x) => x.id === cid);
-    if (c) setAddr(c.address || "");        // 고객사 주소 자동 입력
-    // 인증 서비스는 **고객사 관리에서 정한 사용 서비스**를 그대로 체크한다 `PC-076`
-    //   casterN → CasterN · 폼솔루션 → 폼솔루션 · 아무것도 없으면 선택 없음(= SDK 연동)
-    const map: Record<string, AccountService> = { CASTERN: "CASTERN", FORMSOLUTION: "FORMSOLUTION" };
-    const next = [...new Set(servicesOfCompany(cid, companies).map((v) => map[v]).filter(Boolean))] as AccountService[];
-    setServices(next);
-    setSettings(next.includes("CASTERN") ? { CASTERN: { perms: [...ALL_PERMS] } } : {});
+    // 티켓 고객사는 고객사 관리와 별개라 주소·사용 서비스를 끌어오지 않는다 `PC-123` (옛 `PC-076` 자동 체크 폐지)
   };
 
   // 온보딩 승인에서 넘어온 경우 — 고객사·계정 ID(SSO 이메일) 자동 선택 `PC-116`
@@ -511,8 +398,11 @@ export function AccountNewView() {
     const email = sp.get("email") || "";
     if (email) setId(email);                                   // 이메일은 즉시(멱등)
     if (cid) {
-      if (!companies.some((c) => c.id === cid)) return;        // 아직 하이드레이트 전 → 다음 렌더에 재시도
-      onCompany(cid);
+      const c = companies.find((x) => x.id === cid);
+      if (!c) return;                                          // 아직 하이드레이트 전 → 다음 렌더에 재시도
+      // 고객사 관리의 고객사와 같은 이름의 티켓 고객사가 있을 때만 고른다 `PC-123`
+      const tc = ticketCustomerByName(c.name);
+      if (tc) onCompany(tc.id);
     }
     setPrefilled(true);
   }, [sp, companies, prefilled]);
@@ -530,7 +420,7 @@ export function AccountNewView() {
     for (const sv of services) if (settings[sv]) kept[sv] = settings[sv];
 
     const acc: CasterAccount = {
-      id: id.trim(), pwd: pwd.trim(), name: name.trim(), services, settings: kept,
+      id: id.trim(), pwd: pwd.trim(), name: name.trim(), services, settings: kept, scope: "key",
       companyId: company.id, company: company.name, addr: addr.trim(), homepage: homepage.trim(),
       createdAt: "",
     };
@@ -548,7 +438,7 @@ export function AccountNewView() {
   // 체크박스 없이 **탭을 열면 바로 입력**한다 — 범위를 고르면 발급, 안 고르면 계정만 등록 `PC-071`
   const appKeyBlock = (
     <div>
-      <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 5 }}>SOBP 맵에서 발급된 S / O <span style={{ color: "#9ca3af" }}>(고르면 Book 범위가 따라옵니다 · 고르지 않으면 계정만 등록)</span></div>
+      <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 5 }}>대장 이력의 S / O <span style={{ color: "#9ca3af" }}>(고르면 Book 범위가 따라옵니다 · 고르지 않으면 계정만 등록)</span></div>
       <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = ranges[i]; if (r) setCtype(CT_OF[r.pt] ?? "PDS3"); }} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 12 }}>
         <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
@@ -601,10 +491,7 @@ export function AccountNewView() {
         <SecHead t="계정 정보" d="· 서비스 로그인 계정" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급 (인증 서비스 전체 공통)" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="회사정보 (고객사) *">
-            <select style={S.input} value={companyId} onChange={(e) => onCompany(+e.target.value)}>
-              <option value={0}>- 선택 -</option>
-              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <TicketCustomerSelect value={companyId} onChange={onCompany} by={me?.name} />
           </Field>
           <Field label="NAME (담당자/사용자명)"><input style={S.input} value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <Field label="ID (EMAIL) *"><input style={S.input} value={id} onChange={(e) => setId(e.target.value)} placeholder="user@company.com" /></Field>
@@ -614,7 +501,7 @@ export function AccountNewView() {
               <button onClick={() => setPwd(genPwdStr())} style={{ ...S.smallBtn, whiteSpace: "nowrap" }} title="비밀번호를 요청하지 않는 고객사(SDK)는 담당자가 임의 지정">임의 생성</button>
             </div>
           </Field>
-          <Field label="ADDR (주소)"><input style={S.input} value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="고객사 주소 자동 · 수정 가능" /></Field>
+          <Field label="ADDR (주소)"><input style={S.input} value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="주소" /></Field>
           <Field label="HOMEPAGE"><input style={S.input} value={homepage} onChange={(e) => setHomepage(e.target.value)} placeholder="https://" /></Field>
         </div>
 
@@ -627,11 +514,7 @@ export function AccountNewView() {
         </div>
 
         {/* 인증 서비스 및 권한 — 서비스마다 그 조건만 노출 */}
-        <div style={{ ...SEC, marginTop: 0, display: tab === "svc" ? "block" : "none" }}>
-          {/* 설명은 제목 툴팁으로 `PC-073` */}
-          <SecHead t="인증 서비스 및 권한" d={services.length ? `· 선택 ${services.length} / ${ACCOUNT_SERVICES.length}` : `· ${SDK_ONLY_LABEL}`} tip="**인증 서비스** = 이 계정이 우리 서비스 어디에 로그인하나. 중복 선택할 수 있고, 아무것도 고르지 않으면 SDK 연동(코드만 할당)이라 App Key 만 발급합니다. App Key 는 인증 서비스 전체에 공통이라 서비스를 바꿔도 키는 그대로입니다. 고객사 관리의 [사용 서비스](우리가 그 고객사를 어느 서비스로 다루나)와는 다른 값입니다." />
-          <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} />
-        </div>
+        {/* 인증 서비스 및 권한은 고객사 관리(계정 · 사용 서비스 권한)로 옮겼다 `PC-128` */}
 
         {/* 이동·저장 버튼은 화면 아래에 모은다 `PC-064` */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
@@ -663,7 +546,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const [settings, setSettings] = useState<AccountSettings>({});
   const [loaded, setLoaded] = useState(false);
   const sp = useSearchParams();
-  const tab0 = (sp.get("tab") as AccTab) || "info";            // 목록에서 누른 항목의 탭 `PC-067`
+  const tab0 = ((sp.get("tab") as AccTab) === "key" ? "key" : "info") as AccTab;            // 목록에서 누른 항목의 탭 `PC-067`
   const [tab, setTab] = useState<AccTab>(tab0);                // 화면 탭 `PC-062`
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [bStart, setBStart] = useState<number | null>(null);   // App Key Book Start `PC-050`
@@ -685,7 +568,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
     setLoaded(true);
   }, [acc, loaded]);
 
-  const ranges = useRanges(acc?.companyId ?? 0);
+  const ranges = useRanges(acc?.company);
   const range = ranges[sobpIdx];
   const keys = cast.appKeys.filter((k) => k.accountId === accountId);
   // App Key 는 **계정당 1개**이고 **사용처 전체에 공통**이다 `PC-050`
@@ -695,13 +578,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   const selected = (selRange && rangeItems.find((x) => x.k.id === selRange.keyId && x.i === selRange.idx)) || rangeItems[0] || null;
   // 티켓 원장 변경(범위 발급 등) 시 재렌더 — Key 정보는 선택한 범위에서 만든다 `PC-120`
   useTickets();
-  const keyable = (acc?.services ?? []).length > 0 && !myKey;
 
-  // 사용처를 새로 켜면 그 서비스의 기본 설정을 채운다.
-  const onServices = (next: AccountService[]) => {
-    setServices(next);
-    if (next.includes("CASTERN") && !settings.CASTERN) setSettings({ ...settings, CASTERN: { perms: [...ALL_PERMS] } });
-  };
 
   if (!acc) {
     return (
@@ -837,7 +714,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
           </div>
 
           {/* 코드 범위 발급 — 범위마다 사용기간을 함께 지정 `PC-118` */}
-          <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 5 }}>코드 범위 발급 — SOBP 맵에서 발급된 S / O <span style={{ color: "#9ca3af" }}>(고르면 Book 범위가 따라옵니다 · 사용기간을 함께 지정)</span></div>
+          <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 5 }}>코드 범위 발급 — 대장 이력의 S / O <span style={{ color: "#9ca3af" }}>(고르면 Book 범위가 따라옵니다 · 사용기간을 함께 지정)</span></div>
           <SobpRangePicker company ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = ranges[i]; if (r) setCtype(CT_OF[r.pt] ?? "PDS3"); }} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 12 }}>
             <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
@@ -856,13 +733,9 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
           </div>
           {issuedCard}
         </>
-      ) : (acc?.services ?? []).length === 0 ? (
-        <div style={{ fontSize: 11.5, color: "#9ca3af", lineHeight: 1.6 }}>
-<b>[저장]</b> 하면 App Key 를 발급할 수 있습니다.
-        </div>
       ) : (
         <>
-          <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 5 }}>SOBP 맵에서 발급된 S / O * <span style={{ color: "#9ca3af" }}>(고르면 Book 범위가 따라옵니다)</span></div>
+          <div style={{ fontSize: 11.5, color: "#6b7280", marginBottom: 5 }}>대장 이력의 S / O * <span style={{ color: "#9ca3af" }}>(고르면 Book 범위가 따라옵니다)</span></div>
           <SobpRangePicker company ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = ranges[i]; if (r) setCtype(CT_OF[r.pt] ?? "PDS3"); }} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 12 }}>
             <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
@@ -932,12 +805,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
         </div>
 
         {/* 인증 서비스 및 권한 */}
-        <div style={{ ...SEC, marginTop: 0, display: tab === "svc" ? "block" : "none" }}>
-          {/* 설명은 제목 툴팁으로 `PC-073` */}
-          <SecHead t="인증 서비스 및 권한" d={services.length ? `· 선택 ${services.length} / ${ACCOUNT_SERVICES.length}` : `· ${SDK_ONLY_LABEL}`}
-            tip="**인증 서비스** = 이 계정이 우리 서비스 어디에 로그인하나. 중복 선택할 수 있고, 아무것도 고르지 않으면 SDK 연동(코드만 할당)이라 App Key 만 발급합니다. App Key 는 인증 서비스 전체에 공통이라 서비스를 바꿔도 키는 그대로입니다. 고객사 관리의 [사용 서비스](우리가 그 고객사를 어느 서비스로 다루나)와는 다른 값입니다." />
-          <ServiceTabs services={services} settings={settings} onServices={onServices} onSettings={setSettings} />
-        </div>
+        {/* 인증 서비스 및 권한은 고객사 관리(계정 · 사용 서비스 권한)로 옮겼다 `PC-128` */}
 
 
         {/* 이 계정의 Key 정보 — 계정 : 키 = 1:1 매핑 `PC-059` */}

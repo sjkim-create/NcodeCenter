@@ -17,6 +17,8 @@ import { Company, CompanyDoc, WorkKind, WorkLog, projectCodes, nextId,
 import { SOUND_ITEMS, PEN_ITEMS, rateMapOf, customRateCount, type RateItem } from "@/lib/pricing";
 import { COMMON_CODES, codeKey, codesOfCompany, isCommonCodeCompany, type CommonCode } from "@/lib/commonCodes";
 import { codesOfMember, addMember, removeMember, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
+import { caster, useCaster, accountScope, type CasterAccount } from "@/lib/accountStore";
+import { CompanyAccountsPanel, type AccountOps } from "./CompanyAccountsPanel";
 
 type Draft = Omit<Company, "id">;
 const EMPTY: Draft = { name: "", manager: "", contact: "", address: "", bizNo: "", bankName: "", accountNo: "", taxEmail: "", docs: [] };
@@ -339,6 +341,30 @@ export function CompanyFormView({ companyId }: { companyId: number }) {
   const [toast, setToast] = useState("");
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 4000); };
 
+  // 계정 및 서비스 권한 `PC-128` — 고객사별 서비스 로그인 계정(여러 개). 신규 등록 중에는 임시로 두었다가 [등록] 때 저장
+  const cast = useCaster();
+  const [drafts, setDrafts] = useState<CasterAccount[]>([]);
+  const svcAccounts = isNew ? drafts
+    : cast.accounts.filter((a) => accountScope(a) === "service" && a.companyId === companyId);
+  const dupId = (id: string) => [...cast.accounts, ...drafts].some((x) => x.id.toLowerCase() === id.toLowerCase());
+  const accountOps: AccountOps = isNew ? {
+    add: (a) => {
+      if (dupId(a.id)) return { ok: false, msg: "이미 등록된 ID(email)입니다." };
+      setDrafts((d) => [a, ...d]);
+      return { ok: true, msg: "" };
+    },
+    update: (id, patch) => setDrafts((d) => d.map((x) => (x.id === id ? { ...x, ...patch } : x))),
+    remove: (id) => setDrafts((d) => d.filter((x) => x.id !== id)),
+  } : {
+    add: (a) => {
+      const r = caster.addAccount({ ...a, companyId, company: company?.name ?? form.name });
+      if (r.ok) logActivity("company", `계정 추가 · ${company?.name ?? form.name} · ${a.id}`, me?.name);
+      return r;
+    },
+    update: (id, patch) => { caster.updateAccount(id, patch); },
+    remove: (id) => { caster.removeAccount(id); logActivity("company", `계정 삭제 · ${company?.name ?? form.name} · ${id}`, me?.name); },
+  };
+
   // 고객사 값 주입 (최초 1회 — 편집 중 스토어 변경에 덮이지 않도록)
   useEffect(() => {
     if (loaded) return;
@@ -386,7 +412,9 @@ export function CompanyFormView({ companyId }: { companyId: number }) {
 
   const save = () => {
     if (!form.name.trim()) { flash("업체명은 필수입니다."); return; }
-    store.upsertCompany({ ...form, id: companyId });
+    const savedId = store.upsertCompany({ ...form, id: companyId });
+    // 신규 등록 중 추가한 계정을 새 고객사에 붙여 저장한다 `PC-128`
+    if (isNew) drafts.forEach((d) => caster.addAccount({ ...d, companyId: savedId, company: form.name.trim() }));
     // 공통코드 사용 고객사(하위) 등록 — 중앙 멤버십에 동기화 (히스토리 시드는 유지)
     //   자기(대표) 코드는 제외 — 대표 회사는 자기 코드의 하위 고객사가 될 수 없다.
     COMMON_CODES.filter((c) => !c.historyOnly && c.company !== form.name.trim()).forEach((c) => {
@@ -394,7 +422,7 @@ export function CompanyFormView({ companyId }: { companyId: number }) {
       else removeMember(c.k, c.s, c.o, form.name);
     });
     logActivity("company", `${isNew ? "등록" : "수정"} · ${form.name}`, me?.name);
-    if (isNew) { router.push("/companies"); return; }   // 등록 후 목록으로
+    if (isNew) { router.push(`/companies/${savedId}`); return; }   // 등록 후 상세로 — 계정을 이어서 추가 `PC-128`
     flash(`수정됨 · ${form.name}`);
   };
 
@@ -409,7 +437,7 @@ export function CompanyFormView({ companyId }: { companyId: number }) {
   }
 
   return (
-    <div style={{ padding: "20px 22px", maxWidth: isNew ? 640 : 1100 }}>
+    <div style={{ padding: "20px 22px", maxWidth: 1680 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
         <div style={{ fontWeight: 700, fontSize: 14 }}>{isNew ? "고객사 등록" : "고객사 상세 · 수정"}</div>
         {!isNew && company && (
@@ -426,8 +454,8 @@ export function CompanyFormView({ companyId }: { companyId: number }) {
 
       {toast && <div style={S.toast}>{toast}</div>}
 
-      {/* 수정 시 좌(입력 탭)/우(업무 원장) 2단, 등록 시 1단(업무 메모 없음) */}
-      <div style={{ display: "grid", gridTemplateColumns: isNew ? "1fr" : "1.15fr 0.85fr", gap: 20, alignItems: "start" }}>
+      {/* 좌(입력 탭) / 우(계정 및 서비스 권한 + 업무요청 메모) 2단 — 등록 화면도 오른쪽에서 계정을 함께 추가한다 `PC-128` */}
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 1fr)", gap: 20, alignItems: "start" }}>
         {/* 좌 — 항목이 길어 탭으로 나눈다 */}
         <div style={{ ...colBox, padding: 0 }}>
           <div style={{ display: "flex", borderBottom: "1px solid #eef0f4" }}>
@@ -671,9 +699,15 @@ export function CompanyFormView({ companyId }: { companyId: number }) {
           </div>
         </div>
 
-        {/* 우 — 업무요청 메모. 탭과 무관하게 항상 보이고, 좌측을 스크롤해도 따라온다. */}
+        {/* 우 — 계정 및 서비스 권한(위) · 업무요청 메모(아래). 탭과 무관하게 항상 보인다. */}
+        <div style={{ display: "grid", gap: 16 }}>
+          <div style={colBox}>
+            <CompanyAccountsPanel accounts={svcAccounts} ops={accountOps} draft={isNew}
+              companyName={form.name.trim()} companyServices={companyServices(form)}
+              appKeyOf={(id) => cast.appKeys.find((k) => k.accountId === id)?.key} />
+          </div>
         {!isNew && (
-          <div style={{ ...colBox, position: "sticky", top: 16 }}>
+          <div style={colBox}>
             <div style={colHead}>업무요청 메모 <span style={{ color: "#9ca3af", fontWeight: 400, fontSize: 11 }}>· 고객사 전용 원장 · 번호 유지 · 본인 글만 수정/삭제</span></div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 76px", gap: 8 }}>
               <select style={S.input} value={logDraft.projectId ?? ""} onChange={(e) => setLogDraft((d) => ({ ...d, projectId: e.target.value ? +e.target.value : null }))}>
@@ -711,6 +745,7 @@ export function CompanyFormView({ companyId }: { companyId: number }) {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* 하단 액션 */}

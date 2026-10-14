@@ -65,3 +65,17 @@ export const patternOf = (kind: CodeKind): TicketPattern =>
   kind === "PDS4" ? "Scode" : kind === "OID" ? "OID" : kind === "PDS2" ? "PDS2" : "PDS3";
 export const patternTypeParam = (p: TicketPattern) =>
   p === "PDS3" ? "Ncode_PDS3" : p === "PDS2" ? "Ncode_PDS2" : p;
+
+// 패턴·섹션별 Page 가용 범위 / Book 정원 (코드 관리 정보 기준) — N Key·App Key 발급과 티켓 고객사 범위가 함께 쓴다
+export const PAGE_CAP: Partial<Record<TicketPattern, Record<number, number>>> = {
+  PDS3: { 0: 4096, 3: 512, 5: 4096, 10: 1024, 11: 512, 14: 32, 15: 512 },
+  PDS2: { 0: 1024, 3: 4096, 14: 1024 },
+  Scode: { 44: 256 },          // PDS4 (S-code) — Section 44
+  OID: { 3: 4096 },            // OID — 인덱스 전용(같은 S/O 공유, B/P로 구분)
+};
+export const BOOK_CAP: Partial<Record<TicketPattern, Record<number, number>>> = {
+  PDS3: { 0: 16384, 3: 8192, 5: 4096, 10: 4096, 11: 8192, 14: 8192, 15: 4096 },
+  PDS2: { 0: 8192, 3: 4096, 14: 4096 },
+  Scode: { 44: 256 },
+  OID: { 3: 8192 },
+};

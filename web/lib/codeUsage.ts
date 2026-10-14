@@ -13,6 +13,7 @@ import compact from "@/data/code-usage.json";
 import ownership from "@/data/ownership-data.json";
 import type { Project, Company } from "./customerData";
 import { sharedOf, BUILT_IN, builtInShared } from "./sharedOwners";
+import { custKey, keyLabel } from "./keyCustomer";
 
 // 사용가능 = 공유(커먼) 코드에서 편집하지 않고 코드만 잡아 둔 상태 (예: 레퍼런스 스콜라스틱)
 export type CodeStatus = "편집" | "코드발급" | "사용가능" | "미사용";
@@ -73,7 +74,8 @@ export const ownersFor = (k: string, sec: number): OwnerRec[] =>
 export function projectBooks(projects: Project[], companies: Company[]): BookRec[] {
   const out: BookRec[] = [];
   for (const p of projects) {
-    const cust = companies.find((c) => c.id === p.companyId)?.name ?? "-";
+    // 티켓 고객사 할당은 (K) 를 붙여 고객사 관리의 같은 이름 고객사와 구분한다 `PC-125`
+    const cust = p.keyCustomer ? keyLabel(p.keyCustomer) : companies.find((c) => c.id === p.companyId)?.name ?? "-";
     const status: CodeStatus = p.editing || (p.symbols ?? 0) > 0 ? "편집" : "코드발급";
     for (const b of p.issued) {
       const span = Math.min(500, Math.max(1, b.bookEnd - b.bookStart + 1));
@@ -210,8 +212,7 @@ export function canAllocate(
 ): { ok: boolean; reason: string; holders: string[]; shared: boolean; conflicts: number[] } {
   const holders = ownerHolders(k, sec, owner, extra);
   const shared = isSharedSO(sec, owner, k) || asShared;
-  const norm = (x: string) => x.replace(/\s+/g, "").replace(/\(.*\)/g, "").toLowerCase();
-  const others = holders.filter((h) => norm(h) !== norm(company));
+  const others = holders.filter((h) => custKey(h) !== custKey(company));   // (K) 고객사는 같은 이름이어도 다른 업체 `PC-125`
 
   // Book 충돌 (공유 코드도 Book은 배타)
   const used = usedBookMap(k, sec, owner, extra);

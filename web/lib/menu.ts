@@ -57,6 +57,14 @@ const serviceItems = (): MenuItem[] =>
 
 export const MENU: MenuGroup[] = [
   { group: null, items: [{ no: 1, label: "대시보드", path: "/", icon: "▦", ready: true }] },
+  // 사이드바 그룹 순서 = 멤버 관리 → 코드 → 서비스 관리 → 티켓 발급 → 정보 `PC-124`
+  {
+    group: "멤버 관리",
+    items: [
+      { no: 7, label: "고객사 관리", path: "/companies", icon: "👥", ready: true },
+      { no: 9, label: "활동 로그", path: "/activity", icon: "📝", ready: true, admin: true },
+    ],
+  },
   {
     group: "코드",
     items: [
@@ -65,6 +73,7 @@ export const MENU: MenuGroup[] = [
       { label: "코드 프로젝트", path: "/projects", icon: "🎫", ready: true },
     ],
   },
+  { group: "서비스 관리", items: serviceItems() },
   {
     // 발급 메뉴를 화면 안 좌측 탭이 아니라 사이드바 그룹으로 관리한다.
     // 각 메뉴는 [목록 → 등록] 한 쌍 — 메뉴는 목록을 열고, 등록은 목록의 추가 버튼으로 들어간다.
@@ -75,14 +84,6 @@ export const MENU: MenuGroup[] = [
     items: [
       { no: 4, label: "App Key 관리 (계정 발급)", path: "/tickets/account", icon: "🔑", ready: true },
       { label: "N Key 관리", path: "/tickets/nkey", icon: "🧾", ready: true },
-    ],
-  },
-  { group: "서비스 관리", items: serviceItems() },
-  {
-    group: "멤버 관리",
-    items: [
-      { no: 7, label: "고객사 관리", path: "/companies", icon: "👥", ready: true },
-      { no: 9, label: "활동 로그", path: "/activity", icon: "📝", ready: true, admin: true },
     ],
   },
   {
