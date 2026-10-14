@@ -702,7 +702,7 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
       {/* 제목은 화면(브레드크럼)에 한 번만 두고, 여기서는 **고른 고객사**를 크게 보여 준다 `PC-068` */}
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
         <div style={{ fontSize: 20, fontWeight: 800, color: company ? "#111827" : "#c7cdd6" }}>
-          {company?.name ?? "고객사 —— 아래에서 선택"}
+          {company?.name ?? "고객사를 선택하세요"}
         </div>
         {range && (
           <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>
@@ -716,7 +716,7 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
       {/* 회사이름 + 할당된 SOBP 범위 (나란히) */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 12, alignItems: "start" }}>
         <div>
-          <Field label="회사이름 (고객사) *">
+          <Field label="고객사 *">
             <TicketCustomerSelect value={companyId} onChange={onCompany} by={me?.name} />
           </Field>
         </div>
@@ -725,7 +725,7 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
             <>
               <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>
                 사용 고객사 * <span style={{ color: "#a855f7", fontWeight: 700 }}>공통코드</span>
-                <span style={{ color: "#9ca3af" }}> (선택 시 코드 O21/O27/O1012 자동 지정)</span>
+                <span style={{ color: "#9ca3af" }}> (선택하면 코드가 자동으로 지정됩니다)</span>
               </div>
               <select style={S.input} value={cuIdx} onChange={(e) => onCu(+e.target.value)}>
                 <option value={-1}>- 사용 고객사 선택 ({cuCandidates.length}곳) -</option>
@@ -735,7 +735,7 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
             </>
           ) : (
             <>
-              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>발급 범위 (대장 이력 · SOBP 할당) * <span style={{ color: "#9ca3af" }}>(선택 시 Section·Owner·Book·Code Type 자동)</span></div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>발급 범위 (대장 이력 · SOBP 할당) * <span style={{ color: "#9ca3af" }}>(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다)</span></div>
               <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={onRange} />
             </>
           )}
@@ -751,20 +751,20 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
         <Field label={`Book 볼륨 (권) ${range ? `· 최대 ${maxBooks}` : ""}`}>
           <input type="number" min={1} max={maxBooks} style={S.input} value={books} onChange={(e) => setBooks(Math.max(1, +e.target.value))} disabled={!range} />
         </Field>
-        <Field label="Start Page (시작 페이지)">
+        <Field label="Start Page">
           <select style={S.input} value={pageStart} onChange={(e) => setPageStart(+e.target.value)} disabled={!range}>
             <option value={0}>0</option><option value={1}>1 (기본)</option><option value={2}>2</option>
           </select>
         </Field>
         {/* 페이지 정원은 **회사에 할당된 SOB(코드 종류·Section)** 를 따른다 `PC-051` */}
-        <Field label={`Page 볼륨 ${range ? `· 최대 ${(PAGE_CAP[range.pt]?.[range.section] ?? 0).toLocaleString()}` : "(페이지 가용 범위)"}`}>
+        <Field label={`Page 볼륨 ${range ? `· 최대 ${(PAGE_CAP[range.pt]?.[range.section] ?? 0).toLocaleString()}` : ""}`}>
           <input type="number" min={1} max={range ? (PAGE_CAP[range.pt]?.[range.section] ?? undefined) : undefined} style={S.input} value={pageVolume}
             onChange={(e) => { const cap = range ? (PAGE_CAP[range.pt]?.[range.section] ?? Infinity) : Infinity; setPageVolume(Math.max(1, Math.min(cap, +e.target.value))); }} disabled={!range} />
         </Field>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 4 }}>
-        <Field label="Valid Until Time (사용 기한)" full>
+        <Field label="Valid Until Time (사용기간 끝)" full>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input type="date" style={{ ...S.input, maxWidth: 190, opacity: untilUnlimited ? 0.5 : 1 }} disabled={untilUnlimited}
               value={sixToDate(validUntil)} onChange={(e) => setValidUntil(dateToSix(e.target.value))} title="달력에서 선택" />
@@ -782,14 +782,14 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
             {CODE_KINDS.map((k) => <option key={k.v} value={k.v}>{k.short}</option>)}
           </select>
         </Field>
-        <Field label="Issued Time (발급일·고정)"><input style={fixed} value={issuedTime} readOnly /></Field>
+        <Field label="Issued Time (발급일 · 고정)"><input style={fixed} value={issuedTime} readOnly /></Field>
         <Field label="Ticket Version"><input style={fixed} value={1} readOnly /></Field>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12, paddingTop: 12, borderTop: "1px solid #eef0f4" }}>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#374151", cursor: "pointer" }}>
           <input type="checkbox" checked={separate} onChange={(e) => setSeparate(e.target.checked)} />
-          <b>Separate Each Book</b> <span style={{ color: "#9ca3af" }}>(체크: 북코드별 개별 티켓 / 해제: 1개 티켓에 병합)</span>
+          <b>Separate Each Book</b> <span style={{ color: "#9ca3af" }}>(체크하면 북코드별 개별 티켓, 해제하면 1개 티켓으로 병합합니다)</span>
         </label>
         <span style={{ flex: 1 }} />
         <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>

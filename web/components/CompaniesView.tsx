@@ -102,7 +102,7 @@ export default function CompaniesView() {
     onboarding.approve(r.id, cid, me?.name);
     logActivity("company", `온보딩 승인 · ${r.org} (${r.email})${existing ? " · 기존 고객사 연결" : " · 신규 등록"}`, me?.name);
     setApproved({ companyId: cid, email: r.email, org: r.org });
-    flash(`승인됨 · ${r.org} ${existing ? "연결" : "고객사 등록"} · App Key 관리에서 계정·권한을 발급하세요`);
+    flash(`승인됨 · ${r.org} ${existing ? "연결" : "고객사 등록"} · 고객사 상세에서 계정을 추가하세요`);
   };
   const rejectReq = (r: OnboardingRequest) => {
     if (!confirm(`${r.org} (${r.email}) 의 가입 요청을 거절할까요?`)) return;
@@ -144,16 +144,16 @@ export default function CompaniesView() {
         </button>
       )}
 
-      {/* 승인 직후 — 그 고객사 기준으로 계정·App Key 발급 안내 `PC-116` */}
+      {/* 승인 직후 — 그 고객사의 **계정 및 서비스 권한**에서 SSO 이메일로 계정을 추가한다 `PC-116` `PC-133` */}
       {approved && (
         <div style={{ border: "1px solid #a7f3d0", background: "#ecfdf5", borderRadius: 12, padding: "12px 16px", marginBottom: 14,
           display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 15 }}>✅</span>
           <b style={{ fontSize: 13, color: "#065f46" }}>{approved.org} 승인 완료</b>
-          <span style={{ fontSize: 12, color: "#047857" }}>이 고객사 기준으로 App Key 관리에서 계정과 권한을 발급하세요.</span>
+          <span style={{ fontSize: 12, color: "#047857" }}>고객사 상세의 계정 및 서비스 권한에서 이 이메일로 계정을 추가하세요.</span>
           <span style={{ flex: 1 }} />
-          <Link href={`/tickets/account/new?company=${approved.companyId}&email=${encodeURIComponent(approved.email)}`}
-            style={{ ...S.primary, textDecoration: "none", padding: "6px 14px" }}>계정·App Key 발급 →</Link>
+          <Link href={`/companies/${approved.companyId}?email=${encodeURIComponent(approved.email)}`}
+            style={{ ...S.primary, textDecoration: "none", padding: "6px 14px" }}>계정 추가 →</Link>
           <button onClick={() => setApproved(null)} style={{ ...S.ghost, padding: "6px 10px" }}>닫기</button>
         </div>
       )}
@@ -280,7 +280,7 @@ export default function CompaniesView() {
       {showOnboard && (
         <Modal onClose={() => setShowOnboard(false)} title={`가입 승인 요청 ${pending.length}건`}>
           <p style={{ fontSize: 12.5, color: "#6b7280", margin: "0 0 12px", lineHeight: 1.6 }}>
-            새 고객이 우리 서비스에 SSO 로그인한 기록입니다. 승인하면 고객사로 등록되고, App Key 관리에서 계정·권한을 발급할 수 있습니다.
+            새 고객이 우리 서비스에 SSO 로그인한 기록입니다. 승인하면 고객사로 등록되고, 고객사 상세의 계정 및 서비스 권한에서 이 이메일로 계정을 추가할 수 있습니다.
           </p>
           {pending.length === 0 ? (
             <div style={{ fontSize: 13, color: "#6b7280", padding: "18px 0", textAlign: "center" }}>대기 중인 요청이 없습니다. ✅</div>
@@ -319,7 +319,7 @@ export default function CompaniesView() {
 
 /* ── MEM-02 고객사 등록 · 상세수정 ──────────────────────────────── */
 // companyId = 0 → 등록(/companies/new) · 그 외 → 상세·수정(/companies/{id})
-export function CompanyFormView({ companyId }: { companyId: number }) {
+export function CompanyFormView({ companyId, prefillEmail = "" }: { companyId: number; prefillEmail?: string }) {
   const router = useRouter();
   const { companies, projects, logs } = useStore();
   const me = currentUser(useAuth());
@@ -702,7 +702,7 @@ export function CompanyFormView({ companyId }: { companyId: number }) {
         {/* 우 — 계정 및 서비스 권한(위) · 업무요청 메모(아래). 탭과 무관하게 항상 보인다. */}
         <div style={{ display: "grid", gap: 16 }}>
           <div style={colBox}>
-            <CompanyAccountsPanel accounts={svcAccounts} ops={accountOps} draft={isNew}
+            <CompanyAccountsPanel accounts={svcAccounts} ops={accountOps} draft={isNew} initialId={prefillEmail}
               companyName={form.name.trim()} companyServices={companyServices(form)}
               appKeyOf={(id) => cast.appKeys.find((k) => k.accountId === id)?.key} />
           </div>

@@ -209,7 +209,7 @@ def onboard_modal(rows=PEND):
             '<div class="mt">가입 승인 요청 %d건</div><div class="mx">✕</div></div>'
             '<div style="font-size:12.5px;color:#6b7280;margin-bottom:12px;line-height:1.6">'
             '새 고객이 우리 서비스에 SSO 로그인한 기록입니다. 승인하면 고객사로 등록되고, '
-            'App Key 관리에서 계정·권한을 발급할 수 있습니다.</div>%s'
+            '고객사 상세의 계정 및 서비스 권한에서 이 이메일로 계정을 추가할 수 있습니다.</div>%s'
             '<div class="mf"><div class="btn gho">닫기</div></div></div></div>' % (len(rows), items))
 
 
@@ -218,10 +218,10 @@ def approved_card(org='학원북스'):
             'padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
             '<span style="font-size:15px">✅</span>'
             '<b style="font-size:13px;color:#065f46">%s 승인 완료</b>'
-            '<span style="font-size:12px;color:#047857">이 고객사 기준으로 App Key 관리에서 계정과 권한을 발급하세요.</span>'
+            '<span style="font-size:12px;color:#047857">고객사 상세의 계정 및 서비스 권한에서 이 이메일로 계정을 추가하세요.</span>'
             '<span style="flex:1"></span>'
             '<span style="background:#5f8ff0;color:#fff;border-radius:9px;padding:6px 14px;'
-            'font-size:13px;font-weight:600">계정·App Key 발급 →</span>'
+            'font-size:13px;font-weight:600">계정 추가 →</span>'
             '<span class="btn gho" style="padding:6px 10px">닫기</span></div>' % org)
 
 
@@ -361,11 +361,12 @@ def build():
     toast_new = '<div class="toast">등록됨 · 시원스쿨</div>'
     boards.append((
         'S9', '등록 · 수정 완료 복귀', '성공',
-        '<code>MEM-02</code>에서 저장하면 이 화면으로 복귀하며 목록이 갱신되고 상단 알림이 뜬다. '
-        '등록 직후 그 고객사는 <code>SOB-02</code>·<code>TKT-04</code>의 <b>선택 대상</b>이 된다.',
+        '<code>MEM-02</code>에서 [저장]하면 목록이 갱신되고 상단 알림이 뜬다. 신규 [등록]은 계정을 이어서 추가하도록 '
+        '<b>상세·수정 화면</b>으로 간다 <code>PC-128</code>. 등록된 고객사는 <code>SOB-02</code> 직접 코드 할당의 '
+        '<b>선택 대상</b>이 된다. App Key·N Key 발급 고객사(티켓 고객사)와는 별개다 <code>PC-123</code>.',
         frame('MEM-01', '고객사 관리', content(toast=toast_new), height=900),
         [('상단 알림', '표시', '—', '등록: <b>등록됨 · {업체명}</b> / 수정: <b>수정됨 · {업체명}</b>'),
-         ('(등록 직후)', '자동', '<code>SOB-02</code>·<code>TKT-04</code> 편입', '코드 할당·티켓 발급 가능'),
+         ('(등록 직후)', '자동', '<code>SOB-02</code> 편입', '코드 할당 가능 · 티켓 발급 고객사와는 별개'),
          ('코드 할당하러 가기', '좌측 메뉴', '<code>SOB-01</code> → <code>SOB-02</code>', ''),
          ('코드 보유 현황', '좌측 메뉴', '<code>PRJ-01</code>', ''),
          ('편집 실적·정산', '좌측 메뉴', '<code>PRJ-02</code> → <code>PRJ-03</code>', '')]))
@@ -393,19 +394,22 @@ def build():
     boards.append((
         'S12', '승인 완료 · 최근 상단', '성공',
         '승인하면 고객사로 등록되고 <b>최근 등록 고객사가 목록 최상단</b>에 온다(<code>PC-119</code> · createdAt 내림차순). '
-        '상단 초록 카드의 <b>[계정·App Key 발급 →]</b>로 그 고객사 기준 계정·권한 발급 화면(<code>TKT-02</code>)으로 바로 간다(고객사·이메일 프리필).',
+        '상단 초록 카드의 <b>[계정 추가 →]</b>로 그 고객사 상세의 <b>계정 및 서비스 권한</b>(<code>MEM-02</code> S17)으로 바로 간다 — '
+        'SSO 이메일이 ID 칸에 미리 들어간다. <code>PC-133</code>',
         frame('MEM-01', '고객사 관리',
               content(rows=[('학원북스', 'solo', '김대표', 'kim@hakwonbooks.co.kr', '—', '—', '—',
                              None, 0, '—', 0, 0, False)] + ROWS,
                       onboard=2, approved='학원북스'),
               height=1020),
         [('초록 완료 카드', '표시', '—', '<b>{org} 승인 완료</b>'),
-         ('[계정·App Key 발급 →]', '클릭', '<code>TKT-02</code>', '고객사·SSO 이메일 프리필 (<code>?company=&email=</code>)'),
+         ('[계정 추가 →]', '클릭', '<code>MEM-02</code> S17', 'SSO 이메일 미리 입력 (<code>/companies/{id}?email=</code>) <code>PC-133</code>'),
          ('목록 최상단', '자동', '최근 고객사', 'createdAt 내림차순 기본 정렬'),
          ('업체명 헤더', '클릭', '최근순 → 가나다↑ → ↓', '정렬 순환')]))
 
     intro = ('코드를 발급받는 <b>업체(고객사) 마스터</b>. 사업자·계좌·서류·편집 단가·업무 이력을 관리한다. '
-             '<b>모든 코드 발급과 티켓 발급의 선행 조건</b>이며, 여기에 등록되지 않은 업체에는 코드를 할당할 수 없다. '
+             '고객사는 <b>서비스 사용 고객사</b>이며, App Key·N Key 를 받는 <b>티켓 고객사</b>(nkey(HLP) 대장)와 '
+             '<b>따로 관리</b>한다 <code>PC-123</code> — SOBP 맵에서는 티켓 고객사를 <b>(K)이름</b>으로 구분한다. '
+             '고객사마다 <b>서비스 로그인 계정과 권한</b>을 <code>MEM-02</code>에서 관리한다 <code>PC-128</code>. '
              '계층은 <code>P-11</code>에 따라 <b>상위 / 하위 / 단독</b> 3분류이고 구분 필터로 거른다. '
              '<b>행을 클릭하면 <code>MEM-02</code> 수정 화면</b>으로 이동한다. '
              '')

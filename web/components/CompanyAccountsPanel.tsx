@@ -25,23 +25,24 @@ const genPwd = () => {
 // 고객사 사용 서비스(ServiceType) → 계정 서비스(AccountService)
 const ACC_OF: Partial<Record<ServiceType, AccountService>> = { CASTERN: "CASTERN", FORMSOLUTION: "FORMSOLUTION" };
 
-export function CompanyAccountsPanel({ accounts, ops, companyName, companyServices, appKeyOf, draft }: {
+export function CompanyAccountsPanel({ accounts, ops, companyName, companyServices, appKeyOf, draft, initialId = "" }: {
   accounts: CasterAccount[];
   ops: AccountOps;
   companyName: string;
   companyServices: ServiceType[];          // 폼에서 고른 사용 서비스(저장 전 값 포함)
   appKeyOf?: (accountId: string) => string | undefined;
   draft?: boolean;                         // 신규 등록 중 — [등록] 할 때 함께 저장된다
+  initialId?: string;                      // 가입 승인에서 넘어온 SSO 이메일 — 계정 추가 칸에 미리 넣는다 `PC-133`
 }) {
   const allowed = companyServices.map((v) => ACC_OF[v]).filter(Boolean) as AccountService[];
-  const [id, setId] = useState("");
+  const [id, setId] = useState(initialId);
   const [pwd, setPwd] = useState("");
   const [name, setName] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [open, setOpen] = useState<string | null>(null);   // 펼친 계정
 
   const add = () => {
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(id.trim())) { setMsg({ ok: false, text: "계정 ID는 이메일 형식이어야 합니다." }); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(id.trim())) { setMsg({ ok: false, text: "ID 는 이메일 형식이어야 합니다." }); return; }
     if (!pwd.trim()) { setMsg({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
     // 고객사의 사용 서비스를 기본으로 켠다 — casterN 은 권한 6종 모두
     const acc: CasterAccount = {
@@ -75,12 +76,12 @@ export function CompanyAccountsPanel({ accounts, ops, companyName, companyServic
       {/* 계정 추가 */}
       <div style={{ border: "1px dashed #c7d2fe", background: "#f8faff", borderRadius: 10, padding: 10 }}>
         <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1.2fr 1fr auto", gap: 6 }}>
-          <input style={S.input} placeholder="ID (EMAIL) *" value={id} onChange={(e) => setId(e.target.value)} />
+          <input style={S.input} placeholder="ID (이메일) *" value={id} onChange={(e) => setId(e.target.value)} />
           <div style={{ display: "flex", gap: 4 }}>
-            <input style={S.input} placeholder="PWD *" value={pwd} onChange={(e) => setPwd(e.target.value)} />
-            <button type="button" onClick={() => setPwd(genPwd())} style={{ ...S.smallBtn, whiteSpace: "nowrap" }} title="비밀번호 미요청 시 임의 생성">임의</button>
+            <input style={S.input} placeholder="PWD (비밀번호) *" value={pwd} onChange={(e) => setPwd(e.target.value)} />
+            <button type="button" onClick={() => setPwd(genPwd())} style={{ ...S.smallBtn, whiteSpace: "nowrap" }} title="비밀번호를 요청하지 않으면 임의로 만듭니다">임의 생성</button>
           </div>
-          <input style={S.input} placeholder="NAME (담당자)" value={name} onChange={(e) => setName(e.target.value)} />
+          <input style={S.input} placeholder="NAME (담당자명)" value={name} onChange={(e) => setName(e.target.value)} />
           <button type="button" onClick={add} style={{ ...S.primary, whiteSpace: "nowrap" }}>＋ 계정 추가</button>
         </div>
         {msg && <div style={{ fontSize: 12, marginTop: 6, color: msg.ok ? "#047857" : "#dc2626" }}>{msg.text}</div>}
@@ -122,8 +123,8 @@ export function CompanyAccountsPanel({ accounts, ops, companyName, companyServic
               {isOpen && (
                 <div style={{ borderTop: "1px solid #eef0f4", padding: "10px 12px", display: "grid", gap: 10 }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 6, alignItems: "center" }}>
-                    <input style={S.input} defaultValue={a.name} placeholder="NAME" onBlur={(e) => e.target.value !== a.name && ops.update(a.id, { name: e.target.value.trim() })} />
-                    <input style={S.input} defaultValue={a.pwd} placeholder={a.seeded && !a.pwd ? "대장 참조" : "PWD"} onBlur={(e) => e.target.value !== a.pwd && ops.update(a.id, { pwd: e.target.value.trim() })} />
+                    <input style={S.input} defaultValue={a.name} placeholder="NAME (담당자명)" onBlur={(e) => e.target.value !== a.name && ops.update(a.id, { name: e.target.value.trim() })} />
+                    <input style={S.input} defaultValue={a.pwd} placeholder={a.seeded && !a.pwd ? "대장 참조" : "PWD (비밀번호)"} onBlur={(e) => e.target.value !== a.pwd && ops.update(a.id, { pwd: e.target.value.trim() })} />
                     <button type="button" onClick={() => { if (confirm(`계정 ${a.id} 을(를) 삭제할까요?`)) ops.remove(a.id); }}
                       style={{ ...S.linkBtn, color: "#dc2626" }}>삭제</button>
                   </div>
@@ -138,7 +139,7 @@ export function CompanyAccountsPanel({ accounts, ops, companyName, companyServic
                           <input type="checkbox" checked={on} disabled={!can && !on} onChange={() => toggleSvc(s.v)} />
                           <b style={{ color: on ? "#1d4ed8" : "#374151" }}>{s.label} 사용</b>
                           {!s.ready && <span style={{ ...S.tag, background: "#fff7ed", color: "#c2410c", fontSize: 10 }}>준비중</span>}
-                          {!can && <span style={{ fontSize: 11, color: "#9ca3af" }}>· 고객사 사용 서비스에서 먼저 체크</span>}
+                          {!can && <span style={{ fontSize: 11, color: "#9ca3af" }}>· 고객사 사용 서비스에서 먼저 체크하세요</span>}
                         </label>
                         {on && s.v === "CASTERN" && (
                           <div style={{ marginTop: 8 }}>

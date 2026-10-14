@@ -207,23 +207,24 @@ JS = r"""
 
 # ── 사이드바 ────────────────────────────────────────────────────────
 # (라벨, 화면코드, 종류) — 종류: item / head / child / grp
+# 그룹 순서 = 대시보드 → 멤버 관리 → 코드 → 서비스 관리 → 티켓 발급 → 정보 `PC-124`
 MENU = [
     ('grp', None, None, None),
     ('item', '대시보드', 'DSH-01', '▦'),
+    ('grp', '멤버 관리', None, None),
+    ('item', '고객사 관리', 'MEM-01', '👥'),
+    ('admin', '활동 로그', 'LOG-01', '📝'),
     ('grp', '코드', None, None),
     ('item', 'SOBP 맵', 'SOB-01', '🗺️'),
     ('item', '코드 프로젝트', 'PRJ-01', '🎫'),
-    ('grp', '티켓 발급', None, None),
-    ('item', 'App Key 관리 (계정 발급)', 'TKT-01', '🔑'),
-    ('item', 'N Key 관리', 'TKT-03', '🧾'),
     ('grp', '서비스 관리', None, None),
     ('head', 'CasterN 서비스 관리', None, '🎬'),
     ('child', '편집 프로젝트', 'PRJ-02', None),
     ('child', 'PUI 코드 (페이퍼)', 'PRJ-06', None),
     ('soon', '폼솔루션 서비스 관리', None, '📄'),
-    ('grp', '멤버 관리', None, None),
-    ('item', '고객사 관리', 'MEM-01', '👥'),
-    ('admin', '활동 로그', 'LOG-01', '📝'),
+    ('grp', '티켓 발급', None, None),
+    ('item', 'App Key 관리 (계정 발급)', 'TKT-01', '🔑'),
+    ('item', 'N Key 관리', 'TKT-03', '🧾'),
     ('grp', '정보', None, None),
     ('item', '코드 관리 정보', 'INF-01', 'ℹ️'),
     ('item', '브랜드 (CI)', None, '🎨'),

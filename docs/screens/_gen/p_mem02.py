@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """MEM-02 고객사 등록·수정 — 모달이 아니라 별도 페이지 2개.
 
-좌측 3탭(기본 정보 / 편집 단가 / 관련 서류) · 수정 화면은 우측에 업무요청 메모 고정.
-단가는 소리펜·필기펜을 그룹 카드로 나누고 그룹별 기본값 복원을 둔다.
+좌측 3탭(기본 정보 / 편집 단가 / 관련 서류) · 우측 = 계정 및 서비스 권한(등록·수정 공통) +
+업무요청 메모(수정 화면). 단가는 소리펜·필기펜을 그룹 카드로 나누고 그룹별 기본값 복원을 둔다.
+계정 및 서비스 권한 `PC-128` — 고객사마다 서비스 로그인 계정을 여러 개 두고, 고객사 사용 서비스
+(casterN)에서 체크한 서비스만 계정에 권한을 줄 수 있다. App Key 관리(키 발급 계정)와 다른 계정이다.
 """
 from shell import page, frame
 
@@ -54,7 +56,7 @@ def fld(label, req, val, ro=False, ph=False, err=False):
             % (label, r, cls, val))
 
 
-def basic_card(name_err=False, empty=False, closed=False):
+def basic_card(name_err=False, empty=False, closed=False, cast_off=False):
     fs = []
     for i, (lb, req, v) in enumerate(BASIC):
         val = v
@@ -118,9 +120,10 @@ def basic_card(name_err=False, empty=False, closed=False):
               + fld('코드 이관 메모', False, '엠베스트-28로 코드 이관 · 발급 이력 보존')
               + '</div>') if closed else ''))
 
-    on_cast = not empty
+    on_cast = not empty and not cast_off
     cast_panel = (svc_check('casterN (편집툴)',
-                            '[편집 프로젝트]의 대상이 된다', on_cast)     # `PC-108`
+                            '[편집 프로젝트]의 대상이 되고, 이 고객사 계정에 CasterN 사용 권한을 줄 수 있다',
+                            on_cast)     # `PC-108` `PC-128`
                   + (st if on_cast else ''))     # 꺼져 있을 때 안내문은 뺐다 `PC-104`
 
     svc = ('<div class="fld" style="grid-column:1/-1"><span class="lbl">사용 서비스</span>'
@@ -279,6 +282,121 @@ def memo_card(draft='', hi=None):
             '<th style="width:100px">작업</th></tr>%s</table></div></div>' % (dv, rows))
 
 
+# ── 계정 및 서비스 권한 `PC-128` ─────────────────────────────
+# (ID, 이름, CasterN 사용, 권한 수, 대장, App Key)
+ACCOUNTS = (('kim@wjthinkbig.com', '김태호', True, 6, False, False),
+            ('edit01@wjthinkbig.com', '편집팀', True, 3, False, False),
+            ('caster@wjthinkbig.com', '', True, 6, True, True))
+PERMS = (('프로젝트 생성', 'project_new'), ('심볼 편집', 'symbol_edit'),
+         ('리소스 편집', 'resource_edit'), ('Ncode PDF 내보내기', 'export_ncode_pdf'),
+         ('NCP2 내보내기', 'export_ncp2'), ('App용 패키지 내보내기', 'export_app_package'))
+
+
+def _svc_status(cast_on):
+    if cast_on:
+        on = '<span class="tag" style="font-weight:700;background:#ecfdf5;color:#047857">&#10003; CasterN</span>'
+        note = ''
+    else:
+        on = '<span class="tag" style="font-weight:700;background:#f3f4f6;color:#9ca3af">&#9675; CasterN</span>'
+        note = ('<span style="color:#9ca3af">&mdash; 왼쪽 [사용 서비스]에서 casterN 을 체크하면 '
+                '계정에 권한을 줄 수 있습니다</span>')
+    off = '<span class="tag" style="font-weight:700;background:#f3f4f6;color:#9ca3af">&#9675; 폼솔루션</span>'
+    return ('<div style="font-size:11.5px;color:#6b7280;margin-bottom:10px;display:flex;gap:6px;'
+            'flex-wrap:wrap;align-items:center">사용 서비스 %s%s%s</div>' % (on, off, note))
+
+
+def _add_row(id_val='', pwd='', name='', err=''):
+    def box(v, ph):
+        return '<div class="inp%s">%s</div>' % ('' if v else ' ph', v or ph)
+    e = ('<div style="font-size:12px;margin-top:6px;color:#dc2626">%s</div>' % err) if err else ''
+    return ('<div style="border:1px dashed #c7d2fe;background:#f8faff;border-radius:10px;padding:10px">'
+            '<div style="display:grid;grid-template-columns:1.4fr 1.25fr 1fr auto;gap:6px;align-items:center">'
+            '%s<div class="row" style="gap:4px">%s<span class="btn sm" style="white-space:nowrap">임의 생성</span></div>'
+            '%s<span class="btn pri" style="padding:8px 12px;white-space:nowrap">＋ 계정 추가</span></div>%s</div>'
+            % (box(id_val, 'ID (이메일) *'), box(pwd, 'PWD (비밀번호) *'), box(name, 'NAME (담당자명)'), e))
+
+
+def _acc_row(acc, open_=False, cast_on=True):
+    aid, nm, cast, n, seeded, key = acc
+    if cast:
+        if cast_on:
+            tags = '<span class="tag" style="font-weight:700;background:#ecfdf5;color:#047857">CasterN %d/6</span>' % n
+        else:
+            tags = ('<span class="tag" style="font-weight:700;background:#fef2f2;color:#b91c1c" '
+                    'title="고객사 사용 서비스에서 빠진 서비스">CasterN %d/6</span>' % n)
+    else:
+        tags = '<span class="tag" style="background:#f3f4f6;color:#9ca3af">권한 없음</span>'
+    if key:
+        tags += ' <span class="tag" style="background:#f5f3ff;color:#6d28d9">App Key</span>'
+    head = ('<div class="row" style="padding:9px 12px;gap:8px">'
+            '<span style="color:#9ca3af;font-size:11px">%s</span>'
+            '<code style="color:#2563eb;font-weight:600;font-size:12.5px">%s</code>'
+            '%s%s<span style="flex:1"></span>%s</div>'
+            % ('&#9662;' if open_ else '&#9656;', aid,
+               (' <span style="font-size:12px;color:#374151">%s</span>' % nm) if nm else '',
+               ' <span class="tag" style="background:#f0fdfa;color:#0f766e">대장</span>' if seeded else '',
+               tags))
+    body = ''
+    if open_:
+        perm = ''
+        for i, (lb, k) in enumerate(PERMS):
+            on = i < n
+            perm += ('<label style="display:flex;align-items:center;gap:7px;border:1px solid %s;background:%s;'
+                     'border-radius:9px;padding:7px 9px;font-size:12px">'
+                     '<input type="checkbox"%s><span style="color:%s;font-weight:%s">%s '
+                     '<span style="font-family:ui-monospace,monospace;font-size:10.5px;color:#9ca3af;'
+                     'font-weight:400">(%s)</span></span></label>'
+                     % ('#c7ddff' if on else '#eef0f4', '#f7faff' if on else '#fff',
+                        ' checked' if on else '', '#1d4ed8' if on else '#374151',
+                        '700' if on else '400', lb, k))
+        if cast_on:
+            cast_box = ('<label style="display:flex;align-items:center;gap:7px;font-size:12.5px">'
+                        '<input type="checkbox" checked><b style="color:#1d4ed8">CasterN 사용</b></label>'
+                        '<div class="row" style="margin:8px 0 6px"><span style="font-size:11.5px;color:#6b7280">'
+                        '선택 %d / 6</span><span style="flex:1"></span><span class="btn sm">%s</span></div>'
+                        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">%s</div>'
+                        % (n, '모두 해제' if n == 6 else '모두 선택', perm))
+        else:
+            cast_box = ('<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;opacity:.6">'
+                        '<input type="checkbox" disabled><b style="color:#374151">CasterN 사용</b>'
+                        '<span style="font-size:11px;color:#9ca3af">· 고객사 사용 서비스에서 먼저 체크하세요</span>'
+                        '</label>')
+        form = ('<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;opacity:.6">'
+                '<input type="checkbox" disabled><b style="color:#374151">폼솔루션 사용</b>'
+                '<span class="tag" style="background:#fff7ed;color:#c2410c;font-size:10px">준비중</span>'
+                '<span style="font-size:11px;color:#9ca3af">· 고객사 사용 서비스에서 먼저 체크하세요</span></label>')
+        body = ('<div style="border-top:1px solid #eef0f4;padding:10px 12px;display:grid;gap:10px">'
+                '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center">'
+                '<div class="inp">%s</div><div class="inp ph">%s</div>'
+                '<span class="lnk" style="color:#dc2626">삭제</span></div>'
+                '<div style="border:1px solid #eef0f4;border-radius:9px;padding:9px 11px;background:%s">%s</div>'
+                '<div style="border:1px solid #eef0f4;border-radius:9px;padding:9px 11px;background:#fafafa">%s</div>'
+                '</div>'
+                % (nm or '<span style="color:#9ca3af">NAME (담당자명)</span>',
+                   '대장 참조' if seeded else '••••••••',
+                   '#fff' if cast_on else '#fafafa', cast_box, form))
+    return ('<div style="border:1px solid %s;border-radius:10px;background:#fff">%s%s</div>'
+            % ('#bfdbfe' if open_ else '#eef0f4', head, body))
+
+
+def account_card(accounts=ACCOUNTS, open_id=None, cast_on=True, draft=False, add=None, msg=''):
+    """우측 [계정 및 서비스 권한] — 등록·수정 공통 `PC-128`"""
+    add = add or {}
+    rows = ''.join(_acc_row(a, a[0] == open_id, cast_on) for a in accounts)
+    if not accounts:
+        rows = ('<div style="font-size:12px;color:#9ca3af;padding:14px 0;text-align:center">'
+                '등록된 계정이 없습니다.</div>')
+    ok = ('<div style="font-size:12px;margin-top:6px;color:#047857">%s</div>' % msg) if msg else ''
+    return ('<div class="card"><div class="bd">'
+            '<div class="row" style="margin-bottom:10px"><b style="font-size:13px">계정 및 서비스 권한</b>'
+            '<span class="tag b" style="font-weight:700">%d개</span>'
+            '<span style="font-size:11px;color:#9ca3af">· 서비스 로그인 계정 · 개수 제한 없음 · %s</span></div>'
+            '%s%s%s<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">%s</div>'
+            '</div></div>'
+            % (len(accounts), '[등록] 시 함께 저장' if draft else '바로 저장',
+               _svc_status(cast_on), _add_row(**add), ok, rows))
+
+
 TABS = (('base', '기본 정보'), ('rate', '편집 단가'), ('docs', '관련 서류'))
 
 
@@ -308,8 +426,10 @@ def footer(save_label='저장', edit=False):
             % (left, save_label))
 
 
-def panel(tab, name_err=False, empty=False, closed=False, is_parent=False, n_custom=2):
+def panel(tab, name_err=False, empty=False, closed=False, is_parent=False, n_custom=2, cast_off=False):
     """좌측 입력 — 항목이 길어 탭으로 나눈다. 조건이 아래로 쌓이지 않는다."""
+    if tab == 'base' and cast_off:
+        return basic_card(cast_off=True) + '<div style="height:14px"></div>' + form_panel()
     if tab == 'base':
         # 사용 서비스 탭 `PC-077` — casterN 딸림 설정(공통코드) · 폼솔루션 탭 안내를 함께 보인다
         return (basic_card(name_err=name_err, empty=empty, closed=closed)
@@ -326,20 +446,25 @@ def wrap(tab, inner, n_custom=0, n_docs=3):
             % (tabbar(tab, n_custom, n_docs), inner))
 
 
-def reg_mode(tab='base', name_err=False, n_custom=0):
-    return ('<div style="max-width:640px">%s%s</div>'
-            % (wrap(tab, panel(tab, name_err=name_err, empty=not name_err,
-                               n_custom=n_custom), n_custom, 0),
-               footer('등록')))
+# 좌(입력 탭) / 우(계정 및 서비스 권한 + 업무요청 메모) 2단 — 등록 화면도 우측에서 계정을 함께 추가한다 `PC-128`
+GRID = ('<div style="display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:14px;'
+        'align-items:start"><div>%s</div><div style="display:grid;gap:14px">%s</div></div>')
 
 
-def edit_mode(tab='base', is_parent=False, closed=False, n_custom=2, draft='', hi=None):
-    left = wrap(tab, panel(tab, closed=closed, is_parent=is_parent, n_custom=n_custom),
-                n_custom, 3)
-    return ('<div style="max-width:1100px">'
-            '<div style="display:grid;grid-template-columns:1.15fr 0.85fr;gap:14px;'
-            'align-items:start"><div>%s</div><div>%s</div></div>%s</div>'
-            % (left, memo_card(draft, hi), footer(edit=True)))
+def reg_mode(tab='base', name_err=False, n_custom=0, acc=None):
+    if acc is None:
+        acc = account_card(accounts=(), draft=True, cast_on=False)
+    left = wrap(tab, panel(tab, name_err=name_err, empty=not name_err, n_custom=n_custom), n_custom, 0)
+    return (GRID % (left, acc)) + footer('등록')
+
+
+def edit_mode(tab='base', is_parent=False, closed=False, n_custom=2, draft='', hi=None,
+              acc=None, cast_off=False):
+    if acc is None:
+        acc = account_card()
+    left = wrap(tab, panel(tab, closed=closed, is_parent=is_parent, n_custom=n_custom,
+                           cast_off=cast_off), n_custom, 3)
+    return (GRID % (left, acc + memo_card(draft, hi))) + footer(edit=True)
 
 
 def build():
@@ -347,24 +472,27 @@ def build():
 
     boards.append((
         'S1', '등록 — 기본 정보 탭', '기본',
-        '<code>MEM-01</code>의 <b>[＋ 고객사 등록]</b>으로 진입. PRD §1 — 등록 모드는 '
-        '<b>기본 정보 1단</b>이며 <b>업무 원장(MEM-03)이 없다</b>. 필수는 <b>업체명</b> 하나뿐.',
+        '<code>MEM-01</code>의 <b>[＋ 고객사 등록]</b>으로 진입. 좌측 입력 탭 + 우측 '
+        '<b>계정 및 서비스 권한</b> 2단이며 <b>업무 원장(MEM-03)은 없다</b>. 필수는 <b>업체명</b> 하나뿐. '
+        '<code>PC-128</code>',
         frame('MEM-01', '고객사 등록', reg_mode(), height=1580),
         [('업체명', '입력 (필수)', '—', '코드·프로젝트가 이 이름으로 연결된다'),
          ('사업자등록증번호', '입력', '—', '형식 예: <code>000-00-00000</code>'),
-         ('주소', '입력', '—', '<code>TKT-01</code> 계정 등록 시 <b>기본 주소</b>로 사용된다'),
+         ('주소', '입력', '—', '고객사 관리 전용 — App Key 관리(티켓 고객사)로 넘어가지 않는다 <code>PC-123</code>'),
          ('은행명 / 계좌번호', '입력', '—', '정산 지급용'),
          ('공통코드 체크', '체크', '하위 고객사로 등록', '<b>코드 할당이 발생하지 않는다</b> <code>P-12</code>'),
          ('편집 단가', '입력', '전용 단가 지정', '기본값에서 <b>바꾼 항목만</b> 전용 단가 <code>P-16</code>'),
-         ('[등록]', '클릭', '<code>MEM-01</code> 복귀', '상단 알림 <b>등록됨 · {업체명}</b> · <code>LOG-01</code> 기록'),
+         ('[＋ 계정 추가]', '클릭', '임시 계정 추가 (S13)', '<b>[등록] 할 때 함께 저장</b>된다'),
+         ('[등록]', '클릭', '<b>상세·수정(S2)</b> 이동', '계정을 이어서 추가할 수 있다 · <code>LOG-01</code> 기록 <code>PC-128</code>'),
          ('[취소]', '클릭', '<code>MEM-01</code> 복귀', '변경 없음')]))
 
     boards.append((
         'S2', '상세·수정 — 기본 정보 탭 · 업무요청 메모', '기본',
-        '<code>MEM-01</code>의 <b>행 클릭</b>으로 진입. PRD §5 — 수정 모드는 '
-        '<b>좌(기본 정보) / 우(업무 원장 MEM-03) 2단</b>이다.',
-        frame('MEM-01', '고객사 상세 · 수정', edit_mode(), height=1580),
+        '<code>MEM-01</code>의 <b>행 클릭</b>으로 진입. 수정 모드는 '
+        '<b>좌(입력 탭) / 우(계정 및 서비스 권한 + 업무 원장 MEM-03) 2단</b>이다. <code>PC-128</code>',
+        frame('MEM-01', '고객사 상세 · 수정', edit_mode(), height=1680),
         [('기본 정보', '수정', '—', '등록 모드와 동일 항목'),
+         ('계정 행', '클릭', '펼침 (S12)', '서비스 권한 지정'),
          ('업무 원장 종류', '클릭', '요청 / 처리 / 메모', '3종 중 단일 선택'),
          ('메모 입력', 'Enter', '기록', 'Shift+Enter 줄바꿈'),
          ('메모 [수정]·[삭제]', '클릭', '수정 / S8 확인창', '<b>본인이 작성한 메모만</b> 가능'),
@@ -482,12 +610,95 @@ def build():
          ('[삭제]', '클릭', '메모 제거', ''),
          ('[취소] · [✕]', '클릭', 'S2 복귀', '')]))
 
-    intro = ('고객사의 <b>기본 정보 · 공통코드 귀속 · 편집 단가 · 관련 서류</b>를 입력한다. '
+    # ── 계정 및 서비스 권한 `PC-128` ──
+    boards.append((
+        'S12', '계정 펼침 — CasterN 권한 지정', '분기',
+        '계정 행을 누르면 펼쳐진다. 고객사 <b>사용 서비스에 casterN 이 체크</b>돼 있으면 계정에 '
+        '<b>CasterN 사용</b>과 <b>권한 6종</b>을 줄 수 있다 — casterN 체크 = 편집 프로젝트 대상 + '
+        '계정 권한 지정 가능. 변경은 <b>바로 저장</b>된다(고객사 [저장]과 별개). <code>PC-128</code>',
+        frame('MEM-01', '고객사 상세 · 수정',
+              edit_mode(acc=account_card(open_id='edit01@wjthinkbig.com')), height=1900),
+        [('계정 행', '클릭', '펼침 / 접힘', '머리에 <b>CasterN n/6</b> · <b>대장</b> · <b>App Key</b> 표시'),
+         ('NAME · PWD', '입력 후 포커스 이동', '바로 저장', '대장 계정은 비밀번호 <b>대장 참조</b>'),
+         ('CasterN 사용', '체크', '권한 6종 노출', '새로 켜면 6종 모두 선택'),
+         ('권한 체크', '클릭', '개별 지정', '라벨 (키) 표기 — 예: 프로젝트 생성 (project_new)'),
+         ('[모두 선택] / [모두 해제]', '클릭', '6종 일괄', ''),
+         ('폼솔루션 사용', '—', '<b>비활성</b>', '준비중 · 고객사 사용 서비스에서 먼저 체크하세요'),
+         ('[삭제]', '클릭', 'S16 확인창', '')]))
+
+    boards.append((
+        'S13', '등록 중 계정 추가', '분기',
+        '고객사를 등록하면서 계정을 미리 넣어 둘 수 있다. 추가한 계정은 <b>임시</b>로 보이고 '
+        '<b>[등록] 할 때 함께 저장</b>된다. 등록 뒤에는 상세·수정(S2)으로 이동해 계정을 이어서 추가한다. '
+        '<code>PC-128</code>',
+        frame('MEM-01', '고객사 등록',
+              reg_mode(acc=account_card(accounts=(('kim@wjthinkbig.com', '김태호', False, 0, False, False),),
+                                        draft=True, cast_on=False,
+                                        msg='계정 추가됨 · kim@wjthinkbig.com')), height=1580),
+        [('ID (이메일)', '입력 (필수)', '—', '이메일 형식 · <b>전체에서 유일</b>'),
+         ('PWD (비밀번호)', '입력 (필수)', '—', '요청이 없으면 <b>[임의 생성]</b>'),
+         ('NAME (담당자명)', '입력', '—', ''),
+         ('[＋ 계정 추가]', '클릭', '임시 목록에 추가', '<b>계정 추가됨 · {ID}</b>'),
+         ('사용 서비스 미체크', '—', '<b>권한 없음</b>', 'casterN 을 체크하면 계정에 권한을 줄 수 있다'),
+         ('[등록]', '클릭', '고객사 + 계정 저장', '상세·수정(S2)으로 이동')]))
+
+    boards.append((
+        'S14', 'casterN 미체크 — 권한 비활성', '분기',
+        '고객사 사용 서비스에서 <b>casterN 을 끄면</b> 계정의 CasterN 사용을 켤 수 없다. '
+        '이미 권한이 있던 계정은 머리 표시가 <b>빨간색</b>으로 바뀌어 권한이 적용되지 않음을 알린다. '
+        '<code>PC-128</code>',
+        frame('MEM-01', '고객사 상세 · 수정',
+              edit_mode(cast_off=True, acc=account_card(open_id='kim@wjthinkbig.com', cast_on=False)),
+              height=1700),
+        [('사용 서비스 casterN', '체크 해제', '계정 권한 비활성', '프로젝트 상태 · 공통코드 사용 고객사도 숨김'),
+         ('CasterN n/6 (빨강)', '표시', '—', '고객사 사용 서비스에서 빠진 서비스 — 권한이 적용되지 않는다'),
+         ('CasterN 사용', '—', '<b>비활성</b>', '고객사 사용 서비스에서 먼저 체크하세요'),
+         ('casterN 다시 체크', '체크', 'S12', '권한이 그대로 다시 적용된다')]))
+
+    boards.append((
+        'S15', '계정 추가 오류', '오류',
+        '계정 ID 는 <b>이메일 형식</b>이어야 하고 <b>전체에서 유일</b>하다(App Key 관리의 키 발급 계정 포함). '
+        '비밀번호가 비어 있으면 추가되지 않는다.',
+        frame('MEM-01', '고객사 상세 · 수정',
+              edit_mode(acc=account_card(add={'id_val': 'kim@wjthinkbig.com', 'pwd': 'x8Kd02pQ',
+                                              'err': '이미 등록된 ID(email)입니다.'})), height=1700),
+        [('ID 중복', '[＋ 계정 추가]', '<b>차단</b>', '<b>이미 등록된 ID(email)입니다.</b>'),
+         ('ID 형식 오류', '[＋ 계정 추가]', '<b>차단</b>', '<b>ID 는 이메일 형식이어야 합니다.</b>'),
+         ('PWD 미입력', '[＋ 계정 추가]', '<b>차단</b>', '<b>비밀번호가 필요합니다. (요청 없으면 [임의 생성])</b>')]))
+
+    acc_del = ('<div class="ovl"><div class="mdl">'
+               '<div class="mh"><div class="mt">계정 삭제</div><div class="mx">✕</div></div>'
+               '<div style="font-size:13px;color:#374151;line-height:1.7">'
+               '계정 edit01@wjthinkbig.com 을(를) 삭제할까요?</div>'
+               '<div class="mf"><div class="btn gho">취소</div><div class="btn dan">삭제</div></div>'
+               '</div></div>')
+    boards.append((
+        'S16', '계정 삭제 확인창', '확인창',
+        '계정 [삭제] 는 확인창을 거친다. 그 계정에 연결된 App Key 도 함께 지워진다.',
+        frame('MEM-01', '고객사 상세 · 수정',
+              edit_mode(acc=account_card(open_id='edit01@wjthinkbig.com')), overlay=acc_del, height=1900),
+        [('확인창 문구', '표시', '—', '<b>계정 {ID} 을(를) 삭제할까요?</b>'),
+         ('[삭제]', '클릭', '계정 제거', '연결된 App Key 도 제거 · <code>LOG-01</code> 기록'),
+         ('[취소] · [✕]', '클릭', 'S12 복귀', '')]))
+
+    boards.append((
+        'S17', '가입 승인 후 계정 추가', '분기',
+        '<code>MEM-01</code> 가입 승인 카드의 <b>[계정 추가 →]</b>로 들어오면 SSO 이메일이 '
+        '<b>ID (이메일)</b> 칸에 미리 들어가 있다. [＋ 계정 추가]만 누르면 된다. <code>PC-133</code>',
+        frame('MEM-01', '고객사 상세 · 수정',
+              edit_mode(acc=account_card(accounts=(), add={'id_val': 'teacher@newschool.kr'})), height=1600),
+        [('ID (이메일)', '자동', 'SSO 이메일 미리 입력', '<code>?email=</code> 로 전달'),
+         ('PWD (비밀번호)', '입력 / [임의 생성]', '—', ''),
+         ('[＋ 계정 추가]', '클릭', '서비스 계정 저장', '사용 서비스에 따라 권한 기본값 적용')]))
+
+    intro = ('고객사의 <b>기본 정보 · 공통코드 귀속 · 편집 단가 · 관련 서류</b>를 입력하고, 우측에서 '
+             '<b>계정 및 서비스 권한</b>(서비스 로그인 계정 · CasterN 권한)을 관리한다 <code>PC-128</code>. '
              '<b>모달이 아니라 별도 페이지 2개</b>다 — <code>MEM-01</code> 의 '
              '[＋ 고객사 등록] = 등록, 행을 누르면 상세·수정. 입력 항목이 길어 좌측을 '
-             '<b>3탭</b>(기본 정보 / 편집 단가 / 관련 서류)으로 나눴고, 수정 화면에서는 '
-             '<b>업무요청 메모가 탭과 무관하게 우측에 고정</b>된다 — 단가를 조정하면서 '
-             '요청 내용을 함께 볼 수 있다. 단가는 <b>3단 구조</b>(기본 단가 → 고객사 단가 '
+             '<b>3탭</b>(기본 정보 / 편집 단가 / 관련 서류)으로 나눴고, 우측에는 탭과 무관하게 '
+             '<b>계정 및 서비스 권한</b>과 (수정 화면) <b>업무요청 메모</b>가 고정된다. 계정 권한은 '
+             '고객사 <b>사용 서비스</b>에서 체크한 서비스만 줄 수 있다. App Key 관리의 키 발급 계정과는 '
+             '다른 계정이다. 단가는 <b>3단 구조</b>(기본 단가 → 고객사 단가 '
              '→ 교재별 할인)이며, 변경은 <b>이후 등록되는 교재부터</b> 적용되고 기존 교재는 '
              '등록 당시 단가를 유지한다 <code>PC-027</code>.')
     return page(CODE, NAME, PRD, intro, boards)

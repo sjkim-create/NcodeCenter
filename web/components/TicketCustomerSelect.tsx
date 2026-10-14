@@ -32,7 +32,7 @@ export function TicketCustomerAddForm({ by, onAdded }: { by?: string; onAdded: (
     const b0 = bs.trim() === "" ? null : Number(bs), b1 = be.trim() === "" ? null : Number(be);
     if (!name.trim()) { setErr("고객사명을 입력하세요."); return; }
     if (!Number.isInteger(s) || !Number.isInteger(o) || owner.trim() === "") { setErr("Section · Owner 를 숫자로 입력하세요."); return; }
-    if (b0 != null && b1 != null && b1 < b0) { setErr("Book 끝은 시작보다 작을 수 없습니다."); return; }
+    if (b0 != null && b1 != null && b1 < b0) { setErr("End Book 은 Start Book 보다 작을 수 없습니다."); return; }
     const r = addTicketCustomer(name, [makeRange(pt, s, o, b0, b1 ?? b0)], by);
     if (!r.ok) { setErr(r.msg); return; }
     setName(""); setOwner(""); setBs(""); setBe(""); setErr("");
@@ -41,7 +41,7 @@ export function TicketCustomerAddForm({ by, onAdded }: { by?: string; onAdded: (
 
   return (
     <div style={{ padding: 10, border: "1px dashed #c7d2fe", borderRadius: 10, background: "#f8faff" }}>
-      <div style={{ fontSize: 11.5, color: "#4338ca", marginBottom: 8 }}>티켓 고객사 등록 · 고객사 관리와 별개 · 발급 범위를 함께 넣습니다 (Book 비우면 오너 전체)</div>
+      <div style={{ fontSize: 11.5, color: "#4338ca", marginBottom: 8 }}>티켓 고객사 등록 · 고객사 관리와 별개입니다 · 발급 범위를 함께 입력합니다 (Book 을 비우면 오너 전체가 범위입니다)</div>
       <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 0.6fr 0.8fr 0.8fr 0.8fr", gap: 6 }}>
         <input style={S.input} placeholder="고객사명 *" value={name} onChange={(e) => setName(e.target.value)} />
         <select style={S.input} value={pt} onChange={(e) => { const v = e.target.value as TicketPattern; setPt(v); setSec(String(PTS.find((p) => p.v === v)?.section ?? 3)); }}>
@@ -49,8 +49,8 @@ export function TicketCustomerAddForm({ by, onAdded }: { by?: string; onAdded: (
         </select>
         <input style={S.input} placeholder="S *" value={sec} onChange={(e) => setSec(e.target.value)} />
         <input style={S.input} placeholder="Owner *" value={owner} onChange={(e) => setOwner(e.target.value)} />
-        <input style={S.input} placeholder="Book 시작" value={bs} onChange={(e) => setBs(e.target.value)} />
-        <input style={S.input} placeholder="Book 끝" value={be} onChange={(e) => setBe(e.target.value)} />
+        <input style={S.input} placeholder="Start Book" value={bs} onChange={(e) => setBs(e.target.value)} />
+        <input style={S.input} placeholder="End Book" value={be} onChange={(e) => setBe(e.target.value)} />
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
         {err && <span style={{ fontSize: 12, color: "#dc2626" }}>{err}</span>}
