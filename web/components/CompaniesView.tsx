@@ -71,8 +71,6 @@ export default function CompaniesView() {
   const shown = companies
     .filter((c) => (q ? norm(`${c.name} ${c.manager} ${c.contact} ${c.bizNo} ${c.address}`).includes(norm(q)) : true))
     .filter((c) => (classFilter ? classOf(c.name) === classFilter : true));
-  // 클릭 순환: 최근순(0) → 이름 오름(1) → 이름 내림(-1) → 최근순
-  const toggleSort = () => setSortDir((d) => (d === 0 ? 1 : d === 1 ? -1 : 0));
 
   // 페이지네이션 (편집 프로젝트 목록과 동일 · 기본 50건씩)
   const [page, setPage] = useState(1);
@@ -123,25 +121,6 @@ export default function CompaniesView() {
     logActivity("company", `온보딩 거절 · ${r.org} (${r.email})`, me?.name);
     flash(`거절됨 · ${r.org}`);
   };
-  // 시뮬레이션 — 로그인 기록 서버가 새 고객 SSO 로그인을 밀어 넣는 상황을 원클릭으로 만든다.
-  //   프로토타입이라 실제 데이터가 없으므로, 클릭할 때마다 가상의 신규 고객 1건이 승인 대기로 유입된다.
-  const DEMO_POOL: { org: string; domain: string; name: string; service: "CASTERN" | "FORMSOLUTION" | "SDK" }[] = [
-    { org: "미래출판", domain: "miraebooks.co.kr", name: "정출판", service: "CASTERN" },
-    { org: "한빛교육", domain: "hanbitedu.kr", name: "오한빛", service: "FORMSOLUTION" },
-    { org: "코드리더", domain: "codereader.io", name: "S. Lee", service: "SDK" },
-    { org: "에듀팜", domain: "edufarm.co.kr", name: "김에듀", service: "CASTERN" },
-    { org: "노트플러스", domain: "noteplus.kr", name: "박노트", service: "FORMSOLUTION" },
-    { org: "펜메이커", domain: "penmaker.io", name: "최펜", service: "CASTERN" },
-  ];
-  const simulateLogin = () => {
-    const used = new Set(onb.requests.map((r) => r.domain));
-    const pick = DEMO_POOL.find((d) => !used.has(d.domain))
-      ?? { ...DEMO_POOL[Math.floor(Math.random() * DEMO_POOL.length)], domain: `co${Date.now() % 100000}.kr` };
-    const email = `${["kim", "lee", "park", "choi", "dev", "admin"][Math.floor(Math.random() * 6)]}@${pick.domain}`;
-    onboarding.recordLogin({ email, name: pick.name, org: pick.org, service: pick.service });
-    flash(`새 SSO 로그인 유입 — ${pick.org} (${email}) 승인 대기 추가됨`);
-  };
-
   return (
     <div style={{ padding: "20px 22px" }}>
       {/* 가입 승인 요청 — **카드로 건수만** 표시, 클릭하면 모달로 목록·승인 `PC-119` */}
@@ -182,9 +161,7 @@ export default function CompaniesView() {
           {q && <button onClick={() => setQ("")} title="검색어 지우기"
             style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", border: 0, background: "none", color: "#9ca3af", cursor: "pointer", fontSize: 15, lineHeight: 1 }}>×</button>}
         </div>
-        <button onClick={simulateLogin} style={{ ...S.ghost, borderColor: "#fcd34d", color: "#92400e", background: "#fffbeb" }}
-          title="프로토타입 시뮬레이션 — 새 고객이 우리 서비스에 SSO 로그인한 상황을 만들어 승인 대기에 1건 추가합니다">🧪 새 SSO 로그인 (시뮬레이션)</button>
-        <button onClick={() => { if (confirm("테스트 데이터를 초기화할까요? (엑셀 시드로 복원)")) store.reset(); }} style={S.ghost}>초기화</button>
+        {/* [🧪 새 SSO 로그인 (시뮬레이션)] · [초기화] 버튼 삭제 `PC-160` */}
         <Link href="/companies/new" style={{ ...S.primary, textDecoration: "none" }}>＋ 고객사 등록</Link>
       </div>
       <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -214,8 +191,16 @@ export default function CompaniesView() {
           <thead>
             <tr>{["No", "업체명", "담당자 / 연락처", "서비스 계정", "사업자번호", "은행 / 계좌", "커먼 코드", "편집 단가", "주소", "서류", "업무", "작업"].map((h) => (
               h === "업체명"
-                ? <th key={h} style={{ ...S.th, textAlign: "center", cursor: "pointer", userSelect: "none" }} onClick={toggleSort} title="정렬: 최근순 → 가나다 오름 → 가나다 내림">
-                    {h}<span style={{ marginLeft: 3, fontSize: 10, color: sortDir === 0 ? "#2563eb" : "#9ca3af" }}>{sortDir === 0 ? "최근순" : sortDir === 1 ? "▲" : "▼"}</span>
+                ? <th key={h} style={{ ...S.th, textAlign: "center", whiteSpace: "nowrap" }}>
+                    {/* 정렬 — 업체명 옆 셀렉트: 최신순 / 오름차순 / 내림차순 `PC-161` */}
+                    {h}
+                    <select value={sortDir} onChange={(e) => setSortDir(Number(e.target.value) as 0 | 1 | -1)} title="업체명 정렬"
+                      style={{ marginLeft: 6, fontSize: 11.5, padding: "2px 4px", border: "1px solid #e5e7eb", borderRadius: 6,
+                        background: "#fff", color: "#1d4ed8", fontWeight: 600, cursor: "pointer" }}>
+                      <option value={0}>최신순</option>
+                      <option value={1}>오름차순 (가나다)</option>
+                      <option value={-1}>내림차순</option>
+                    </select>
                   </th>
                 : <th key={h} style={{ ...S.th, textAlign: "center" }}>{h}</th>
             ))}</tr>

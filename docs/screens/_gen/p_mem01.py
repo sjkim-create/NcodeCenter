@@ -56,10 +56,6 @@ def toolbar(search='', filtered=None):
             '<div style="position:relative">'
             '<div style="width:240px;padding:8px 26px 8px 10px;border:1px solid #e5e7eb;'
             'border-radius:8px;font-size:13px;background:#fff">%s</div>%s</div>'
-            '<span style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;border-radius:9px;'
-            'padding:9px 16px;font-size:13px">🧪 새 SSO 로그인 (시뮬레이션)</span>'
-            '<span style="background:#fff;color:#374151;border:1px solid #e5e7eb;border-radius:9px;'
-            'padding:9px 16px;font-size:13px">초기화</span>'
             '<span style="background:#5f8ff0;color:#fff;border-radius:9px;padding:9px 16px;'
             'font-size:13px;font-weight:600">＋ 고객사 등록</span></div>' % (sv, clear))
 
@@ -102,10 +98,12 @@ def table(rows, search=''):
             '편집 단가', '주소', '서류', '업무', '작업']
     th = ''
     for h in HEAD:
-        sort = ('<span style="margin-left:3px;font-size:10px;color:#2563eb">최근순</span>' if h == '업체명' else '')
+        # 업체명 옆 정렬 셀렉트 — 최신순 / 오름차순 (가나다) / 내림차순 `PC-161`
+        sort = ('<span style="margin-left:6px;font-size:11.5px;padding:2px 6px;border:1px solid #e5e7eb;border-radius:6px;'
+                'background:#fff;color:#1d4ed8;font-weight:600;white-space:nowrap">최신순 ▾</span>' if h == '업체명' else '')
         th += ('<th style="text-align:center;padding:10px 12px;color:#6b7280;font-weight:600;'
                'background:#fafbfc;font-size:11.5px;%s">%s%s</th>'
-               % ('cursor:pointer' if h == '업체명' else '', h, sort))
+               % ('white-space:nowrap' if h == '업체명' else '', h, sort))
     if not rows:
         msg = ('&quot;%s&quot; 검색 결과가 없습니다.' % search) if search else '등록된 고객사가 없습니다.'
         tb = ('<tr><td colspan="12" style="padding:30px;text-align:center;color:#9ca3af;'
@@ -245,14 +243,13 @@ def content(rows=None, search='', tier='', shown=None, toast='', onboard=None, a
 BASE = [
     ('행 클릭', '클릭', '<code>MEM-02</code> (수정 모드)',
      '툴팁 <b>클릭하면 수정 화면으로 이동합니다</b> · 종료 업체는 <b>프로젝트 종료 고객사 (코드 발급 이력만)</b>'),
-    ('업체명 헤더', '클릭', '가나다 정렬 토글', '↕ → ▲(오름) → ▼(내림) · 활성 시 화살표 파랑'),
+    ('업체명 옆 정렬 셀렉트', '선택', '목록 다시 정렬', '최신순(기본) / 오름차순 (가나다) / 내림차순 <code>PC-161</code>'),
     ('검색', '입력', '즉시 필터링', '<b>업체명·담당자·사업자번호</b> · ×로 해제'),
     ('구분 필터 칩', '클릭', '해당 계층만',
      '전체 / 상위(초록) / 하위(보라) / 단독(회색) — 각 칩에 건수'),
     ('[＋ 고객사 등록]', '클릭', '<code>MEM-02</code> (등록 모드)', '기본 정보 → [등록] 또는 서비스 계정 [계정 추가] <code>PC-142</code>'),
     ('서비스 계정 {n}명', '클릭', 'S13 명단 창', '고객사별 서비스 계정 수 <code>PC-135</code>'),
     ('행 [삭제]', '클릭', 'S5 삭제 확인', '행 클릭과 분리(<code>stopPropagation</code>)'),
-    ('[초기화]', '클릭', 'S8 확인창', '엑셀 시드 복원'),
     ('건수 선택', '드롭다운', '표시 건수 변경', '50 / 100 / 200 / 500 / 전체 보기'),
     ('«  ‹  1..  ›  »', '클릭', '페이지 이동', '우측에 <b>{현재} / {전체}</b>'),
 ]
@@ -263,7 +260,7 @@ def build():
 
     boards.append((
         'S1', '기본 · 전체 목록', '기본',
-        '좌측 메뉴 [고객사 관리]로 진입. 구현은 <b>안내문 + 검색 + [초기화] + [＋ 고객사 등록]</b> 툴바 아래에 '
+        '좌측 메뉴 [고객사 관리]로 진입. 구현은 <b>안내문 + 검색 + [＋ 고객사 등록]</b> 툴바 아래에 '
         '<b>구분 필터 줄</b>이 따로 있고, 표는 <b>11열</b>(No · 업체명 · 담당자/연락처 · 사업자번호 · '
         '은행/계좌 · 커먼 코드 · 편집 단가 · <b>주소</b> · 서류 · 업무 · 작업)이다. '
         '표 하단에 <b>표시 건수 선택 + 페이지네이션</b>이 붙는다. '
@@ -351,20 +348,7 @@ def build():
          ('목록', '자동', '갱신', ''),
          ('활동 로그', '자동 기록', '<code>LOG-01</code>', '<b>고객사 관리</b>')]))
 
-    reset_modal = ('<div class="ovl"><div class="mdl">'
-                   '<div class="mh"><div class="mt">확인</div><div class="mx">✕</div></div>'
-                   '<div style="font-size:13px;color:#374151;line-height:1.7">'
-                   '테스트 데이터를 초기화할까요? (엑셀 시드로 복원)</div>'
-                   '<div class="mf"><div class="btn gho">취소</div>'
-                   '<div class="btn dan">확인</div></div></div></div>')
-    boards.append((
-        'S8', '초기화 확인창', '확인창',
-        'PRD §4.1 — [초기화]는 브라우저 <code>confirm()</code>으로 확인 후 '
-        '<b>엑셀 시드 상태</b>로 되돌린다.',
-        frame('MEM-01', '고객사 관리', content(), overlay=reset_modal, height=900),
-        [('확인창 문구', '표시', '—', '<b>테스트 데이터를 초기화할까요? (엑셀 시드로 복원)</b>'),
-         ('[확인]', '클릭', '시드 복원', '되돌릴 수 없음'),
-         ('[취소]', '클릭', 'S1 복귀', '')]))
+    # S8 초기화 확인창 — [초기화] 버튼 삭제로 결번 `PC-160` (S9~ 번호는 Figma 프레임 이름 유지를 위해 그대로)
 
     toast_new = '<div class="toast">등록됨 · 시원스쿨</div>'
     boards.append((
@@ -387,7 +371,6 @@ def build():
         '<b>카드를 클릭하면 모달</b>로 확인·승인한다. 사이드바 [고객사 관리]와 상단 🔔에도 대기 건수 배지가 붙는다.',
         frame('MEM-01', '고객사 관리', content(onboard=3), height=940),
         [('가입 승인 요청 카드', '클릭', 'S11 (모달)', '노랑 카드 · 건수만 표시'),
-         ('[🧪 새 SSO 로그인 (시뮬레이션)]', '클릭', '대기 +1', '프로토타입 — 가상 신규 고객 유입'),
          ('사이드바 [고객사 관리] 배지 · 🔔', '표시', '—', '대기 건수 빨간 배지')]))
 
     boards.append((
@@ -412,7 +395,7 @@ def build():
         [('초록 완료 카드', '표시', '—', '<b>{org} 승인 완료</b>'),
          ('[계정 추가 →]', '클릭', '<code>MEM-02</code> S17', 'SSO 이메일 미리 입력 (<code>/companies/{id}?email=</code>) <code>PC-133</code>'),
          ('목록 최상단', '자동', '최근 고객사', 'createdAt 내림차순 기본 정렬'),
-         ('업체명 헤더', '클릭', '최근순 → 가나다↑ → ↓', '정렬 순환')]))
+         ('업체명 정렬 셀렉트', '선택', '최신순 · 오름차순 · 내림차순', '<code>PC-161</code>')]))
 
     # 서비스 계정 명단 창 `PC-135` `PC-144`
     acc_rows = ''.join(
