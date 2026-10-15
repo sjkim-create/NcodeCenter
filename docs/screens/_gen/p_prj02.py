@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """PRJ-02 편집 프로젝트 목록 + PRJ-03 편집 프로젝트 상세 (공용 화면 조립)"""
 from shell import page, frame
-from p_tkt01 import sel, field
+from shell import sel, field
 
 CODE2, NAME2 = 'PRJ-02', '편집 프로젝트 목록'
 PRD2 = 'docs/prd/PRJ-02_편집 프로젝트 목록.md'

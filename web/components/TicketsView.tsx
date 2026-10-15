@@ -10,10 +10,13 @@ import { makeZip } from "@/lib/zip";
 import { codeKind, kindLabel, patternOf, patternTypeParam, CODE_KINDS, PAGE_CAP, BOOK_CAP, type CodeKind } from "@/lib/codeKind";
 import { codesOfCompany } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
-import { allTicketCustomers, rangesOfTicketCustomer, ticketCustomerById, useTicketCustomers } from "@/lib/ticketCustomerStore";
+import { companyOfNTicket, nKeyRangesOfCompany } from "@/lib/keyCompany";
+import {
+  WS_CARD, WS_HD, WS_GRID, WS_EMPTY, WS_HEAD_BTN, wsItem,
+  WsTitle, WsStats, WsCoHead, WsCoToggle, WsCoItem, WsFillScroll, type CoView,
+} from "./KeyWorkspaceUI";   // App Key 관리와 같은 조각 `PC-154`
 import { useCaster } from "@/lib/accountStore";
 import { useStore } from "@/lib/store";
-import { TicketCustomerSelect, TicketCustomerAddForm } from "./TicketCustomerSelect";
 import {
   addTicket, allTickets, deleteTicket, hydrateTickets, setBilling, ticketById, updateTicket, useTickets,
   BILLINGS, BILLINGS_FILTER, BILL_COLOR, daysLeft, plusMonth, type Billing, type Ticket,
@@ -46,10 +49,10 @@ export default function TicketsView({ tab }: { tab: Tab }) {
   };
 
   return (
-    <div style={{ padding: "18px 20px" }}>
+    <div style={{ padding: tab === "list" ? "16px 20px" : "18px 20px" }}>
       {/* 발급 화면은 **고객사를 고르지 않은 상태**로 시작한다 `PC-070` — 목록 필터 값을 물려받지 않는다 */}
       {tab === "nkey" && <div style={{ maxWidth: 900 }}><NKeyForm me={me} companyId={newCompanyId} setCompanyId={setNewCompanyId} /></div>}
-      {tab === "list" && <ListTabs />}
+      {tab === "list" && <NKeyWorkspace />}
     </div>
   );
 }
@@ -57,123 +60,46 @@ export default function TicketsView({ tab }: { tab: Tab }) {
 /* ── 발급 목록 + 정산(과금) 등록 ── */
 const won = (n: number) => `₩${Math.round(n).toLocaleString()}`;
 
-// 정산 등록·수정은 발급 상세(/tickets/nkey/[id])로 넘긴다 — 목록은 조회·이동만 한다.
-// N Key 관리 = [발급 목록 | 고객사] 두 탭 `PC-126`
-//   고객사 탭 = 티켓 고객사 명단(nkey(HLP) 대장 프로젝트명 + 티켓 화면 등록분) — 고객사 관리와 별개 `PC-123`
-const VIEW_KEY = "ncc-nkey-view";
-function ListTabs() {
+// N Key 관리 — 「고객사 | 발급 티켓 | 발급 상세·정산」 3단 `PC-149` `PC-153`
+// - 고객사 = **고객사 관리에 등록된 고객사**를 불러온다(여기서 고객사를 등록하지 않는다) `PC-153`
+// - 자료: nkey(HLP).xlsx(ticket-ledger.json) N Key 발급 대장 + 이 화면에서 새로 발급한 N Key
+//   대장 티켓은 이름 + **Owner 번호**로 고객사 관리 고객사에 잇고, 안 맞으면 「고객사 미연결」로 둔다(lib/keyCompany)
+// - 위: 정산 집계(발급 티켓 · 유료 합계 · 유료 건수 · 무료/체험 · 정산 미등록) — **고른 고객사 · 필터 기준**, 체험 만료 경고
+// - 왼쪽: 고객사(기본 = N Key 발급 고객사 · [전체 고객사]) — 맨 위 「전체」 · 고객사별 발급 건수 · 정산 미등록 건수
+// - 가운데: 발급 티켓 카드 + [＋ N Key 발급] / 오른쪽: 발급 상세(발급 기본정보 · 정산 정보) / N Key 발급 폼
+type NRight = { kind: "t"; id: number; tab?: "base" | "bill" } | { kind: "new" } | { kind: "none" };
+const ALL_CO = "";        // 전체
+const UNLINKED_CO = "u";  // 고객사 관리에 이어지지 않은 대장 티켓
+function NKeyWorkspace() {
+  const sp = useSearchParams();
   const me = currentUser(useAuth());
-  const [view, setViewState] = useState<"list" | "cust">("list");
-  const [co, setCo] = useState("");          // 고객사 탭에서 고른 고객사 → 발급 목록 필터
-  useEffect(() => { try { if (sessionStorage.getItem(VIEW_KEY) === "cust") setViewState("cust"); } catch { /* */ } }, []);
-  const setView = (v: "list" | "cust") => { setViewState(v); try { sessionStorage.setItem(VIEW_KEY, v); } catch { /* */ } };
-  useTicketCustomers();
-  const n = allTicketCustomers().length;
-  const tabBtn = (v: "list" | "cust", label: string) => (
-    <button onClick={() => setView(v)}
-      style={{ padding: "8px 14px", border: 0, borderBottom: view === v ? "2px solid #2563eb" : "2px solid transparent",
-        background: "none", color: view === v ? "#2563eb" : "#6b7280", fontWeight: view === v ? 700 : 500, fontSize: 13, cursor: "pointer" }}>{label}</button>
-  );
-  return (
-    <div>
-      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #e5e7eb", marginBottom: 12 }}>
-        {tabBtn("list", "발급 목록")}
-        {tabBtn("cust", `고객사 ${n}`)}
-      </div>
-      {view === "list"
-        ? <TicketListView key={co} initCo={co} />
-        : <TicketCustomersView me={me} onPick={(name) => { setCo(name); setView("list"); }} />}
-    </div>
-  );
-}
-
-// 티켓 고객사 명단 — 대장 고객사 + 신규 등록분. 행을 누르면 그 고객사의 발급 목록으로 간다.
-function TicketCustomersView({ me, onPick }: { me: ReturnType<typeof currentUser>; onPick: (name: string) => void }) {
   useTickets();
-  useEffect(() => { hydrateTickets(); }, []);
-  const { projects } = useStore();
-  const cast = useCaster();
-  const [q, setQ] = useState("");
-  const [fSrc, setFSrc] = useState<"" | "ledger" | "manual">("");
-  const [adding, setAdding] = useState(false);
-  const norm = (x: string) => x.trim().toLowerCase();
-  const tickets = allTickets().filter((t) => t.kind === "N");
-  const rows = allTicketCustomers()
-    .filter((c) => (fSrc ? c.src === fSrc : true))
-    .filter((c) => (q ? c.name.toLowerCase().includes(q.toLowerCase()) : true))
-    .map((c) => {
-      const ts = tickets.filter((t) => norm(t.company) === norm(c.name));
-      return {
-        c, ranges: rangesOfTicketCustomer(c.name, projects),
-        ledgerN: ts.filter((t) => t.src === "ledger").length, newN: ts.filter((t) => t.src !== "ledger").length,
-        last: ts.map((t) => t.at.slice(0, 10)).sort().pop() ?? "",
-        accN: cast.accounts.filter((a) => norm(a.company) === norm(c.name)).length,
-      };
-    });
-  const th: React.CSSProperties = { ...S.th };
-  return (
-    <div>
-      <div style={{ ...S.card, padding: "10px 12px", marginBottom: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5 }}>
-        <select value={fSrc} onChange={(e) => setFSrc(e.target.value as "" | "ledger" | "manual")} style={{ ...S.input, width: 150 }}>
-          <option value="">구분 전체</option>
-          <option value="ledger">대장 (nkey HLP)</option>
-          <option value="manual">신규 등록</option>
-        </select>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="고객사 검색" style={{ ...S.input, width: 220 }} />
-        <span style={{ color: "#9ca3af" }}>{rows.length}곳 · 고객사 관리와 별개 명단</span>
-        <span style={{ flex: 1 }} />
-        <button onClick={() => setAdding((a) => !a)} style={S.primary}>{adding ? "닫기" : "＋ 고객사 등록"}</button>
-      </div>
-      {adding && <div style={{ marginBottom: 10 }}><TicketCustomerAddForm by={me?.name} onAdded={() => setAdding(false)} /></div>}
-      <div style={{ ...S.card, padding: 0, overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
-          <thead>
-            <tr>
-              <th style={th}>No</th><th style={th}>고객사</th><th style={th}>구분</th><th style={{ ...th, minWidth: 330 }}>발급 범위 (대장 이력 · SOBP 할당)</th>
-              <th style={th}>N Key 발급</th><th style={th}>최근 발급</th><th style={{ ...th, whiteSpace: "nowrap" }}>App Key 계정</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ c, ranges, ledgerN, newN, last, accN }, i) => (
-              <tr key={c.id} onClick={() => onPick(c.name)} style={{ cursor: "pointer" }} title="이 고객사의 발급 목록 보기">
-                <td style={S.td}>{i + 1}</td>
-                <td style={{ ...S.td, fontWeight: 700 }}>{c.name}</td>
-                <td style={{ ...S.td, whiteSpace: "nowrap" }}>
-                  <span style={{ ...S.tag, background: c.src === "ledger" ? "#f3f4f6" : "#eef2ff", color: c.src === "ledger" ? "#6b7280" : "#4338ca" }}>
-                    {c.src === "ledger" ? "대장" : "신규"}
-                  </span>
-                </td>
-                <td style={S.td}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {ranges.length ? ranges.map((r, k) => <div key={k} style={{ whiteSpace: "nowrap" }}><Chips r={r} /></div>) : <span style={{ color: "#9ca3af" }}>-</span>}
-                  </div>
-                </td>
-                <td style={{ ...S.td, whiteSpace: "nowrap" }}>{ledgerN + newN}건 <span style={{ color: "#9ca3af", fontSize: 11 }}>(대장 {ledgerN} · 신규 {newN})</span></td>
-                <td style={{ ...S.td, whiteSpace: "nowrap" }}>{last || "-"}</td>
-                <td style={{ ...S.td, whiteSpace: "nowrap" }}>{accN ? `${accN}개` : "-"}</td>
-              </tr>
-            ))}
-            {!rows.length && <tr><td style={{ ...S.td, color: "#9ca3af", textAlign: "center" }} colSpan={7}>고객사가 없습니다.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
+  const { companies } = useStore();
+  const [ready, setReady] = useState(false);
+  useEffect(() => { hydrateTickets(); setReady(true); }, []);
+  const tickets = ready ? allTickets().filter((t) => t.kind === "N") : [];
 
-function TicketListView({ initCo = "" }: { initCo?: string }) {
-  const router = useRouter();   // 행을 누르면 상세로 이동 `PC-050`
-  useTickets();
-  const rows = allTickets();
-  const [fCo, setFCo] = useState(initCo);
+  // 티켓 → 고객사 관리 고객사 키(id 문자열 · 미연결 = "u")
+  const keyOf = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const t of tickets) { const c = companyOfNTicket(t, companies); m.set(t.id, c ? String(c.id) : UNLINKED_CO); }
+    return m;
+  }, [tickets, companies]);
+  const coKey = (t: Ticket) => keyOf.get(t.id) ?? UNLINKED_CO;
+  const labelOf = (k: string) => (k === ALL_CO ? "전체 고객사" : k === UNLINKED_CO ? "고객사 미연결" : companies.find((c) => String(c.id) === k)?.name ?? "고객사 미연결");
+  const [view, setView] = useState<CoView>("issued");
+  const issuedKeys = new Set([...keyOf.values()].filter((k) => k !== UNLINKED_CO));
+  // 왼쪽 목록 — 발급 고객사(N Key 가 이어진 고객사) / 전체 고객사(고객사 관리 전체)
+  const names = (view === "issued" ? companies.filter((c) => issuedKeys.has(String(c.id))) : companies)
+    .slice().sort((a, b) => a.name.localeCompare(b.name, "ko")).map((c) => String(c.id));
 
+  const [co, setCo] = useState<string>(ALL_CO);
+  const [right, setRight] = useState<NRight>({ kind: "none" });
+  const [cq, setCq] = useState("");
   const [fBill, setFBill] = useState<"" | Billing>("");
   const [fSrc, setFSrc] = useState<"" | "ledger" | "new">("");
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState<{ key: "at" | "company" | "by"; dir: 1 | -1 }>({ key: "at", dir: -1 });   // 기본: 최근순
-  const toggleSort = (key: "at" | "company" | "by") =>
-    setSort((s) => (s.key === key ? { key, dir: (s.dir === 1 ? -1 : 1) as 1 | -1 } : { key, dir: key === "at" ? -1 : 1 }));
-  // 외부 키 파일(.json) 불러오기 — 목록에 없는 키도 내용을 확인한다.
+  const [inited, setInited] = useState(false);
   const [loadedKey, setLoadedKey] = useState<{ name: string; rows: KV[]; err?: string } | null>(null);
   const loadKeyFile = (f?: File) => {
     if (!f) return;
@@ -185,27 +111,39 @@ function TicketListView({ initCo = "" }: { initCo?: string }) {
     rd.readAsText(f);
   };
 
-  // 페이지네이션 (고객사 관리 목록과 동일 · 기본 50건씩)
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(50);
-  useEffect(() => { setPage(1); }, [fCo, fBill, fSrc, q, sort.key, sort.dir]);
+  const ofCo = (k: string) => tickets.filter((t) => (k === ALL_CO ? true : coKey(t) === k));
+  const sortAt = (a: Ticket, b: Ticket) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.no - a.no);   // 최근순
 
-  const list = rows
-    .filter((t) => (fCo ? t.company === fCo : true))
-    .filter((t) => t.kind === "N")      // N Key 만 — App Key 는 계정 발급에서 본다 `PC-061`
-    .filter((t) => (fBill ? t.billing === fBill : true))
-    .filter((t) => (fSrc === "ledger" ? t.src === "ledger" : fSrc === "new" ? t.src !== "ledger" : true))
-    .filter((t) => (q ? (t.summary + " " + t.by).toLowerCase().includes(q.toLowerCase()) : true))   // 발급내용·발급인 검색
-    .sort((a, b) => {
-      const k = sort.key;
-      const va = k === "at" ? a.at : k === "company" ? a.company : a.by;
-      const vb = k === "at" ? b.at : k === "company" ? b.company : b.by;
-      const c = k === "at" ? (va < vb ? -1 : va > vb ? 1 : a.no - b.no) : va.localeCompare(vb, "ko");
-      return c * sort.dir || b.no - a.no;
-    });
+  // 첫 선택 — ?t= 발급 / ?co= 고객사 / ?new=1 발급 폼 · 없으면 전체 + 최근 발급
+  useEffect(() => {
+    if (!ready || inited) return;
+    const tq = Number(sp.get("t") || 0), coQ = sp.get("co") ?? "", isNew = sp.get("new") === "1";
+    const t = tq ? tickets.find((x) => x.id === tq) : undefined;
+    if (t) { setCo(coKey(t)); setRight({ kind: "t", id: t.id, tab: sp.get("tab") === "bill" ? "bill" : "base" }); }
+    else {
+      const c = companies.some((x) => String(x.id) === coQ) ? coQ : ALL_CO;
+      if (c && !issuedKeys.has(c)) setView("all");
+      setCo(c);
+      if (isNew) setRight({ kind: "new" });
+      else { const first = [...ofCo(c)].sort(sortAt)[0]; setRight(first ? { kind: "t", id: first.id } : { kind: "none" }); }
+    }
+    setInited(true);
+  }, [ready, inited, tickets.length]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 고객사 필터 = 티켓 고객사 명단 + 발급 이력의 고객사 (발급 전인 신규 고객사도 고를 수 있게) `PC-126`
-  const coOpts = [...new Set([...allTicketCustomers().map((c) => c.name), ...rows.map((t) => t.company)])].sort((a, b) => a.localeCompare(b, "ko"));
+  // 필터는 **전체 발급분에 먼저** 건다 → 왼쪽 고객사 건수 · 가운데 목록이 그 결과를 고객사별로 보여 준다 `PC-150`
+  const hits = (t: Ticket) =>
+    (fBill ? t.billing === fBill : true)
+    && (fSrc === "ledger" ? t.src === "ledger" : fSrc === "new" ? t.src !== "ledger" : true)
+    && (q ? (labelOf(coKey(t)) + " " + t.company + " " + t.summary + " " + t.by + " " + t.no).toLowerCase().includes(q.toLowerCase()) : true);
+  const hitAll = tickets.filter(hits);
+  const hitOf = (k: string) => hitAll.filter((t) => (k === ALL_CO ? true : coKey(t) === k));
+  const list = hitOf(co).sort(sortAt);
+  // 필터를 바꿨는데 오른쪽 티켓이 결과에 없으면 결과의 첫 티켓으로 바꾼다
+  useEffect(() => {
+    if (!inited || right.kind !== "t" || list.some((t) => t.id === right.id)) return;
+    setRight(list[0] ? { kind: "t", id: list[0].id } : { kind: "none" });
+  }, [fBill, fSrc, q]);   // eslint-disable-line react-hooks/exhaustive-deps
+  // 정산 집계 — 고른 고객사 · 필터 결과 기준 (옛 목록 요약과 같은 규칙)
   const agg = list.reduce((a, t) => ({
     paid: a.paid + (t.billing === "유료" ? 1 : 0), amount: a.amount + (t.billing === "유료" ? t.amount : 0),
     free: a.free + (t.billing === "무료" ? 1 : 0), trial: a.trial + (t.billing === "체험" ? 1 : 0),
@@ -213,40 +151,49 @@ function TicketListView({ initCo = "" }: { initCo?: string }) {
     expired: a.expired + (t.billing === "체험" && (daysLeft(t.trialUntil) ?? 0) < 0 ? 1 : 0),
   }), { paid: 0, amount: 0, free: 0, trial: 0, todo: 0, expired: 0 });
 
-  // 요약·정산 합계는 필터 결과(list) 전체 기준, 표만 현재 페이지를 그린다.
-  const totalPages = Math.max(1, Math.ceil(list.length / perPage));
-  const curPage = Math.min(page, totalPages);
-  const pageRows = list.slice((curPage - 1) * perPage, curPage * perPage);
+  const pickCo = (name: string) => {
+    setCo(name);
+    const first = [...hitOf(name)].sort(sortAt)[0];
+    setRight(first ? { kind: "t", id: first.id } : { kind: "none" });
+  };
+  const filtered0 = !!(fBill || fSrc || q);
+  // 필터가 걸리면 맞는 발급이 있는 고객사만 남긴다
+  const coList = names.filter((k) => (cq ? labelOf(k).toLowerCase().includes(cq.toLowerCase()) : true))
+    .filter((k) => (filtered0 ? hitOf(k).length > 0 : true));
+  const unlinkedN = hitOf(UNLINKED_CO).length;
+  // 「전체」일 때 가운데 목록은 고객사별 묶음 — 고객사는 가장 최근 발급 순
+  const groups = co === ALL_CO
+    ? [...new Set(list.map((t) => coKey(t)))].map((k) => ({ key: k, ts: list.filter((t) => coKey(t) === k) }))
+    : [{ key: co, ts: list }];
+  const coCompany = companies.find((c) => String(c.id) === co);
+  const filtered = !!(fBill || fSrc || q);
 
+  const card = WS_CARD, hd = WS_HD;
+  const coBtn = (name: string, label: string, n: number, todo: number, warn = false) =>
+    <WsCoItem key={name || "__all"} label={label} n={n} todo={todo} on={co === name} warn={warn} bold={name === ALL_CO} title="N Key 발급 건수" onClick={() => pickCo(name)} />;
+
+  if (!ready) return null;   // 발급 원장을 읽기 전에는 0건 집계가 잠깐 보이지 않게
   return (
-    <div>
-      {/* 요약 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 12 }}>
-        {[
-          ["발급 티켓", list.length.toLocaleString(), "#111827"],
-          ["유료 합계", won(agg.amount), "#1d4ed8"],
-          ["유료 건수", `${agg.paid}건`, "#2563eb"],
-          ["무료 / 체험", `${agg.free} / ${agg.trial}건`, "#166534"],
-          ["정산 미등록", `${agg.todo}건`, agg.todo ? "#dc2626" : "#9ca3af"],
-        ].map(([l, v, c], i) => (
-          <div key={i} style={{ ...S.card, padding: "10px 12px" }}>
-            <div style={{ fontSize: 11, color: "#6b7280" }}>{l}</div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: c }}>{v}</div>
-          </div>
-        ))}
-      </div>
+    <div style={{ maxWidth: 1680 }}>
+      {/* 정산 집계 — 금액 · 건수는 고른 고객사와 필터를 따른다 */}
+      <WsTitle title="N Key 관리" scope={<>집계 대상 <b style={{ color: "#111827" }}>{labelOf(co)}</b>{filtered ? " · 필터 적용" : ""}</>}
+        note="고객사는 고객사 관리에서 불러옵니다 · 자료: nkey(HLP) N Key 발급 대장 + 새로 발급" />
+      <WsStats items={[
+        ["발급 티켓", `${list.length.toLocaleString()}건`, "#111827"],
+        ["유료 합계", won(agg.amount), "#1d4ed8"],
+        ["유료 건수", `${agg.paid}건`, "#2563eb"],
+        ["무료 / 체험", `${agg.free} / ${agg.trial}건`, "#166534"],
+        ["정산 미등록", `${agg.todo}건`, agg.todo ? "#dc2626" : "#9ca3af"],
+      ]} />
       {agg.expired > 0 && (
         <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", borderRadius: 9, padding: "9px 12px", fontSize: 12.5, marginBottom: 12 }}>
           ⚠ 체험 기간이 만료된 티켓 <b>{agg.expired}건</b> — 유료 전환 또는 회수 여부를 확인하세요.
         </div>
       )}
 
-      {/* 필터 */}
-      <div style={{ ...S.card, padding: "10px 12px", marginBottom: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5 }}>
-        <select value={fCo} onChange={(e) => setFCo(e.target.value)} style={{ ...S.input, width: 180 }}>
-          <option value="">고객사 전체</option>
-          {coOpts.map((n) => <option key={n} value={n}>{n}</option>)}
-        </select>
+      {/* 필터 — 전체 발급분에 건다. 왼쪽 고객사 · 가운데 목록이 이 결과를 고객사별로 나눠 보여 준다 `PC-150` */}
+      <div style={{ ...card, padding: "10px 12px", marginBottom: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5 }}>
+        <b style={{ fontSize: 12.5, color: "#374151" }}>필터</b>
         <div style={{ display: "flex", gap: 4 }}>
           <button onClick={() => setFBill("")} style={chip(fBill === "")}>정산 전체</button>
           {BILLINGS_FILTER.map((b) => <button key={b} onClick={() => setFBill(b)} style={chip(fBill === b)}>{b}</button>)}
@@ -257,106 +204,145 @@ function TicketListView({ initCo = "" }: { initCo?: string }) {
             <button key={v} onClick={() => setFSrc(v)} style={chip(fSrc === v)} title={v === "ledger" ? "nkey(HLP) 발급 대장" : v === "new" ? "이 화면에서 발급한 티켓" : undefined}>{l}</button>
           ))}
         </div>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="고객사 · 발급 내용 · 발급인 · 번호 검색" style={{ ...S.input, width: 260 }} />
+        {filtered && <button onClick={() => { setFBill(""); setFSrc(""); setQ(""); }} style={S.linkBtn}>필터 해제</button>}
         <span style={{ flex: 1 }} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="고객사·내용 검색" style={{ ...S.input, width: 190 }} />
-        <label style={{ ...S.ghost, display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
-          title="발급된 키 파일(.json)을 열어 내용을 확인합니다. 목록에 없는 외부 키도 됩니다.">
+        {filtered && <span style={{ color: "#6b7280" }}>전체 <b style={{ color: "#111827" }}>{hitAll.length}건</b> · 고객사 <b style={{ color: "#111827" }}>{coList.length}곳</b></span>}
+        <label style={{ ...S.smallBtn, whiteSpace: "nowrap" }} title="발급된 키 파일(.json)을 열어 내용을 확인합니다. 목록에 없는 외부 키도 됩니다.">
           📂 N Key 불러오기
           <input type="file" accept=".json,application/json" style={{ display: "none" }}
             onChange={(e) => { loadKeyFile(e.target.files?.[0]); e.target.value = ""; }} />
         </label>
-        <Link href="/tickets/nkey/new" style={{ ...S.primary, textDecoration: "none", whiteSpace: "nowrap" }}>＋ N Key 발급</Link>
       </div>
 
-      <div style={{ ...S.card, padding: 0, overflow: "auto" }}>
-        <table style={{ ...S.table, textAlign: "center", minWidth: 1040 }}>
-          <thead>
-            <tr>{([
-              ["No", null], ["발급일시", "at"], ["고객사", "company"], ["발급 내용", null],
-              ["발급인", "by"], ["정산", null], ["금액", null], ["비고", null], ["작업", null],
-            ] as const).map(([h, k]) => (
-              <th key={h} style={{ ...S.th, textAlign: "center", cursor: k ? "pointer" : "default", userSelect: "none" }}
-                onClick={() => k && toggleSort(k)} title={k ? "클릭하면 정렬" : undefined}>
-                {h}{k && <span style={{ marginLeft: 3, color: sort.key === k ? "#2563eb" : "#d1d5db" }}>{sort.key === k ? (sort.dir === 1 ? "▲" : "▼") : "↕"}</span>}
-              </th>
-            ))}</tr>
-          </thead>
-          <tbody>
-            {pageRows.map((t) => {
+      <div style={WS_GRID}>
+        {/* ① N Key 고객사 */}
+        <div style={card}>
+          <WsCoHead count={filtered ? `${coList.length}/${names.length}` : names.length} />
+          <div style={{ padding: 10 }}>
+            <WsCoToggle view={view} onView={setView} issued={issuedKeys.size} total={companies.length} />
+            <input style={{ ...S.input, marginBottom: 8 }} value={cq} onChange={(e) => setCq(e.target.value)} placeholder="고객사 검색" />
+            {/* 고객사 목록 — 화면 아래 끝(100vh)까지 `PC-156` */}
+            <WsFillScroll>
+              {!cq && coBtn(ALL_CO, "전체", hitAll.length, hitAll.filter((t) => t.billing === "미정").length)}
+              {coList.map((k) => {
+                const ts = hitOf(k);
+                return coBtn(k, labelOf(k), ts.length, ts.filter((t) => t.billing === "미정").length);
+              })}
+              {coList.length === 0 && <div style={{ fontSize: 12, color: "#9ca3af", padding: "14px 6px", textAlign: "center", lineHeight: 1.7 }}>{filtered ? "필터에 맞는 고객사가 없습니다." : view === "issued" && cq ? <>발급 고객사에 없습니다.<br />[전체 고객사]에서 찾아 발급하세요.</> : "검색 결과가 없습니다."}</div>}
+              {unlinkedN > 0 && !cq && (
+                <div style={{ borderTop: "1px solid #eef0f4", marginTop: 6, paddingTop: 6 }}>
+                  {coBtn(UNLINKED_CO, "고객사 미연결", unlinkedN, hitOf(UNLINKED_CO).filter((t) => t.billing === "미정").length, true)}
+                </div>
+              )}
+            </WsFillScroll>
+          </div>
+        </div>
+
+        {/* ② 발급 티켓 */}
+        <div style={card}>
+          <div style={hd}>
+            <b style={{ fontSize: 14 }}>발급 티켓</b>
+            <span style={{ fontSize: 11.5, color: "#9ca3af" }}>{list.length}건</span>
+            <span style={{ flex: 1 }} />
+            <button type="button" onClick={() => setRight({ kind: "new" })} style={WS_HEAD_BTN}>＋ N Key 발급</button>
+          </div>
+          {/* 발급 티켓 목록 — 화면 아래 끝(100vh)까지 `PC-157` */}
+          <WsFillScroll style={{ padding: 12 }}>
+            {co === UNLINKED_CO && (
+              <div style={{ fontSize: 11.5, color: "#b45309", marginBottom: 8, lineHeight: 1.6 }}>
+                대장의 고객사명 · Owner 와 맞는 고객사가 고객사 관리에 없는 티켓입니다. 고객사 관리에 「이름-오너」로 등록하면 그 고객사로 이어집니다.
+              </div>
+            )}
+            {list.length === 0 && (
+              <div style={WS_EMPTY}>
+                {ofCo(co).length === 0 ? <>발급된 N Key 가 없습니다.<br />[＋ N Key 발급]으로 발급하세요.</> : "필터에 맞는 N Key 가 없습니다."}
+              </div>
+            )}
+            {groups.map((g) => (
+              <div key={g.key || "__all"}>
+              {co === ALL_CO && (
+                <button type="button" onClick={() => pickCo(g.key)} title="이 고객사만 보기"
+                  style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", border: 0, background: "none", padding: "6px 2px", margin: "4px 0 6px", borderBottom: "1px solid #eef0f4", cursor: "pointer", fontSize: 12.5 }}>
+                  <b style={{ color: g.key === UNLINKED_CO ? "#b45309" : "#111827" }}>{labelOf(g.key)}</b>
+                  <span style={{ color: "#9ca3af" }}>{g.ts.length}건</span>
+                  <span style={{ flex: 1 }} />
+                  {g.ts.some((t) => t.billing === "유료") && <b style={{ color: "#1d4ed8", fontSize: 11.5 }}>{won(g.ts.reduce((x, t) => x + (t.billing === "유료" ? t.amount : 0), 0))}</b>}
+                  <span style={{ color: "#2563eb", fontSize: 11.5 }}>›</span>
+                </button>
+              )}
+            {g.ts.map((t) => {
+              const on = right.kind === "t" && right.id === t.id;
               const c = BILL_COLOR[t.billing];
               const left = t.billing === "체험" ? daysLeft(t.trialUntil) : null;
+              const p = t.params ?? {};
+              const bs = p["Book Start"];
+              const sob = p.Section !== undefined ? `S${p.Section}/O${p.Owner}${bs !== undefined && bs !== "" ? `/B${bs}` : ""}` : t.summary.slice(0, 28);
               return (
-                <tr key={t.id} onClick={() => router.push(`/tickets/nkey/${t.id}`)} title="클릭하면 상세·수정"
-                  style={{ borderTop: "1px solid #eef0f4", cursor: "pointer" }}>
-                  <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#2563eb", fontWeight: 600 }}>{t.no}</td>
-                  <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", fontSize: 11.5, whiteSpace: "nowrap" }}>{t.at.slice(0, 16).replace("T", " ")}</td>
-                  <td style={{ ...S.td, fontWeight: 600, textAlign: "left" }}>
-                    {t.company}
-                    {t.src === "ledger" && <span style={{ ...S.tag, fontSize: 8.5, marginLeft: 5, background: "#f3f4f6", color: "#9ca3af" }} title="nkey(HLP) 발급 대장에서 가져온 과거 이력">대장</span>}
-                  </td>
-                  <td style={{ ...S.td, textAlign: "left", fontSize: 11.5, maxWidth: 300, color: "#6b7280" }}>{t.summary}</td>
-                  <td style={{ ...S.td, fontSize: 11.5 }}>{t.by || "-"}</td>
-                  <td style={S.td}>
+                <div key={t.id} onClick={() => setRight({ kind: "t", id: t.id })} style={wsItem(on)}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11.5, color: "#2563eb", fontWeight: 700 }}>No.{t.no}</span>
+                    <b style={{ fontSize: 12.5, fontFamily: "ui-monospace,monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sob}</b>
+                    <span style={{ flex: 1 }} />
                     <span style={{ ...S.tag, background: c.bg, color: c.fg, fontWeight: 700 }}>{t.billing}</span>
-                    {t.billing === "체험" && t.trialUntil && (
-                      <div style={{ fontSize: 10, marginTop: 2, color: (left ?? 0) < 0 ? "#dc2626" : "#92400e" }}>
-                        ~{t.trialUntil} {(left ?? 0) < 0 ? "(만료)" : `(D-${left})`}
-                      </div>
-                    )}
-                  </td>
-                  <td style={{ ...S.td, fontWeight: 700, color: t.billing === "유료" ? "#1d4ed8" : "#d1d5db", whiteSpace: "nowrap" }}>
-                    {t.billing === "유료" ? won(t.amount) : "-"}
-                  </td>
-                  <td style={{ ...S.td, textAlign: "left", fontSize: 11, color: "#9ca3af", maxWidth: 160 }}>{t.billNote || "-"}</td>
-                  <td style={{ ...S.td, whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
-                    <Link href={`/tickets/nkey/${t.id}?tab=bill`} style={{ ...S.smallBtn, textDecoration: "none" }}>정산</Link>
-                    <Link href={`/tickets/nkey/${t.id}`} style={{ ...S.linkBtn, marginLeft: 6, textDecoration: "none" }}>상세</Link>
-                    <button onClick={() => { if (confirm(`발급 ${t.no}번 기록을 삭제할까요?`)) deleteTicket(t.id); }} style={{ ...S.linkBtn, marginLeft: 6, color: "#dc2626" }}>삭제</button>
-                  </td>
-                </tr>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, fontSize: 11.5, color: "#6b7280" }}>
+                    {t.src === "ledger" && <span style={{ ...S.tag, background: "#f3f4f6", color: "#9ca3af" }} title="nkey(HLP) 발급 대장에서 가져온 과거 이력">대장</span>}
+                    {p["Book Volume"] ? <span>{p["Book Volume"]}권</span> : null}
+                    <span>{t.by || "-"}</span>
+                    {coKey(t) === UNLINKED_CO && <span style={{ color: "#b45309" }}>대장명 {t.company}</span>}
+                    {t.billing === "유료" && <b style={{ color: "#1d4ed8" }}>{won(t.amount)}</b>}
+                    {t.billing === "체험" && t.trialUntil && <span style={{ color: (left ?? 0) < 0 ? "#dc2626" : "#92400e" }}>~{t.trialUntil.slice(5)} {(left ?? 0) < 0 ? "(만료)" : `D-${left}`}</span>}
+                    <span style={{ marginLeft: "auto", fontFamily: "ui-monospace,monospace" }}>{t.at.slice(0, 10)}</span>
+                  </div>
+                </div>
               );
             })}
-            {list.length === 0 && (
-              <tr><td colSpan={10} style={{ ...S.td, textAlign: "center", color: "#9ca3af", padding: 30 }}>
-                {rows.length === 0 ? "아직 발급된 N Key 가 없습니다. [＋ N Key 발급] 으로 발급하세요." : "필터에 맞는 N Key 가 없습니다."}
-              </td></tr>
-            )}
-          </tbody>
-        </table>
-        {list.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderTop: "1px solid #eef0f4", flexWrap: "wrap" }}>
-            <div style={{ fontSize: 12, color: "#6b7280" }}>
-              전체 <b style={{ color: "#111827" }}>{list.length.toLocaleString()}</b>건 중 {((curPage - 1) * perPage + 1).toLocaleString()}~{Math.min(curPage * perPage, list.length).toLocaleString()} 표시
-              <select value={perPage} onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1); }} style={{ marginLeft: 8, fontSize: 12, padding: "3px 6px", border: "1px solid #e5e7eb", borderRadius: 6 }}>
-                {[25, 50, 100, 200, 500].map((n) => <option key={n} value={n}>{n}건씩</option>)}
-                <option value={list.length || 1}>전체 보기</option>
-              </select>
+              </div>
+            ))}
+          </WsFillScroll>
+        </div>
+
+        {/* ③ 발급 상세 · 정산 / N Key 발급 / 고객사 등록 */}
+        <div style={{ minWidth: 0 }}>
+          {right.kind === "t" && (
+            <TicketDetailView key={`${right.id}-${right.tab ?? ""}`} ticketId={right.id} embedded initTab={right.tab}
+              onDeleted={() => { const rest = list.filter((x) => x.id !== right.id); setRight(rest[0] ? { kind: "t", id: rest[0].id } : { kind: "none" }); }} />
+          )}
+          {right.kind === "new" && (
+            <NKeyEmbeddedForm key={`new-${co}`} me={me} initCompanyId={coCompany?.id ?? 0}
+              onIssued={(t) => { setCo(String(t.coRef ?? ALL_CO)); setFBill(""); setFSrc(""); setQ(""); setRight({ kind: "t", id: t.id, tab: "bill" }); }}
+              onCancel={() => { const first = list[0]; setRight(first ? { kind: "t", id: first.id } : { kind: "none" }); }} />
+          )}
+          {right.kind === "none" && (
+            <div style={{ ...card, padding: "48px 0", textAlign: "center", color: "#9ca3af", fontSize: 12.5, lineHeight: 1.8 }}>
+              발급 티켓을 선택하거나 <b>[＋ N Key 발급]</b>을 누르세요.
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <button onClick={() => setPage(1)} disabled={curPage === 1} style={pgBtn(false, curPage === 1)}>«</button>
-              <button onClick={() => setPage(curPage - 1)} disabled={curPage === 1} style={pgBtn(false, curPage === 1)}>‹</button>
-              {pageWindow(curPage, totalPages).map((n) => (
-                <button key={n} onClick={() => setPage(n)} style={pgBtn(n === curPage, false)}>{n}</button>
-              ))}
-              <button onClick={() => setPage(curPage + 1)} disabled={curPage === totalPages} style={pgBtn(false, curPage === totalPages)}>›</button>
-              <button onClick={() => setPage(totalPages)} disabled={curPage === totalPages} style={pgBtn(false, curPage === totalPages)}>»</button>
-              <span style={{ fontSize: 11.5, color: "#9ca3af", marginLeft: 6 }}>{curPage} / {totalPages}</span>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {loadedKey && (
-        <KeyInfoModal
-          title="N Key 불러오기" subtitle={loadedKey.name}
+        <KeyInfoModal title="N Key 불러오기" subtitle={loadedKey.name}
           source="불러온 파일" all={loadedKey.rows} err={loadedKey.err} onClose={() => setLoadedKey(null)} />
       )}
     </div>
   );
 }
 
+// 3단 화면 오른쪽 칸의 N Key 발급 폼 — 왼쪽에서 고른 고객사로 시작한다(바꿀 수 있음)
+function NKeyEmbeddedForm({ me, initCompanyId, onIssued, onCancel }: {
+  me: ReturnType<typeof currentUser>; initCompanyId: number; onIssued: (t: Ticket) => void; onCancel: () => void;
+}) {
+  const [companyId, setCompanyId] = useState(initCompanyId);
+  return <NKeyForm me={me} companyId={companyId} setCompanyId={setCompanyId} embedded onIssued={onIssued} onCancel={onCancel} />;
+}
+
 /* ── 발급 상세 · 수정 — 목록에서 발급번호·발급내용을 누르면 열린다 ── */
-export function TicketDetailView({ ticketId }: { ticketId: number }) {
+// embedded — N Key 관리 3단 화면의 오른쪽 칸 `PC-149`. initTab 으로 정산 정보 탭을 바로 연다(발급 직후)
+export function TicketDetailView({ ticketId, embedded = false, initTab, onDeleted }: {
+  ticketId: number; embedded?: boolean; initTab?: "base" | "bill"; onDeleted?: () => void;
+}) {
   const router = useRouter();
   const me = currentUser(useAuth());
   useTickets();
@@ -368,7 +354,7 @@ export function TicketDetailView({ ticketId }: { ticketId: number }) {
 
   // 목록의 [정산] 은 ?tab=bill 로 들어와 정산 정보 탭을 바로 연다.
   const sp = useSearchParams();
-  const [tab, setTab] = useState<"base" | "bill">(sp.get("tab") === "bill" ? "bill" : "base");
+  const [tab, setTab] = useState<"base" | "bill">(initTab ?? (sp.get("tab") === "bill" ? "bill" : "base"));
   // ① 발급 기본정보
   const [summary, setSummary] = useState("");
   const [kv, setKv] = useState<{ k: string; v: string; num: boolean }[]>([]);
@@ -419,7 +405,7 @@ export function TicketDetailView({ ticketId }: { ticketId: number }) {
   const TABS = [["base", "발급 기본정보"], ["bill", "정산 정보"]] as const;
 
   return (
-    <div style={{ padding: "18px 20px", maxWidth: 900 }}>
+    <div style={embedded ? undefined : { padding: "18px 20px", maxWidth: 900 }}>
       <div style={{ ...S.card, padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
           <div style={{ fontWeight: 700, fontSize: 14 }}>발급 상세 · 수정</div>
@@ -540,10 +526,10 @@ export function TicketDetailView({ ticketId }: { ticketId: number }) {
 
         {/* 하단 액션 — [목록]은 여기 있다. 저장은 두 탭 내용을 함께 기록한다. */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 18, paddingTop: 14, borderTop: "1px solid #eef0f4" }}>
-          <button onClick={() => { if (confirm(`발급 ${t.no}번 기록을 삭제할까요?`)) { deleteTicket(t.id); router.push("/tickets/nkey"); } }}
+          <button onClick={() => { if (confirm(`발급 ${t.no}번 기록을 삭제할까요?`)) { deleteTicket(t.id); if (onDeleted) onDeleted(); else router.push("/tickets/nkey"); } }}
             style={{ ...S.ghost, color: "#dc2626", borderColor: "#fecaca" }}>발급 기록 삭제</button>
           <span style={{ flex: 1 }} />
-          <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
+          {!embedded && <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>}
           <button onClick={save} style={S.primary}>저장</button>
         </div>
         {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: toast.ok ? "#047857" : "#dc2626", textAlign: "right" }}>{toast.text}</div>}
@@ -563,7 +549,10 @@ const yyyymmdd = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slic
 const CODE_TICKETS = "C:\\Users\\Documents\\NeoLab\\CodeTickets";
 
 // 고객사 = **티켓 고객사**(nkey(HLP) 대장 프로젝트명 + 티켓 화면 등록분) — 고객사 관리와 별개 `PC-123`
-function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof currentUser>; companyId: number; setCompanyId: (n: number) => void }) {
+function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onCancel }: {
+  me: ReturnType<typeof currentUser>; companyId: number; setCompanyId: (n: number) => void;
+  embedded?: boolean; onIssued?: (t: Ticket) => void; onCancel?: () => void;   // 3단 화면 오른쪽 칸 `PC-149`
+}) {
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [bookStart, setBookStart] = useState(0);   // Start Book (할당 범위 안에서 직접 입력)
   const [books, setBooks] = useState(1);           // Book 볼륨(권)
@@ -578,9 +567,9 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
   useEffect(() => { hydrateTickets(); }, []);
   // 그 고객사의 계정 중 **아직 N Key 가 없는 계정**만 발급 대상이다 `PC-059`
 
-  useTicketCustomers();
-  const { projects } = useStore();      // SOBP 맵에서 (K) 로 직접 할당한 S/O 도 발급 범위 `PC-125`
-  const company = companyId ? ticketCustomerById(companyId) : undefined;
+  const { projects, companies } = useStore();
+  // 고객사 = **고객사 관리 고객사** `PC-153`
+  const company = companyId ? companies.find((c) => c.id === companyId) : undefined;
   const issuedTime = yyyymmdd();
 
   useEffect(() => { hydrateMembers(); }, []);
@@ -601,8 +590,9 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
         return { pt, section: c.s, owner: c.o, bookStart: 0, bookEnd: bcap - 1, pageStart: 0, pageEnd: pcap - 1, bookCount: bcap };
       });
     }
-    return rangesOfTicketCustomer(company.name, projects);
-  }, [company, isCommon, commonCodes, projects]);
+    // N Key 발급 범위 = nkey 대장 이력(이 고객사로 이어진 티켓) + 고객사의 SOBP 할당 + (K) 할당 `PC-153`
+    return nKeyRangesOfCompany(company, projects, allTickets().filter((t) => t.kind === "N"), companies);
+  }, [company, isCommon, commonCodes, projects, companies]);
   const range = ranges[sobpIdx];
 
   // 공통코드 회사의 '사용 고객사' 후보 — 각 코드의 중앙 멤버십(히스토리+등록). 코드 라벨과 함께 한 목록으로.
@@ -689,9 +679,10 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 
     const summary = `${selCu ? `[사용 고객사: ${selCu.cu}] ` : ""}${range.pt} S${range.section}/O${range.owner}/B${bookStart}~${bookEnd} · Book ${books}권 · P${pageStart}~${pageStart + pageVolume - 1} · ${separate ? "개별티켓 " + books + "장" : "병합 1장"} · 유효 ${untilUnlimited ? "무제한" : validValue}`;
-    addTicket({ kind: "N", companyId: company.id, company: company.name,
+    const issued = addTicket({ kind: "N", companyId: company.id, company: company.name, coRef: company.id,
                 by: me?.name ?? "", summary, params: ticketParams() });
     logActivity("ticket", `N Key · ${company.name} · ${summary}`, me?.name);
+    if (onIssued) { onIssued(issued); return; }   // 3단 화면 — 발급한 티켓의 정산 정보 탭으로 `PC-149`
     setToast(`N Key 발급됨 · 티켓 ${separate ? books + "개(개별 파일)" : "1장(병합)"} · B${bookStart}~${bookEnd} — zip(${folder}.zip)으로 다운로드됩니다.`);
   };
 
@@ -701,7 +692,8 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
     <div style={{ ...S.card, padding: 18 }}>
       {/* 제목은 화면(브레드크럼)에 한 번만 두고, 여기서는 **고른 고객사**를 크게 보여 준다 `PC-068` */}
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 20, fontWeight: 800, color: company ? "#111827" : "#c7cdd6" }}>
+        {embedded && <b style={{ fontSize: 15 }}>N Key 발급</b>}
+        <div style={{ fontSize: embedded ? 13 : 20, fontWeight: embedded ? 400 : 800, color: company ? (embedded ? "#6b7280" : "#111827") : "#c7cdd6" }}>
           {company?.name ?? "고객사를 선택하세요"}
         </div>
         {range && (
@@ -714,10 +706,17 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
       </div>
 
       {/* 회사이름 + 할당된 SOBP 범위 (나란히) */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 12, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: embedded ? "1fr" : "1fr 1.4fr", gap: 12, alignItems: "start" }}>
         <div>
           <Field label="고객사 *">
-            <TicketCustomerSelect value={companyId} onChange={onCompany} by={me?.name} />
+            {embedded && companyId
+              ? <div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{company?.name}</div>
+              : (
+                <select style={S.input} value={companyId} onChange={(e) => onCompany(Number(e.target.value))}>
+                  <option value={0}>- 고객사 관리 고객사 선택 -</option>
+                  {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              )}
           </Field>
         </div>
         <div>
@@ -735,7 +734,7 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
             </>
           ) : (
             <>
-              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>발급 범위 (대장 이력 · SOBP 할당) * <span style={{ color: "#9ca3af" }}>(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다)</span></div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>발급 범위 (nkey 대장 이력 · SOBP 할당) * <span style={{ color: "#9ca3af" }}>(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다)</span></div>
               <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={onRange} />
             </>
           )}
@@ -743,7 +742,7 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
       </div>
 
       {/* Book / Page 범위 — 한 행에 4개 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginTop: 12 }}>
         <Field label={`Start Book ${range ? `· ${range.bookStart}~${range.bookEnd}` : "(시작 북코드)"}`}>
           <input type="number" min={range?.bookStart ?? 0} max={range?.bookEnd ?? undefined} style={S.input} value={bookStart}
             onChange={(e) => setBookStart(Math.max(0, +e.target.value))} disabled={!range} />
@@ -763,7 +762,7 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
         </Field>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 4 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginTop: 4 }}>
         <Field label="Valid Until Time (사용기간 끝)" full>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input type="date" style={{ ...S.input, maxWidth: 190, opacity: untilUnlimited ? 0.5 : 1 }} disabled={untilUnlimited}
@@ -776,7 +775,7 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
       </div>
 
       {/* 자동/고정 항목 — Key 정보 순서와 같게 Code Type → Issued Time `PC-072` */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 4 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginTop: 4 }}>
         <Field label="Code Type">
           <select style={S.input} value={ctype} disabled={!range} onChange={(e) => setCtype(e.target.value as CodeKind)}>
             {CODE_KINDS.map((k) => <option key={k.v} value={k.v}>{k.short}</option>)}
@@ -786,15 +785,17 @@ function NKeyForm({ me, companyId, setCompanyId }: { me: ReturnType<typeof curre
         <Field label="Ticket Version"><input style={fixed} value={1} readOnly /></Field>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12, paddingTop: 12, borderTop: "1px solid #eef0f4" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 12, paddingTop: 12, borderTop: "1px solid #eef0f4" }}>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#374151", cursor: "pointer" }}>
           <input type="checkbox" checked={separate} onChange={(e) => setSeparate(e.target.checked)} />
           <b>Separate Each Book</b> <span style={{ color: "#9ca3af" }}>(체크하면 북코드별 개별 티켓, 해제하면 1개 티켓으로 병합합니다)</span>
         </label>
         <span style={{ flex: 1 }} />
-        <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
+        {embedded
+          ? <button onClick={onCancel} style={{ ...S.ghost, whiteSpace: "nowrap" }}>취소</button>
+          : <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>}
         <button onClick={genKey} disabled={!range}
-          style={{ ...S.primary, ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>N Key 발급</button>
+          style={{ ...S.primary, whiteSpace: "nowrap", ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>N Key 발급</button>
       </div>
       {range && (
         <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>

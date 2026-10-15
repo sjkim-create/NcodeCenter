@@ -32,11 +32,8 @@ NcodeCenter
 │   └─ 코드 프로젝트                PRJ-01   (/projects)   ← 전 서비스 공통
 │       └─ 프로젝트 상세(우측)      PRJ-01-1
 ├─ [티켓 발급]                              ← 발급 메뉴를 사이드바 그룹으로 분리
-│   ├─ 계정 발급 (목록)             TKT-01   (/tickets/account)
-│   │   ├─ 계정 등록                TKT-02   (/tickets/account/new)
-│   │   └─ 계정 상세·수정           TKT-02   (/tickets/account/{email})
-│   ├─ N Key 발급                   TKT-04   (/tickets/nkey)
-│   └─ Key 발급 정산                TKT-03   (/tickets/list)
+│   ├─ App Key 관리 (계정 발급)     TKT-01   (/tickets/account)   ← 3단 한 화면 PC-158
+│   └─ N Key 관리                   TKT-02   (/tickets/nkey)      ← 3단 한 화면 PC-158
 ├─ [서비스 관리]                            ← 사내 Ncode 사용 서비스별 (확장 축)
 │   ├─ CasterN 서비스 관리
 │   │   ├─ 편집 프로젝트            PRJ-02   (/projects/editing)
@@ -77,12 +74,9 @@ NcodeCenter
 | **PRJ-01** | 코드 프로젝트 | 2 | `/projects` | `ProjectsView` | Staff/Admin | 고객사별 코드 프로젝트 목록(마스터), 공유(커먼) 코드 표시·검색 |
 | PRJ-01-1 | └ 프로젝트 상세 | 3 | `/projects` (우측 패널) | `ProjectsView` | Staff/Admin | 선택 프로젝트의 코드종류·Section/Owner·발급 상세 |
 
-| — | **티켓 발급** (그룹) | 1 | — | — | — | 발급 메뉴 3종을 담는 사이드바 그룹 (코드 다음, 서비스 관리 앞) |
-| **TKT-01** | 계정 발급 (목록) | 2 | `/tickets/account` | `AccountsListView` | Staff/Admin | 계정 목록 — 요약 4칸 · 고객사/사용처/검색 필터 · 8열 표(CasterN 권한·App Key 수) |
-| **TKT-02** | └ 계정 등록 | 3 | `/tickets/account/new` | `AccountNewView` | Staff/Admin | ① 계정 정보 → ② 사용처·권한(CasterN 7종) → ③ App Key(선택) → [계정 추가] |
-| **TKT-02** | └ 계정 상세·수정 | 3 | `/tickets/account/{email}` | `AccountDetailView` | Staff/Admin | 계정 정보·권한 수정, App Key 발급·삭제, 계정 삭제 |
-| **TKT-04** | N Key 발급 | 2 | `/tickets/nkey` | `TicketsView` (`NKeyForm`) | Staff/Admin | 물리 N Key(HLP) 발급 폼 — 고객사·SOBP 범위 선택 후 zip 발급 |
-| **TKT-03** | Key 발급 정산 | 2 | `/tickets/list` | `TicketsView` (`TicketListView`) | Staff/Admin | 발급 티켓 목록·정산, 대장(HLP 발급대장)/신규 발급 필터 |
+| — | **티켓 발급** (그룹) | 1 | — | — | — | 발급 메뉴 2종(App Key 관리 · N Key 관리)을 담는 사이드바 그룹 (코드 다음, 서비스 관리 앞) |
+| **TKT-01** | App Key 관리 (계정 발급) | 2 | `/tickets/account` | `AppKeyWorkspace` | Staff/Admin | 「고객사(고객사 관리) \| App Key 계정 \| 계정 상세」 3단 — 계정 추가 · App Key · 코드 범위 발급 (옛 TKT-01 · 02) |
+| **TKT-02** | N Key 관리 | 2 | `/tickets/nkey` | `TicketsView` (`NKeyWorkspace`) | Staff/Admin | 「고객사 \| 발급 티켓 \| 발급 상세·정산」 3단 — 정산 집계 · 전역 필터 · N Key 발급 · 불러오기 (옛 TKT-03~06) |
 | **PRJ-02** | 편집 프로젝트 | 2 | `/projects/editing` | `EditingProjectsView` | Staff/Admin | 편집 고객사 목록, 발급규모(페이지)·편집원가(심볼) 단가 기준 집계·검색·고객사 추가 |
 | **PRJ-03** | 편집 프로젝트 상세 | 2 | `/projects/editing/[owner]` | `EditingDetailView` | Staff/Admin | 오너별 Book·편집 가능 범위·할당 SO·공유 정보 상세 |
 | **PUI-01** | PUI 코드 (페이퍼) | 2 | `/pui` | `PuiView` | Staff/Admin | 페이퍼 UI(PUI) 기능표 — 카테고리·기능별 Book/Page·파라미터 참조 |

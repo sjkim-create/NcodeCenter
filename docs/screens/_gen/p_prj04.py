@@ -7,7 +7,7 @@
 고객사 머리말은 유지되어 어느 고객사의 교재인지 맥락이 남는다.
 """
 from shell import page, frame
-from p_tkt01 import sel, field
+from shell import sel, field
 
 CODE, NAME = 'PRJ-04', '교재(책) 등록·수정'
 PRD = 'docs/prd/PRJ-04_교재(책) 등록·수정.md'

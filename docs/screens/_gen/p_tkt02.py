@@ -1,459 +1,393 @@
 # -*- coding: utf-8 -*-
-"""TKT-02 계정 등록·수정 — 실제 화면 구조 그대로.
+"""TKT-02 N Key 관리 — 「고객사 | 발급 티켓 | 발급 상세·정산」 3단 한 화면 `PC-149` `PC-153` `PC-158`
 
-App Key 관리의 **키 발급 계정**(티켓 고객사) 화면이다 `PC-123` `PC-128`.
-탭 2개 = 계정 정보 · App Key 발급 — 인증 서비스·권한은 삭제했다 `PC-131`
-(서비스 로그인 계정과 CasterN 권한은 고객사 관리 `MEM-02` 의 계정 및 서비스 권한에서 다룬다).
-등록(/tickets/account/new) : 계정 정보 + App Key 발급(선택) → [계정 추가]
-상세·수정(/tickets/account/{email}) : 계정 정보 수정 + [저장] · App Key 코드 범위(=티켓) 발급·삭제
-App Key 는 계정당 1개이고, 그 아래 코드 범위(=티켓)를 여러 건 발급한다 `PC-050` `PC-118`.
+옛 TKT-03(N Key 관리 목록) · TKT-04(N Key 발급) · TKT-05(발급 상세·수정) · TKT-06(N Key 불러오기)을 한 화면으로 합쳤다.
+고객사 = 고객사 관리(MEM-01) 고객사를 불러온다. 자료 = nkey(HLP) N Key 발급 대장(정본) + 새로 발급한 N Key.
+그림 조각은 kws.py(= web/components/KeyWorkspaceUI.tsx)와 같다.
 """
 from shell import page, frame
-from p_tkt01 import sel, field
+import kws
+from kws import tg, fld, MONO
 
-CODE, NAME = 'TKT-02', '계정 등록·수정'
-PRD = 'docs/prd/TKT-02_계정 등록·수정.md'
+CODE, NAME = 'TKT-02', 'N Key 관리'
+PRD = 'docs/prd/TKT-02_N Key 관리.md'
+FT = 'N Key 관리'
+NOTE = '고객사는 고객사 관리에서 불러옵니다 · 자료: nkey(HLP) N Key 발급 대장 + 새로 발급'
 
-CO = 'InformDS'                     # 티켓 고객사(nkey(HLP) 대장 프로젝트명) `PC-123`
-ACC_ID = 'dev@informds.com'
-KEY = '7Kq3xF9dR2mA8pZ1vT6bN4sJ0wG5c'   # 영문·숫자 29자 `PC-066`
-
-# InformDS 의 발급 범위 — 대장 이력의 S/O/B `PC-123` (S, O, B, P)
-RANGES = ((3, 302, '0~8,191', '0~511'),
-          (3, 231, '8,100~8,191', '0~511'))
-
-# 상세 화면의 App Key — 계정당 1개. 한 키에 **코드 범위(=티켓)를 여러 개** 물린다 `PC-118`.
-#   (키, 생성일시, 범위 목록[(코드종류, 'S/O/B/P', 권수, 사용기간), ...])
-KEYS = ((KEY, '2026-10-02 14:02',
-         [('PDS3', 'S3/O302/B6808~7007/P0~511', '200권', '2026-10-02 ~ 무제한'),
-          ('PDS3', 'S3/O231/B8100~8191/P0~511', '92권', '2026-10-14 ~ 2027-10-13')]),)
-
-SC = {'S': '#5f8ff0', 'O': '#14b8a6', 'B': '#8b5cf6', 'P': '#f59e0b'}
-
-
-def sb(k, v):
-    return ('<span style="display:inline-flex;align-items:center;gap:5px;border:1px solid #eef0f4;'
-            'border-radius:8px;padding:2px 7px 2px 2px;background:#fff;font-size:12px">'
-            '<span style="background:%s;color:#fff;font-weight:700;font-size:10.5px;'
-            'border-radius:6px;padding:2px 6px;min-width:12px;text-align:center">%s</span>'
-            '<span style="font-family:ui-monospace,monospace;color:#111827">%s</span></span>'
-            % (SC[k], k, v))
+# (고객사, 건수, 미정)
+COS = (('네오랩타이완-101', 1, 1), ('ACE Solution-700', 1, 1), ('ezwrite-305', 1, 1), ('Global Communications Inc.-202', 1, 0),
+       ('Globalspace-308', 1, 0), ('ICsolutions-300', 1, 1), ('ICsolutions-301', 1, 1), ('ICsolutions-302', 1, 1),
+       ('Inform DS-302', 16, 1), ('InformDS-231', 1, 0), ('KODION-46', 2, 0), ('Luginbühl-450', 7, 4),
+       ('Photron-241', 1, 1), ('Snave UK-309', 1, 0), ('Study123', 1, 1), ('ufit-311', 2, 2))
+# (No, S/O/B, 정산, 권수, 발급인, 발급일, 금액, 대장)
+T = {
+    'KODION-46': ((36, 'S3/O46/B10', '무료', 2, '황락평', '2026-07-07', '', True), (35, 'S3/O46/B8', '무료', 2, '황락평', '2025-11-20', '', True)),
+    'Inform DS-302': ((21, 'S3/O302/B7008', '미정', 300, '안진', '2026-03-17', '', True), (20, 'S3/O302/B6808', '유료', 200, '안진', '2026-03-17', '₩0', True),
+                      (19, 'S3/O302/B6708', '유료', 100, '안진', '2025-08-13', '₩0', True), (18, 'S3/O302/B6208', '유료', 500, '안진', '2025-04-14', '₩0', True)),
+    'Luginbühl-450': ((34, 'S3/O450/B435', '유료', 196, '안진', '2026-03-06', '₩0', True), (33, 'S3/O450/B239', '유료', 196, '안진', '2025-11-25', '₩0', True),
+                      (32, 'S3/O450/B160', '유료', 79, '안진', '2025-10-13', '₩0', True), (31, 'S3/O450/B120', '미정', 40, '최승혁', '2023-12-23', '', True),
+                      (30, 'S3/O450/B80', '미정', 40, '최승혁', '2023-10-11', '', True)),
+    '고객사 미연결': ((58, 'S44/O503', '미정', 0, '황효정', '2020-01-01', '', True), (57, 'S44/O502', '미정', 0, '황효정', '2020-01-01', '', True),
+                 (49, 'S44/O311', '미정', 0, '최승혁', '2020-01-01', '', True), (37, 'S44/O281', '미정', 0, '황효정', '2020-01-01', '', True)),
+}
+LEDGER_NAME = {58: 'hyssos', 57: 'hyssos', 49: 'ICsolutions', 37: 'inkwrx'}
 
 
-def chips(i):
-    s, o, b, p = RANGES[i]
-    return ('<span style="display:inline-flex;gap:6px;flex-wrap:wrap">%s%s%s%s</span>'
-            % (sb('S', s), sb('O', o), sb('B', b), sb('P', p)))
-
-
-def picker(state='closed', value=0):
-    """발급 범위 (대장 이력 · SOBP 할당) — 접힘 트리거 + 펼침 목록 `PC-123`"""
-    note = ('<div style="font-size:12px;color:#9ca3af;padding:9px 12px;border:1px solid #eef0f4;'
-            'border-radius:10px;background:#fafbfc">%s</div>')
-    if state == 'nocompany':
-        return note % '고객사를 먼저 선택하세요.'
-    if state == 'norange':
-        return note % '이 고객사의 발급 범위(대장 이력)가 없습니다.'
-    inner = (chips(value) if state != 'closed'
-             else '<span style="color:#9ca3af;font-size:12.5px">- 범위 선택 -</span>')
-    trig = ('<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;'
-            'border:1px solid #e5e7eb;border-radius:10px;background:#fff;min-height:40px">'
-            '%s<span style="margin-left:auto;color:#9ca3af;font-size:12px">%s</span></div>'
-            % (inner, '▲' if state == 'open' else '▼'))
-    if state != 'open':
-        return trig
-    rows = ''
-    for i in range(len(RANGES)):
-        on = (i == value)
-        rows += ('<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:%s;%s">'
-                 '<span style="font-size:11px;color:%s;width:16px;text-align:center;font-weight:700">%d</span>'
-                 '%s%s</div>'
-                 % ('#eef6ff' if on else '#fff', 'border-top:1px solid #f1f3f6' if i else '',
-                    '#2563eb' if on else '#9ca3af', i + 1, chips(i),
-                    '<span style="margin-left:auto;font-size:11px;color:#2563eb;font-weight:700">✓</span>'
-                    if on else ''))
-    return (trig + '<div style="margin-top:4px;border:1px solid #e5e7eb;border-radius:10px;'
-            'background:#fff;box-shadow:0 12px 32px rgba(15,23,42,.14);overflow:hidden">' + rows + '</div>')
-
-
-def acc_tabs(active='계정 정보', key_badge=''):
-    """화면 탭 — 계정 정보 · App Key 발급 (인증 서비스 및 권한은 삭제 `PC-131`)"""
-    out = ''
-    for label in ('계정 정보', 'App Key 발급'):
-        on = (label == active)
-        b = ''
-        if label == 'App Key 발급' and key_badge:
-            b = (' <span style="font-size:9.5px;background:#eef6ff;color:#2563eb;border-radius:5px;'
-                 'padding:1px 6px;font-weight:700">%s</span>' % key_badge)
-        out += ('<span style="padding:9px 16px;font-size:13px;border-bottom:2px solid %s;'
-                'margin-bottom:-1px;color:%s;font-weight:%s">%s%s</span>'
-                % ('#5f8ff0' if on else 'transparent', '#111827' if on else '#6b7280',
-                   '700' if on else '400', label, b))
-    return ('<div style="display:flex;border-bottom:1px solid #eef0f4;margin-bottom:14px">'
-            '%s</div>' % out)
-
-
-def step(title, desc=''):
-    """영역 제목 — 번호를 붙이지 않는다 `PC-052`"""
-    d = ('<span style="font-size:11.5px;color:#9ca3af">· ' + desc + '</span>') if desc else ''
-    return ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
-            '<b style="font-size:13px;color:#111827">' + title + '</b>' + d + '</div>')
-
-
-def tag(text, bg, fg, bold=True):
-    return ('<span style="font-size:11px;background:' + bg + ';color:' + fg + ';'
-            'border-radius:5px;padding:2px 7px;white-space:nowrap;'
-            + ('font-weight:700' if bold else '') + '">' + text + '</span>')
-
-
-def big_head(name):
-    """제목은 상단에만 두고 카드에는 고객사명을 크게 `PC-069`"""
-    c = '#111827' if name else '#c7cdd6'
-    return ('<div style="font-size:20px;font-weight:800;color:%s;margin-bottom:6px">%s</div>'
-            % (c, name or '고객사를 선택하세요'))
-
-
-def cust_select(empty=True, adding=False):
-    """고객사 = 티켓 고객사 선택 + [＋ 신규 등록] `PC-123`"""
-    s = ('<div style="display:flex;gap:6px">'
-         + sel('- 선택 (17곳 · 대장 17) -' if empty else CO, ph=empty)
-         + '<span class="btn sm" style="white-space:nowrap">' + ('취소' if adding else '＋ 신규 등록')
-         + '</span></div>')
-    if adding:
-        s += ('<div style="margin-top:8px;padding:10px;border:1px dashed #c7d2fe;border-radius:10px;'
-              'background:#f8faff">'
-              '<div style="font-size:11.5px;color:#4338ca;margin-bottom:8px">티켓 고객사 등록 · '
-              '고객사 관리와 별개입니다 · 발급 범위를 함께 입력합니다 (Book 을 비우면 오너 전체가 범위입니다)</div>'
-              '<div style="display:grid;grid-template-columns:1.6fr 1fr 0.6fr 0.8fr 0.8fr 0.8fr;gap:6px">'
-              '<div class="inp">에듀테크랩</div>' + sel('PDS3 (Ncode)')
-              + '<div class="inp">3</div><div class="inp">512</div>'
-              '<div class="inp ph">Start Book</div><div class="inp ph">End Book</div></div>'
-              '<div style="display:flex;justify-content:flex-end;margin-top:8px">'
-              '<span class="btn pri">등록</span></div></div>')
-    return s
-
-
-def acct_inputs(edit=False, err=None, empty=True, adding=False):
-    """계정 정보 — 등록은 입력, 상세는 ID·고객사 잠금"""
-    co = ('<div class="inp" style="background:#f7f8fa;color:#6b7280">' + CO + '</div>'
-          if edit else cust_select(empty, adding))
-    idc = ('<div class="inp" style="background:#f7f8fa;color:#6b7280;'
-           'font-family:ui-monospace,monospace">' + ACC_ID + '</div>' if edit
-           else '<div class="inp' + (' err' if err == 'id' else '') + '">'
-                + ('informds' if err == 'id' else
-                   ('<span style="color:#9ca3af">user@company.com</span>' if empty else ACC_ID)) + '</div>')
-    filled = edit or not empty
-    pwd = ('••••••••••' if filled and err != 'pw'
-           else '<span style="color:#9ca3af">비밀번호 미요청 시 임의 생성</span>')
-    nm = 'InformDS 개발팀' if filled else ''
-    addr = 'Seoul, Gangnam-gu' if filled else '<span style="color:#9ca3af">주소</span>'
-    home = 'https://www.informds.com' if filled else '<span style="color:#9ca3af">https://</span>'
-    out = ('<div class="g2">'
-           + field('고객사', co, not edit)
-           + field('NAME (담당자명)', '<div class="inp">' + nm + '</div>')
-           + field('ID (이메일)', idc, not edit)
-           + field('PWD (비밀번호)',
-                   '<div style="display:flex;gap:6px">'
-                   '<div class="inp' + (' err' if err == 'pw' else '') + '" style="flex:1">' + pwd + '</div>'
-                   '<div class="btn sm" style="white-space:nowrap">임의 생성</div></div>', True)
-           + field('ADDR (주소)', '<div class="inp">' + addr + '</div>')
-           + field('HOMEPAGE (홈페이지)', '<div class="inp">' + home + '</div>')
-           + '</div>')
-    if edit:        # 사용기간은 계정이 아니라 **코드 범위(=티켓)별 기간** `PC-118`
-        out += ('<div style="margin-top:10px;font-size:11.5px;color:#6b7280;background:#fafbfc;'
-                'border:1px solid #eef0f4;border-radius:9px;padding:8px 11px">'
-                '사용기간(시작·끝)은 계정 속성이 아니라 <b>코드 범위(=티켓)마다 유지되는 기간</b>입니다. '
-                '<b>[App Key 발급]</b> 탭에서 코드 범위를 발급할 때 함께 지정합니다.</div>')
+def head_(scope='전체 고객사', filt=False, stats=None, expired=0):
+    st = stats or (('발급 티켓', '61건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '22건', '#2563eb'),
+                   ('무료 / 체험', '4 / 0건', '#166534'), ('정산 미등록', '35건', '#dc2626'))
+    out = (kws.title('N Key 관리', '집계 대상 <b style="color:#111827">%s</b>%s' % (scope, ' · 필터 적용' if filt else ''), NOTE) +
+           kws.stats(list(st)))
+    if expired:
+        out += kws.warn_bar('⚠ 체험 기간이 만료된 티켓 <b>%d건</b> — 유료 전환 또는 회수 여부를 확인하세요.' % expired)
     return out
 
 
-HINT = '선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다'
+def filter_bar(bill='', src='', q='', hits=None):
+    b = ''.join(kws.chip(x, bill == v) for v, x in (('', '정산 전체'), ('미정', '미정'), ('유료', '유료'), ('무료', '무료')))
+    s = ''.join(kws.chip(x, src == v) for v, x in (('', '전체'), ('ledger', '대장'), ('new', '신규발급')))
+    filt = bool(bill or src or q)
+    return ('<div style="%s;padding:10px 12px;margin-bottom:12px;display:flex;gap:8px;align-items:center;font-size:12.5px">'
+            '<b style="color:#374151">필터</b><div style="display:flex;gap:4px">%s</div><span style="color:#d1d5db">|</span>'
+            '<div style="display:flex;gap:4px">%s</div><div class="inp%s" style="width:260px">%s</div>%s'
+            '<span style="flex:1"></span>%s<span class="btn sm">📂 N Key 불러오기</span></div>'
+            % (kws.CARD, b, s, '' if q else ' ph', q or '고객사 · 발급 내용 · 발급인 · 번호 검색',
+               '<span class="lnk">필터 해제</span>' if filt else '',
+               ('<span style="color:#6b7280">전체 <b style="color:#111827">%s건</b> · 고객사 <b style="color:#111827">%s곳</b></span>' % hits) if (filt and hits) else ''))
 
 
-def range_head(req=True, extra=''):
-    return ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">발급 범위 (대장 이력 · SOBP 할당)%s '
-            '<span style="color:#9ca3af">(%s%s)</span></div>' % (' *' if req else '', HINT, extra))
+def left(sel='', view='issued', rows=None, unlinked=(4, 6), h=600, search='', empty='', total_all=(61, 35), count=None):
+    if rows is None:
+        rows = [(n, c, n == sel, td, False) for n, c, td in COS]
+    allrow = [] if search else [('전체', total_all[0], sel == '', total_all[1], True)]
+    ul = ('고객사 미연결', unlinked[1], sel == '고객사 미연결', unlinked[0]) if (unlinked and not search) else None
+    return kws.co_col(allrow + rows, h, view=view, issued=31, total=537, count=count, search=search, empty=empty, unlinked=ul)
 
 
-def book_page_fields():
-    return ('<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px">'
-            + field('Start Book · 6,808~8,191', '<div class="inp">6808</div>')
-            + field('Book 볼륨 (권) · 최대 1,384', '<div class="inp">200</div>')
-            + field('Start Page', sel('1 (기본)'))
-            + field('Page 볼륨 · 최대 512', '<div class="inp">512</div>') + '</div>')
+def tcard(co, t, on=False, unl=False):
+    no, sob, bill, vol, by, at, amt, ledger = t
+    return kws.item('<div style="display:flex;align-items:center;gap:6px"><span style="%s;font-size:11.5px;color:#2563eb;font-weight:700">No.%d</span>'
+                    '<b style="%s;font-size:12.5px">%s</b><span style="flex:1"></span>%s</div>'
+                    '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11.5px;color:#6b7280">%s%s<span>%s</span>%s%s'
+                    '<span style="margin-left:auto;%s">%s</span></div>'
+                    % (MONO, no, MONO, sob, kws.bill_tag(bill), tg('대장', '#f3f4f6', '#9ca3af') if ledger else '',
+                       ('<span>%d권</span>' % vol) if vol else '', by,
+                       ('<b style="color:#1d4ed8">%s</b>' % amt) if amt else '',
+                       ('<span style="color:#b45309">대장명 %s</span>' % LEDGER_NAME.get(no, '')) if unl else '', MONO, at), on=on)
 
 
-def period_fields():
-    """코드 범위(=티켓) 발급 시 함께 지정하는 사용기간 `PC-118` — 항목명은 영문 (한글) `PC-132`"""
-    return ('<div style="display:grid;grid-template-columns:0.9fr 1fr 1.4fr;gap:10px;margin-top:10px">'
-            + field('Code Type', sel('PDS3'))
-            + field('Valid From Time (사용기간 시작)', '<div class="inp ph">yyyy-mm-dd</div>')
-            + field('Valid Until Time (사용기간 끝)',
-                    '<div style="display:flex;gap:8px;align-items:center">'
-                    '<div class="inp ph" style="opacity:.5">yyyy-mm-dd</div>'
-                    '<label style="font-size:12.5px;color:#374151;display:flex;align-items:center;gap:4px;'
-                    'white-space:nowrap"><input type="checkbox" checked> 무제한</label></div>')
-            + '</div>')
+def group_head(name, n, amt=''):
+    return ('<div style="display:flex;align-items:center;gap:6px;padding:6px 2px;margin:4px 0 6px;border-bottom:1px solid #eef0f4;font-size:12.5px">'
+            '<b style="color:%s">%s</b><span style="color:#9ca3af">%d건</span><span style="flex:1"></span>%s'
+            '<span style="color:#2563eb;font-size:11.5px">›</span></div>'
+            % ('#b45309' if name == '고객사 미연결' else '#111827', name, n,
+               ('<b style="color:#1d4ed8;font-size:11.5px">%s</b>' % amt) if amt else ''))
 
 
-def fixed_fields(on=True):
-    v = ('S3 / O302' if on else '-')
-    return ('<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;margin-top:10px;'
-            'padding:8px 11px;background:#fafbfc;border:1px solid #eef0f4;border-radius:9px;font-size:11.5px">'
-            '<span style="color:#6b7280;font-weight:700">자동·고정</span>'
-            '<span><span style="color:#9ca3af">Section · Owner</span> <b style="font-family:ui-monospace,monospace">%s</b></span>'
-            '<span><span style="color:#9ca3af">Ticket Type</span> <b style="font-family:ui-monospace,monospace">Unlimited</b></span>'
-            '<span><span style="color:#9ca3af">Ticket Version</span> <b style="font-family:ui-monospace,monospace">1</b></span>'
-            '</div>' % v)
+def mid(groups, sel_no=None, h=600, count=None, grouped=True, warn='', empty=''):
+    body = ''
+    if warn:
+        body += '<div style="font-size:11.5px;color:#b45309;margin-bottom:8px;line-height:1.6">%s</div>' % warn
+    n = 0
+    for name, ts in groups:
+        if grouped:
+            body += group_head(name, len(ts), '₩0' if any(x[2] == '유료' for x in ts) else '')
+        for t in ts:
+            body += tcard(name, t, on=(t[0] == sel_no), unl=(name == '고객사 미연결'))
+            n += 1
+    if empty:
+        body += kws.empty(empty)
+    return kws.mid_col('발급 티켓', '%s건' % (count if count is not None else n), '＋ N Key 발급', body, h)
 
 
-PT_BG = {'PDS2': ('#fef3c7', '#92400e'), 'PDS3': ('#eef6ff', '#2563eb'), 'PDS4': ('#f3e8ff', '#7e22ce')}
+KODION_PARAMS = (('Company Name', 'KODION'), ('Section', '3'), ('Owner', '46'), ('Book Start', '10'), ('Book Volume', '2'),
+                 ('Page Start', '0'), ('Page Volume', '512'), ('Code Type', 'Ncode_PDS3'), ('Issued Time', '20260707'),
+                 ('Valid Until Time', '99999999 (무제한)'), ('Ticket Type', 'Unlimited'), ('Ticket Version', '1'),
+                 ('Separate Each Book', 'N (1개 티켓 병합)'), ('구분(대장)', '무상'), ('담당(대장)', '황락평'))
 
 
-def _del_btn(label):
-    return ('<span class="btn gho" style="padding:3px 10px;font-size:11px;color:#dc2626;'
-            'border-color:#fecaca;background:#fff">' + label + '</span>')
+def ticket_detail(tab='base', no=36, co='KODION', bill='무료', amount='', trial='', note='무상', err='', toast='', at='2026-07-07 00:00', by='황락평'):
+    t = kws.tabs((('base', '발급 기본정보', ''), ('bill', '정산 정보', '')), tab)
+    head = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap"><b style="font-size:14px">발급 상세 · 수정</b>'
+            '%s<span style="%s;font-size:12.5px">발급 %d번</span>%s%s</div>'
+            % (tg('N Key', '#eef6ff', '#2563eb'), MONO, no, tg(co, '#f3f4f6', '#6b7280', False), tg('대장', '#f3f4f6', '#9ca3af')))
+    if tab == 'base':
+        body = ('<div class="g3">' + fld('고객사', co, ro=True) + fld('발급일시', at, ro=True, mono=True) + fld('발급인', by, ro=True) + '</div>'
+                '<div style="margin-top:12px">' + fld('발급 내용 (목록 표기) *', '' if err == 'sum' else
+                                                     'Ncode_PDS3 S3/O46/B10 · Book 2권 · P0~511 · 기간 무제한', err=(err == 'sum')) + '</div>'
+                + ('<div class="inline-err">발급 내용을 입력하세요.</div>' if err == 'sum' else '') +
+                '<div style="margin-top:16px;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">Key 정보 '
+                '<span style="font-weight:400;color:#9ca3af">· 15개 항목 · 값만 수정합니다</span></div>' + kws.kv_table(KODION_PARAMS[:9], editable=True) +
+                '<div style="font-size:11px;color:#9ca3af;margin-top:6px">이미 내려받은 키 파일은 바뀌지 않습니다. 여기 수정은 <b>발급 원장의 기록</b>을 바로잡는 용도입니다.</div>')
+    else:
+        cells = ''
+        for b, sub in (('미정', '미등록'), ('유료', '금액 입력'), ('무료', '청구 없음'), ('체험', '1개월')):
+            on = b == bill
+            bg, fg = kws.BILL[b]
+            cells += ('<div style="padding:10px 8px;border-radius:9px;text-align:center;font-size:12.5px;border:1px solid %s;background:%s;color:%s;font-weight:%s">'
+                      '%s<div style="font-size:10px;font-weight:400;margin-top:2px">%s</div></div>'
+                      % (fg if on else '#e5e7eb', bg if on else '#fff', fg if on else '#6b7280', '700' if on else '400', b, sub))
+        extra = ''
+        if bill == '유료':
+            extra = '<div style="max-width:320px">' + fld('금액 (원) *', amount or '0', err=(err == 'amt')) + '</div>'
+            if err == 'amt':
+                extra += '<div class="inline-err">유료는 금액을 입력해야 합니다.</div>'
+        elif bill == '체험':
+            extra = ('<div style="max-width:320px">' + fld('체험 만료일 (기본 = 발급일 + 1개월)', trial) + '</div>'
+                     '<div style="font-size:11.5px;color:#92400e;margin-top:4px">만료되면 목록에서 <b>(만료)</b>로 표시되고 상단에 경고가 뜹니다.</div>')
+        elif bill == '무료':
+            extra = '<div style="font-size:12.5px;color:#166534">청구하지 않는 티켓으로 기록됩니다. (사유는 아래 비고에 남겨 주세요)</div>'
+        body = ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">과금 유형 <span style="color:#9ca3af">· 업체·티켓마다 다르게 등록할 수 있습니다</span></div>'
+                '<div class="g4" style="gap:8px;margin-bottom:14px">%s</div>%s<div style="margin-top:12px">%s</div>'
+                % (cells, extra, fld('비고 (사유·계약 정보)', note or '예) 2026 연간 계약 포함 · 데모 제공', ph=not note)))
+    foot = kws.footer('<span class="btn gho" style="color:#dc2626;border-color:#fecaca">발급 기록 삭제</span>', '<span class="btn pri">저장</span>')
+    msg = kws.toast_line(toast) if toast else ''
+    return '<div style="%s;padding:18px">%s%s%s%s%s</div>' % (kws.CARD, head, t, body, foot, msg)
 
 
-def key_rows(sel_=(0, 0), extra=None):
-    """발급 내역 — 키 한 줄 + 그 키에 물린 코드 범위(=티켓) 목록 `PC-118` `PC-121`"""
-    rows = ''
-    for ki, (k, at, ranges) in enumerate(KEYS):
-        ranges = list(ranges) + (extra or [])
-        lines = ''
-        for ri, (pt, sobp, books, period) in enumerate(ranges):
-            bg, fg = PT_BG.get(pt, PT_BG['PDS3'])
-            on = (ki, ri) == sel_
-            lines += ('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;'
-                      'border:1px solid %s;background:%s;border-radius:8px;padding:4px 6px">'
-                      % ('#93c5fd' if on else 'transparent', '#f0f7ff' if on else 'transparent')
-                      + '<span style="color:%s;font-weight:700;font-size:11px">%s</span>'
-                      % ('#2563eb' if on else '#d1d5db', '▸' if on else '·')
-                      + '<span style="font-size:11px;background:%s;color:%s;border-radius:5px;padding:2px 7px;'
-                        'font-family:ui-monospace,monospace">%s %s</span>' % (bg, fg, pt, sobp)
-                      + '<span>' + books + '</span>' + tag(period, '#eef6ff', '#2563eb')
-                      + '<span style="flex:1"></span>' + _del_btn('티켓 삭제') + '</div>')
-        rows += ('<div style="border:1px solid #eef0f4;border-radius:9px;padding:8px 10px;'
-                 'font-size:11.5px;color:#6b7280">'
-                 '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-                 '<code>' + k + '</code>'
-                 + '<span>코드 범위 %d개</span>' % len(ranges)
-                 + '<span style="flex:1"></span><code>' + at + '</code>' + _del_btn('키 삭제') + '</div>'
-                 '<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">' + lines + '</div></div>')
-    return '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">' + rows + '</div>'
+def nkey_form(co='KODION-46', picked=False, open_=False, common=False, sep=False, over=False, err='', toast=''):
+    rng = (('3', '46', '8~11', '0~511'), ('3', '46', '1~11', '0~511'), ('14', '46', '5~6', '0~31'))
+    sel = rng[0] if picked else None
+    if common:
+        pick = ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">사용 고객사 * <span style="color:#a855f7;font-weight:700">공통코드</span>'
+                '<span style="color:#9ca3af"> (선택하면 코드가 자동으로 지정됩니다)</span></div><div class="inp">한솔교육 · Common-21 (PDS2 S3/O21)</div>'
+                '<div style="font-size:11.5px;color:#6b21a8;margin-top:6px">발급 코드: <b>PDS2 · S3 / O21</b> · 사용 고객사 <b>한솔교육</b></div>')
+    else:
+        pick = ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">발급 범위 (nkey 대장 이력 · SOBP 할당) * '
+                '<span style="color:#9ca3af">(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다)</span></div>' +
+                kws.range_picker(open_, sel, rng))
+    bs, bv = ('8', '4' if not over else '6') if (picked or common) else ('', '')
+    grid1 = ('<div class="g4" style="margin-top:12px">' + fld('Start Book (시작 북코드)', bs, ph=not bs) + fld('Book 볼륨 (권)', bv, ph=not bv, err=over) +
+             fld('Start Page', '1 (기본)') + fld('Page 볼륨', '512') + '</div>'
+             '<div style="margin-top:10px">' + fld('Valid Until Time (사용기간 끝)', '<span style="color:#9ca3af">연도-월-일</span>',
+                                                   extra='<span style="font-size:12.5px;white-space:nowrap">☑ 무제한</span>') + '</div>'
+             '<div class="g3" style="margin-top:10px">' + fld('Code Type', 'PDS3') + fld('Issued Time (발급일 · 고정)', '20261015', ro=True) +
+             fld('Ticket Version', '1', ro=True) + '</div>')
+    sepline = ('<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#374151">%s <b>Separate Each Book</b>'
+               '<span style="color:#9ca3af">(체크하면 북코드별 개별 티켓, 해제하면 1개 티켓으로 병합합니다)</span></label>' % ('☑' if sep else '☐'))
+    foot = kws.footer(sepline, '<span class="btn gho">취소</span><span class="btn pri"%s>N Key 발급</span>' % ('' if (picked or common) else ' style="opacity:.5"'))
+    plan = ''
+    if picked or common:
+        plan = ('<div style="margin-top:8px;font-size:12px;color:#6b7280">발급 예정: <b style="color:#111827">S3/O46/B8~%s</b> · %s · P1~512%s</div>'
+                % ('13' if over else '11', '개별 티켓 4장' if sep else '병합 티켓 1장',
+                   ' <b style="color:#dc2626">· ⚠ 할당 범위(B11) 초과</b>' if over else ''))
+    msg = ('<div style="margin-top:10px;font-size:12.5px;color:%s">%s</div>' % ('#dc2626' if err else '#2563eb', err or toast)) if (err or toast) else ''
+    info = ('<div style="margin-top:12px;background:#fafbfc;border:1px dashed #e5e7eb;border-radius:8px;padding:10px 12px;font-size:11.5px;color:#6b7280;line-height:1.7">'
+            '발급하면 티켓이 <b>zip 파일(폴더 형태)</b>로 다운로드됩니다. 다운로드 폴더에서 zip의 압축을 풀어 그 폴더째 <b>nproj 폴더</b> 또는 '
+            '<b>내 PC &gt; 문서 &gt; NeoLAB &gt; CodeTickets</b>에 넣은 뒤 <b>Caster lite</b>에서 사용합니다.</div>')
+    head = ('<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px"><b style="font-size:15px">N Key 발급</b>'
+            '<span style="font-size:13px;color:#6b7280">%s</span>%s<span style="flex:1"></span>'
+            '<span style="font-size:11.5px;color:#9ca3af">SOBP 코드 사용 허가 (Caster lite 티켓)</span></div>'
+            % (co, tg('PDS3 S3/O46', '#eef6ff', '#2563eb') if picked else ''))
+    return ('<div style="%s;padding:18px">%s%s<div style="margin-top:12px">%s</div>%s%s%s%s%s</div>'
+            % (kws.CARD, head, fld('고객사 *', co, ro=True), pick, grid1, foot, plan, msg, info))
 
 
-def key_info_card(sel_=(0, 0)):
-    """Key 정보 — 발급 내역에서 선택한 티켓(범위)의 값 `PC-120`. Service·Usage 항목은 없다 `PC-131`"""
-    k, _at, ranges = KEYS[sel_[0]]
-    pt, sobp, books, period = ranges[sel_[1]]
-    since, until = [x.strip() for x in period.split('~')]
-    kv = [('Company Name', CO), ('Account Id', ACC_ID), ('App Key', k), ('Code Type', pt),
-          ('코드 범위', sobp), ('권수', books),
-          ('Valid From Time', since.replace('-', '')),
-          ('Valid Until Time', '99999999 (무제한)' if until == '무제한' else until.replace('-', '')),
-          ('Ticket Type', 'Unlimited' if until == '무제한' else 'Period'), ('Ticket Version', '1')]
-    rows = ''.join('<div style="display:flex;gap:8px;padding:5px 11px;font-size:11.5px;'
-                   'border-top:1px solid #f6f7f9"><span style="color:#6b7280;min-width:120px;'
-                   'font-family:ui-monospace,monospace">%s</span>'
-                   '<span style="color:#111827;word-break:break-all">%s</span></div>' % kvp for kvp in kv)
-    return (step('Key 정보', '선택한 발급 내역 (%s %s)' % (pt, sobp))
-            + '<div style="border:1px solid #eef0f4;border-radius:10px;overflow:hidden">' + rows + '</div>')
+def keyinfo_modal(err=False, q=''):
+    rows = KODION_PARAMS[:13]
+    if q:
+        rows = tuple(r for r in rows if q.lower() in r[0].lower())
+    tbl = ('<div class="toast err" style="margin:0 0 10px">⚠ JSON 형식의 티켓 파일이 아닙니다. Key 생성으로 내려받은 .json 파일을 선택하세요.</div>'
+           '<div class="empty" style="padding:20px">표시할 항목이 없습니다.</div>') if err else kws.kv_table(rows)
+    return ('<div class="ovl"><div class="mdl w"><div class="mh"><div class="mt">N Key 불러오기 '
+            '<span style="font-size:12px;color:#6b7280;font-weight:400">%s</span></div><div class="mx">✕</div></div>'
+            '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><span style="font-size:12px;color:#6b7280">%s</span>'
+            '<span style="flex:1"></span><div class="inp%s" style="width:220px">%s</div><span class="btn sm">표 복사</span></div>%s'
+            '<div class="mf"><div class="btn gho">닫기</div></div></div></div>'
+            % ('broken.json' if err else 'Ticket_KODION_S3O46_B10-11.json',
+               '0개 항목 (불러온 파일)' if err else '%d개 항목 (불러온 파일)' % len(rows),
+               '' if q else ' ph', q or '항목 검색', tbl))
 
 
-def result_box():
-    return ('<div style="margin-top:12px;background:#fffbeb;border:1px solid #fde68a;'
-            'border-radius:10px;padding:12px 14px">'
-            '<div style="font-size:12px;color:#92400e;font-weight:700;margin-bottom:6px">'
-            '발급 완료 — App Key (서비스 DB 등록됨)</div>'
-            '<div style="font-size:12.5px;color:#111827;line-height:1.9">'
-            '<div>ID: <code>' + ACC_ID + '</code></div><div>PWD: <code>Kq7mZ2xR4a</code></div>'
-            '<div style="display:flex;gap:8px;align-items:center">App Key: '
-            '<code style="flex:1;word-break:break-all">' + KEY + '</code>'
-            '<div class="btn sm">전체 복사</div></div></div></div>')
+def fr(content, height=900, overlay=''):
+    return frame('TKT-02', FT, content, height=height, overlay=overlay)
 
 
-def new_key_panel(rng='closed'):
-    """등록 — App Key 발급 탭. 범위를 고르면 함께 발급, 안 고르면 계정만 등록 `PC-071`"""
-    on = rng != 'closed'
-    return (step('App Key 발급', '계정당 1개')
-            + range_head(False, ' · 선택하지 않으면 계정만 등록합니다') + picker(rng)
-            + book_page_fields() + period_fields() + fixed_fields(on)
-            + ('<div style="font-size:11.5px;color:#6b7280;margin-top:6px">발급 범위 <b>PDS3 S3/O302/B6808~7007</b> '
-               '· 200권 · <b>P1~512</b> <span style="color:#9ca3af">(할당 B0~8191)</span></div>' if on else ''))
+def col_h(height, extra=0):
+    """3단 칸 높이 — 화면 끝(100vh)까지 `PC-156` `PC-157` (머리 · 집계 · 필터 바를 뺀 높이)"""
+    return height - 60 - 40 - 102 - 62 - 28 - extra
 
 
-def edit_key_panel(rng='closed', issued=False, sel_=(0, 0), extra=None):
-    """상세 — 코드 범위(=티켓) 발급 폼 + 발급 내역 + Key 정보 `PC-118` `PC-120`"""
-    on = rng != 'closed'
-    form = (range_head(True, ' · 사용기간을 함께 지정합니다') + picker(rng) + book_page_fields() + period_fields()
-            + '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">'
-            + ('<span style="font-size:11.5px;color:#6b7280">발급 범위 <b>PDS3 S3/O302/B6808~7007</b> · 200권 '
-               '· <b>P1~512</b> · 기간 즉시~무제한</span>' if on else '')
-            + '<span style="flex:1"></span><div class="btn ' + ('pri' if on else 'dis') + '">코드 범위 발급</div></div>')
-    return (step('App Key 발급', '계정당 1개 · 발급된 키 1개') + form
-            + (result_box() if issued else '')
-            + '<div style="margin-top:18px;border-top:1px solid #eef0f4;padding-top:14px">'
-            + step('App Key 발급 내역', '발급된 키 1개 · 티켓을 선택하면 아래 Key 정보가 바뀝니다')
-            + key_rows(sel_, extra) + key_info_card(sel_) + '</div>')
-
-
-def new_form(active='계정 정보', rng='closed', err=None, empty=True, adding=False, toast=None):
-    panel = (new_key_panel(rng) if active == 'App Key 발급'
-             else step('계정 정보', '키 발급 계정') + acct_inputs(err=err, empty=empty, adding=adding))
-    body = (big_head('' if empty and active == '계정 정보' and not err else CO)
-            + acc_tabs(active, '발급' if rng != 'closed' else '') + panel
-            + '<div style="display:flex;align-items:center;gap:8px;margin-top:16px">'
-              '<div class="btn gho">목록</div><span style="flex:1"></span>'
-              '<div class="btn gho">취소</div><div class="btn pri">계정 추가</div></div>')
-    if toast:
-        body += ('<div style="margin-top:10px;font-size:12.5px;color:#dc2626;text-align:right">' + toast + '</div>')
-    return '<div style="max-width:900px"><div class="card"><div class="bd">' + body + '</div></div></div>'
-
-
-def edit_form(active='계정 정보', rng='closed', issued=False, toast=None, sel_=(0, 0), extra=None):
-    panel = (edit_key_panel(rng, issued, sel_, extra) if active == 'App Key 발급'
-             else step('계정 정보', 'ID(email) · 고객사는 변경할 수 없습니다') + acct_inputs(edit=True))
-    body = big_head(CO) + acc_tabs(active, '1') + panel
-    if toast:
-        body += ('<div style="margin-top:10px;font-size:12.5px;color:#047857;text-align:right">' + toast + '</div>')
-    body += ('<div style="display:flex;align-items:center;gap:8px;margin-top:16px">'
-             '<div class="btn gho">목록</div><span style="flex:1"></span>'
-             '<div class="btn gho" style="color:#dc2626;border-color:#fecaca">계정 삭제</div>'
-             '<div class="btn pri">저장</div></div>')
-    return '<div style="max-width:900px"><div class="card"><div class="bd">' + body + '</div></div></div>'
-
-
-def scr_new(h=900, **kw):
-    return frame('TKT-01', '계정 및 App Key 등록', new_form(**kw), height=h)
-
-
-def scr_edit(h=1500, **kw):
-    return frame('TKT-01', '계정 및 App Key 상세 수정', edit_form(**kw), height=h)
-
-
-def dlg(title, msg, ok='확인'):
-    return ('<div class="ovl"><div class="mdl" style="width:480px">'
-            '<div class="mh"><div class="mt">%s</div><div class="mx">✕</div></div>'
-            '<div style="font-size:13px;color:#374151;line-height:1.8">%s</div>'
-            '<div class="mf"><div class="btn gho">취소</div><div class="btn dan">%s</div></div></div></div>'
-            % (title, msg, ok))
-
-
-NAV = [('[목록] · [취소]', '클릭', '<code>TKT-01</code>', '계정 목록으로 돌아간다'),
-       ('사이드바 [N Key 관리]', '클릭', '<code>TKT-03</code>', 'N Key 발급·정산 목록')]
+ZERO = (('발급 티켓', '0건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '0건', '#2563eb'),
+        ('무료 / 체험', '0 / 0건', '#166534'), ('정산 미등록', '0건', '#9ca3af'))
+ALL_GROUPS = (('KODION-46', T['KODION-46']), ('Inform DS-302', T['Inform DS-302'][:3]), ('Luginbühl-450', T['Luginbühl-450'][:1]))
 
 
 def build():
     B = []
+    H, F = head_(), filter_bar()
 
-    B.append((
-        'S1', '계정 등록 — 진입', '기본',
-        '<code>TKT-01</code> 의 <b>[＋ 계정 추가]</b> 로 들어온다. 탭은 <b>계정 정보 · App Key 발급</b> 2개이고 '
-        '<b>한 번에 한 탭</b>만 보인다 <code>PC-062</code>. 인증 서비스·권한 탭은 없다 <code>PC-131</code> — '
-        '서비스 로그인 계정과 CasterN 권한은 <code>MEM-02</code> <b>계정 및 서비스 권한</b>에서 다룬다 <code>PC-128</code>. '
-        '고객사는 <b>티켓 고객사</b>(nkey(HLP) 대장 프로젝트명 17곳 + 신규 등록분)에서 고른다 <code>PC-123</code>.',
-        scr_new(active='계정 정보', h=760),
-        [('고객사', '선택', '티켓 고객사', '고객사 관리와 별개 · 주소·사용 서비스를 끌어오지 않는다 <code>PC-123</code>'),
-         ('[＋ 신규 등록]', '클릭', 'S2', '대장에 없는 티켓 고객사 등록'),
-         ('ID (이메일)', '입력', '이메일 형식', '전체에서 <b>유일</b>(고객사 관리 서비스 계정 포함)'),
-         ('PWD (비밀번호) [임의 생성]', '클릭', '10자리 자동', '비밀번호를 요청하지 않는 고객사'),
-         ('[App Key 발급] 탭', '클릭', 'S3', '범위를 고르면 계정과 함께 발급'),
-         ('[계정 추가]', '클릭', '<code>TKT-01</code>', '목록으로 이동')] + NAV))
+    B.append(('S1', '기본 — 전체 · 고객사별 묶음', '기본',
+              '좌측 메뉴 <b>[티켓 발급] ▸ [N Key 관리]</b>(<code>/tickets/nkey</code>). 위는 <b>정산 집계 5칸</b>과 <b>필터 바</b>, 아래는 3단이다. '
+              '왼쪽 고객사는 <b>고객사 관리 고객사</b>(기본 = N Key 가 이어진 발급 고객사 31곳) <code>PC-153</code>. 「전체」를 고르면 가운데가 '
+              '<b>고객사별 묶음</b>(고객사 머리 · 건수 · 유료 합계)이고 오른쪽은 가장 최근 발급 건의 상세다. nkey(HLP) 발급 대장 61건은 <b>정본</b>이라 늘 보인다 <code>PC-155</code>.',
+              fr(H + F + kws.grid(left(h=col_h(1000)), mid(ALL_GROUPS, sel_no=36, h=col_h(1000), count=61), ticket_detail()), 1000),
+              [('고객사', '클릭', 'S2', '집계 · 목록이 그 고객사 기준'),
+               ('고객사 묶음 머리', '클릭', '그 고객사만 보기', ''),
+               ('티켓 카드', '클릭', '오른쪽 발급 상세', 'No · S/O/B · 정산 · 대장 · 권수 · 발급인 · 금액 · 발급일'),
+               ('[＋ N Key 발급]', '클릭', 'S12', '고른 고객사로 시작'),
+               ('[📂 N Key 불러오기]', '클릭', 'S17', '.json 파일 선택')]))
 
-    B.append((
-        'S2', '티켓 고객사 신규 등록', '분기',
-        '대장에 없는 고객사는 고객사 선택 옆 <b>[＋ 신규 등록]</b> 으로 바로 등록한다 <code>PC-123</code>. '
-        '고객사명과 <b>발급 범위 1건</b>(코드 종류 · S · Owner · Start Book · End Book)을 함께 넣고, '
-        'Book 을 비우면 오너 전체가 범위다. 등록하면 그 고객사가 바로 선택된다. <b>고객사 관리에는 생기지 않는다.</b>',
-        scr_new(active='계정 정보', adding=True, h=860),
-        [('고객사명 *', '입력', '—', '티켓 고객사 안에서 <b>유일</b>'),
-         ('코드 종류 · S · Owner *', '입력', '—', 'PDS3(Ncode) · PDS4(Scode) · PDS2 · OID'),
-         ('Start Book · End Book', '입력', '—', '비우면 <b>오너 전체</b>가 범위'),
-         ('[등록]', '클릭', '고객사 선택됨', '고객사 관리와 별개로 저장 · N Key 관리 [고객사] 탭에도 나온다'),
-         ('중복 이름', '[등록]', '<b>차단</b>', '<b>이미 있는 티켓 고객사입니다: {이름}</b>')] + NAV))
+    B.append(('S2', '고객사 선택 — 집계가 그 고객사 기준', '분기',
+              '고객사를 고르면 <b>집계 5칸이 그 고객사 기준</b>으로 다시 계산되고(머리에 「집계 대상 {고객사}」), 가운데는 그 고객사 티켓만 최근순으로 보인다.',
+              fr(head_('Luginbühl-450', stats=(('발급 티켓', '7건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '3건', '#2563eb'),
+                                                   ('무료 / 체험', '0 / 0건', '#166534'), ('정산 미등록', '4건', '#dc2626'))) + F +
+                 kws.grid(left('Luginbühl-450', h=col_h(1000)), mid((('Luginbühl-450', T['Luginbühl-450']),), sel_no=34, h=col_h(1000), grouped=False),
+                          ticket_detail(no=34, co='Luginbühl', bill='유료', at='2026-03-06 00:00', by='안진')), 1000),
+              [('집계 5칸', '—', '그 고객사 기준', '페이지·묶음과 무관하게 필터 결과 전체')]))
 
-    B.append((
-        'S3', 'App Key 발급 탭 — 함께 발급', '분기',
-        'App Key 는 <b>계정당 1개</b>다 <code>PC-050</code>. 탭을 열면 바로 입력하고, <b>발급 범위를 고르면 계정과 함께 발급</b>, '
-        '고르지 않으면 계정만 등록한다 <code>PC-071</code>. 범위는 <b>대장 이력의 S/O/B</b>와 SOBP 맵에서 '
-        '<b>(K)</b>로 할당한 S/O 다 <code>PC-123</code> <code>PC-125</code>. 사용기간은 <b>티켓별</b>로 함께 지정한다 <code>PC-118</code>.',
-        scr_new(active='App Key 발급', rng='open', h=1000),
-        [('발급 범위', '선택', 'S·O·B·P 자동', '선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다'),
-         ('Start Book · Book 볼륨 (권)', '입력', '범위 안에서', '<b>Book End = Start + 볼륨 − 1</b> <code>PC-050</code>'),
-         ('Start Page · Page 볼륨', '입력', '—', '계정별 B·P 영역 <code>PC-059</code>'),
-         ('Code Type', '선택', 'PDS2 · PDS3 · PDS4 · OID', '기본값은 범위의 종류 <code>PC-064</code>'),
-         ('Valid From / Until Time', '입력', '사용기간', '끝은 날짜 또는 <b>무제한</b> <code>PC-118</code>'),
-         ('범위 없음', '—', '안내', '<b>이 고객사의 발급 범위(대장 이력)가 없습니다.</b>'),
-         ('범위 미선택', '[계정 추가]', '계정만 등록', '키는 상세에서 나중에 발급')]))
+    B.append(('S3', '필터 — 전체에서 걸고 고객사별로', '분기',
+              '필터(정산 · 출처 · 검색)는 <b>전체 발급분에 먼저</b> 건다 <code>PC-150</code>. 왼쪽은 <b>맞는 발급이 있는 고객사만</b> 남고 건수도 필터 결과로 바뀌며, '
+              '가운데는 고객사별로 묶여 보인다. 오른쪽 티켓이 결과에서 빠지면 첫 결과로 바뀐다. 검색은 고객사명도 찾는다.',
+              fr(head_(filt=True, stats=(('발급 티켓', '35건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '0건', '#2563eb'),
+                                         ('무료 / 체험', '0 / 0건', '#166534'), ('정산 미등록', '35건', '#dc2626'))) +
+                 filter_bar(bill='미정', hits=('35', '12')) +
+                 kws.grid(left(rows=[(n, td, False, td, False) for n, c, td in COS if td], total_all=(35, 35), count='12/31', h=col_h(1000)),
+                          mid((('Inform DS-302', T['Inform DS-302'][:1]), ('Luginbühl-450', T['Luginbühl-450'][3:])), sel_no=21, h=col_h(1000), count=35),
+                          ticket_detail(no=21, co='InformDS', bill='미정', note='판매용 (미사용건)', at='2026-03-17 00:00', by='안진')), 1000),
+              [('정산 칩', '클릭', '미정 · 유료 · 무료', '체험은 집계 칸으로 본다'),
+               ('출처 칩', '클릭', '전체 · 대장 · 신규발급', ''),
+               ('검색', '입력', '고객사 · 발급 내용 · 발급인 · 번호', ''),
+               ('[필터 해제]', '클릭', 'S1', '')]))
 
-    B.append((
-        'S4', '등록 검증 실패', '검증',
-        '검사는 <b>고객사 → ID 형식 → 비밀번호 → ID 중복</b> 순서로 하고, 하나라도 걸리면 그 자리에서 멈춘다. '
-        '메시지는 버튼 아래 한 줄로 나온다. 인증 서비스 검사는 없다 <code>PC-131</code>.',
-        scr_new(active='계정 정보', err='id', empty=False, toast='ID 는 이메일 형식이어야 합니다.', h=800),
-        [('① 고객사 미선택', '검증', '중단', '<b>고객사를 선택하세요.</b>'),
-         ('② ID 형식', '검증', '중단', '<b>ID 는 이메일 형식이어야 합니다.</b>'),
-         ('③ 비밀번호', '검증', '중단', '<b>비밀번호가 필요합니다. (요청 없으면 [임의 생성])</b>'),
-         ('④ ID 중복', '검증', '중단', '<b>이미 등록된 ID(email)입니다.</b>')]))
+    B.append(('S4', '필터 결과 없음', '빈 상태', '필터에 맞는 발급이 없으면 왼쪽 · 가운데에 안내만 남는다.',
+              fr(head_(filt=True, stats=(('발급 티켓', '0건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '0건', '#2563eb'),
+                                         ('무료 / 체험', '0 / 0건', '#166534'), ('정산 미등록', '0건', '#9ca3af'))) +
+                 filter_bar(src='new', q='Photron', hits=('0', '0')) +
+                 kws.grid(left(rows=[], total_all=(0, 0), count='0/31', empty='필터에 맞는 고객사가 없습니다.', unlinked=None, h=col_h(900)),
+                          mid((), h=col_h(900), count=0, empty='필터에 맞는 N Key 가 없습니다.'),
+                          kws.right_empty('발급 티켓을 선택하거나 <b>[＋ N Key 발급]</b>을 누르세요.')), 900),
+              [('[필터 해제]', '클릭', 'S1', '')]))
 
-    B.append((
-        'S5', '계정 상세 — 계정 정보 탭', '기본',
-        'ID(이메일)·고객사는 <b>잠금</b>이고 나머지를 고쳐 <b>[저장]</b> 한다. 사용기간은 계정이 아니라 '
-        '<b>코드 범위(=티켓)별 기간</b>이라 안내문만 둔다 <code>PC-118</code>.',
-        scr_edit(active='계정 정보', h=760),
-        [('ID · 고객사', '표시', '<b>잠금</b>', '키 연동 기준값'),
-         ('사용기간 안내', '표시', '—', '[App Key 발급] 탭에서 범위를 발급할 때 지정 <code>PC-118</code>'),
-         ('[저장]', '클릭', '반영', '<b>계정 정보가 저장되었습니다.</b>'),
-         ('[계정 삭제]', '클릭', 'S9 확인창', '')] + NAV))
+    trial = (('발급 티켓', '3건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '0건', '#2563eb'),
+             ('무료 / 체험', '0 / 3건', '#166534'), ('정산 미등록', '0건', '#9ca3af'))
+    tt = ((62, 'S3/O46/B12', '체험', 2, '김순정', '2026-09-01', '', False), (63, 'S3/O46/B14', '체험', 2, '김순정', '2026-10-10', '', False))
+    trial_mid = mid((('KODION-46', tt),), sel_no=62, h=col_h(1000, 44), grouped=False).replace(
+        '김순정</span><span style="margin-left:auto', '김순정</span><span style="color:#dc2626">~10-01 (만료)</span><span style="margin-left:auto', 1).replace(
+        '김순정</span><span style="margin-left:auto', '김순정</span><span style="color:#92400e">~11-10 D-26</span><span style="margin-left:auto', 1)
+    B.append(('S5', '체험 — 만료 경고 · D-day', '변형',
+              '체험 티켓은 카드에 <b>만료일과 잔여일</b>(D-n)을 보이고, 지난 건은 <b>(만료)</b>로 붉게 표시한다. 만료 건이 있으면 집계 아래에 경고가 붙는다.',
+              fr(head_('KODION-46', stats=trial, expired=1) + F +
+                 kws.grid(left('KODION-46', h=col_h(1000, 44)), trial_mid,
+                          ticket_detail('bill', no=62, co='KODION-46', bill='체험', trial='2026-10-01', note='데모 제공', at='2026-09-01 10:20', by='김순정')), 1000),
+              [('체험 잔여일', '—', 'D-{n} / (만료)', '잔여일 = 체험 만료일 − 오늘'),
+               ('경고', '—', '집계 아래', '<b>⚠ 체험 기간이 만료된 티켓 {n}건 — 유료 전환 또는 회수 여부를 확인하세요.</b>')]))
 
-    B.append((
-        'S6', '상세 — App Key 발급 완료', '분기',
-        '키가 없는 계정에서 범위를 고르고 발급하면 결과에 <b>ID · PWD · App Key</b> 가 나오고 '
-        '<b>[전체 복사]</b> 로 한 번에 복사한다. 발급(=티켓)마다 <code>TKT-03</code> 원장과 <code>LOG-01</code> 에 기록된다 <code>PC-119</code>.',
-        scr_edit(active='App Key 발급', rng='sel', issued=True, h=1640,
-                 toast='App Key 발급 완료 — 계정과 연동되어 서비스 DB에 등록되었습니다.'),
-        [('발급 버튼', '클릭', '키 생성', '범위 선택 전에는 <b>비활성</b>'),
-         ('발급 결과', '표시', '—', 'ID · PWD · App Key(영문·숫자 29자 <code>PC-066</code>)'),
-         ('[전체 복사]', '클릭', '복사', '<b>계정·키 정보가 복사되었습니다.</b>'),
-         ('원장 티켓', '자동', '<code>TKT-03</code>', '발급(=티켓)마다 1건 <code>PC-119</code>')]))
+    B.append(('S6', '고객사 미연결', '변형',
+              'nkey 대장 티켓은 이름 + <b>Owner 번호</b>(고객사명 끝 -오너)로 고객사 관리 고객사에 잇는다. 안 맞으면 왼쪽 맨 아래 <b>「고객사 미연결」</b>로 모으고 '
+              '카드에 대장명을 보인다(hyssos 4 · inkwrx 1 · ICsolutions O311 1). 고객사 관리에 「이름-오너」로 등록하면 자동으로 이어진다 <code>PC-153</code> <code>PC-155</code>.',
+              fr(head_('고객사 미연결', stats=(('발급 티켓', '6건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '0건', '#2563eb'),
+                                              ('무료 / 체험', '0 / 0건', '#166534'), ('정산 미등록', '6건', '#dc2626'))) + F +
+                 kws.grid(left('고객사 미연결', h=col_h(1000)),
+                          mid((('고객사 미연결', T['고객사 미연결']),), sel_no=58, h=col_h(1000), grouped=False, count=6,
+                              warn='대장의 고객사명 · Owner 와 맞는 고객사가 고객사 관리에 없는 티켓입니다. 고객사 관리에 「이름-오너」로 등록하면 그 고객사로 이어집니다.'),
+                          ticket_detail(no=58, co='hyssos', bill='미정', note='', at='2020-01-01 00:00', by='황효정')), 1000),
+              [('고객사 미연결', '클릭', '그 티켓들', '대장명 표시'), ('고객사 관리 등록', '—', '자동 연결', '<code>MEM-02</code>')]))
 
-    B.append((
-        'S7', '이미 발급된 계정 — 코드 범위(티켓) 발급', '분기',
-        'App Key 는 <b>계정당 1개</b>이고 그 아래 <b>코드 범위(=티켓)를 여러 건</b> 발급한다 <code>PC-118</code>. '
-        '범위마다 <b>사용기간</b>을 함께 지정한다. 삭제는 <b>[티켓 삭제]</b>(그 티켓 + 연결 원장 티켓 <code>PC-121</code>)와 '
-        '<b>[키 삭제]</b>(키 전체) 두 가지다.',
-        scr_edit(active='App Key 발급', rng='sel', h=1560),
-        [('[코드 범위 발급]', '클릭', '티켓 추가 + 원장 티켓', '범위 선택 전 <b>비활성</b> · <code>TKT-03</code>·<code>LOG-01</code> 기록'),
-         ('[티켓 삭제]', '클릭', '그 티켓만 삭제', '연결 원장 티켓도 함께 · 마지막이면 키도 함께(확인창) <code>PC-121</code>'),
-         ('[키 삭제]', '클릭', '키 전체 삭제', '키와 모든 티켓 제거'),
-         ('마지막 티켓 삭제', '확인창', '—', '<b>마지막 티켓입니다. 삭제하면 이 App Key 도 함께 삭제됩니다. 진행할까요?</b>')]))
+    B.append(('S7', '전체 고객사 — 처음 발급', '분기',
+              '<b>[전체 고객사 537]</b>로 바꾸면 고객사 관리의 모든 고객사가 나온다. 아직 N Key 가 없는 고객사를 고르면 가운데가 빈 안내이고 '
+              '<b>[＋ N Key 발급]</b>으로 첫 발급을 한다.',
+              fr(head_('에듀테크랩', stats=(('발급 티켓', '0건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '0건', '#2563eb'),
+                                           ('무료 / 체험', '0 / 0건', '#166534'), ('정산 미등록', '0건', '#9ca3af'))) + F +
+                 kws.grid(left('에듀테크랩', view='all', search='에듀테크', rows=[('에듀테크랩', 0, True, 0, False)], count=1, h=col_h(900)),
+                          mid((), h=col_h(900), count=0, empty='발급된 N Key 가 없습니다.<br>[＋ N Key 발급]으로 발급하세요.'),
+                          kws.right_empty('발급 티켓을 선택하거나 <b>[＋ N Key 발급]</b>을 누르세요.')), 900),
+              [('[전체 고객사]', '클릭', '고객사 관리 전체', ''), ('[＋ N Key 발급]', '클릭', 'S12', '')]))
 
-    B.append((
-        'S8', '발급 내역 선택 → Key 정보', '분기',
-        '[App Key 발급 내역]의 <b>티켓을 선택</b>하면(▸ 파란 강조) 아래 <b>Key 정보</b>가 그 티켓 값으로 바뀐다 <code>PC-120</code>. '
-        '항목은 Company Name · Account Id · App Key · Code Type · 코드 범위 · 권수 · Valid From/Until Time · Ticket Type · '
-        'Ticket Version 이다 — <b>Service · Usage 항목은 없다</b> <code>PC-131</code>. 기본 선택은 첫 티켓이다.',
-        scr_edit(active='App Key 발급', sel_=(0, 1), h=1560),
-        [('발급 내역 티켓', '클릭', 'Key 정보 갱신', '선택 티켓 파란 강조 ▸'),
-         ('기본 선택', '표시', '첫 티켓', ''),
-         ('Key 정보', '조회', '선택 티켓 값', 'Valid From·Until = 그 티켓의 사용기간 <code>PC-118</code>')]))
+    G1 = (('KODION-46', T['KODION-46']),)
+    LK = left('KODION-46', h=col_h(1000))
+    HK = head_('KODION-46', stats=(('발급 티켓', '2건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '0건', '#2563eb'),
+                                   ('무료 / 체험', '2 / 0건', '#166534'), ('정산 미등록', '0건', '#9ca3af')))
+    B.append(('S8', '발급 상세 — 정산 정보 · 유료', '분기',
+              '오른쪽 <b>정산 정보</b> 탭. 과금 유형 4칸(미정 · 유료 · 무료 · 체험) 중 <b>유료</b>면 금액(원)이 필수다. 비고는 모든 유형에서 쓴다. '
+              '<b>[저장] 한 번이 두 탭 내용을 함께</b> 기록한다.',
+              fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(1000), grouped=False),
+                                   ticket_detail('bill', bill='유료', amount='3,500,000', note='2026 연간 계약')), 1000),
+              [('과금 유형', '선택', '미정 · 유료 · 무료 · 체험', '유료→다른 유형: 금액 0 / 체험→다른 유형: 만료일 비움'),
+               ('금액 (원)', '입력', '유료일 때 필수', ''), ('[저장]', '클릭', 'S11', '')]))
 
-    B.append((
-        'S9', '계정 삭제 확인', '확인창',
-        '<b>[계정 삭제]</b> 는 확인을 거친다. 계정과 <b>연동된 App Key 가 함께</b> 삭제된다.',
-        frame('TKT-01', '계정 및 App Key 상세 수정', edit_form(active='계정 정보'), height=760,
-              overlay=dlg('계정 삭제', '이 계정과 연동 App Key를 삭제할까요?', '삭제')),
-        [('확인창 문구', '표시', '—', '<b>이 계정과 연동 App Key를 삭제할까요?</b>'),
-         ('[삭제]', '클릭', '<code>TKT-01</code>', '계정 + 연동 키 삭제 후 목록으로'),
-         ('[취소] · ✕', '클릭', '변경 없음', '')]))
+    B.append(('S9', '정산 정보 — 체험 · 무료', '변형',
+              '<b>체험</b>이면 체험 만료일(기본 = 발급일 + 1개월)을 받고, <b>무료</b>면 「청구하지 않는 티켓」 안내만 나온다.',
+              fr(HK + F + kws.grid(LK, mid(G1, sel_no=35, h=col_h(1000), grouped=False),
+                                   ticket_detail('bill', no=35, bill='체험', trial='2025-12-20', note='', at='2025-11-20 00:00')), 1000),
+              [('체험 만료일', '달력', '기본 발급일 + 1개월', '만료되면 (만료) · 경고(S5)'),
+               ('무료', '선택', '안내만', '사유는 비고')]))
 
-    intro = ('<code>TKT-01</code> 계정 목록에서 열리는 <b>등록</b>과 <b>상세·수정</b> 두 화면이다. '
-             '여기 계정은 <b>티켓 고객사</b>(nkey(HLP) 대장 프로젝트명 + 신규 등록분)의 <b>키 발급 계정</b>이다 '
-             '<code>PC-123</code> <code>PC-128</code>. 탭은 <b>계정 정보 · App Key 발급</b> 2개이고, '
-             '인증 서비스·권한은 <b>삭제</b>했다 <code>PC-131</code> — 서비스 로그인 계정과 CasterN 권한은 '
-             '고객사 관리 <code>MEM-02</code> 의 <b>계정 및 서비스 권한</b>에서 다룬다. '
-             'App Key 는 <b>계정당 1개</b> <code>PC-050</code>이며 그 아래 <b>코드 범위(=티켓)를 여러 건</b> 발급하고, '
-             '사용기간은 티켓마다 지정한다 <code>PC-118</code>. 발급 범위는 <b>대장 이력의 S/O/B</b>와 SOBP 맵 '
-             '<b>(K)</b> 할당에서 고른다.')
+    B.append(('S10', '저장 검증 실패', '오류',
+              '검사 순서: ① 발급 내용이 비었나 → <b>발급 기본정보</b> 탭으로 ② 유료인데 금액 0 → <b>정산 정보</b> 탭으로. 그 자리에서 멈춘다.',
+              fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(1000), grouped=False),
+                                   ticket_detail('bill', bill='유료', amount='0', err='amt', note='')), 1000),
+              [('발급 내용 비움', '[저장]', '<b>차단</b> · 기본정보 탭', '<b>발급 내용을 입력하세요.</b>'),
+               ('유료 금액 0', '[저장]', '<b>차단</b> · 정산 탭', '<b>유료는 금액을 입력해야 합니다.</b>')]))
+
+    B.append(('S11', '저장 완료', '분기', '두 탭 내용이 함께 기록되고 이 화면에 머문다. 집계 · 카드의 정산 표시가 바로 바뀐다.',
+              fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(1000), grouped=False),
+                                   ticket_detail(toast='발급 기본정보와 정산 정보가 저장되었습니다.')), 1000),
+              [('저장(자동)', '—', '<code>LOG-01</code>', '발급 수정 · {고객사} · 발급 {No}번 · N Key · {정산}')]))
+
+    B.append(('S12', 'N Key 발급 — 범위 선택', '분기',
+              '<b>[＋ N Key 발급]</b>을 누르면 오른쪽에 발급 폼이 열린다. 고객사는 왼쪽에서 고른 값(「전체」면 고른다). <b>발급 범위</b> = nkey 대장 이력(이 고객사로 이어진 티켓) '
+              '+ 고객사의 <b>SOBP 할당</b> <code>PC-153</code>. 고르면 Start Book · Book 볼륨 · Page 볼륨 · Code Type 이 채워지고 <b>발급 예정</b> 줄이 나온다.',
+              fr(HK + F + kws.grid(LK, mid(G1, h=col_h(1150), grouped=False), nkey_form(picked=True, open_=True)), 1150),
+              [('발급 범위', '선택', 'S·O·B·P 칩', '없으면 <b>이 고객사에 할당된 SOBP 범위가 없습니다.</b> → <code>SOB-02</code>'),
+               ('Valid Until Time', '무제한 / 날짜', '기본 무제한', ''),
+               ('Separate Each Book', '체크', '북코드별 개별 티켓', '해제 = 1개 티켓 병합'),
+               ('[N Key 발급]', '클릭', 'S15', 'zip 다운로드'), ('[취소]', '클릭', '이전 상세', '')]))
+
+    B.append(('S13', 'N Key 발급 — 공통코드 고객사', '변형',
+              '공통코드를 가진 고객사는 범위 목록 대신 <b>사용 고객사</b>를 고른다 — 그 고객사가 쓰는 코드로 범위가 자동 지정되고, 사용 고객사명이 티켓과 파일명에 들어간다. '
+              '이력 전용 공통코드는 제외한다.',
+              fr(head_('Common-21', stats=ZERO) + F +
+                 kws.grid(left('Common-21', view='all', search='Common', rows=[('Common-21', 0, True, 0, False)], count=1, h=col_h(1150)),
+                          mid((), h=col_h(1150), count=0, empty='발급된 N Key 가 없습니다.<br>[＋ N Key 발급]으로 발급하세요.'),
+                                                   nkey_form(co='Common-21', common=True)), 1150),
+              [('사용 고객사', '선택 (필수)', '범위 자동 지정', '<b>공통코드 회사입니다. 사용 고객사를 선택하세요.</b>')]))
+
+    B.append(('S14', 'N Key 발급 — 범위 초과 · 검증 실패', '오류',
+              'Book 끝이 할당 범위를 넘으면 발급 예정 줄에 <b>⚠ 할당 범위(B{끝}) 초과</b>가 붙고, [N Key 발급] 때 검증에 걸린다. 검사는 순서대로 하고 하나라도 걸리면 멈춘다.',
+              fr(HK + F + kws.grid(LK, mid(G1, h=col_h(1150), grouped=False),
+                                   nkey_form(picked=True, over=True, err='Book 볼륨은 1~4권이어야 합니다. (B8~B11)')), 1150),
+              [('① 고객사', '미선택', '<b>차단</b>', '<b>고객사를 선택하세요.</b>'),
+               ('② 공통코드 사용 고객사', '미선택', '<b>차단</b>', '<b>공통코드 회사입니다. 사용 고객사를 선택하세요.</b>'),
+               ('③ 발급 범위', '미선택', '<b>차단</b>', '<b>발급 범위를 선택하세요.</b>'),
+               ('④ Start Book', '범위 밖', '<b>차단</b>', '<b>Start Book은 {시작}~{끝} 범위여야 합니다.</b>'),
+               ('⑤ Book 볼륨', '초과', '<b>차단</b>', '<b>Book 볼륨은 1~{최대}권이어야 합니다. (B{시작}~B{끝})</b>'),
+               ('⑥ Page 볼륨', '0', '<b>차단</b>', '<b>Page 볼륨은 1 이상이어야 합니다.</b>'),
+               ('⑦ Valid Until Time', '형식', '<b>차단</b>', '<b>Valid Until Time 은 6자리(YYMMDD)이거나 무제한이어야 합니다.</b>')]))
+
+    G2 = (('KODION-46', ((64, 'S3/O46/B8', '미정', 4, '김순정', '2026-10-15', '', False),) + T['KODION-46']),)
+    B.append(('S15', 'N Key 발급 완료 → 정산 정보', '분기',
+              '[N Key 발급]을 누르면 티켓이 <b>zip</b>(폴더 형태)으로 내려받아지고, 가운데 맨 위에 새 티켓이 생기며 오른쪽은 <b>그 티켓의 정산 정보 탭</b>으로 바로 이어진다 '
+              '— 발급 직후 정산을 등록한다 <code>PC-149</code>.',
+              fr(HK + F + kws.grid(LK, mid(G2, sel_no=64, h=col_h(1000), grouped=False),
+                                   ticket_detail('bill', no=64, co='KODION-46', bill='미정', note='', at='2026-10-15 14:02', by='김순정')
+                                   .replace(tg('대장', '#f3f4f6', '#9ca3af'), '')), 1000),
+              [('zip', '다운로드', 'Ticket_{고객사}[_{사용고객사}]_S{S}O{O}_B{시작}[-{끝}].zip', 'Separate Each Book = Book 하나당 파일 1개'),
+               ('발급(자동)', '—', '목록 · 집계 · <code>LOG-01</code>', '티켓 발급 · 신규발급')]))
+
+    dlg = ('<div class="ovl"><div class="mdl"><div class="mh"><div class="mt">발급 기록 삭제</div><div class="mx">✕</div></div>'
+           '<div style="font-size:13px;color:#374151;line-height:1.7">발급 36번 기록을 삭제할까요?</div>'
+           '<div class="mf"><div class="btn gho">취소</div><div class="btn dan">삭제</div></div></div></div>')
+    B.append(('S16', '발급 기록 삭제 확인창', '확인창',
+              '[발급 기록 삭제]는 확인을 거친다. 발급 번호는 다시 쓰지 않는다. 대장 발급분을 지우면 그 번호를 기억해 다음에 되살리지 않는다 <code>PC-155</code>.',
+              fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(1000), grouped=False), ticket_detail()), 1000, overlay=dlg),
+              [('[삭제]', '클릭', '기록 제거 · 다음 티켓', ''), ('[취소] · ✕', '클릭', 'S1', '')]))
+
+    B.append(('S17', 'N Key 불러오기 — 항목 표', '분기',
+              '필터 바의 <b>[📂 N Key 불러오기]</b>로 내려받은 키 파일(.json)을 열어 <b>Key · Value</b> 표로 본다. <b>조회 전용</b>이고 원장에 없는 외부 파일도 연다. '
+              '검색은 항목명과 값을 함께 찾고 [표 복사]는 보이는 항목만 복사한다.',
+              fr(H + F + kws.grid(left(h=col_h(1000)), mid(ALL_GROUPS, sel_no=36, h=col_h(1000), count=61), ticket_detail()), 1000,
+                 overlay=keyinfo_modal()),
+              [('항목 검색', '입력', '표 거름', '없으면 <b>"{검색어}" 에 맞는 항목이 없습니다.</b>'),
+               ('[표 복사]', '클릭', '보이는 항목 복사', ''), ('[닫기] · ✕', '클릭', 'S1', '필터·선택 유지')]))
+
+    B.append(('S18', 'N Key 불러오기 — 형식 오류', '오류', 'JSON 티켓 파일이 아니면 오류 안내와 빈 표가 나온다. 창은 닫히지 않아 바로 다른 파일을 고를 수 있다.',
+              fr(H + F + kws.grid(left(h=col_h(1000)), mid(ALL_GROUPS, sel_no=36, h=col_h(1000), count=61), ticket_detail()), 1000,
+                 overlay=keyinfo_modal(err=True)),
+              [('형식 오류', '—', '안내 + 빈 표', '<b>⚠ JSON 형식의 티켓 파일이 아닙니다. Key 생성으로 내려받은 .json 파일을 선택하세요.</b>')]))
+
+    intro = ('N Key 를 발급하고 정산하는 화면이다. 「<b>고객사 | 발급 티켓 | 발급 상세·정산</b>」 3단 한 화면이며 옛 <code>TKT-03</code> N Key 관리 · '
+             '<code>TKT-04</code> N Key 발급 · <code>TKT-05</code> 발급 상세·수정 · <code>TKT-06</code> N Key 불러오기를 합쳤다 <code>PC-149</code> <code>PC-158</code>. '
+             '고객사는 <b>고객사 관리 고객사를 불러온다</b> <code>PC-153</code>. <b>정산 집계 5칸</b>은 고른 고객사 · 필터 기준이고, 필터는 전체에 걸고 고객사별로 묶어 본다 '
+             '<code>PC-150</code>. 화면 모양은 <code>TKT-01</code> App Key 관리와 같은 조각을 쓴다 <code>PC-154</code>.')
     return page(CODE, NAME, PRD, intro, B)

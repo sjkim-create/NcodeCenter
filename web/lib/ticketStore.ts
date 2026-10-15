@@ -9,6 +9,7 @@ import ledgerSeed from "@/data/ticket-ledger.json";
 
 const KEY = "ncc-tickets-v1";
 const SEED_KEY = "ncc-tickets-seeded-v2";   // 대장 시드 1회 주입 표식 (v2: BookVolume 환산)
+const LEDGER_DEL_KEY = "ncc-tickets-ledger-deleted";   // 화면에서 지운 대장 발급번호 — 대장 복원에서 뺀다 `PC-155`
 
 export type TicketKind = "N" | "APP";
 export type Billing = "미정" | "유료" | "무료" | "체험";
@@ -39,6 +40,7 @@ export type Ticket = {
   billNote?: string;
   billedAt?: string;          // 정산 등록 일시
   billedBy?: string;
+  coRef?: number;             // 고객사 관리 고객사 id — N Key 관리에서 발급한 티켓 `PC-153` (대장분은 이름+Owner 로 잇는다)
   src?: "ledger";             // nkey(HLP) 대장에서 가져온 과거 발급분
   period?: string;            // 대장 원본 기간 표기(무제한/~YYYY-MM-DD)
 };
@@ -123,6 +125,17 @@ export function hydrateTickets() {
       persist();
     }
   } catch { /* */ }
+  // 대장은 정본이다 — 브라우저 저장분에서 빠진 대장 발급분(직접 지운 것 제외)을 다시 채운다 `PC-155`
+  //   (다른 브라우저 · 저장소 정리 등으로 목록이 비어도 nkey(HLP) 발급 대장은 늘 보인다. 정산 등 화면에서 고친 값은 그대로 둔다)
+  try {
+    const deleted = new Set<number>(JSON.parse(localStorage.getItem(LEDGER_DEL_KEY) ?? "[]"));
+    const have = new Set(list.filter((t) => t.src === "ledger").map((t) => t.no));
+    const missing = LEDGER.filter((r) => !have.has(r.no) && !deleted.has(r.no));
+    if (missing.length) {
+      let id = Math.max(0, ...list.map((x) => x.id));
+      list = [...list, ...missing.map((r) => normTicket({ ...r, id: ++id } as Ticket))];
+    }
+  } catch { /* */ }
   persist();        // 정리한 항목명을 저장해 둔다 `PC-064`
   notify();
 }
@@ -174,6 +187,13 @@ export function setBilling(id: number, patch: { billing: Billing; amount?: numbe
 
 export function deleteTicket(id: number) {
   hydrateTickets();
+  const t = list.find((x) => x.id === id);
+  if (t?.src === "ledger") {   // 대장분을 지우면 기억해 둔다 — 다음 로드 때 되살리지 않게 `PC-155`
+    try {
+      const del = new Set<number>(JSON.parse(localStorage.getItem(LEDGER_DEL_KEY) ?? "[]"));
+      del.add(t.no); localStorage.setItem(LEDGER_DEL_KEY, JSON.stringify([...del]));
+    } catch { /* */ }
+  }
   list = list.filter((t) => t.id !== id);
   persist(); notify();
 }

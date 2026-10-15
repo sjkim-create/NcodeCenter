@@ -1,6 +1,6 @@
 "use client";
 
-// 계정 발급 — TKT-03 계정 목록 / TKT-06 계정 등록·수정
+// App Key 관리(TKT-01) 오른쪽 칸 — 계정 추가 · 계정 상세 `PC-158`
 // 목록에서 [＋ 계정 추가] → 등록 화면(계정 정보 · App Key 발급),
 // 목록의 계정을 누르면 상세·수정 화면에서 정보를 고치고 App Key 를 추가·삭제한다.
 // App Key 관리 = 티켓 고객사의 **키 발급 계정**. 인증 서비스·권한은 다루지 않는다 —
@@ -14,132 +14,24 @@ import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { addTicket, deleteTicket, hydrateTickets, useTickets } from "@/lib/ticketStore";
 import { SobpRangePicker, type SobpRange } from "./TicketsView";
-import { rangesOfTicketCustomer, ticketCustomerById, useTicketCustomers } from "@/lib/ticketCustomerStore";
-import { TicketCustomerSelect } from "./TicketCustomerSelect";
+import { useTicketCustomers } from "@/lib/ticketCustomerStore";
+import { appKeyRangesOfCompany, companyOfAccount } from "@/lib/keyCompany";
+import type { Company } from "@/lib/customerData";
 import { CODE_KINDS, type CodeKind } from "@/lib/codeKind";
 import {
   caster, useCaster, genAppKey,
-  keyRanges, rangeText, rangeBooks, rangePeriod, accountScope, type KeyRange,
+  keyRanges, rangeText, rangeBooks, rangePeriod, type KeyRange,
   type CasterAccount,
 } from "@/lib/accountStore";
 
-const accountHref = (id: string, tab?: AccTab) =>
-  `/tickets/account/${encodeURIComponent(id)}${tab && tab !== "info" ? `?tab=${tab}` : ""}`;
 const PAGE_DEFAULT = 512;   // Page 볼륨 기본값 — N Key 발급과 같은 값 `PC-059`
 // 범위의 pt → 코드 종류 `PC-064`
 const CT_OF: Record<string, CodeKind> = { PDS3: "PDS3", PDS2: "PDS2", Scode: "PDS4", OID: "OID" };
 
-/* ── TKT-03 계정 목록 ───────────────────────────────────────────── */
-export function AccountsListView() {
-  const router = useRouter();          // 레코드 클릭 → 상세 `PC-053`
-  const cast = useCaster();
-  const [fCo, setFCo] = useState("");      // 고객사 필터 = 계정의 고객사 이름(티켓 고객사) `PC-123`
-  const [q, setQ] = useState("");
-
-  // App Key 관리 = **키 발급 계정**만 — 서비스 로그인 계정(권한)은 고객사 관리에서 다룬다 `PC-128`
-  const keyAccounts = cast.accounts.filter((a) => accountScope(a) === "key");
-  const rows = keyAccounts
-    .filter((a) => (fCo ? a.company === fCo : true))
-    .filter((a) => (q ? `${a.id} ${a.name} ${a.company}`.toLowerCase().includes(q.toLowerCase()) : true));
-  const keysOf = (id: string) => cast.appKeys.filter((k) => k.accountId === id);
-  const coOpts = [...new Set(keyAccounts.map((a) => a.company))].sort((a, b) => a.localeCompare(b, "ko"));
-
-  return (
-    <div style={{ padding: "18px 20px" }}>
-      {/* 요약 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 12 }}>
-        {[
-          ["등록 계정", keyAccounts.length.toLocaleString(), "#111827"],
-          ["App Key 연동", keyAccounts.filter((a) => keysOf(a.id).length).length.toLocaleString(), "#2563eb"],
-          ["App Key 없음", keyAccounts.filter((a) => !keysOf(a.id).length).length.toLocaleString(), "#92400e"],
-          ["발급 App Key", keyAccounts.reduce((n, a) => n + keysOf(a.id).length, 0).toLocaleString(), "#7c3aed"],
-          ["티켓 고객사", new Set(keyAccounts.map((a) => a.company)).size.toLocaleString(), "#0f766e"],
-        ].map(([l, v, c]) => (
-          <div key={l} style={{ ...S.card, padding: "10px 12px" }}>
-            <div style={{ fontSize: 11, color: "#6b7280" }}>{l}</div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: c }}>{v}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* 필터 + 계정 추가 */}
-      <div style={{ ...S.card, padding: "10px 12px", marginBottom: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5 }}>
-        <select value={fCo} onChange={(e) => setFCo(e.target.value)} style={{ ...S.input, width: 200 }}>
-          <option value="">고객사 전체</option>
-          {coOpts.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ID(email) · 이름 · 고객사 검색" style={{ ...S.input, width: 240 }} />
-        <span style={{ color: "#9ca3af" }}>{rows.length}건</span>
-        <span style={{ flex: 1 }} />
-        <Link href="/tickets/account/new" style={{ ...S.primary, textDecoration: "none" }}>＋ 계정 추가</Link>
-      </div>
-
-      {/* 목록 */}
-      <div style={{ ...S.card, padding: 0, overflowX: "auto" }}>
-        <table style={{ ...S.table, minWidth: 1320 }}>
-          <thead>
-            <tr>{["고객사", "ID (EMAIL)", "이름", "App Key", "코드 범위", "사용기간", "등록일", ""].map((h) => (
-              <th key={h} style={S.th}>{h}</th>
-            ))}</tr>
-          </thead>
-          <tbody>
-            {rows.map((a) => {
-              const keys = keysOf(a.id);
-              return (
-                // 레코드를 누르면 상세로 간다 `PC-053` — 항목마다 그 항목의 탭으로 `PC-067`
-                <tr key={a.id} onClick={() => router.push(accountHref(a.id))} title="클릭하면 계정 정보"
-                  style={{ borderTop: "1px solid #eef0f4", cursor: "pointer" }}>
-                  <td style={S.td}>{a.company}</td>
-                  <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#2563eb", fontWeight: 600 }}>{a.id}</td>
-                  <td style={S.td}>{a.name || "—"}</td>
-                  {/* App Key → [App Key 발급] 탭 · 키 값을 그대로 보여 준다 `PC-067` */}
-                  <td style={{ ...S.td, textAlign: "left" }} title="클릭하면 App Key 발급"
-                    onClick={(e) => { e.stopPropagation(); router.push(accountHref(a.id, "key")); }}>
-                    {keys.length === 0
-                      ? <span style={{ ...S.tag, background: "#f3f4f6", color: "#9ca3af" }}>미발급</span>
-                      : keys[0].key
-                        ? <code style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, color: "#2563eb", wordBreak: "break-all" }}>{keys[0].key}</code>
-                        // 대장에 코드 범위는 있는데 키 값이 안 적힌 계정 `PC-103`
-                        : <span style={{ ...S.tag, background: "#fef3c7", color: "#92400e", fontWeight: 700 }} title="대장에 App Key 값이 적혀 있지 않습니다">키 미기재</span>}
-                  </td>
-                  {/* 코드 범위 수 · 사용기간 `PC-103` */}
-                  <td style={{ ...S.td, whiteSpace: "nowrap" }} title={keys[0] ? keyRanges(keys[0]).map(rangeText).join("\n") : undefined}
-                    onClick={(e) => { e.stopPropagation(); router.push(accountHref(a.id, "key")); }}>
-                    {keys[0] ? <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>{keyRanges(keys[0]).length}개</span> : <span style={{ color: "#c7cbd4" }}>—</span>}
-                  </td>
-                  {/* 사용기간 = 코드 범위(=티켓)별 기간 `PC-118` — 목록엔 첫 범위 기준 요약 */}
-                  <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#6b7280", whiteSpace: "nowrap", fontSize: 11.5 }}>
-                    {(() => {
-                      const k0 = keys[0]; if (!k0) return <span style={{ color: "#c7cbd4" }}>—</span>;
-                      const rs = keyRanges(k0); if (rs.length === 0) return <span style={{ color: "#c7cbd4" }}>—</span>;
-                      const p = rangePeriod(k0, rs[0]);
-                      return `${p.since || "즉시"} ~ ${p.until}${rs.length > 1 ? ` 외 ${rs.length - 1}` : ""}`;
-                    })()}
-                  </td>
-                  <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", color: "#6b7280" }}>
-                    {a.seeded ? <span style={{ ...S.tag, background: "#f0fdfa", color: "#0f766e", fontWeight: 700 }} title="개발팀 대장에서 들어온 계정">대장</span> : a.createdAt?.slice(0, 10)}
-                  </td>
-                  <td style={{ ...S.td, textAlign: "right", whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
-                    <Link href={accountHref(a.id)} style={{ ...S.linkBtn, textDecoration: "none" }}>상세</Link>
-                    <button onClick={() => { if (confirm("이 계정과 연동 App Key를 삭제할까요?")) caster.removeAccount(a.id); }} style={{ ...S.linkBtn, color: "#dc2626" }}>삭제</button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {rows.length === 0 && (
-          <div style={{ padding: "26px 14px", textAlign: "center", color: "#9ca3af", fontSize: 12.5 }}>
-            {cast.accounts.length === 0 ? "등록된 계정이 없습니다. [＋ 계정 추가]로 등록하세요." : "조건에 맞는 계정이 없습니다."}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+/* 옛 계정 목록은 App Key 관리 3단 화면(AppKeyWorkspace)으로 옮겼다 `PC-146` */
 
 /* ── 공용 조각 ─────────────────────────────────────────────────── */
-// Key 정보 카드 — 발급 상세(`TKT-05`)의 Key 정보 항목을 계정 기준으로 보여 준다 `PC-059`
+// Key 정보 카드 — N Key 발급 상세(`TKT-02`)의 Key 정보 항목을 계정 기준으로 보여 준다 `PC-059`
 function KeyCard({ title, params, empty, href }: {
   title: string; params?: Record<string, string | number>; empty: string; href?: string;
 }) {
@@ -195,7 +87,7 @@ function AccTabs({ tab, onTab, badge }: { tab: AccTab; onTab: (v: AccTab) => voi
   );
 }
 
-// 영역 제목 — 번호를 붙이지 않는다. Key 관리 상세(`TKT-05`)와 같은 결 `PC-052`
+// 영역 제목 — 번호를 붙이지 않는다. N Key 발급 상세(`TKT-02`)와 같은 결 `PC-052`
 function SecHead({ t, d, tip }: { t: string; d?: string; tip?: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
@@ -216,12 +108,11 @@ const genPwdStr = () => {
 // App Key 값 생성은 스토어의 규칙을 그대로 쓴다 — 영문·숫자 29자 `PC-066`
 const genKeyStr = genAppKey;
 
-// 티켓 고객사의 발급 범위 — 고객사 관리의 SOBP 할당이 아니라 **nkey(HLP) 대장 이력의 S/O/B** `PC-123`
-//   계정은 고객사 **이름**으로 티켓 고객사와 잇는다.
-function useRanges(companyName?: string): SobpRange[] {
+// App Key 발급 범위 — 고객사 관리 고객사 기준: Caster 대장 이력 + 그 고객사의 SOBP 할당 `PC-153`
+function useRanges(co?: Company): SobpRange[] {
   useTicketCustomers();
-  const { projects } = useStore();     // SOBP 맵에서 (K) 로 직접 할당한 S/O 포함 `PC-125`
-  return rangesOfTicketCustomer(companyName, projects);
+  const { projects } = useStore();
+  return appKeyRangesOfCompany(co, projects);
 }
 
 // App Key 발급 — 계정 등록·상세에서 공용으로 쓴다.
@@ -256,7 +147,7 @@ function BookRangeFields({ range, bookStart, bookVol, pageStart, pageVol, onStar
   const max = range?.bookEnd ?? 0;
   const maxVol = Math.max(1, max - bookStart + 1);
   // 고객사가 가진 **S/O 안에서 B·P 영역만 계정마다 다르게** 잡는다 `PC-059`
-  // 라벨·조작 방식은 N Key 발급(`TKT-04`)과 같게 맞춘다 `PC-051`
+  // 라벨·조작 방식은 N Key 발급(`TKT-02`)과 같게 맞춘다 `PC-051`
   return (
     <>
       <Field label={`Start Book ${range ? `· ${min}~${max}` : "(시작 북코드)"}`}>
@@ -313,15 +204,18 @@ function issueAppKey(acc: CasterAccount, range: SobpRange, bookStart: number, bo
   return key;
 }
 
-/* ── TKT-06 계정 등록 ───────────────────────────────────────────── */
-export function AccountNewView() {
+/* ── TKT-01 계정 추가 ───────────────────────────────────────────── */
+// embedded — App Key 관리 3단 화면의 오른쪽 칸으로 쓴다 `PC-146`. 고객사는 왼쪽에서 고른 값으로 고정
+export function AccountNewView({ embedded = false, fixedCompanyId = 0, onDone, onCancel }: {
+  embedded?: boolean; fixedCompanyId?: number; onDone?: (accountId: string) => void; onCancel?: () => void;
+} = {}) {
   const router = useRouter();
   const me = currentUser(useAuth());
   useCaster();
   useTicketCustomers();
   useEffect(() => { hydrateTickets(); }, []);   // App Key 발급분이 Key 발급 목록에 쌓이도록 원장 로드
 
-  const [companyId, setCompanyId] = useState(0);
+  const [companyId, setCompanyId] = useState(fixedCompanyId);
   const [id, setId] = useState("");
   const [pwd, setPwd] = useState("");
   const [name, setName] = useState("");
@@ -339,9 +233,10 @@ export function AccountNewView() {
   const [unlimited, setUnlimited] = useState(true);
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // 고객사 = **티켓 고객사**(nkey(HLP) 대장 프로젝트명 + 티켓 화면 등록분) — 고객사 관리와 별개 `PC-123`
-  const company = companyId ? ticketCustomerById(companyId) : undefined;
-  const ranges = useRanges(company?.name);
+  // 고객사 = **고객사 관리 고객사** `PC-153` — 계정은 이 화면의 App Key 계정(서비스 계정과 별개)
+  const { companies } = useStore();
+  const company = companyId ? companies.find((c) => c.id === companyId) : undefined;
+  const ranges = useRanges(company);
   const range = ranges[sobpIdx];
 
   const onCompany = (cid: number) => {
@@ -359,13 +254,14 @@ export function AccountNewView() {
 
     const acc: CasterAccount = {
       id: id.trim(), pwd: pwd.trim(), name: name.trim(), services: [], settings: {}, scope: "key",   // 인증 서비스·권한 없음 `PC-131`
-      companyId: company.id, company: company.name, addr: addr.trim(), homepage: homepage.trim(),
+      companyId: company.id, company: company.name, coRef: company.id, addr: addr.trim(), homepage: homepage.trim(),
       createdAt: "",
     };
     const r = caster.addAccount(acc);
     if (!r.ok) { setToast({ ok: false, text: r.msg }); return; }
     logActivity("ticket", `계정 등록 · ${company.name} · ${acc.id}`, me?.name);
     if (wantKey && range) issueAppKey(acc, range, keyBS, keyVol, pStart, keyPVol, ctype, unlimited ? "무제한" : (until || "무제한"), me?.name, since);
+    if (onDone) { onDone(acc.id); return; }  // 3단 화면 — 오른쪽 칸에서 바로 그 계정 상세로 `PC-146`
     router.push("/tickets/account");        // 목록에 노출
   };
 
@@ -376,7 +272,7 @@ export function AccountNewView() {
   // 체크박스 없이 **탭을 열면 바로 입력**한다 — 범위를 고르면 발급, 안 고르면 계정만 등록 `PC-071`
   const appKeyBlock = (
     <div>
-      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>발급 범위 (대장 이력 · SOBP 할당) <span style={{ color: "#9ca3af" }}>(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다 · 선택하지 않으면 계정만 등록합니다)</span></div>
+      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>발급 범위 (Caster 대장 이력 · SOBP 할당) <span style={{ color: "#9ca3af" }}>(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다 · 선택하지 않으면 계정만 등록합니다)</span></div>
       <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = ranges[i]; if (r) setCtype(CT_OF[r.pt] ?? "PDS3"); }} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 12 }}>
         <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
@@ -412,11 +308,12 @@ export function AccountNewView() {
   );
 
   return (
-    <div style={{ padding: "18px 20px", maxWidth: 900 }}>
+    <div style={embedded ? undefined : { padding: "18px 20px", maxWidth: 900 }}>
       <div style={{ ...S.card, padding: 18 }}>
         {/* 제목은 상단에만 — 여기서는 고른 고객사를 크게 `PC-069` */}
         <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: company ? "#111827" : "#c7cdd6" }}>
+          {embedded && <><b style={{ fontSize: 15 }}>새 계정 추가</b><span style={{ ...S.tag, background: "#dbeafe", color: "#1d4ed8", fontWeight: 700 }}>작성 중</span></>}
+          <div style={{ fontSize: embedded ? 13 : 20, fontWeight: embedded ? 400 : 800, color: company ? (embedded ? "#6b7280" : "#111827") : "#c7cdd6" }}>
             {company?.name ?? "고객사를 선택하세요"}
           </div>
         </div>
@@ -429,7 +326,14 @@ export function AccountNewView() {
         <SecHead t="계정 정보" d="· 키 발급 계정" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="고객사 *">
-            <TicketCustomerSelect value={companyId} onChange={onCompany} by={me?.name} />
+            {embedded && fixedCompanyId
+              ? <div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{company?.name}</div>
+              : (
+                <select style={S.input} value={companyId} onChange={(e) => onCompany(Number(e.target.value))}>
+                  <option value={0}>- 고객사 관리 고객사 선택 -</option>
+                  {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              )}
           </Field>
           <Field label="NAME (담당자명)"><input style={S.input} value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <Field label="ID (이메일) *"><input style={S.input} value={id} onChange={(e) => setId(e.target.value)} placeholder="user@company.com" /></Field>
@@ -454,9 +358,11 @@ export function AccountNewView() {
 
         {/* 이동·저장 버튼은 화면 아래에 모은다 `PC-064` */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
-          <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
+          {!embedded && <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>}
           <span style={{ flex: 1 }} />
-          <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>취소</Link>
+          {embedded
+            ? <button onClick={onCancel} style={S.ghost}>취소</button>
+            : <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>취소</Link>}
           <button onClick={submit} style={S.primary}>계정 추가</button>
         </div>
         {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: toast.ok ? "#047857" : "#dc2626", textAlign: "right" }}>{toast.text}</div>}
@@ -465,8 +371,9 @@ export function AccountNewView() {
   );
 }
 
-/* ── TKT-06 계정 상세 · 수정 ────────────────────────────────────── */
-export function AccountDetailView({ accountId }: { accountId: string }) {
+/* ── TKT-01 계정 상세 · 수정 ────────────────────────────────────── */
+// embedded — App Key 관리 3단 화면의 오른쪽 칸 `PC-146`
+export function AccountDetailView({ accountId, embedded = false, onDeleted }: { accountId: string; embedded?: boolean; onDeleted?: () => void }) {
   const router = useRouter();
   const me = currentUser(useAuth());
   const cast = useCaster();
@@ -501,7 +408,8 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
     setLoaded(true);
   }, [acc, loaded]);
 
-  const ranges = useRanges(acc?.company);
+  const { companies } = useStore();
+  const ranges = useRanges(acc ? companyOfAccount(acc, companies) : undefined);   // 고객사 관리 고객사로 잇는다 `PC-153`
   const range = ranges[sobpIdx];
   const keys = cast.appKeys.filter((k) => k.accountId === accountId);
   // App Key 는 **계정당 1개**이고 **사용처 전체에 공통**이다 `PC-050`
@@ -642,7 +550,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
           </div>
 
           {/* 코드 범위 발급 — 범위마다 사용기간을 함께 지정 `PC-118` */}
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>발급 범위 (대장 이력 · SOBP 할당) * <span style={{ color: "#9ca3af" }}>(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다 · 사용기간을 함께 지정합니다)</span></div>
+          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>발급 범위 (Caster 대장 이력 · SOBP 할당) * <span style={{ color: "#9ca3af" }}>(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다 · 사용기간을 함께 지정합니다)</span></div>
           <SobpRangePicker company ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = ranges[i]; if (r) setCtype(CT_OF[r.pt] ?? "PDS3"); }} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 12 }}>
             <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
@@ -663,7 +571,7 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
         </>
       ) : (
         <>
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>발급 범위 (대장 이력 · SOBP 할당) * <span style={{ color: "#9ca3af" }}>(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다)</span></div>
+          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>발급 범위 (Caster 대장 이력 · SOBP 할당) * <span style={{ color: "#9ca3af" }}>(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다)</span></div>
           <SobpRangePicker company ranges={ranges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = ranges[i]; if (r) setCtype(CT_OF[r.pt] ?? "PDS3"); }} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 12 }}>
             <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
@@ -688,11 +596,11 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
   );
 
   return (
-    <div style={{ padding: "18px 20px", maxWidth: 900 }}>
+    <div style={embedded ? undefined : { padding: "18px 20px", maxWidth: 900 }}>
       <div style={{ ...S.card, padding: 18 }}>
         {/* 제목은 상단(브레드크럼)에만 두고, 여기서는 **고객사명을 크게** 보여 준다 `PC-069` */}
         <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: "#111827" }}>{acc.company}</div>
+          <div style={{ fontSize: embedded ? 15 : 20, fontWeight: 800, color: "#111827" }}>{embedded ? (acc.name || acc.id) : acc.company}</div>
           <code style={{ fontFamily: "ui-monospace,monospace", color: "#374151", fontSize: 12.5 }}>{acc.id}</code>
         </div>
 
@@ -813,9 +721,9 @@ export function AccountDetailView({ accountId }: { accountId: string }) {
 
         {/* 이동·저장 버튼은 화면 맨 아래에 모은다 `PC-069` */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
-          <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
+          {!embedded && <Link href="/tickets/account" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>}
           <span style={{ flex: 1 }} />
-          <button onClick={() => { if (confirm("이 계정과 연동 App Key를 삭제할까요?")) { caster.removeAccount(acc.id); router.push("/tickets/account"); } }}
+          <button onClick={() => { if (confirm("이 계정과 연동 App Key를 삭제할까요?")) { caster.removeAccount(acc.id); if (onDeleted) onDeleted(); else router.push("/tickets/account"); } }}
             style={{ ...S.ghost, color: "#dc2626", borderColor: "#fecaca" }}>계정 삭제</button>
           <button onClick={save} style={S.primary}>저장</button>
         </div>

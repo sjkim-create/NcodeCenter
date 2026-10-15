@@ -224,7 +224,7 @@ MENU = [
     ('soon', '폼솔루션 서비스 관리', None, '📄'),
     ('grp', '티켓 발급', None, None),
     ('item', 'App Key 관리 (계정 발급)', 'TKT-01', '🔑'),
-    ('item', 'N Key 관리', 'TKT-03', '🧾'),
+    ('item', 'N Key 관리', 'TKT-02', '🧾'),
     ('grp', '정보', None, None),
     ('item', '코드 관리 정보', 'INF-01', 'ℹ️'),
     ('item', '브랜드 (CI)', None, '🎨'),
@@ -369,3 +369,18 @@ def page(code, name, prd, intro, boards):
 </div>
 <script>%s</script>
 </body></html>""" % (code, name, CSS, code, name, len(boards), prd, jump, intro, body, JS)
+
+
+# ── 입력 조각 (여러 화면 공용 — 옛 p_tkt01 에서 옮김 `PC-158`) ────────────────
+def sel(v, ph=False, err=False, w=None):
+    st = ('width:%dpx;' % w) if w else ''
+    cls = 'inp' + (' ph' if ph else '') + (' err' if err else '')
+    return ('<div class="%s" style="%sdisplay:flex;align-items:center;justify-content:space-between">'
+            '%s<span style="color:#9ca3af;font-size:10px">▾</span></div>' % (cls, st, v))
+
+
+def field(label, inner, req=False, err=None, hint=None):
+    r = ' <span style="color:#dc2626">*</span>' if req else ''
+    e = '<div class="inline-err">%s</div>' % err if err else ''
+    h = ('<div style="font-size:11px;color:#9ca3af;margin-top:3px">%s</div>' % hint) if hint else ''
+    return '<div class="fld"><span class="lbl">%s%s</span>%s%s%s</div>' % (label, r, inner, h, e)

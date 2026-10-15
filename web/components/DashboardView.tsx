@@ -14,7 +14,7 @@ import { EDIT_CUSTOMERS } from "@/lib/editingData";
 import { loadCustomCustomers, type EditCustomer } from "@/lib/editingCustomers";
 import { rateOf, settle, won, customRateCount } from "@/lib/pricing";
 import { allTickets, hydrateTickets, useTickets, daysLeft } from "@/lib/ticketStore";
-import { useCaster } from "@/lib/accountStore";
+import { useCaster, accountScope } from "@/lib/accountStore";
 
 type Rec = { owner: number; product: string; account: string };
 type Section = { section: number; legacy: boolean; test_dev?: boolean; owned?: number; total_owners?: number; records: Rec[] };
@@ -99,7 +99,7 @@ export default function DashboardView() {
 
   /* ── ③ 정산 ── */
   const bill = useMemo(() => {
-    const tickets = allTickets();
+    const tickets = allTickets().filter((t) => t.kind === "N");   // 정산 = N Key 관리 발급분만 `PC-152`
     const paid = tickets.filter((t) => t.billing === "유료" && t.amount > 0);
     const avg = paid.length ? Math.round(paid.reduce((a, t) => a + t.amount, 0) / paid.length) : 0;
     // 고객사별 최근 유료 금액 — 미정산 추정의 1순위 기준
@@ -122,7 +122,7 @@ export default function DashboardView() {
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── ④ 운영 알림 ── */
-  const noKey = cast.accounts.filter((a) => !cast.appKeys.some((k) => k.accountId === a.id)).length;
+  const noKey = cast.accounts.filter((a) => accountScope(a) === "key" && !cast.appKeys.some((k) => k.accountId === a.id)).length;
   const closedCo = companies.filter((c) => c.closed).length;
   const closedProj = projects.filter((p) => companies.find((c) => c.id === p.companyId)?.closed).length;
 

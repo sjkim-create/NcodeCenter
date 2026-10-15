@@ -5,7 +5,7 @@
 상태는 화면에서 실제로 갈라지는 것만 담는다(S1~S10).
 """
 from shell import page, frame
-from p_tkt01 import sel, field
+from shell import sel, field
 import p_sob01
 
 CODE, NAME = 'SOB-02', '직접 코드 할당'

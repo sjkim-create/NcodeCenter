@@ -7,7 +7,7 @@ import { useState } from "react";
 import { S } from "./ui";
 import type { TicketPattern } from "@/lib/codeKind";
 import {
-  addTicketCustomer, allTicketCustomers, makeRange, useTicketCustomers, type TicketCustomer,
+  addTicketCustomer, allTicketCustomers, makeRange, useTicketCustomers, type TicketCustomer, type TicketScope,
 } from "@/lib/ticketCustomerStore";
 
 const PTS: { v: TicketPattern; label: string; section: number }[] = [
@@ -18,7 +18,8 @@ const PTS: { v: TicketPattern; label: string; section: number }[] = [
 ];
 
 /** 티켓 고객사 등록 폼 — 이름 + 발급 범위 1건(Book 비우면 오너 전체) */
-export function TicketCustomerAddForm({ by, onAdded }: { by?: string; onAdded: (c: TicketCustomer) => void }) {
+// scope — nkey = N Key 관리 명단 · appkey = App Key 관리 명단 `PC-148`
+export function TicketCustomerAddForm({ by, onAdded, scope = "nkey" }: { by?: string; onAdded: (c: TicketCustomer) => void; scope?: TicketScope }) {
   const [name, setName] = useState("");
   const [pt, setPt] = useState<TicketPattern>("PDS3");
   const [sec, setSec] = useState("3");
@@ -33,7 +34,7 @@ export function TicketCustomerAddForm({ by, onAdded }: { by?: string; onAdded: (
     if (!name.trim()) { setErr("고객사명을 입력하세요."); return; }
     if (!Number.isInteger(s) || !Number.isInteger(o) || owner.trim() === "") { setErr("Section · Owner 를 숫자로 입력하세요."); return; }
     if (b0 != null && b1 != null && b1 < b0) { setErr("End Book 은 Start Book 보다 작을 수 없습니다."); return; }
-    const r = addTicketCustomer(name, [makeRange(pt, s, o, b0, b1 ?? b0)], by);
+    const r = addTicketCustomer(name, [makeRange(pt, s, o, b0, b1 ?? b0)], by, scope);
     if (!r.ok) { setErr(r.msg); return; }
     setName(""); setOwner(""); setBs(""); setBe(""); setErr("");
     onAdded(r.customer);

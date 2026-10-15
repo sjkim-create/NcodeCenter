@@ -97,13 +97,13 @@ flowchart TD
 flowchart TD
     P["선행 조건<br/>고객사 등록 + SOBP 할당 완료"] --> Q{"필요한 키는"}
 
-    Q -->|"오프라인 · 계정 불필요"| N1["TKT-03 N Key 관리<br/>/tickets/nkey"]
-    N1 --> N2["TKT-04 N Key 발급<br/>고객사 → SOBP 범위 → Code Type · 사용 기한"]
-    N2 --> N3["[Key 생성]<br/>티켓 zip 다운로드"]
-    N3 --> N4["TKT-05 발급 상세<br/>Key 정보 · 정산 등록"]
+    Q -->|"오프라인 · 계정 불필요"| N1["TKT-02 N Key 관리<br/>/tickets/nkey · 고객사(고객사 관리) | 발급 티켓 | 상세·정산"]
+    N1 --> N2["[＋ N Key 발급]<br/>발급 범위 → Book·Page → Code Type · 사용 기한"]
+    N2 --> N3["[N Key 발급]<br/>티켓 zip 다운로드"]
+    N3 --> N4["같은 화면 오른쪽<br/>정산 정보 탭 · Key 정보"]
 
-    Q -->|"온라인 · 계정 연동"| A1["TKT-01 App Key 관리 (계정 발급)<br/>/tickets/account"]
-    A1 --> A2["TKT-02 계정 등록<br/>계정 정보 → 인증 서비스·권한 → App Key 범위"]
+    Q -->|"온라인 · 계정 연동"| A1["TKT-01 App Key 관리 (계정 발급)<br/>/tickets/account · 고객사(고객사 관리) | App Key 계정 | 상세"]
+    A1 --> A2["[＋ 계정 추가]<br/>계정 정보 → App Key 범위(선택)"]
     A2 --> A3{"App Key 범위를<br/>골랐나"}
     A3 -- 골랐다 --> A4["계정 + App Key 발급"]
     A3 -- 비웠다 --> A5["계정만 등록<br/>키는 나중에 상세에서"]
@@ -120,7 +120,7 @@ flowchart TD
 |---|---|---|
 | 성격 | 물리 키 — 오프라인 Caster lite | 계정 연동 키 — 온라인 · SDK |
 | 계정 | 필요 없다 | 계정이 있어야 발급된다 |
-| 관리 화면 | `TKT-03` 목록 → `TKT-04` 발급 → `TKT-05` 상세 | `TKT-01` 목록 → `TKT-02` 등록·상세 |
+| 관리 화면 | `TKT-02` N Key 관리 (3단 한 화면) | `TKT-01` App Key 관리 (3단 한 화면) |
 | 공통 | 이미 **할당된 범위 안에서만** 발급 · 기간(Valid Until)과 Book/Page 로 한도 지정 | |
 
 ---
@@ -234,9 +234,8 @@ flowchart LR
     end
 
     subgraph G2["티켓 발급"]
-        TKT1["TKT-01 App Key 관리"] --> TKT2["TKT-02 계정 등록·상세"]
-        TKT3["TKT-03 N Key 관리"] --> TKT4["TKT-04 N Key 발급"]
-        TKT3 --> TKT5["TKT-05 발급 상세·정산"]
+        TKT1["TKT-01 App Key 관리"]
+        TKT2["TKT-02 N Key 관리"]
     end
 
     subgraph G3["서비스 관리"]
@@ -286,6 +285,6 @@ flowchart LR
 각 단계의 **선행 조건**만 기억하면 된다.
 
 1. `SOB-02` 할당 전에 **고객사가 등록**돼 있어야 한다.
-2. `TKT-04` · `TKT-02` 발급 전에 **SOBP 가 할당**돼 있어야 한다. 단 **사내 편집에는 티켓이 필요 없다** `PC-076`.
+2. `TKT-02` · `TKT-01` 발급 전에 **SOBP 가 할당**돼 있어야 한다. 단 **사내 편집에는 티켓이 필요 없다** `PC-076`.
 3. `PRJ-02` 편집 관리 대상이 되려면 고객사 **사용 서비스 = casterN** 이어야 한다.
 4. 편집 데이터를 **장부가 못 잡으면** `PRJ-05`(고객사) · `PRJ-04`(교재) 로 **직접 등록·수정**한다.

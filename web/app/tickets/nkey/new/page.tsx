@@ -1,6 +1,5 @@
-import TicketsView from "@/components/TicketsView";
-export const metadata = { title: "N Key 발급" };
-// 목록(/tickets/nkey)의 [＋ N Key 발급]으로 들어오는 등록 화면
+import { redirect } from "next/navigation";
+// N Key 발급은 N Key 관리 3단 화면의 오른쪽 칸에서 한다 `PC-149`
 export default function Page() {
-  return <TicketsView tab="nkey" />;
+  redirect("/tickets/nkey?new=1");
 }

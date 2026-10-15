@@ -6,7 +6,7 @@ PRJ-02 편집 프로젝트 목록의 [＋ 고객사 추가] 로 열리는 창.
 ① 등록된 고객사 선택 → ② Owner 코드 선택(할당 코드가 없으면 추가 불가 · SOBP 맵 안내)
 """
 from shell import page, frame
-from p_tkt01 import sel, field
+from shell import sel, field
 
 CODE, NAME = 'PRJ-05', '편집 고객사 추가'
 PRD = 'docs/prd/PRJ-05_편집 고객사 추가.md'

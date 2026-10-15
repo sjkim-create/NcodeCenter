@@ -570,7 +570,7 @@ export default function OwnershipMap() {
         const nzc = (x: string) => x.replace(/\s+/g, "").toLowerCase();
         // (K) = 티켓 고객사(nkey(HLP) 대장 · 키 발급 대상) — 고객사 관리와 별개로 할당한다 `PC-125`
         const isKey = isKeyLabel(name);
-        const keyCo = isKey ? ticketCustomerByName(keyNameOf(name)) : undefined;
+        const keyCo = isKey ? ticketCustomerByName(keyNameOf(name), "nkey") : undefined;
         const myCo = isKey ? undefined : companies.find((c) => nzc(c.name) === nzc(name));
         // 이 고객사의 **사용 서비스** — 고객사 관리에서 정한 값을 읽기만 한다 `PC-076`
         const coSvcs: ServiceType[] = companyServices(myCo);
@@ -667,7 +667,8 @@ export default function OwnershipMap() {
                       {/* 고객사 관리(서비스 사용 고객사) + 티켓 고객사(K · 키 발급 대상) — 같은 이름이 있을 수 있어 (K) 로 구분 `PC-125` */}
                       <datalist id="ncc-alloc-acct">
                         {companies.map((c) => <option key={`c${c.id}`} value={c.name} />)}
-                        {allTicketCustomers().map((t) => <option key={`k${t.id}`} value={keyLabel(t.name)} label="티켓 고객사 (키 발급)" />)}
+                        {/* (K) = N Key 발급 고객사(nkey(HLP) 대장)만 — App Key 고객사와 값이 물리지 않게 `PC-152` */}
+                        {allTicketCustomers("nkey").map((t) => <option key={`k${t.id}`} value={keyLabel(t.name)} label="N Key 고객사" />)}
                       </datalist>
                     </>
                   )}
