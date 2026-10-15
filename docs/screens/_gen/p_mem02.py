@@ -165,6 +165,7 @@ PERMS = (('프로젝트 생성', 'project_new'), ('심볼 편집', 'symbol_edit'
          ('Ncode PDF 내보내기', 'export_ncode_pdf'), ('NCP2 내보내기', 'export_ncp2'),
          ('App용 패키지 내보내기', 'export_app_package'))
 CARD = 'background:#fff;border:1px solid #e5e7eb;border-radius:12px'
+OWNERS = {'kim@wjthinkbig.com'}   # 고객사 OWNER 계정 — 고객사당 1명 `PC-159`
 
 
 def tg(text, bg, fg, bold=True):
@@ -289,7 +290,8 @@ def base_section(new=False, err=False, dirty=False, parent=False, edited=False):
                % (' style="grid-column:1/-1"' if full else '', lb, ' <span style="color:#dc2626">*</span>' if req else '',
                   cls, v, '<div class="inline-err">업체명은 필수입니다.</div>' if (err and lb == '업체명') else ''))
     hint = ('<div style="font-size:11.5px;color:#9ca3af;margin-top:12px">업체명을 입력하면 왼쪽 <b>서비스 계정</b>에서 계정을 '
-            '추가할 수 있습니다. 계정을 추가하면 고객사가 함께 등록됩니다.</div>' if new else '')
+            '추가할 수 있고, 그때 고객사가 함께 등록됩니다. <b>서비스 계정은 선택</b>이라 계정 없이 [등록]으로 고객사만 등록할 수 있습니다 '
+            '<code>PC-159</code>.</div>' if new else '')
     inner = ('<div class="g2" style="gap:12px;max-width:900px">' + fs + '</div>' + common_block(parent, empty=bool(new)) + hint)
     return sec_card('기본 정보', '· 필수는 업체명', inner, new=bool(new), dirty=dirty)
 
@@ -299,18 +301,19 @@ def acc_card_list(sel=0, adding=False, accs=ACCS, new=False):
     for i, (nm, mail, on, n, last, seeded, _k) in enumerate(accs):
         cur = (i == sel and not adding)
         rows += ('<div style="border:1px solid %s;background:%s;border-radius:10px;padding:10px 12px;margin-bottom:8px">'
-                 '<div style="display:flex;align-items:center;gap:6px"><b style="font-size:13.5px">%s</b>%s</div>'
+                 '<div style="display:flex;align-items:center;gap:6px"><b style="font-size:13.5px">%s</b>%s%s</div>'
                  '<div style="font-family:ui-monospace,monospace;font-size:11.5px;color:#6b7280;margin-top:2px">%s</div>'
                  '<div style="display:flex;align-items:center;gap:6px;margin-top:7px">%s%s'
                  '<span style="margin-left:auto;font-size:11px;color:#9ca3af">%s</span></div></div>'
                  % ('#5f8ff0' if cur else '#eef0f4', '#f5f9ff' if cur else '#fff', nm,
+                    tg('OWNER', '#fef3c7', '#92400e') if mail in OWNERS else '',
                     tg('대장', '#f0fdfa', '#0f766e') if seeded else '', mail,
                     tg('활성', '#ecfdf5', '#047857') if on else tg('비활성', '#f3f4f6', '#6b7280'),
                     tg('CasterN %d/6' % n, '#eef6ff', '#2563eb') if n is not None else tg('권한 없음', '#f3f4f6', '#9ca3af'),
                     last))
     if not accs:
         rows = ('<div style="font-size:12px;color:#9ca3af;padding:24px 0;text-align:center;line-height:1.7">'
-                '등록된 계정이 없습니다.<br>[＋ 계정 추가]로 등록하세요.</div>')
+                '서비스 계정이 없습니다.<br>계정 없이도 고객사를 등록·사용할 수 있습니다.<br>필요하면 [＋ 계정 추가]로 등록하세요.</div>')
     n_on = sum(1 for a in accs if a[2])
     return ('<div style="' + CARD + '"><div style="padding:13px 16px;border-bottom:1px solid #eef0f4;display:flex;'
             'align-items:center;gap:8px"><b style="font-size:14px">서비스 계정</b><span style="font-size:11.5px;color:#9ca3af">'
@@ -370,14 +373,28 @@ def perm_box(cast_on=True, n=6, tab='CASTERN'):
             '<div style="padding:14px 16px">' + body + '</div></div>')
 
 
-def acc_detail(mode='edit', acc=ACCS[0], cast_on=True, n=6, tab='CASTERN', err='', dirty=False, new_draft=False, id_val=''):
+def owner_box(state):
+    """OWNER (대표 계정) — 고객사당 1명 `PC-159`
+    state: self(이 계정이 OWNER) · first(OWNER 없음 → 첫 계정 체크) · other(다른 OWNER 있음, 체크 안 함) · switch(체크 → 바뀜 안내)"""
+    on = state in ('self', 'first', 'switch')
+    hint = {'self': '이 계정이 이 고객사의 OWNER 입니다.', 'first': '이 계정이 이 고객사의 OWNER 입니다.',
+            'other': '지금 OWNER: 김태호 (kim@wjthinkbig.com)',
+            'switch': '<b style="color:#b45309">저장하면 OWNER 가 김태호 (kim@wjthinkbig.com) 에서 이 계정으로 바뀝니다.</b>'}[state]
+    return ('<div style="display:flex;align-items:flex-start;gap:10px;margin-top:12px;border:1px solid %s;background:%s;border-radius:10px;padding:10px 12px">'
+            '<span style="width:15px;height:15px;border-radius:3px;border:1px solid %s;background:%s;color:#fff;font-size:10px;display:grid;place-items:center;margin-top:2px">%s</span>'
+            '<span><span style="display:block;font-size:13px;font-weight:700;color:%s">OWNER (대표 계정)</span>'
+            '<span style="display:block;font-size:11.5px;color:#9ca3af;margin-top:2px">고객사당 1명만 지정합니다. %s</span></span></div>'
+            % ('#fcd34d' if on else '#e5e7eb', '#fffbeb' if on else '#fff', '#2563eb' if on else '#cbd5e1',
+               '#2563eb' if on else '#fff', '✓' if on else '', '#92400e' if on else '#374151', hint))
+
+
+def acc_detail(mode='edit', acc=ACCS[0], cast_on=True, n=6, tab='CASTERN', err='', dirty=False, new_draft=False, id_val='', owner='self'):
     nm, mail, on, _n, last, seeded, key = acc
     isnew = mode == 'new'
 
     def f(lb, v, ro=False, ph=False, extra=''):
         return ('<div class="fld"><span class="lbl">%s</span><div class="inp%s%s" style="%s">%s%s</div></div>'
                 % (lb, ' ro' if ro else '', ' ph' if ph else '', 'justify-content:space-between' if extra else '', v, extra))
-    gen = '<span class="btn sm">임의 생성</span>'
     seg = ('<div class="fld"><span class="lbl">계정 상태</span><div style="display:inline-flex;border:1px solid #e5e7eb;'
            'border-radius:999px;overflow:hidden;align-self:flex-start"><span style="padding:6px 16px;font-size:12.5px;%s">활성</span>'
            '<span style="padding:6px 16px;font-size:12.5px;%s">비활성</span></div></div>'
@@ -385,11 +402,9 @@ def acc_detail(mode='edit', acc=ACCS[0], cast_on=True, n=6, tab='CASTERN', err='
               'color:#9ca3af' if (on or isnew) else 'background:#f3f4f6;color:#374151;font-weight:700'))
     if isnew:
         grid = (f('ID (이메일) *', id_val or 'user@company.com', ph=not id_val) +
-                f('PWD (비밀번호) *', '비밀번호 미요청 시 임의 생성', ph=True, extra=gen) +
                 f('NAME (담당자명)', '', ph=True) + seg)
     else:
-        grid = (f('ID (이메일) *', mail, ro=True) + f('PWD (비밀번호) *', '••••••••', extra=gen) +
-                f('NAME (담당자명)', nm) + seg)
+        grid = (f('ID (이메일) *', mail, ro=True) + f('NAME (담당자명)', nm) + seg)
     info = ''
     if not isnew:
         info = (area('접속 · 이력') + '<div style="border:1px solid #eef0f4;border-radius:10px;padding:12px 14px;display:grid;'
@@ -403,12 +418,12 @@ def acc_detail(mode='edit', acc=ACCS[0], cast_on=True, n=6, tab='CASTERN', err='
             ('<b style="font-size:14px">%s</b><span style="font-size:11.5px;color:#9ca3af;font-family:ui-monospace,monospace">%s</span>' % (nm, mail)))
     ft_left = ('' if isnew else '<span class="btn gho" style="color:#dc2626;border-color:#fecaca">계정 삭제</span>')
     ft_left += ('<span style="font-size:12px;color:#b45309">● 저장하지 않은 변경이 있습니다</span>' if dirty else '')
-    ft_left += ('<span style="font-size:11.5px;color:#9ca3af">계정을 추가하면 고객사가 함께 등록됩니다</span>' if (isnew and new_draft) else '')
+    ft_left += ('<span style="font-size:11.5px;color:#9ca3af">계정을 추가하면 고객사가 함께 등록됩니다 · 계정 없이 등록하려면 위 [등록]</span>' if (isnew and new_draft) else '')
     ft_right = ('<span class="btn gho">취소</span><span class="btn pri">계정 추가</span>' if isnew
                 else '<span class="btn gho"%s>취소</span><span class="btn pri">저장</span>' % ('' if dirty else ' style="opacity:.5"'))
     return ('<div style="' + CARD + '"><div style="padding:13px 16px;border-bottom:1px solid #eef0f4;display:flex;align-items:center;gap:8px">'
             + head + '</div><div style="padding:14px 16px">' + area('기본 정보', top=0) +
-            '<div class="g2" style="gap:12px">' + grid + '</div>' + perm_box(cast_on, n, tab) + info + e +
+            '<div class="g2" style="gap:12px">' + grid + '</div>' + owner_box(owner) + perm_box(cast_on, n, tab) + info + e +
             '</div><div style="padding:11px 16px;border-top:1px solid #eef0f4;display:flex;align-items:center;gap:8px">'
             + ft_left + '<span style="flex:1"></span>' + ft_right + '</div></div>')
 
@@ -439,7 +454,7 @@ def build():
                                           base_section(new=True)), height=1200),
               [('업체명', '입력 (필수)', '—', '코드·프로젝트가 이 이름으로 연결된다'),
                ('서비스 계정 (메뉴)', '클릭', '<b>잠김</b>', '<b>기본 정보(업체명)를 먼저 입력하세요.</b> · 기본 정보로 돌아간다'),
-               ('머리말 [등록]', '클릭', '고객사만 등록 → 상세(기본 정보)', '입력한 모든 섹션 함께 저장 · <code>LOG-01</code>'),
+               ('머리말 [등록]', '클릭', '고객사만 등록 → 상세(기본 정보)', '<b>서비스 계정 없이도 등록</b> <code>PC-159</code> · 입력한 모든 섹션 함께 저장 · <code>LOG-01</code>'),
                ('머리말 [취소]', '클릭', '<code>MEM-01</code>', '아무것도 저장되지 않는다'),
                ('진행중 / 사업 종료', '선택', '—', '등록 때 함께 저장')]))
     B.append(('S2', '등록 — 업체명 미입력', '오류',
@@ -454,8 +469,9 @@ def build():
               '상세 화면의 서비스 계정 섹션(S12)을 연다 — 「임시」 계정은 없다 <code>PC-142</code>.',
               frame('MEM-01', FN, layout(header(new=True, name='에듀테크랩', n_acc=0, n_on=0, svc=''), nav('acc', new=True),
                                           acc_section(acc_card_list(accs=(), adding=True),
-                                                      acc_detail('new', cast_on=True, n=6, new_draft=True))), height=1100),
-              [('ID (이메일) · PWD (비밀번호)', '입력 (필수)', '—', '이메일 형식 · 전체에서 유일 · [임의 생성]'),
+                                                      acc_detail('new', cast_on=True, n=6, new_draft=True, owner='first'))), height=1150),
+              [('ID (이메일)', '입력 (필수)', '—', '이메일 형식 · 전체에서 유일 · 비밀번호는 받지 않는다(SSO) <code>PC-159</code>'),
+               ('OWNER (대표 계정)', '체크', '첫 계정은 체크된 채 시작', '고객사당 1명 <code>PC-159</code>'),
                ('서비스 권한', '선택', 'CasterN 사용 · 권한 6종', '켠 서비스가 고객사의 사용 서비스가 된다 <code>PC-138</code>'),
                ('[계정 추가]', '클릭', '<b>고객사 + 계정 등록</b> → 상세(서비스 계정)', '<code>/companies/{id}?sec=acc</code> <code>PC-142</code>')]))
 
@@ -509,34 +525,35 @@ def build():
                ('서비스 권한 탭', '클릭', 'CasterN / 폼솔루션', '탭 머리에 사용 점 · 권한 수 <code>PC-140</code>'),
                ('권한 카드', '클릭', '개별 지정', '[모두 선택]/[모두 해제]'),
                ('계정 상태', '선택', '활성 / 비활성', '비활성 = 서비스 로그인 불가 <code>PC-135</code>'),
+               ('OWNER (대표 계정)', '체크', 'S21', '고객사당 1명 · 카드에 OWNER 배지 · 맨 위 <code>PC-159</code>'),
                ('[저장]', '클릭', '그 계정만 저장', '<b>저장됨 · {ID}</b> · 사용 서비스 다시 계산 <code>PC-138</code>')]))
     B.append(('S12', '서비스 계정 — 계정 추가', '분기',
               '<b>[＋ 계정 추가]</b>를 누르면 오른쪽에 등록 폼이 나온다(모달 아님). 새 계정은 고객사의 현재 사용 서비스를 기본으로 켜고 CasterN 이면 권한 6종 모두. [계정 추가]로 <b>바로 저장</b>된다.',
-              frame('MEM-01', FR, layout(H, nav('acc'), acc_section(acc_card_list(adding=True), acc_detail('new'))), height=1100),
-              [('[계정 추가]', '클릭', '바로 저장', '<b>계정 추가됨 · {ID}</b>'), ('[취소]', '클릭', '상세로', '')]))
+              frame('MEM-01', FR, layout(H, nav('acc'), acc_section(acc_card_list(adding=True), acc_detail('new', owner='other'))), height=1150),
+              [('OWNER (대표 계정)', '체크', '체크하면 S21 처럼 바뀜 안내', 'OWNER 가 이미 있으면 체크 안 된 채 시작'),
+               ('[계정 추가]', '클릭', '바로 저장', '<b>계정 추가됨 · {ID}</b>'), ('[취소]', '클릭', '상세로', '')]))
     B.append(('S13', '서비스 권한 — CasterN 사용 안 함', '변형',
               '사용 스위치를 끄면 권한 그리드가 <b>흐려지기만</b> 하고 자리를 지킨다 — 켜고 끌 때 화면이 밀리지 않는다 <code>PC-140</code>.',
-              frame('MEM-01', FR, layout(H, nav('acc', dirty=()), acc_section(acc_card_list(1), acc_detail('edit', ACCS[1], cast_on=False, n=3, dirty=True))), height=1150),
+              frame('MEM-01', FR, layout(H, nav('acc', dirty=()), acc_section(acc_card_list(1), acc_detail('edit', ACCS[1], cast_on=False, n=3, dirty=True, owner='other'))), height=1200),
               [('사용 스위치', '끔', '그리드 흐림', '저장하면 이 계정은 CasterN 을 쓰지 않는다'),
                ('모든 계정이 끔', '저장', '고객사 casterN 해제', '편집 프로젝트 대상에서 빠진다 <code>PC-138</code>')]))
     B.append(('S14', '서비스 권한 — 폼솔루션 탭', '변형', '폼솔루션은 준비중 — 권한 항목이 아직 없다.',
-              frame('MEM-01', FR, layout(H, nav('acc'), acc_section(acc_card_list(0), acc_detail('edit', tab='FORM'))), height=1050),
+              frame('MEM-01', FR, layout(H, nav('acc'), acc_section(acc_card_list(0), acc_detail('edit', tab='FORM'))), height=1100),
               [('폼솔루션 사용', '켬', '폼솔루션 서비스 관리에 나타남', '권한 항목 없음')]))
-    B.append(('S15', '계정 추가 오류', '오류', 'ID 는 이메일 형식이고 전체에서 유일해야 한다(키 발급 계정 포함). 비밀번호가 없으면 막는다.',
+    B.append(('S15', '계정 추가 오류', '오류', 'ID 는 이메일 형식이고 전체에서 유일해야 한다(App Key 계정 포함). 비밀번호는 받지 않는다 <code>PC-159</code>.',
               frame('MEM-01', FR, layout(H, nav('acc'), acc_section(acc_card_list(adding=True),
-                    acc_detail('new', id_val='kim@wjthinkbig.com', err='이미 등록된 ID(email)입니다.'))), height=1120),
+                    acc_detail('new', id_val='kim@wjthinkbig.com', err='이미 등록된 ID(email)입니다.', owner='other'))), height=1170),
               [('ID 중복', '[계정 추가]', '<b>차단</b>', '<b>이미 등록된 ID(email)입니다.</b>'),
-               ('ID 형식', '[계정 추가]', '<b>차단</b>', '<b>ID 는 이메일 형식이어야 합니다.</b>'),
-               ('PWD 없음', '[계정 추가]', '<b>차단</b>', '<b>비밀번호가 필요합니다. (요청 없으면 [임의 생성])</b>')]))
+               ('ID 형식', '[계정 추가]', '<b>차단</b>', '<b>ID 는 이메일 형식이어야 합니다.</b>')]))
     dlg = ('<div class="ovl"><div class="mdl"><div class="mh"><div class="mt">계정 삭제</div><div class="mx">✕</div></div>'
            '<div style="font-size:13px;color:#374151;line-height:1.7">계정 edit01@wjthinkbig.com 을(를) 삭제할까요?</div>'
            '<div class="mf"><div class="btn gho">취소</div><div class="btn dan">삭제</div></div></div></div>')
     B.append(('S16', '계정 삭제 확인창', '확인창', '[계정 삭제]는 확인을 거친다. 연결된 App Key 도 함께 지워진다.',
-              frame('MEM-01', FR, layout(H, nav('acc'), acc_section(acc_card_list(1), acc_detail('edit', ACCS[1], n=3))), overlay=dlg, height=1150),
+              frame('MEM-01', FR, layout(H, nav('acc'), acc_section(acc_card_list(1), acc_detail('edit', ACCS[1], n=3, owner='other'))), overlay=dlg, height=1200),
               [('[삭제]', '클릭', '계정 제거', '사용 서비스 다시 계산 · <code>LOG-01</code>'), ('[취소] · ✕', '클릭', 'S11', '')]))
     B.append(('S17', '가입 승인 후 계정 추가', '분기',
               '<code>MEM-01</code> 가입 승인 카드의 <b>[계정 추가 →]</b>로 들어오면 서비스 계정 등록 폼이 열리고 SSO 이메일이 ID 칸에 들어가 있다 <code>PC-133</code>.',
-              frame('MEM-01', FR, layout(H, nav('acc'), acc_section(acc_card_list(adding=True), acc_detail('new', id_val='teacher@newschool.kr'))), height=1100),
+              frame('MEM-01', FR, layout(H, nav('acc'), acc_section(acc_card_list(adding=True), acc_detail('new', id_val='teacher@newschool.kr', owner='other'))), height=1150),
               [('ID (이메일)', '자동', 'SSO 이메일', '<code>?email=</code>'), ('[계정 추가]', '클릭', '바로 저장', '')]))
 
     # ── 업무 메모 ──
@@ -556,9 +573,27 @@ def build():
               frame('MEM-01', FR, layout(H, nav('memo'), memo_card()), overlay=memo_del, height=900),
               [('[삭제]', '클릭', '메모 제거', ''), ('[취소] · ✕', '클릭', 'S18', '')]))
 
+    # ── OWNER · 계정 없음 `PC-159` ──
+    B.append(('S21', 'OWNER 지정 — 기존 OWNER 바뀜', '분기',
+              '다른 계정에서 <b>OWNER (대표 계정)</b>를 체크하면 「저장하면 OWNER 가 {기존} 에서 이 계정으로 바뀝니다」가 나오고, '
+              '[저장]하면 기존 OWNER 는 <b>자동으로 풀린다</b> — OWNER 는 <b>고객사당 1명</b> <code>PC-159</code>.',
+              frame('MEM-01', FR, layout(H, nav('acc'), acc_section(acc_card_list(1), acc_detail('edit', ACCS[1], n=3, dirty=True, owner='switch'))), height=1200),
+              [('OWNER 체크', '체크', '바뀜 안내', '기존 OWNER 이름 · ID'),
+               ('[저장]', '클릭', 'OWNER 이동', '기존 OWNER 해제 · 카드 OWNER 배지 이동 · <b>저장됨 · {ID}</b>'),
+               ('OWNER 해제', '체크 풂 · [저장]', 'OWNER 없음', '이후 첫 새 계정이 OWNER 로 시작')]))
+    B.append(('S22', '서비스 계정 없음 — 선택', '빈 상태',
+              '<b>서비스 계정은 선택</b>이다. 계정이 없어도 고객사는 등록·사용할 수 있고, 등록 폼을 저절로 열지 않는다 — '
+              '고객사가 서비스(CasterN 등)에 로그인해야 할 때 <b>[＋ 계정 추가]</b>로 만든다 <code>PC-159</code>.',
+              frame('MEM-01', FR, layout(header(n_acc=0, n_on=0, svc=''), nav('acc'),
+                    acc_section(acc_card_list(accs=()),
+                                '<div style="' + CARD + ';padding:40px 0;text-align:center;color:#9ca3af;font-size:12.5px;line-height:1.8">'
+                                '서비스 계정은 선택입니다.<br>고객사가 서비스(CasterN 등)에 로그인해야 할 때 [＋ 계정 추가]로 등록합니다.</div>')), height=800),
+              [('[＋ 계정 추가]', '클릭', 'S12', '첫 계정은 OWNER 로 시작'),
+               ('사용 서비스', '—', '기존 지정값 유지', '계정이 없으면 다시 계산하지 않는다 <code>PC-138</code>')]))
+
     intro = ('고객사를 <b>등록</b>하고 <b>상세·수정</b>하는 화면이다. 「<b>머리말 + 섹션 메뉴 | 본문</b>」 구조이며 '
              '섹션은 고객사 정보(기본 정보 · 편집 단가 · 관련 서류)와 운영(서비스 계정 · 업무 메모)이다 <code>PC-136</code>. '
              '<b>등록</b>은 한 번 — 머리말 [등록] 또는 서비스 계정 [계정 추가](고객사 함께 등록). 그 뒤는 <b>섹션·계정 단위로 저장</b>한다(PRD §4.8). '
              '진행 상태는 머리말 오른쪽 진행중/사업 종료 <code>PC-139</code>, 사용 서비스는 <b>서비스 계정의 서비스</b> <code>PC-138</code>, '
-             '서비스 계정은 「카드 목록 | 상세」와 서비스 권한 탭 <code>PC-140</code>.')
+             '서비스 계정은 「카드 목록 | 상세」와 서비스 권한 탭 <code>PC-140</code> — <b>선택</b>이고, 비밀번호는 받지 않으며 <b>OWNER 는 1명</b> <code>PC-159</code>.')
     return page(CODE, NAME, PRD, intro, B)

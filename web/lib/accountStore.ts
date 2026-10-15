@@ -99,6 +99,7 @@ export type CasterAccount = {
   active?: boolean;
   lastLoginAt?: string;   // 최근 접속일시 — 서비스(CasterN 등) 로그인 기록. 없으면 「접속 기록 없음」 `PC-135`
   coRef?: number;      // 고객사 관리 고객사 id — App Key 관리에서 고객사를 불러와 만든 계정 `PC-153` (옛 대장 계정은 고객사명으로 잇는다)
+  owner?: boolean;     // 고객사 OWNER 계정 — 서비스 계정 중 **고객사당 1명** `PC-159`
   seeded?: boolean;    // 개발팀 대장에서 들어온 계정 — 비밀번호는 저장하지 않았다(「대장 참조」) `PC-103`
   note?: string;       // 대장의 안내문(영업용 테스트 계정 등)
   createdAt: string;

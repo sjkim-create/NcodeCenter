@@ -419,7 +419,9 @@ def build():
         '<tr style="border-top:1px solid #eef0f4"><td style="padding:9px 12px">%s</td>'
         '<td style="padding:9px 12px;font-family:ui-monospace,monospace;font-size:12px">%s</td>'
         '<td style="padding:9px 12px">%s</td><td style="padding:9px 12px;font-family:ui-monospace,monospace;font-size:12px;color:%s">%s</td></tr>'
-        % (n, m, ('<span style="font-size:11px;background:#ecfdf5;color:#047857;border-radius:5px;padding:2px 8px;font-weight:700">활성</span>' if on
+        % (n + (' <span style="font-size:11px;background:#fef3c7;color:#92400e;border-radius:5px;padding:2px 8px;font-weight:700">OWNER</span>'
+                if m == 'kim@wjthinkbig.com' else ''),
+           m, ('<span style="font-size:11px;background:#ecfdf5;color:#047857;border-radius:5px;padding:2px 8px;font-weight:700">활성</span>' if on
                   else '<span style="font-size:11px;background:#f3f4f6;color:#6b7280;border-radius:5px;padding:2px 8px;font-weight:700">비활성</span>'),
            '#374151' if last[0].isdigit() else '#9ca3af', last)
         for n, m, on, last in (('김태호', 'kim@wjthinkbig.com', True, '2026-10-14 09:12'),
@@ -441,6 +443,7 @@ def build():
         [('서비스 계정 열 {n}명', '클릭', '명단 창', '행 클릭(상세 이동)과 분리'),
          ('명단 창 위', '표시', '활성 · 비활성 인원', ''),
          ('최근 접속일', '표시', '—', '서비스 로그인 기록이 없으면 <b>접속 기록 없음</b>'),
+         ('OWNER 배지', '표시', '맨 위', '고객사 OWNER 계정(1명) <code>PC-159</code>'),
          ('[계정 관리 →]', '클릭', '<code>MEM-02</code> S11', '<code>/companies/{id}?sec=acc</code>'),
          ('[닫기] · ✕', '클릭', 'S1', '')]))
 

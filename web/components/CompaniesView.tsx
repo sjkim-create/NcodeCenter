@@ -342,9 +342,12 @@ export default function CompaniesView() {
               <table style={{ ...S.table }}>
                 <thead><tr>{["이름", "이메일", "계정 상태", "최근 접속일"].map((h) => <th key={h} style={S.th}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {list.map((a) => (
+                  {[...list].sort((x, y) => Number(!!y.owner) - Number(!!x.owner)).map((a) => (
                     <tr key={a.id} style={{ borderTop: "1px solid #eef0f4" }}>
-                      <td style={S.td}>{a.name || <span style={{ color: "#9ca3af" }}>-</span>}</td>
+                      <td style={S.td}>
+                        {a.name || <span style={{ color: "#9ca3af" }}>-</span>}
+                        {a.owner && <span style={{ ...S.tag, background: "#fef3c7", color: "#92400e", fontWeight: 700, marginLeft: 6 }} title="고객사 OWNER 계정 `PC-159`">OWNER</span>}
+                      </td>
                       <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", fontSize: 12 }}>{a.id}</td>
                       <td style={S.td}>
                         {isActive(a)
@@ -736,7 +739,7 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "" 
                           </div>
                         </div>
               </div>
-              {isNew && <div style={{ fontSize: 11.5, color: "#9ca3af", marginTop: 12 }}>업체명을 입력하면 왼쪽 <b>서비스 계정</b>에서 계정을 추가할 수 있습니다. 계정을 추가하면 고객사가 함께 등록됩니다.</div>}
+              {isNew && <div style={{ fontSize: 11.5, color: "#9ca3af", marginTop: 12 }}><b>서비스 계정은 선택</b>입니다 — 계정 없이 위 <b>[등록]</b>으로 고객사만 등록할 수 있습니다. 업체명을 입력하면 왼쪽 <b>서비스 계정</b>에서 계정을 추가할 수 있고, 그때 고객사가 함께 등록됩니다.</div>}
             </>) })}
 
           {sec === "rate" && secWrap({ sc: "rate", title: "편집 단가", desc: "· 2026 항목별", children: (<>

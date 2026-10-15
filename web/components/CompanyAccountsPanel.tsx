@@ -7,6 +7,9 @@
 //   그 계정이 CasterN 을 쓴다(권한 6종). 고객사의 사용 서비스 = 계정들의 서비스의 합 `PC-138`.
 // - 상세의 변경은 **[저장]** 으로 반영한다(즉시 저장하지 않는다) `PC-136`.
 // - App Key 관리(티켓 고객사의 키 발급 계정)와는 다른 계정이다(scope = "service").
+// - 비밀번호는 다루지 않는다 — 서비스 로그인은 SSO 다 `PC-159`
+// - **OWNER** — 고객사당 1명. 다른 계정을 OWNER 로 지정하면 기존 OWNER 는 풀린다 `PC-159`
+// - 서비스 계정이 없어도 고객사는 등록·사용할 수 있다 `PC-159`
 import { useState } from "react";
 import { S, Field } from "./ui";
 import { ACCOUNT_SERVICES, ALL_PERMS, CASTERN_PERMS, isActive, type AccountService, type CasterAccount, type CasterPerm } from "@/lib/accountStore";
@@ -18,11 +21,6 @@ export type AccountOps = {
   remove: (id: string) => void;
 };
 
-const genPwd = () => {
-  const buf = new Uint8Array(9);
-  (globalThis.crypto ?? window.crypto).getRandomValues(buf);
-  return btoa(String.fromCharCode(...buf)).replace(/[+/=]/g, "").slice(0, 10);
-};
 // 고객사 사용 서비스(ServiceType) → 계정 서비스(AccountService)
 const ACC_OF: Partial<Record<ServiceType, AccountService>> = { CASTERN: "CASTERN", FORMSOLUTION: "FORMSOLUTION" };
 const fmtAt = (s?: string) => (s ? s.slice(0, 16).replace("T", " ") : "");
@@ -52,11 +50,17 @@ export function CompanyAccountsPanel({ accounts, ops, companyName, companyServic
   const allowed = companyServices.map((v) => ACC_OF[v]).filter(Boolean) as AccountService[];
   // 오른쪽 칸: 고른 계정 상세 / 등록 폼. 승인에서 넘어오면 등록 폼부터 연다
   const [selId, setSelId] = useState<string | null>(initialId ? null : accounts[0]?.id ?? null);
-  const [adding, setAdding] = useState(!!initialId || accounts.length === 0);
+  // 계정이 없어도 등록 폼을 저절로 열지 않는다 — 서비스 계정은 선택이다 `PC-159`
+  const [adding, setAdding] = useState(!!initialId);
   const [q, setQ] = useState("");
   const [msg, setMsg] = useState("");
 
-  const list = accounts.filter((a) => (q ? `${a.name} ${a.id}`.toLowerCase().includes(q.toLowerCase()) : true));
+  // OWNER 를 맨 위에 둔다
+  const list = accounts.filter((a) => (q ? `${a.name} ${a.id}`.toLowerCase().includes(q.toLowerCase()) : true))
+    .sort((a, b) => Number(!!b.owner) - Number(!!a.owner));
+  const owner = accounts.find((a) => a.owner);
+  // OWNER 는 1명 — 이 계정을 OWNER 로 저장하면 다른 OWNER 를 푼다
+  const releaseOthers = (id: string) => accounts.filter((a) => a.owner && a.id !== id).forEach((a) => ops.update(a.id, { owner: false }));
   const sel = adding ? undefined : accounts.find((a) => a.id === selId) ?? accounts[0];
   const nOn = accounts.filter(isActive).length;
 
@@ -76,7 +80,7 @@ export function CompanyAccountsPanel({ accounts, ops, companyName, companyServic
           )}
           {accounts.length === 0 && (
             <div style={{ fontSize: 12, color: "#9ca3af", padding: "24px 0", textAlign: "center", lineHeight: 1.7 }}>
-              등록된 계정이 없습니다.<br />[＋ 계정 추가]로 등록하세요.
+              서비스 계정이 없습니다.<br />계정 없이도 고객사를 등록·사용할 수 있습니다.<br />필요하면 [＋ 계정 추가]로 등록하세요.
             </div>
           )}
           {list.map((a) => {
@@ -88,6 +92,7 @@ export function CompanyAccountsPanel({ accounts, ops, companyName, companyServic
                 style={{ border: `1px solid ${on ? "#5f8ff0" : "#eef0f4"}`, background: on ? "#f5f9ff" : "#fff", borderRadius: 10, padding: "10px 12px", marginBottom: 8, cursor: "pointer" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <b style={{ fontSize: 13.5 }}>{a.name || <span style={{ color: "#9ca3af", fontWeight: 400 }}>이름 없음</span>}</b>
+                  {a.owner && <span style={tag("#fef3c7", "#92400e")} title="고객사 OWNER 계정 — 고객사당 1명">OWNER</span>}
                   {a.seeded && <span style={tag("#f0fdfa", "#0f766e")} title="개발팀 Caster 대장에서 들어온 계정">대장</span>}
                 </div>
                 <div style={{ fontFamily: "ui-monospace,monospace", fontSize: 11.5, color: "#6b7280", marginTop: 2 }}>{a.id}</div>
@@ -108,27 +113,35 @@ export function CompanyAccountsPanel({ accounts, ops, companyName, companyServic
       {/* 상세 / 등록 */}
       {adding ? (
         <AccountForm key="__new" mode="new" companyName={companyName} allowed={allowed} draft={draft} initialId={initialId}
-          onCancel={accounts.length ? () => setAdding(false) : undefined}
+          currentOwner={owner}
+          onCancel={() => setAdding(false)}
           onSubmit={(a) => {
             const r = ops.add(a);
-            if (r.ok) { setAdding(false); setSelId(a.id); setMsg(`계정 추가됨 · ${a.id}`); }
+            if (r.ok) { if (a.owner) releaseOthers(a.id); setAdding(false); setSelId(a.id); setMsg(`계정 추가됨 · ${a.id}`); }
             return r;
           }} />
       ) : sel ? (
         <AccountForm key={sel.id} mode="edit" account={sel} companyName={companyName} allowed={allowed} draft={draft}
-          appKey={appKeyOf?.(sel.id)}
-          onSubmit={(a) => { ops.update(sel.id, { name: a.name, pwd: a.pwd, active: a.active, services: a.services, settings: a.settings }); setMsg(`저장됨 · ${sel.id}`); return { ok: true, msg: "" }; }}
+          appKey={appKeyOf?.(sel.id)} currentOwner={owner}
+          onSubmit={(a) => {
+            if (a.owner) releaseOthers(sel.id);
+            ops.update(sel.id, { name: a.name, owner: !!a.owner, active: a.active, services: a.services, settings: a.settings });
+            setMsg(`저장됨 · ${sel.id}`); return { ok: true, msg: "" };
+          }}
           onRemove={() => { if (confirm(`계정 ${sel.id} 을(를) 삭제할까요?`)) { ops.remove(sel.id); setSelId(null); setMsg(""); } }} />
       ) : (
-        <div style={{ ...card, padding: "40px 0", alignItems: "center", color: "#9ca3af", fontSize: 12.5 }}>계정을 선택하거나 [＋ 계정 추가]를 누르세요.</div>
+        <div style={{ ...card, padding: "40px 0", alignItems: "center", color: "#9ca3af", fontSize: 12.5, lineHeight: 1.8, textAlign: "center" }}>
+          {accounts.length ? "계정을 선택하거나 [＋ 계정 추가]를 누르세요." : <>서비스 계정은 선택입니다.<br />고객사가 서비스(CasterN 등)에 로그인해야 할 때 [＋ 계정 추가]로 등록합니다.</>}
+        </div>
       )}
     </div>
   );
 }
 
 /** 계정 상세·등록 폼 — 변경은 [저장]/[계정 추가] 로만 반영한다 `PC-136` */
-function AccountForm({ mode, account, companyName, allowed, draft, initialId = "", appKey, onSubmit, onCancel, onRemove }: {
+function AccountForm({ mode, account, companyName, allowed, draft, initialId = "", appKey, currentOwner, onSubmit, onCancel, onRemove }: {
   mode: "new" | "edit";
+  currentOwner?: CasterAccount;            // 지금 이 고객사의 OWNER — 1명 `PC-159`
   account?: CasterAccount;
   companyName: string;
   allowed: AccountService[];
@@ -140,12 +153,12 @@ function AccountForm({ mode, account, companyName, allowed, draft, initialId = "
   onRemove?: () => void;
 }) {
   const isNew = mode === "new";
-  const start = (): { id: string; pwd: string; name: string; active: boolean; services: AccountService[]; perms: CasterPerm[] } => account
-    ? { id: account.id, pwd: account.pwd, name: account.name, active: isActive(account),
+  const start = (): { id: string; name: string; owner: boolean; active: boolean; services: AccountService[]; perms: CasterPerm[] } => account
+    ? { id: account.id, name: account.name, owner: !!account.owner, active: isActive(account),
         services: (account.services ?? []).filter((v) => v === "CASTERN" || v === "FORMSOLUTION"),
         perms: account.settings?.CASTERN?.perms ?? [] }
-    // 새 계정 — 고객사 사용 서비스를 기본으로 켜고 casterN 은 권한 6종 모두
-    : { id: initialId, pwd: "", name: "", active: true, services: allowed, perms: allowed.includes("CASTERN") ? [...ALL_PERMS] : [] };
+    // 새 계정 — 고객사 사용 서비스를 기본으로 켜고 casterN 은 권한 6종 모두. OWNER 가 없으면 첫 계정이 OWNER
+    : { id: initialId, name: "", owner: !currentOwner, active: true, services: allowed, perms: allowed.includes("CASTERN") ? [...ALL_PERMS] : [] };
   const [f, setF] = useState(start);
   const [err, setErr] = useState("");
   const [svcTab, setSvcTab] = useState<AccountService>("CASTERN");   // 서비스 권한 탭 `PC-140`
@@ -161,10 +174,9 @@ function AccountForm({ mode, account, companyName, allowed, draft, initialId = "
 
   const submit = () => {
     if (isNew && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.id.trim())) { setErr("ID 는 이메일 형식이어야 합니다."); return; }
-    if (!f.pwd.trim() && !(account?.seeded)) { setErr("비밀번호가 필요합니다. (요청 없으면 [임의 생성])"); return; }
     const acc: CasterAccount = {
       ...(account ?? { companyId: 0, company: companyName, addr: "", homepage: "", createdAt: "", scope: "service" as const }),
-      id: f.id.trim(), pwd: f.pwd.trim(), name: f.name.trim(), active: f.active, services: f.services,
+      id: f.id.trim(), pwd: account?.pwd ?? "", name: f.name.trim(), owner: f.owner, active: f.active, services: f.services,
       settings: { ...(account?.settings ?? {}), CASTERN: { ...(account?.settings?.CASTERN ?? {}), perms: f.perms } },
     };
     const r = onSubmit(acc);
@@ -187,13 +199,6 @@ function AccountForm({ mode, account, companyName, allowed, draft, initialId = "
               ? <input style={S.input} value={f.id} onChange={(e) => setF({ ...f, id: e.target.value })} placeholder="user@company.com" />
               : <div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280", fontFamily: "ui-monospace,monospace" }}>{f.id}</div>}
           </Field>
-          <Field label={account?.seeded ? "PWD (비밀번호)" : "PWD (비밀번호) *"}>
-            <div style={{ display: "flex", gap: 6 }}>
-              <input style={S.input} value={f.pwd} onChange={(e) => setF({ ...f, pwd: e.target.value })}
-                placeholder={account?.seeded && !account.pwd ? "대장 참조" : "비밀번호 미요청 시 임의 생성"} />
-              <button type="button" onClick={() => setF({ ...f, pwd: genPwd() })} style={{ ...S.smallBtn, whiteSpace: "nowrap" }} title="비밀번호를 요청하지 않으면 임의로 만듭니다">임의 생성</button>
-            </div>
-          </Field>
           <Field label="NAME (담당자명)"><input style={S.input} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label="계정 상태">
             <div style={{ display: "inline-flex", border: "1px solid #e5e7eb", borderRadius: 999, overflow: "hidden", alignSelf: "flex-start" }}>
@@ -210,6 +215,27 @@ function AccountForm({ mode, account, companyName, allowed, draft, initialId = "
             </div>
           </Field>
         </div>
+
+        {/* OWNER — 고객사당 1명 `PC-159` */}
+        {(() => {
+          const other = currentOwner && currentOwner.id !== account?.id ? currentOwner : undefined;
+          const otherName = other ? (other.name ? `${other.name} (${other.id})` : other.id) : "";
+          return (
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, marginTop: 12, cursor: "pointer", border: `1px solid ${f.owner ? "#fcd34d" : "#e5e7eb"}`,
+              background: f.owner ? "#fffbeb" : "#fff", borderRadius: 10, padding: "10px 12px" }}>
+              <input type="checkbox" checked={f.owner} onChange={(e) => setF({ ...f, owner: e.target.checked })} style={{ marginTop: 2 }} />
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: f.owner ? "#92400e" : "#374151" }}>OWNER (대표 계정)</span>
+                <span style={{ display: "block", fontSize: 11.5, color: "#9ca3af", marginTop: 2 }}>
+                  고객사당 1명만 지정합니다.{" "}
+                  {other
+                    ? (f.owner ? <b style={{ color: "#b45309" }}>저장하면 OWNER 가 {otherName} 에서 이 계정으로 바뀝니다.</b> : <>지금 OWNER: {otherName}</>)
+                    : (f.owner ? "이 계정이 이 고객사의 OWNER 입니다." : "지금 OWNER 가 없습니다.")}
+                </span>
+              </span>
+            </label>
+          );
+        })()}
 
         {/* 서비스 권한 — 서비스별 탭 + 사용 스위치 + 권한 그리드 `PC-140`
             체크한 서비스가 곧 이 고객사의 사용 서비스가 된다 `PC-138`. 그리드는 늘 같은 자리에 두고
@@ -320,7 +346,7 @@ function AccountForm({ mode, account, companyName, allowed, draft, initialId = "
       <div style={ft}>
         {!isNew && onRemove && <button type="button" onClick={onRemove} style={{ ...S.ghost, color: "#dc2626", borderColor: "#fecaca" }}>계정 삭제</button>}
         {dirty && <span style={{ fontSize: 12, color: "#b45309" }}>● 저장하지 않은 변경이 있습니다</span>}
-        {isNew && draft && <span style={{ fontSize: 11.5, color: "#9ca3af" }}>계정을 추가하면 고객사가 함께 등록됩니다</span>}
+        {isNew && draft && <span style={{ fontSize: 11.5, color: "#9ca3af" }}>계정을 추가하면 고객사가 함께 등록됩니다 · 계정 없이 등록하려면 위 [등록]</span>}
         <span style={{ flex: 1 }} />
         {isNew ? (onCancel && <button type="button" onClick={onCancel} style={S.ghost}>취소</button>)
                : <button type="button" onClick={() => { setF(start()); setErr(""); }} style={S.ghost} disabled={!dirty}>취소</button>}
