@@ -5,10 +5,10 @@ from shell import page, frame
 CODE, NAME = 'MEM-01', '고객사 관리'
 PRD = 'docs/prd/MEM-01_고객사 관리.md'
 
-TIERS = (('', '전체', 534, '#374151', '#eef6ff'),
-         ('holder', '상위 고객사', 8, '#047857', '#ecfdf5'),
-         ('member', '하위 고객사', 34, '#7e22ce', '#f3e8ff'),
-         ('solo', '단독 고객사', 492, '#6b7280', '#f3f4f6'))
+TIERS = (('', '전체', 537, '#374151', '#eef6ff'),
+         ('holder', '상위 고객사', 6, '#047857', '#ecfdf5'),
+         ('member', '하위 고객사', 211, '#7e22ce', '#f3e8ff'),
+         ('solo', '단독 고객사', 320, '#6b7280', '#f3f4f6'))
 
 # 업체명, 계층, 담당자, 연락처, 사업자번호, 은행, 계좌, 커먼코드, 전용단가수, 주소, 서류, 업무, 종료
 ROWS = [
@@ -51,7 +51,7 @@ def toolbar(search='', filtered=None):
             'flex-wrap:wrap">'
             '<p style="margin:0;color:#6b7280;font-size:13px">'
             '업체(고객사) 마스터 · 사업자/계좌/서류/업무 원장. 행을 클릭하면 수정 화면으로 이동합니다. '
-            '고객사 534곳 · 프로젝트 508건</p>'
+            '고객사 537곳 · 프로젝트 511건</p>'
             '<div style="flex:1"></div>'
             '<div style="position:relative">'
             '<div style="width:240px;padding:8px 26px 8px 10px;border:1px solid #e5e7eb;'
@@ -155,7 +155,7 @@ def table(rows, search=''):
         foot = ('<div style="display:flex;align-items:center;justify-content:space-between;'
                 'gap:10px;padding:10px 14px;border-top:1px solid #eef0f4;flex-wrap:wrap">'
                 '<div style="font-size:12px;color:#6b7280">전체 '
-                '<b style="color:#111827">534</b>건 중 1~50 표시'
+                '<b style="color:#111827">537</b>건 중 1~50 표시'
                 '<span style="margin-left:8px;font-size:12px;padding:3px 6px;'
                 'border:1px solid #e5e7eb;border-radius:6px">50건씩 ▾</span></div>'
                 '<div style="display:flex;align-items:center;gap:4px">%s'
@@ -261,7 +261,7 @@ def build():
     boards.append((
         'S1', '기본 · 전체 목록', '기본',
         '좌측 메뉴 [고객사 관리]로 진입. 구현은 <b>안내문 + 검색 + [＋ 고객사 등록]</b> 툴바 아래에 '
-        '<b>구분 필터 줄</b>이 따로 있고, 표는 <b>11열</b>(No · 업체명 · 담당자/연락처 · 사업자번호 · '
+        '<b>구분 필터 줄</b>이 따로 있고, 표는 <b>12열</b>(No · 업체명 · 담당자/연락처 · 서비스 계정 · 사업자번호 · '
         '은행/계좌 · 커먼 코드 · 편집 단가 · <b>주소</b> · 서류 · 업무 · 작업)이다. '
         '표 하단에 <b>표시 건수 선택 + 페이지네이션</b>이 붙는다. '
         '',
@@ -355,10 +355,10 @@ def build():
         'S9', '등록 · 수정 완료 복귀', '성공',
         '<code>MEM-02</code>에서 [저장]하면 목록이 갱신되고 상단 알림이 뜬다. 신규 [등록]은 계정을 이어서 추가하도록 '
         '<b>상세·수정 화면</b>으로 간다 <code>PC-128</code>. 등록된 고객사는 <code>SOB-02</code> 직접 코드 할당의 '
-        '<b>선택 대상</b>이 된다. App Key·N Key 발급 고객사(티켓 고객사)와는 별개다 <code>PC-123</code>.',
+        '<b>선택 대상</b>이 되고, App Key 관리 · N Key 관리에서 <b>불러와 키를 발급</b>할 수 있다 <code>PC-153</code>.',
         frame('MEM-01', '고객사 관리', content(toast=toast_new), height=900),
         [('상단 알림', '표시', '—', '등록: <b>등록됨 · {업체명}</b> / 수정: <b>수정됨 · {업체명}</b>'),
-         ('(등록 직후)', '자동', '<code>SOB-02</code> 편입', '코드 할당 가능 · 티켓 발급 고객사와는 별개'),
+         ('(등록 직후)', '자동', '<code>SOB-02</code> · <code>TKT-01</code> · <code>TKT-02</code> 편입', '코드 할당 · App Key · N Key 발급 대상 <code>PC-153</code>'),
          ('코드 할당하러 가기', '좌측 메뉴', '<code>SOB-01</code> → <code>SOB-02</code>', ''),
          ('코드 보유 현황', '좌측 메뉴', '<code>PRJ-01</code>', ''),
          ('편집 실적·정산', '좌측 메뉴', '<code>PRJ-02</code> → <code>PRJ-03</code>', '')]))
@@ -431,9 +431,10 @@ def build():
          ('[닫기] · ✕', '클릭', 'S1', '')]))
 
     intro = ('코드를 발급받는 <b>업체(고객사) 마스터</b>. 사업자·계좌·서류·편집 단가·업무 이력을 관리한다. '
-             '고객사는 <b>서비스 사용 고객사</b>이며, App Key·N Key 를 받는 <b>티켓 고객사</b>(nkey(HLP) 대장)와 '
-             '<b>따로 관리</b>한다 <code>PC-123</code> — SOBP 맵에서는 티켓 고객사를 <b>(K)이름</b>으로 구분한다. '
-             '고객사마다 <b>서비스 로그인 계정과 권한</b>을 <code>MEM-02</code>에서 관리한다 <code>PC-128</code>. '
+             '<b>App Key 관리 · N Key 관리(<code>TKT-01</code> · <code>TKT-02</code>)는 이 고객사를 불러와 키를 발급</b>한다 '
+             '<code>PC-153</code>. 고객사마다 <b>서비스 계정</b>(서비스 권한 · OWNER 1명 · 선택)을 <code>MEM-02</code>에서 관리한다 '
+             '<code>PC-128</code> <code>PC-159</code> — App Key 관리의 App Key 계정과는 다른 계정이다. '
+             '목록은 <b>업체명 옆 정렬 셀렉트</b>(최신순 · 오름차순 · 내림차순)로 정렬한다 <code>PC-161</code>. '
              '계층은 <code>P-11</code>에 따라 <b>상위 / 하위 / 단독</b> 3분류이고 구분 필터로 거른다. '
              '<b>행을 클릭하면 <code>MEM-02</code> 수정 화면</b>으로 이동한다. '
              '')
