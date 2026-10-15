@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>고객사 상세 3단 시안</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#eef1f6;font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;font-size:13px;color:#111827}
+.note{max-width:1440px;margin:14px auto 0;padding:0 4px;color:#64748b;font-size:12.5px;line-height:1.7}
+.note b{color:#0f172a}
+.frame{width:1440px;height:900px;margin:10px auto 30px;background:#f6f7f9;border:1px solid #dbe2ea;border-radius:12px;overflow:hidden;display:flex}
+.sb{width:220px;background:#fff;border-right:1px solid #eef0f4;padding:16px 12px;flex:none}
+.brand{display:flex;align-items:center;gap:8px;margin-bottom:18px}
+.bmark{width:30px;height:30px;border-radius:8px;background:#5f8ff0;color:#fff;display:grid;place-items:center;font-weight:800}
+.grp{font-size:10.5px;color:#9ca3af;margin:12px 6px 4px}
+.mi{padding:7px 10px;border-radius:8px;color:#374151;font-size:12.5px}
+.mi.on{background:#5f8ff0;color:#fff;font-weight:700}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{height:52px;background:#fff;border-bottom:1px solid #eef0f4;display:flex;align-items:center;padding:0 20px;font-weight:700}
+.top .crumb{color:#9ca3af;font-weight:400;margin-right:6px}
+.body{flex:1;padding:16px 20px;display:flex;flex-direction:column;gap:12px;min-height:0}
+.head{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.head h1{font-size:20px;margin:0;font-weight:800}
+.tag{font-size:11px;border-radius:5px;padding:2px 8px;font-weight:700;white-space:nowrap}
+.t-purple{background:#f3e8ff;color:#7e22ce}.t-green{background:#ecfdf5;color:#047857}.t-gray{background:#f3f4f6;color:#6b7280}.t-blue{background:#eef6ff;color:#2563eb}.t-amber{background:#fef3c7;color:#92400e}
+.sum{display:flex;gap:16px;margin-left:8px;color:#6b7280;font-size:12.5px}
+.sum b{color:#111827}
+.sp{flex:1}
+.btn{border:1px solid #e5e7eb;background:#fff;border-radius:9px;padding:7px 14px;font-size:12.5px;cursor:pointer;color:#374151}
+.btn.pri{background:#5f8ff0;border-color:#5f8ff0;color:#fff;font-weight:600}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.icon{padding:6px 10px}
+.cols{flex:1;display:grid;grid-template-columns:210px minmax(0,1fr);gap:12px;min-height:0}
+.nav{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:8px}
+.nv{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:9px;cursor:pointer;color:#374151;font-size:13px}
+.nv:hover{background:#f6f8fb}
+.nv.on{background:#eef6ff;color:#1d4ed8;font-weight:700}
+.nv .cnt{margin-left:auto;font-size:11px;background:#f3f4f6;color:#6b7280;border-radius:999px;padding:1px 8px;font-weight:700}
+.nv.on .cnt{background:#dbeafe;color:#1d4ed8}
+.nv .dot{width:7px;height:7px;border-radius:50%;background:#f59e0b;margin-left:auto}
+.navsep{height:1px;background:#eef0f4;margin:6px 4px}
+.navh{font-size:10.5px;color:#9ca3af;padding:8px 12px 2px}
+.content{min-height:0;display:flex;gap:12px}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;display:flex;flex-direction:column;min-height:0}
+.card .hd{padding:14px 18px;border-bottom:1px solid #eef0f4;display:flex;align-items:center;gap:8px}
+.card .hd b{font-size:14px}
+.card .hd .d{font-size:11.5px;color:#9ca3af}
+.card .bd{padding:16px 18px;overflow:auto;flex:1}
+.card .ft{padding:12px 18px;border-top:1px solid #eef0f4;display:flex;align-items:center;gap:8px}
+.wide{flex:1}
+.list{width:330px;flex:none}
+.detail{flex:1;min-width:0}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+.fld .lbl{font-size:11px;color:#6b7280;display:block;margin-bottom:4px}
+.inp{border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;background:#fff;min-height:36px;display:flex;align-items:center}
+.inp.ph{color:#9ca3af}
+.full{grid-column:1/-1}
+.acc{border:1px solid #eef0f4;border-radius:10px;padding:11px 12px;cursor:pointer;margin-bottom:8px}
+.acc:hover{border-color:#c7d2fe}
+.acc.on{border-color:#5f8ff0;background:#f5f9ff}
+.acc .n{font-weight:700;font-size:13.5px}
+.acc .m{font-family:ui-monospace,monospace;font-size:11.5px;color:#6b7280;margin-top:2px}
+.acc .r{display:flex;gap:6px;margin-top:7px;align-items:center}
+.acc .last{margin-left:auto;font-size:11px;color:#9ca3af}
+.search{border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;color:#9ca3af;margin-bottom:10px}
+.seg{display:inline-flex;border:1px solid #e5e7eb;border-radius:999px;overflow:hidden}
+.seg span{padding:5px 14px;font-size:12px;color:#9ca3af}
+.seg span.on{background:#ecfdf5;color:#047857;font-weight:700}
+.perm{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.pm{border:1px solid #eef0f4;border-radius:9px;padding:8px 10px;font-size:12.5px;display:flex;gap:7px;align-items:center}
+.pm.on{border-color:#c7ddff;background:#f7faff;color:#1d4ed8;font-weight:700}
+.pm small{font-family:ui-monospace,monospace;color:#9ca3af;font-weight:400}
+.box{border:1px solid #eef0f4;border-radius:10px;padding:12px 14px;margin-top:12px}
+.box h4{margin:0 0 8px;font-size:12.5px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:6px 10px;font-size:12.5px}
+.kv span:nth-child(odd){color:#6b7280}
+.svc{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.svcc{border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px}
+.svcc.on{border-color:#93c5fd;background:#f5f9ff}
+.memo{border:1px solid #eef0f4;border-radius:9px;padding:9px 11px;margin-bottom:8px;font-size:12.5px}
+.memo .mh{display:flex;gap:8px;font-size:11.5px;color:#9ca3af;margin-bottom:4px;align-items:center}
+.empty{color:#9ca3af;text-align:center;padding:40px 0}
+.hint{font-size:11.5px;color:#9ca3af;margin-top:6px}
+.sel{display:none}
+.sel.show{display:flex}
+</style>
+</head>
+<body>
+<div class="note">
+<b>고객사 상세 3단 시안</b> · 1440×900 · 왼쪽 <b>섹션 메뉴</b>를 누르면 본문이 바뀝니다. <b>서비스 계정</b>은 「카드 목록 | 상세」 3단이고, 카드를 누르면 상세, <b>[＋ 계정 추가]</b>를 누르면 오른쪽에 등록 폼이 나옵니다. 그 밖의 섹션은 넓은 본문 1칸입니다. 섹션마다 아래쪽 [저장], 고친 뒤 저장 안 한 섹션은 메뉴에 ● 표시.
+</div>
+
+<div class="frame">
+  <aside class="sb">
+    <div class="brand"><div class="bmark">N</div><div><b>Ncode</b><span style="color:#5f8ff0;font-weight:700">Center</span></div></div>
+    <div class="mi">대시보드</div>
+    <div class="grp">멤버 관리</div><div class="mi on">고객사 관리</div><div class="mi">활동 로그</div>
+    <div class="grp">코드</div><div class="mi">SOBP 맵</div><div class="mi">코드 프로젝트</div>
+    <div class="grp">서비스 관리</div><div class="mi">CasterN 서비스 관리</div><div class="mi">폼솔루션 서비스 관리</div>
+    <div class="grp">티켓 발급</div><div class="mi">App Key 관리 (계정 발급)</div><div class="mi">N Key 관리</div>
+  </aside>
+
+  <div class="main">
+    <div class="top"><span class="crumb">고객사 관리 ›</span>고객사 상세 · 수정</div>
+    <div class="body">
+      <div class="head">
+        <button class="btn icon" title="목록">←</button>
+        <h1>웅진씽크빅</h1>
+        <span class="tag t-purple">하위 고객사</span>
+        <span class="tag t-green">진행중</span>
+        <div class="sum">
+          <span>사용 서비스 <b>casterN</b></span>
+          <span>서비스 계정 <b>3명</b> (활성 2)</span>
+          <span>업무 메모 <b>5건</b></span>
+          <span>편집 단가 <b>전용 2항목</b></span>
+        </div>
+        <span class="sp"></span>
+        <button class="btn icon" title="더 보기 — 고객사 삭제">⋯</button>
+      </div>
+
+      <div class="cols">
+        <nav class="nav">
+          <div class="navh">고객사 정보</div>
+          <div class="nv" data-s="base">기본 정보</div>
+          <div class="nv" data-s="svc">사용 서비스<span class="dot" title="저장 안 한 변경"></span></div>
+          <div class="nv" data-s="rate">편집 단가<span class="cnt">전용 2</span></div>
+          <div class="nv" data-s="docs">관련 서류<span class="cnt">3</span></div>
+          <div class="navsep"></div>
+          <div class="navh">운영</div>
+          <div class="nv on" data-s="acc">서비스 계정<span class="cnt">3</span></div>
+          <div class="nv" data-s="memo">업무 메모<span class="cnt">5</span></div>
+        </nav>
+
+        <!-- 서비스 계정: 카드 목록 | 상세 -->
+        <div class="content sel show" id="s-acc">
+          <div class="card list">
+            <div class="hd"><b>서비스 계정</b><span class="d">3명 · 활성 2</span><span class="sp"></span><button class="btn pri sm" id="addBtn">＋ 계정 추가</button></div>
+            <div class="bd">
+              <div class="search">이름 · 이메일 검색</div>
+              <div class="acc on" data-a="0"><div class="n">김태호</div><div class="m">kim@wjthinkbig.com</div>
+                <div class="r"><span class="tag t-green">활성</span><span class="tag t-blue">CasterN 6/6</span><span class="last">10-14 접속</span></div></div>
+              <div class="acc" data-a="1"><div class="n">편집팀</div><div class="m">edit01@wjthinkbig.com</div>
+                <div class="r"><span class="tag t-green">활성</span><span class="tag t-blue">CasterN 3/6</span><span class="last">10-02 접속</span></div></div>
+              <div class="acc" data-a="2"><div class="n">이전 담당</div><div class="m">old@wjthinkbig.com</div>
+                <div class="r"><span class="tag t-gray">비활성</span><span class="tag t-blue">CasterN 6/6</span><span class="last">접속 기록 없음</span></div></div>
+            </div>
+          </div>
+
+          <div class="card detail" id="accDetail">
+            <div class="hd"><b id="dName">김태호</b><span class="d" id="dMail">kim@wjthinkbig.com</span><span class="sp"></span><span class="tag t-amber">App Key 연결</span></div>
+            <div class="bd">
+              <div class="g2">
+                <div class="fld"><span class="lbl">NAME (담당자명)</span><div class="inp" id="fName">김태호</div></div>
+                <div class="fld"><span class="lbl">ID (이메일)</span><div class="inp" style="background:#f7f8fa;color:#6b7280" id="fMail">kim@wjthinkbig.com</div></div>
+                <div class="fld"><span class="lbl">PWD (비밀번호)</span><div class="inp" style="justify-content:space-between">••••••••<button class="btn sm">재설정</button></div></div>
+                <div class="fld"><span class="lbl">계정 상태</span><div class="seg"><span class="on">활성</span><span>비활성</span></div></div>
+              </div>
+              <div class="box">
+                <h4>서비스 권한 <span style="color:#9ca3af;font-weight:400">· 고객사 사용 서비스에서 체크한 서비스만</span></h4>
+                <label style="display:flex;gap:7px;align-items:center;font-size:12.5px"><input type="checkbox" checked> <b style="color:#1d4ed8">CasterN 사용</b><span class="sp"></span><span style="font-size:11.5px;color:#6b7280">선택 6 / 6</span> <button class="btn sm">모두 해제</button></label>
+                <div class="perm">
+                  <div class="pm on">☑ 프로젝트 생성 <small>(project_new)</small></div>
+                  <div class="pm on">☑ 심볼 편집 <small>(symbol_edit)</small></div>
+                  <div class="pm on">☑ 리소스 편집 <small>(resource_edit)</small></div>
+                  <div class="pm on">☑ Ncode PDF 내보내기 <small>(export_ncode_pdf)</small></div>
+                  <div class="pm on">☑ NCP2 내보내기 <small>(export_ncp2)</small></div>
+                  <div class="pm on">☑ App용 패키지 내보내기 <small>(export_app_package)</small></div>
+                </div>
+                <label style="display:flex;gap:7px;align-items:center;font-size:12.5px;margin-top:10px;opacity:.6"><input type="checkbox" disabled> <b>폼솔루션 사용</b> <span class="tag t-amber">준비중</span></label>
+              </div>
+              <div class="box">
+                <h4>접속 · 이력</h4>
+                <div class="kv"><span>최근 접속일</span><span>2026-10-14 09:12</span><span>등록일</span><span>2026-08-20</span><span>App Key</span><span style="font-family:ui-monospace,monospace">7Kq3xF9dR2mA8pZ1vT6bN4sJ0wG5c</span></div>
+              </div>
+            </div>
+            <div class="ft"><button class="btn" style="color:#dc2626;border-color:#fecaca">계정 삭제</button><span class="sp"></span><button class="btn">취소</button><button class="btn pri">저장</button></div>
+          </div>
+
+          <div class="card detail" id="accNew" style="display:none">
+            <div class="hd"><b>서비스 계정 추가</b><span class="d">웅진씽크빅</span></div>
+            <div class="bd">
+              <div class="g2">
+                <div class="fld"><span class="lbl">ID (이메일) <span style="color:#dc2626">*</span></span><div class="inp ph">user@company.com</div></div>
+                <div class="fld"><span class="lbl">PWD (비밀번호) <span style="color:#dc2626">*</span></span><div class="inp ph" style="justify-content:space-between">비밀번호 미요청 시 임의 생성<button class="btn sm">임의 생성</button></div></div>
+                <div class="fld"><span class="lbl">NAME (담당자명)</span><div class="inp ph">담당자명</div></div>
+                <div class="fld"><span class="lbl">계정 상태</span><div class="seg"><span class="on">활성</span><span>비활성</span></div></div>
+              </div>
+              <div class="box">
+                <h4>서비스 권한 <span style="color:#9ca3af;font-weight:400">· 기본값 = 고객사 사용 서비스 · CasterN 6종 모두</span></h4>
+                <label style="display:flex;gap:7px;align-items:center;font-size:12.5px"><input type="checkbox" checked> <b style="color:#1d4ed8">CasterN 사용</b><span class="sp"></span><span style="font-size:11.5px;color:#6b7280">선택 6 / 6</span></label>
+                <div class="perm">
+                  <div class="pm on">☑ 프로젝트 생성</div><div class="pm on">☑ 심볼 편집</div><div class="pm on">☑ 리소스 편집</div>
+                  <div class="pm on">☑ Ncode PDF 내보내기</div><div class="pm on">☑ NCP2 내보내기</div><div class="pm on">☑ App용 패키지 내보내기</div>
+                </div>
+              </div>
+            </div>
+            <div class="ft"><span class="sp"></span><button class="btn" id="cancelNew">취소</button><button class="btn pri">계정 추가</button></div>
+          </div>
+        </div>
+
+        <!-- 기본 정보 -->
+        <div class="content sel" id="s-base">
+          <div class="card wide">
+            <div class="hd"><b>기본 정보</b><span class="d">· 필수는 업체명</span></div>
+            <div class="bd"><div class="g2" style="max-width:860px">
+              <div class="fld"><span class="lbl">업체명 <span style="color:#dc2626">*</span></span><div class="inp">웅진씽크빅</div></div>
+              <div class="fld"><span class="lbl">담당자</span><div class="inp">김태호</div></div>
+              <div class="fld"><span class="lbl">연락처</span><div class="inp">031-956-7000</div></div>
+              <div class="fld"><span class="lbl">사업자등록증번호</span><div class="inp">215-81-06943</div></div>
+              <div class="fld full"><span class="lbl">주소</span><div class="inp">경기도 파주시 회동길 20</div></div>
+              <div class="fld"><span class="lbl">은행명</span><div class="inp">신한은행</div></div>
+              <div class="fld"><span class="lbl">계좌번호</span><div class="inp">140-011-******</div></div>
+              <div class="fld full"><span class="lbl">세금계산서 발행용 이메일</span><div class="inp">tax@wjthinkbig.com</div></div>
+            </div></div>
+            <div class="ft"><span class="sp"></span><button class="btn">취소</button><button class="btn pri">저장</button></div>
+          </div>
+        </div>
+
+        <!-- 사용 서비스 -->
+        <div class="content sel" id="s-svc">
+          <div class="card wide">
+            <div class="hd"><b>사용 서비스</b><span class="d">· 우리가 이 고객사를 어느 서비스로 다루나 · 계정 권한의 범위</span></div>
+            <div class="bd" style="max-width:980px">
+              <div class="svc">
+                <div class="svcc on"><label style="display:flex;gap:8px"><input type="checkbox" checked><div><b style="color:#1e3a8a">casterN (편집툴)</b><div class="hint" style="margin:2px 0 0">[편집 프로젝트]의 대상이 되고, 이 고객사 계정에 CasterN 사용 권한을 줄 수 있습니다</div></div></label></div>
+                <div class="svcc"><label style="display:flex;gap:8px;opacity:.7"><input type="checkbox"><div><b>폼솔루션</b> <span class="tag t-amber">준비중</span><div class="hint" style="margin:2px 0 0">폼솔루션 서비스 관리 화면에 나타납니다</div></div></label></div>
+              </div>
+              <div class="box"><h4>프로젝트 상태 <span style="color:#9ca3af;font-weight:400">· casterN</span></h4>
+                <div style="display:flex;gap:12px;align-items:center"><span style="width:46px;height:26px;border-radius:13px;background:#d1d5db;position:relative;display:inline-block"><span style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff"></span></span><div><b>진행중</b><div class="hint" style="margin:0">사업 종료 시 코드 발급 이력만 유지되고 목록에서 회색으로 표시됩니다</div></div></div></div>
+              <div class="box"><h4>공통코드 사용 고객사 (하위 등록) <span style="color:#9ca3af;font-weight:400">· casterN · 코드 할당 불필요</span></h4>
+                <div class="svc">
+                  <div class="svcc"><label style="display:flex;gap:8px"><input type="checkbox"><div><b>Common-21</b><div class="hint" style="margin:0">PDS2 · S3/O21</div></div></label></div>
+                  <div class="svcc on"><label style="display:flex;gap:8px"><input type="checkbox" checked><div><b style="color:#1e3a8a">네오노트-3-27</b><div class="hint" style="margin:0">PDS3 · S3/O27</div></div></label></div>
+                  <div class="svcc"><label style="display:flex;gap:8px"><input type="checkbox"><div><b>네오노트-1012</b><div class="hint" style="margin:0">PDS3 · S3/O1012</div></div></label></div>
+                  <div class="svcc"><label style="display:flex;gap:8px"><input type="checkbox"><div><b>스마트클래스키트-1013</b><div class="hint" style="margin:0">PDS3 · S3/O1013</div></div></label></div>
+                </div></div>
+            </div>
+            <div class="ft"><span style="color:#b45309;font-size:12px">● 저장하지 않은 변경이 있습니다</span><span class="sp"></span><button class="btn">취소</button><button class="btn pri">저장</button></div>
+          </div>
+        </div>
+
+        <!-- 편집 단가 -->
+        <div class="content sel" id="s-rate">
+          <div class="card wide">
+            <div class="hd"><b>편집 단가 (2026 항목별)</b><span class="tag t-amber">전용 2항목</span><span class="sp"></span><button class="btn sm">전체 기본값</button></div>
+            <div class="bd" style="max-width:980px">
+              <div class="box" style="margin-top:0"><h4 style="color:#1d4ed8">소리펜 <span style="color:#9ca3af;font-weight:400">· 14항목 · 전용 2</span></h4>
+                <div class="g2"><div class="kv"><span>Ncode 적용</span><span>500 / 페이지</span><span style="color:#b45309;font-weight:700">Ncode 편집(기본)</span><span style="color:#b45309;font-weight:700">1,200 / 심볼</span><span>Compound 2언어</span><span>1,300 / 심볼</span></div>
+                <div class="kv"><span>슬롯전환</span><span>3,000 / 건</span><span style="color:#b45309;font-weight:700">게임</span><span style="color:#b45309;font-weight:700">60,000 / 건</span><span>…</span><span>…</span></div></div></div>
+              <div class="box"><h4 style="color:#7e22ce">필기펜 <span style="color:#9ca3af;font-weight:400">· 4항목</span></h4>
+                <div class="kv"><span>Ncode 적용</span><span>500 / 페이지</span><span>기본 편집</span><span>1,000 / 심볼</span><span>Custom</span><span>1,500 / 심볼</span></div></div>
+            </div>
+            <div class="ft"><span class="sp"></span><button class="btn">취소</button><button class="btn pri">저장</button></div>
+          </div>
+        </div>
+
+        <!-- 관련 서류 -->
+        <div class="content sel" id="s-docs">
+          <div class="card wide">
+            <div class="hd"><b>관련 서류</b><span class="d">· 3건</span><span class="sp"></span><button class="btn sm">＋ 서류 추가</button></div>
+            <div class="bd" style="max-width:860px">
+              <div class="kv" style="grid-template-columns:160px 1fr 60px;row-gap:10px">
+                <span>사업자등록증</span><span style="color:#5f8ff0">wj_biz_license.pdf</span><span style="color:#dc2626">삭제</span>
+                <span>통장 사본</span><span style="color:#5f8ff0">wj_bank.jpg</span><span style="color:#dc2626">삭제</span>
+                <span>2026 단가 합의서</span><span style="color:#5f8ff0">wj_price_2026.pdf</span><span style="color:#dc2626">삭제</span>
+              </div>
+            </div>
+            <div class="ft"><span class="sp"></span><button class="btn">취소</button><button class="btn pri">저장</button></div>
+          </div>
+        </div>
+
+        <!-- 업무 메모 -->
+        <div class="content sel" id="s-memo">
+          <div class="card wide">
+            <div class="hd"><b>업무 메모</b><span class="d">· 고객사 전용 원장 · 본인 글만 수정·삭제</span></div>
+            <div class="bd" style="max-width:980px">
+              <div style="display:grid;grid-template-columns:220px 100px 1fr auto;gap:8px;margin-bottom:14px">
+                <div class="inp">고객사 공통 ▾</div><div class="inp">요청 ▾</div><div class="inp ph">내용 입력 · Enter 기록 · Shift+Enter 줄바꿈</div><button class="btn">＋ 기록</button>
+              </div>
+              <div class="memo"><div class="mh"><b style="color:#374151">3</b><span class="tag t-blue">요청</span>2026-08-24 16:20 · 김순정 (나)</div>범블비 전집 OID 북코드 33권 추가 발급 요청</div>
+              <div class="memo"><div class="mh"><b style="color:#374151">2</b><span class="tag t-green">처리</span>2026-08-22 11:05 · 김순정 (나)</div>S3/O17 Book 431~464 할당 완료 · 티켓 전달</div>
+              <div class="memo"><div class="mh"><b style="color:#374151">1</b><span class="tag t-gray">메모</span>2026-08-20 09:41 · 박지훈 🔒</div>2026년 편집 단가 협의 — 편집/게임 2항목 전용가 적용</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ACC=[["김태호","kim@wjthinkbig.com"],["편집팀","edit01@wjthinkbig.com"],["이전 담당","old@wjthinkbig.com"]];
+document.querySelectorAll('.nv').forEach(n=>n.onclick=()=>{
+  document.querySelectorAll('.nv').forEach(x=>x.classList.toggle('on',x===n));
+  document.querySelectorAll('.sel').forEach(s=>s.classList.toggle('show',s.id==='s-'+n.dataset.s));
+});
+const det=document.getElementById('accDetail'), nw=document.getElementById('accNew');
+document.querySelectorAll('.acc').forEach(c=>c.onclick=()=>{
+  document.querySelectorAll('.acc').forEach(x=>x.classList.toggle('on',x===c));
+  const [n,m]=ACC[+c.dataset.a];
+  document.getElementById('dName').textContent=n; document.getElementById('dMail').textContent=m;
+  document.getElementById('fName').textContent=n; document.getElementById('fMail').textContent=m;
+  det.style.display=''; nw.style.display='none';
+});
+document.getElementById('addBtn').onclick=()=>{document.querySelectorAll('.acc').forEach(x=>x.classList.remove('on'));det.style.display='none';nw.style.display='';};
+document.getElementById('cancelNew').onclick=()=>{document.querySelector('.acc').click();};
+</script>
+</body>
+</html>

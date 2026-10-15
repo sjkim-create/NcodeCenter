@@ -19,9 +19,8 @@ import { TicketCustomerSelect } from "./TicketCustomerSelect";
 import { CODE_KINDS, type CodeKind } from "@/lib/codeKind";
 import {
   caster, useCaster, genAppKey,
-  CASTERN_PERMS, ALL_PERMS,
   keyRanges, rangeText, rangeBooks, rangePeriod, accountScope, type KeyRange,
-  type CasterPerm, type CasterAccount,
+  type CasterAccount,
 } from "@/lib/accountStore";
 
 const accountHref = (id: string, tab?: AccTab) =>
@@ -208,36 +207,6 @@ function SecHead({ t, d, tip }: { t: string; d?: string; tip?: string }) {
 }
 // 영역 묶음 — 항목을 카드로 구분한다 `PC-052`
 const SEC: React.CSSProperties = { border: "1px solid #eef0f4", borderRadius: 10, padding: "14px 16px", marginTop: 12 };
-
-// CasterN 권한 6종 — 개별 선택 / [모두 선택]·[모두 해제] `PC-058`
-// CasterN 권한 6종 체크 `PC-105` (20종 그룹 표시는 되돌렸다)
-export function PermPicker({ value, onChange }: { value: CasterPerm[]; onChange: (v: CasterPerm[]) => void }) {
-  const all = value.length === ALL_PERMS.length;
-  const toggle = (p: CasterPerm) => onChange(value.includes(p) ? value.filter((x) => x !== p) : [...value, p]);
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 11.5, color: "#6b7280" }}>선택 {value.length} / {ALL_PERMS.length}</span>
-        <span style={{ flex: 1 }} />
-        <button onClick={() => onChange(all ? [] : [...ALL_PERMS])} style={S.smallBtn}>{all ? "모두 해제" : "모두 선택"}</button>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 6 }}>
-        {CASTERN_PERMS.map((p) => {
-          const on = value.includes(p.v);
-          return (
-            <label key={p.v} title={p.desc}
-              style={{ display: "flex", alignItems: "center", gap: 7, border: `1px solid ${on ? "#c7ddff" : "#eef0f4"}`, background: on ? "#f7faff" : "#fff", borderRadius: 9, padding: "8px 10px", fontSize: 12.5, cursor: "pointer" }}>
-              <input type="checkbox" checked={on} onChange={() => toggle(p.v)} />
-              <span style={{ color: on ? "#1d4ed8" : "#374151", fontWeight: on ? 700 : 400 }}>
-                {p.label} <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, color: on ? "#3b82f6" : "#9ca3af", fontWeight: 400 }}>({p.v})</span>
-              </span>
-            </label>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 const genPwdStr = () => {
   const buf = new Uint8Array(9);

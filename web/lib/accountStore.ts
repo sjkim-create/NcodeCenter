@@ -95,6 +95,9 @@ export type CasterAccount = {
   // 계정 구분 `PC-128` — service = 고객사 관리의 서비스 로그인 계정(사용 서비스 권한) / key = App Key 관리의 키 발급 계정(티켓 고객사)
   //   비어 있으면 대장 시드(seeded)는 service, 그 외는 key 로 본다(accountScope).
   scope?: AccountScope;
+  // 계정 상태 `PC-135` — 비활성이면 서비스에 로그인할 수 없다. 비어 있으면 활성
+  active?: boolean;
+  lastLoginAt?: string;   // 최근 접속일시 — 서비스(CasterN 등) 로그인 기록. 없으면 「접속 기록 없음」 `PC-135`
   seeded?: boolean;    // 개발팀 대장에서 들어온 계정 — 비밀번호는 저장하지 않았다(「대장 참조」) `PC-103`
   note?: string;       // 대장의 안내문(영업용 테스트 계정 등)
   createdAt: string;
@@ -106,6 +109,7 @@ export type CasterAccount = {
 
 export type AccountScope = "service" | "key";
 export const accountScope = (a: CasterAccount): AccountScope => a.scope ?? (a.seeded ? "service" : "key");
+export const isActive = (a: CasterAccount) => a.active !== false;   // 계정 상태 `PC-135`
 // 계정의 CasterN 권한 — 사용처에 CasterN 이 없으면 빈 배열
 export const casternPerms = (a?: CasterAccount): CasterPerm[] =>
   a && a.services?.includes("CASTERN") ? a.settings?.CASTERN?.perms ?? [] : [];
@@ -344,6 +348,7 @@ export const caster = {
   canLogin(service: AccountService, accountId: string) {
     const acc = state.accounts.find((a) => a.id.toLowerCase() === accountId.toLowerCase());
     if (!acc || !acc.services?.includes(service)) return false;
+    if (acc.active === false) return false;          // 비활성 계정은 로그인 불가 `PC-135`
     return state.appKeys.some((k) => k.accountId === acc.id);
   },
 };

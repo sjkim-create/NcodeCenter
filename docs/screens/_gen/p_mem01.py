@@ -93,8 +93,12 @@ def common_cell(cc):
             'title="사용(하위) · 귀속 %s">↳%s</span>' % (cc[2], cc[1]))
 
 
+# 서비스 계정 수 `PC-135` — 고객사별 서비스 로그인 계정(명). 0 이면 -
+ACC_N = {'웅진씽크빅': 3, '구몬학습': 2, '교원에듀': 1}
+
+
 def table(rows, search=''):
-    HEAD = ['No', '업체명', '담당자 / 연락처', '사업자번호', '은행 / 계좌', '커먼 코드',
+    HEAD = ['No', '업체명', '담당자 / 연락처', '서비스 계정', '사업자번호', '은행 / 계좌', '커먼 코드',
             '편집 단가', '주소', '서류', '업무', '작업']
     th = ''
     for h in HEAD:
@@ -104,7 +108,7 @@ def table(rows, search=''):
                % ('cursor:pointer' if h == '업체명' else '', h, sort))
     if not rows:
         msg = ('&quot;%s&quot; 검색 결과가 없습니다.' % search) if search else '등록된 고객사가 없습니다.'
-        tb = ('<tr><td colspan="11" style="padding:30px;text-align:center;color:#9ca3af;'
+        tb = ('<tr><td colspan="12" style="padding:30px;text-align:center;color:#9ca3af;'
               'font-size:12.5px">%s</td></tr>' % msg)
     else:
         tb = ''
@@ -127,6 +131,7 @@ def table(rows, search=''):
                    '<td style="padding:10px 12px;font-weight:600;text-align:left">%s%s%s</td>'
                    '<td style="padding:10px 12px;text-align:left">%s'
                    '<div style="color:#9ca3af;font-size:11px">%s</div></td>'
+                   '<td style="padding:10px 12px;text-align:center">%s</td>'
                    '<td style="padding:10px 12px;font-family:ui-monospace,monospace;'
                    'font-size:11.5px">%s</td>'
                    '<td style="padding:10px 12px;text-align:left">%s'
@@ -143,7 +148,9 @@ def table(rows, search=''):
                    'border-radius:5px;padding:2px 7px">%d</span></td>'
                    '<td style="padding:10px 12px;text-align:center">'
                    '<span style="color:#dc2626;font-size:12.5px">삭제</span></td></tr>'
-                   % (rowst, i, nm, tag, end, mgr, tel, biz, bank, acct,
+                   % (rowst, i, nm, tag, end, mgr, tel,
+                      ('<span style="color:#2563eb;font-weight:700">%d명</span>' % ACC_N[nm]) if ACC_N.get(nm) else '<span style="color:#d1d5db">-</span>',
+                      biz, bank, acct,
                       common_cell(cc), price, addr, docs, work))
     foot = ''
     if rows:
@@ -242,7 +249,8 @@ BASE = [
     ('검색', '입력', '즉시 필터링', '<b>업체명·담당자·사업자번호</b> · ×로 해제'),
     ('구분 필터 칩', '클릭', '해당 계층만',
      '전체 / 상위(초록) / 하위(보라) / 단독(회색) — 각 칩에 건수'),
-    ('[＋ 고객사 등록]', '클릭', '<code>MEM-02</code> (등록 모드)', '기본 정보만 · 업무 원장 없음'),
+    ('[＋ 고객사 등록]', '클릭', '<code>MEM-02</code> (등록 모드)', '기본 정보 → [등록] 또는 서비스 계정 [계정 추가] <code>PC-142</code>'),
+    ('서비스 계정 {n}명', '클릭', 'S13 명단 창', '고객사별 서비스 계정 수 <code>PC-135</code>'),
     ('행 [삭제]', '클릭', 'S5 삭제 확인', '행 클릭과 분리(<code>stopPropagation</code>)'),
     ('[초기화]', '클릭', 'S8 확인창', '엑셀 시드 복원'),
     ('건수 선택', '드롭다운', '표시 건수 변경', '50 / 100 / 200 / 500 / 전체 보기'),
@@ -405,6 +413,36 @@ def build():
          ('[계정 추가 →]', '클릭', '<code>MEM-02</code> S17', 'SSO 이메일 미리 입력 (<code>/companies/{id}?email=</code>) <code>PC-133</code>'),
          ('목록 최상단', '자동', '최근 고객사', 'createdAt 내림차순 기본 정렬'),
          ('업체명 헤더', '클릭', '최근순 → 가나다↑ → ↓', '정렬 순환')]))
+
+    # 서비스 계정 명단 창 `PC-135` `PC-144`
+    acc_rows = ''.join(
+        '<tr style="border-top:1px solid #eef0f4"><td style="padding:9px 12px">%s</td>'
+        '<td style="padding:9px 12px;font-family:ui-monospace,monospace;font-size:12px">%s</td>'
+        '<td style="padding:9px 12px">%s</td><td style="padding:9px 12px;font-family:ui-monospace,monospace;font-size:12px;color:%s">%s</td></tr>'
+        % (n, m, ('<span style="font-size:11px;background:#ecfdf5;color:#047857;border-radius:5px;padding:2px 8px;font-weight:700">활성</span>' if on
+                  else '<span style="font-size:11px;background:#f3f4f6;color:#6b7280;border-radius:5px;padding:2px 8px;font-weight:700">비활성</span>'),
+           '#374151' if last[0].isdigit() else '#9ca3af', last)
+        for n, m, on, last in (('김태호', 'kim@wjthinkbig.com', True, '2026-10-14 09:12'),
+                               ('편집팀', 'edit01@wjthinkbig.com', True, '2026-10-02 17:40'),
+                               ('이전 담당', 'old@wjthinkbig.com', False, '접속 기록 없음')))
+    acc_mdl = ('<div class="ovl"><div class="mdl w"><div class="mh"><div class="mt">웅진씽크빅 · 서비스 계정 3명</div><div class="mx">✕</div></div>'
+               '<div style="font-size:12px;color:#6b7280;margin-bottom:10px">활성 <b style="color:#047857">2명</b> · 비활성 <b style="color:#9ca3af">1명</b></div>'
+               '<div style="border:1px solid #eef0f4;border-radius:10px;overflow:hidden"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+               '<tr style="background:#fafbfc;color:#6b7280;font-size:11.5px"><th style="text-align:left;padding:9px 12px">이름</th>'
+               '<th style="text-align:left;padding:9px 12px">이메일</th><th style="text-align:left;padding:9px 12px">계정 상태</th>'
+               '<th style="text-align:left;padding:9px 12px">최근 접속일</th></tr>' + acc_rows + '</table></div>'
+               '<div class="mf"><div class="btn gho">닫기</div><div class="btn pri">계정 관리 →</div></div></div></div>')
+    boards.append((
+        'S13', '서비스 계정 명단', '모달',
+        '목록의 <b>서비스 계정</b> 열은 고객사별 서비스 계정 수(<b>{n}명</b>, 없으면 -)다 <code>PC-135</code>. 명수를 누르면 '
+        '행 이동 없이 <b>명단 창</b>이 열려 <b>이름 · 이메일 · 계정 상태 · 최근 접속일</b>을 본다. <b>[계정 관리 →]</b> 는 그 고객사 상세의 '
+        '<b>서비스 계정</b> 섹션(<code>MEM-02</code> S11)을 연다 <code>PC-144</code>. App Key 관리의 키 발급 계정은 세지 않는다.',
+        frame('MEM-01', '고객사 관리', content(), overlay=acc_mdl, height=940),
+        [('서비스 계정 열 {n}명', '클릭', '명단 창', '행 클릭(상세 이동)과 분리'),
+         ('명단 창 위', '표시', '활성 · 비활성 인원', ''),
+         ('최근 접속일', '표시', '—', '서비스 로그인 기록이 없으면 <b>접속 기록 없음</b>'),
+         ('[계정 관리 →]', '클릭', '<code>MEM-02</code> S11', '<code>/companies/{id}?sec=acc</code>'),
+         ('[닫기] · ✕', '클릭', 'S1', '')]))
 
     intro = ('코드를 발급받는 <b>업체(고객사) 마스터</b>. 사업자·계좌·서류·편집 단가·업무 이력을 관리한다. '
              '고객사는 <b>서비스 사용 고객사</b>이며, App Key·N Key 를 받는 <b>티켓 고객사</b>(nkey(HLP) 대장)와 '

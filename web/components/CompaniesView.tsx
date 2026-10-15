@@ -6,18 +6,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { S, Field, Modal, AutoTextarea, BLUE } from "./ui";
+import { S, Field, Modal, AutoTextarea } from "./ui";
 import { store, useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { onboarding, useOnboarding, onboardServiceToCompany, onboardServiceLabel,
          type OnboardingRequest } from "@/lib/onboardingStore";
 import { Company, CompanyDoc, WorkKind, WorkLog, projectCodes, nextId,
-         SERVICE, SDK_ONLY, companyServices, type ServiceType } from "@/lib/customerData";
+         SERVICE, companyServices } from "@/lib/customerData";
 import { SOUND_ITEMS, PEN_ITEMS, rateMapOf, customRateCount, type RateItem } from "@/lib/pricing";
 import { COMMON_CODES, codeKey, codesOfCompany, isCommonCodeCompany, type CommonCode } from "@/lib/commonCodes";
 import { codesOfMember, addMember, removeMember, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
-import { caster, useCaster, accountScope, type CasterAccount } from "@/lib/accountStore";
+import { caster, useCaster, accountScope, isActive, type CasterAccount } from "@/lib/accountStore";
 import { CompanyAccountsPanel, type AccountOps } from "./CompanyAccountsPanel";
 
 type Draft = Omit<Company, "id">;
@@ -26,6 +26,15 @@ const KIND_BG: Record<string, string> = { 요청: "#fef3c7", 처리: "#dcfce7", 
 const KIND_FG: Record<string, string> = { 요청: "#92400e", 처리: "#166534", 메모: "#475569" };
 
 type LogDraft = { id: number | null; kind: WorkKind; content: string; projectId: number | null };
+// 고객사 상세 섹션 `PC-136`
+type Sec = "base" | "rate" | "docs" | "acc" | "memo";
+type FormSec = "base" | "rate" | "docs";
+const SEC_KEYS: Record<FormSec, (keyof Draft)[]> = {
+  base: ["name", "manager", "contact", "bizNo", "address", "bankName", "accountNo", "taxEmail"],
+  rate: ["rates", "pageUnit", "symbolUnit"],
+  docs: ["docs"],
+};
+const SEC_LABEL: Record<FormSec, string> = { base: "기본 정보", rate: "편집 단가", docs: "관련 서류" };
 const EMPTY_LOG: LogDraft = { id: null, kind: "요청", content: "", projectId: null };
 
 // 회사 분류 — 상위(공통코드 보유 대장) / 하위(공통코드 사용=멤버십 귀속) / 단독
@@ -44,6 +53,10 @@ export default function CompaniesView() {
   const [approved, setApproved] = useState<{ companyId: number; email: string; org: string } | null>(null);
   const [showOnboard, setShowOnboard] = useState(false);   // 가입 승인 요청 모달 `PC-119`
   const [delTarget, setDelTarget] = useState<Company | null>(null);
+  // 서비스 계정 열 `PC-135` — 고객사별 서비스 계정 수(명), 누르면 명단
+  const cast = useCaster();
+  const svcAccountsOf = (cid: number) => cast.accounts.filter((a) => accountScope(a) === "service" && a.companyId === cid);
+  const [accTarget, setAccTarget] = useState<Company | null>(null);
   const [toast, setToast] = useState("");
   const [q, setQ] = useState("");   // 업체 검색
   const [classFilter, setClassFilter] = useState<"" | "holder" | "member" | "solo">("");   // 구분 필터: 상위/하위/단독
@@ -199,7 +212,7 @@ export default function CompaniesView() {
       <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
         <table style={{ ...S.table, textAlign: "center" }}>
           <thead>
-            <tr>{["No", "업체명", "담당자 / 연락처", "사업자번호", "은행 / 계좌", "커먼 코드", "편집 단가", "주소", "서류", "업무", "작업"].map((h) => (
+            <tr>{["No", "업체명", "담당자 / 연락처", "서비스 계정", "사업자번호", "은행 / 계좌", "커먼 코드", "편집 단가", "주소", "서류", "업무", "작업"].map((h) => (
               h === "업체명"
                 ? <th key={h} style={{ ...S.th, textAlign: "center", cursor: "pointer", userSelect: "none" }} onClick={toggleSort} title="정렬: 최근순 → 가나다 오름 → 가나다 내림">
                     {h}<span style={{ marginLeft: 3, fontSize: 10, color: sortDir === 0 ? "#2563eb" : "#9ca3af" }}>{sortDir === 0 ? "최근순" : sortDir === 1 ? "▲" : "▼"}</span>
@@ -224,6 +237,14 @@ export default function CompaniesView() {
                   {c.closed && <span style={{ ...S.tag, marginLeft: 4, fontSize: 9.5, background: "#f3f4f6", color: "#6b7280", fontWeight: 700 }} title={c.closedNote || "프로젝트 종료"}>종료</span>}
                 </td>
                 <td style={S.td}>{c.manager || "-"}<div style={{ color: "#9ca3af", fontSize: 11 }}>{c.contact}</div></td>
+                {/* 서비스 계정 — 명수, 누르면 명단 `PC-135` */}
+                <td style={{ ...S.td, textAlign: "center" }}>
+                  {(() => { const n = svcAccountsOf(c.id).length; return n > 0
+                    ? <button onClick={(e) => { e.stopPropagation(); setAccTarget(c); }} title="서비스 계정 명단 보기"
+                        style={{ ...S.linkBtn, fontWeight: 700, color: "#2563eb" }}>{n}명</button>
+                    : <span style={{ color: "#d1d5db" }}>-</span>;
+                  })()}
+                </td>
                 <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", fontSize: 11.5 }}>{c.bizNo || "-"}</td>
                 <td style={S.td}>{c.bankName || "-"}<div style={{ color: "#9ca3af", fontSize: 11 }}>{c.accountNo}</div></td>
                 <td style={{ ...S.td, textAlign: "center", whiteSpace: "nowrap" }}>
@@ -250,7 +271,7 @@ export default function CompaniesView() {
               </tr>
               );
             })}
-            {allRows.length === 0 && <tr><td colSpan={11} style={{ ...S.td, textAlign: "center", color: "#9ca3af", padding: 30 }}>{q ? `"${q}" 검색 결과가 없습니다.` : "등록된 고객사가 없습니다."}</td></tr>}
+            {allRows.length === 0 && <tr><td colSpan={12} style={{ ...S.td, textAlign: "center", color: "#9ca3af", padding: 30 }}>{q ? `"${q}" 검색 결과가 없습니다.` : "등록된 고객사가 없습니다."}</td></tr>}
           </tbody>
         </table>
         {allRows.length > 0 && (
@@ -308,6 +329,44 @@ export default function CompaniesView() {
         </Modal>
       )}
 
+      {/* 서비스 계정 명단 `PC-135` — 이름 · 이메일 · 계정 상태 · 최근 접속일 */}
+      {accTarget && (() => {
+        const list = svcAccountsOf(accTarget.id);
+        const nOn = list.filter(isActive).length;
+        return (
+          <Modal onClose={() => setAccTarget(null)} title={`${accTarget.name} · 서비스 계정 ${list.length}명`} width={680}>
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 10 }}>
+              활성 <b style={{ color: "#047857" }}>{nOn}명</b> · 비활성 <b style={{ color: "#9ca3af" }}>{list.length - nOn}명</b>
+            </div>
+            <div style={{ border: "1px solid #eef0f4", borderRadius: 10, overflow: "hidden" }}>
+              <table style={{ ...S.table }}>
+                <thead><tr>{["이름", "이메일", "계정 상태", "최근 접속일"].map((h) => <th key={h} style={S.th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {list.map((a) => (
+                    <tr key={a.id} style={{ borderTop: "1px solid #eef0f4" }}>
+                      <td style={S.td}>{a.name || <span style={{ color: "#9ca3af" }}>-</span>}</td>
+                      <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", fontSize: 12 }}>{a.id}</td>
+                      <td style={S.td}>
+                        {isActive(a)
+                          ? <span style={{ ...S.tag, background: "#ecfdf5", color: "#047857", fontWeight: 700 }}>활성</span>
+                          : <span style={{ ...S.tag, background: "#f3f4f6", color: "#6b7280", fontWeight: 700 }}>비활성</span>}
+                      </td>
+                      <td style={{ ...S.td, fontFamily: "ui-monospace,monospace", fontSize: 12, color: a.lastLoginAt ? "#374151" : "#9ca3af" }}>
+                        {a.lastLoginAt ? a.lastLoginAt.slice(0, 16).replace("T", " ") : "접속 기록 없음"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+              <button onClick={() => setAccTarget(null)} style={S.ghost}>닫기</button>
+              <button onClick={() => router.push(`/companies/${accTarget.id}?sec=acc`)} style={S.primary}>계정 관리 →</button>
+            </div>
+          </Modal>
+        );
+      })()}
+
       {delTarget && (
         <DeleteCompanyModal target={delTarget} projects={projects}
           onClose={() => setDelTarget(null)}
@@ -319,7 +378,7 @@ export default function CompaniesView() {
 
 /* ── MEM-02 고객사 등록 · 상세수정 ──────────────────────────────── */
 // companyId = 0 → 등록(/companies/new) · 그 외 → 상세·수정(/companies/{id})
-export function CompanyFormView({ companyId, prefillEmail = "" }: { companyId: number; prefillEmail?: string }) {
+export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "" }: { companyId: number; prefillEmail?: string; initialSec?: string }) {
   const router = useRouter();
   const { companies, projects, logs } = useStore();
   const me = currentUser(useAuth());
@@ -330,11 +389,15 @@ export function CompanyFormView({ companyId, prefillEmail = "" }: { companyId: n
   const company = isNew ? null : companies.find((c) => c.id === companyId);
 
   // 입력 항목이 길어 탭으로 나눈다. 수정 화면에서는 우측 업무요청 메모가 탭과 무관하게 항상 보인다.
-  const [tab, setTab] = useState<"base" | "rate" | "docs">("base");
-  // 사용 서비스 탭 — 서비스마다 딸린 설정이 달라 한 번에 하나만 보여 준다 `PC-077`
-  const [svcTab, setSvcTab] = useState<ServiceType>("CASTERN");
+  // 섹션 메뉴 `PC-136` — 기본 정보 · 사용 서비스 · 편집 단가 · 관련 서류 · 서비스 계정 · 업무 메모
+  const [sec, setSec] = useState<Sec>(prefillEmail || initialSec === "acc" ? "acc" : "base");
+  const [moreOpen, setMoreOpen] = useState(false);       // ⋯ 메뉴(고객사 삭제)
+  // 프로젝트 상태 — 머리말 오른쪽에서 고객사 전체를 진행중 / 사업 종료로 바꾼다 `PC-139`
+  const [closeAsk, setCloseAsk] = useState(false);
+  const [closeNote, setCloseNote] = useState("");
   const [form, setForm] = useState<Draft>(EMPTY);
   const [memberCodes, setMemberCodes] = useState<Set<string>>(new Set());   // 이 고객사가 사용하는 공통코드(하위 등록)
+  const [memberInit, setMemberInit] = useState<Set<string>>(new Set());     // 저장된 공통코드 — 변경 여부 판단용 `PC-136`
   const [logDraft, setLogDraft] = useState<LogDraft>(EMPTY_LOG);
   const [delOpen, setDelOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -346,11 +409,27 @@ export function CompanyFormView({ companyId, prefillEmail = "" }: { companyId: n
   const [drafts, setDrafts] = useState<CasterAccount[]>([]);
   const svcAccounts = isNew ? drafts
     : cast.accounts.filter((a) => accountScope(a) === "service" && a.companyId === companyId);
+  // 고객사 사용 서비스 = **그 고객사 서비스 계정들이 쓰는 서비스의 합** `PC-138`
+  //   계정에 CasterN 사용을 체크하면 → 이 고객사가 편집 프로젝트 대상이 되고 CasterN 을 쓴다.
+  const servicesOfAccounts = (list: CasterAccount[]) =>
+    SERVICE.map((x) => x.v).filter((v) => list.some((a) => (a.services ?? []).includes(v as never)));
+  const syncServices = () => {
+    if (!companyId) return;
+    const cur = store.snapshot().companies.find((c) => c.id === companyId);
+    if (!cur) return;
+    const mine = caster.snapshot().accounts.filter((a) => accountScope(a) === "service" && a.companyId === companyId);
+    // 계정이 하나도 없으면 기존 지정값을 그대로 둔다 — 옛 casterN 고객사(계정 없음)를 지키기 위해 `PC-138`
+    if (mine.length === 0) return;
+    const services = servicesOfAccounts(mine);
+    if (JSON.stringify(companyServices(cur)) !== JSON.stringify(services)) store.upsertCompany({ ...cur, services });
+  };
   const dupId = (id: string) => [...cast.accounts, ...drafts].some((x) => x.id.toLowerCase() === id.toLowerCase());
   const accountOps: AccountOps = isNew ? {
+    // 등록 화면에서 계정을 추가하면 **고객사와 계정을 함께 바로 등록**한다 — 「임시」 상태를 두지 않는다 `PC-142`
     add: (a) => {
       if (dupId(a.id)) return { ok: false, msg: "이미 등록된 ID(email)입니다." };
-      setDrafts((d) => [a, ...d]);
+      if (!form.name.trim()) return { ok: false, msg: "기본 정보(업체명)를 먼저 입력하세요." };
+      save([a], "acc");
       return { ok: true, msg: "" };
     },
     update: (id, patch) => setDrafts((d) => d.map((x) => (x.id === id ? { ...x, ...patch } : x))),
@@ -358,11 +437,11 @@ export function CompanyFormView({ companyId, prefillEmail = "" }: { companyId: n
   } : {
     add: (a) => {
       const r = caster.addAccount({ ...a, companyId, company: company?.name ?? form.name });
-      if (r.ok) logActivity("company", `계정 추가 · ${company?.name ?? form.name} · ${a.id}`, me?.name);
+      if (r.ok) { logActivity("company", `계정 추가 · ${company?.name ?? form.name} · ${a.id}`, me?.name); syncServices(); }
       return r;
     },
-    update: (id, patch) => { caster.updateAccount(id, patch); },
-    remove: (id) => { caster.removeAccount(id); logActivity("company", `계정 삭제 · ${company?.name ?? form.name} · ${id}`, me?.name); },
+    update: (id, patch) => { caster.updateAccount(id, patch); syncServices(); },
+    remove: (id) => { caster.removeAccount(id); syncServices(); logActivity("company", `계정 삭제 · ${company?.name ?? form.name} · ${id}`, me?.name); },
   };
 
   // 고객사 값 주입 (최초 1회 — 편집 중 스토어 변경에 덮이지 않도록)
@@ -372,10 +451,55 @@ export function CompanyFormView({ companyId, prefillEmail = "" }: { companyId: n
     if (!company) return;
     setForm({ ...company, docs: [...company.docs] });
     setMemberCodes(new Set(codesOfMember(company.name)));
+    setMemberInit(new Set(codesOfMember(company.name)));
     setLoaded(true);
   }, [isNew, company, loaded]);
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setForm((f) => ({ ...f, [k]: v }));
+
+  // 섹션별 저장 `PC-136` — 섹션마다 [저장]·[취소]가 있고, 고친 뒤 저장하지 않은 섹션은 메뉴에 ● 를 붙인다.
+  //   등록 화면은 섹션 구분 없이 [등록] 한 번으로 고객사 + 서비스 계정을 함께 저장한다.
+  const pickKeys = (o: Partial<Draft> | null | undefined, sc: FormSec) =>
+    JSON.stringify(SEC_KEYS[sc].map((k) => (o as Record<string, unknown> | null | undefined)?.[k] ?? null));
+  const sameSet = (a: Set<string>, b: Set<string>) => a.size === b.size && [...a].every((x) => b.has(x));
+  const isDirty = (sc: Sec): boolean => {
+    if (isNew || !company || sc === "memo" || sc === "acc") return false;
+    return pickKeys(form, sc) !== pickKeys(company, sc) || (sc === "base" && !sameSet(memberCodes, memberInit));
+  };
+  const syncMembers = (name: string) => {
+    // 공통코드 사용 고객사(하위) 등록 — 중앙 멤버십에 동기화. 자기(대표) 코드는 제외
+    COMMON_CODES.filter((c) => !c.historyOnly && c.company !== name.trim()).forEach((c) => {
+      if (memberCodes.has(codeKey(c))) addMember(c.k, c.s, c.o, name);
+      else removeMember(c.k, c.s, c.o, name);
+    });
+  };
+  const saveSection = (sc: FormSec) => {
+    if (!company) return;
+    if (sc === "base" && !form.name.trim()) { flash("업체명은 필수입니다."); return; }
+    const patch = Object.fromEntries(SEC_KEYS[sc].map((k) => [k, (form as Record<string, unknown>)[k]]));
+    const next = { ...company, ...patch } as Company;
+    store.upsertCompany(next);
+    if (sc === "base") { syncMembers(next.name); setMemberInit(new Set(memberCodes)); }
+    logActivity("company", `수정 · ${next.name} · ${SEC_LABEL[sc]}`, me?.name);
+    flash(`저장됨 · ${SEC_LABEL[sc]}`);
+  };
+  const cancelSection = (sc: FormSec) => {
+    if (!company) return;
+    const restore = Object.fromEntries(SEC_KEYS[sc].map((k) => [k, (company as unknown as Record<string, unknown>)[k]]));
+    setForm((f) => ({ ...f, ...restore, ...(sc === "docs" ? { docs: [...company.docs] } : {}) }));
+    if (sc === "base") setMemberCodes(new Set(memberInit));
+  };
+
+  // 진행중 ⇄ 사업 종료 — 수정 화면은 바로 저장, 등록 화면은 [등록] 때 함께 저장 `PC-139`
+  const setStatus = (closed: boolean, note = "") => {
+    setForm((f) => ({ ...f, closed, closedNote: closed ? note : f.closedNote }));
+    setCloseAsk(false);
+    if (isNew || !company) return;
+    const cur = store.snapshot().companies.find((c) => c.id === company.id) ?? company;
+    store.upsertCompany({ ...cur, closed, closedNote: closed ? note : cur.closedNote });
+    logActivity("company", `${closed ? "사업 종료" : "진행중으로 변경"} · ${cur.name}${closed && note ? ` · ${note}` : ""}`, me?.name);
+    flash(closed ? `사업 종료로 바꿨습니다 · ${cur.name}` : `진행중으로 바꿨습니다 · ${cur.name}`);
+  };
 
   // 본인이 작성한 메모만 수정·삭제 가능
   const isMine = (l: WorkLog) => !!me && (l.authorEmail ? l.authorEmail === me.email : l.author === me.name);
@@ -410,11 +534,13 @@ export function CompanyFormView({ companyId, prefillEmail = "" }: { companyId: n
     if (confirm(`메모 ${l.no}번을 삭제할까요?`)) store.deleteLog(l.id);
   };
 
-  const save = () => {
+  // extra = 등록과 함께 저장할 계정, goSec = 등록 뒤 열 섹션 `PC-142`
+  const save = (extra: CasterAccount[] = [], goSec = "") => {
     if (!form.name.trim()) { flash("업체명은 필수입니다."); return; }
-    const savedId = store.upsertCompany({ ...form, id: companyId });
-    // 신규 등록 중 추가한 계정을 새 고객사에 붙여 저장한다 `PC-128`
-    if (isNew) drafts.forEach((d) => caster.addAccount({ ...d, companyId: savedId, company: form.name.trim() }));
+    const withAcc = [...drafts, ...extra];
+    // 등록 — 사용 서비스는 함께 추가한 계정들의 서비스로 정한다 `PC-138`
+    const savedId = store.upsertCompany({ ...form, id: companyId, ...(isNew ? { services: servicesOfAccounts(withAcc) } : {}) });
+    if (isNew) withAcc.forEach((d) => caster.addAccount({ ...d, companyId: savedId, company: form.name.trim() }));
     // 공통코드 사용 고객사(하위) 등록 — 중앙 멤버십에 동기화 (히스토리 시드는 유지)
     //   자기(대표) 코드는 제외 — 대표 회사는 자기 코드의 하위 고객사가 될 수 없다.
     COMMON_CODES.filter((c) => !c.historyOnly && c.company !== form.name.trim()).forEach((c) => {
@@ -422,7 +548,8 @@ export function CompanyFormView({ companyId, prefillEmail = "" }: { companyId: n
       else removeMember(c.k, c.s, c.o, form.name);
     });
     logActivity("company", `${isNew ? "등록" : "수정"} · ${form.name}`, me?.name);
-    if (isNew) { router.push(`/companies/${savedId}`); return; }   // 등록 후 상세로 — 계정을 이어서 추가 `PC-128`
+    if (isNew) { router.push(`/companies/${savedId}${goSec ? `?sec=${goSec}` : ""}`); return; }   // 등록 후 상세로 `PC-128` `PC-142`
+    setMemberInit(new Set(memberCodes));
     flash(`수정됨 · ${form.name}`);
   };
 
@@ -436,125 +563,150 @@ export function CompanyFormView({ companyId, prefillEmail = "" }: { companyId: n
     );
   }
 
-  return (
-    <div style={{ padding: "20px 22px", maxWidth: 1680 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-        <div style={{ fontWeight: 700, fontSize: 14 }}>{isNew ? "고객사 등록" : "고객사 상세 · 수정"}</div>
-        {!isNew && company && (
+  // 머리말 요약 · 메뉴 배지
+  // 사용 서비스 = 계정들의 서비스 `PC-138`. 계정이 아직 없는 기존 고객사(옛 지정값)는 저장된 값을 함께 보여 준다
+  const svcList = [...new Set([...(isNew ? [] : companyServices(company ?? form)), ...servicesOfAccounts(svcAccounts)])];
+  const nOn = svcAccounts.filter(isActive).length;
+  const nRate = customRateCount(form);
+  const NAV: { v: Sec; label: string; badge?: string; grp?: string }[] = [
+    { v: "base", label: "기본 정보", grp: "고객사 정보" },
+    { v: "rate", label: "편집 단가", badge: nRate ? `전용 ${nRate}` : undefined },
+    { v: "docs", label: "관련 서류", badge: form.docs.length ? String(form.docs.length) : undefined },
+    { v: "acc", label: "서비스 계정", badge: `${svcList.length ? svcList.map((x) => (x === "CASTERN" ? "casterN" : "폼솔루션")).join("·") + " · " : ""}${svcAccounts.length}`, grp: "운영" },
+    { v: "memo", label: "업무 메모", badge: isNew ? undefined : String(companyLogs.length) },
+  ];
+  const cls = isHolderCo(form.name) ? ["상위 고객사", "#ecfdf5", "#047857"] : isMemberCo(form.name) ? ["하위 고객사", "#f3e8ff", "#7e22ce"] : ["단독", "#f3f4f6", "#9ca3af"];
+
+  // 섹션 카드 — 머리 · 본문 · 아래 [취소][저장] (등록 화면은 [등록])
+  // 컴포넌트가 아니라 **렌더 함수**로 둔다 — 렌더마다 새 컴포넌트가 되면 입력칸이 다시 마운트돼 포커스를 잃는다
+  const secWrap = ({ sc, title, desc, right, children }: { sc: FormSec; title: string; desc?: string; right?: React.ReactNode; children: React.ReactNode }) => (
+    <div style={secCard}>
+      <div style={secHd}>
+        <b style={{ fontSize: 14 }}>{title}</b>
+        {desc && <span style={{ fontSize: 11.5, color: "#9ca3af" }}>{desc}</span>}
+        <span style={{ flex: 1 }} />
+        {right}
+      </div>
+      <div style={{ padding: "16px 18px" }}>{children}</div>
+      <div style={secFt}>
+        {isDirty(sc) && <span style={{ fontSize: 12, color: "#b45309" }}>● 저장하지 않은 변경이 있습니다</span>}
+        <span style={{ flex: 1 }} />
+        {isNew ? (
           <>
-            <span style={{ ...S.tag, background: "#f3f4f6", color: "#6b7280" }}>{company.name}</span>
-            {isHolderCo(company.name)
-              ? <span style={{ ...S.tag, background: "#ecfdf5", color: "#047857", fontWeight: 700 }}>상위 고객사</span>
-              : isMemberCo(company.name)
-              ? <span style={{ ...S.tag, background: "#f3e8ff", color: "#7e22ce", fontWeight: 700 }}>하위 고객사</span>
-              : <span style={{ ...S.tag, background: "#f3f4f6", color: "#9ca3af", fontWeight: 700 }}>단독</span>}
+            <Link href="/companies" style={{ ...S.ghost, textDecoration: "none" }}>취소</Link>
+            <button onClick={() => save()} style={S.primary}>등록</button>
           </>
+        ) : (
+          <>
+            <button onClick={() => cancelSection(sc)} style={S.ghost} disabled={!isDirty(sc)}>취소</button>
+            <button onClick={() => saveSection(sc)} style={S.primary}>저장</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ padding: "16px 20px", maxWidth: 1680 }}>
+      {/* 머리말 — 업체명 · 구분 · 진행 상태 · 요약 · ⋯(고객사 삭제) `PC-136` */}
+      <div style={{ ...secCard, padding: "12px 16px", flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+        <Link href="/companies" title="목록" style={{ ...S.ghost, textDecoration: "none", padding: "5px 11px" }}>←</Link>
+        <div style={{ fontSize: 20, fontWeight: 800, color: form.name ? "#111827" : "#c7cdd6" }}>{form.name || (isNew ? "새 고객사" : "")}</div>
+        {form.name && <span style={{ ...S.tag, background: cls[1], color: cls[2], fontWeight: 700 }}>{cls[0]}</span>}
+        {isNew && <span style={{ ...S.tag, background: "#fff7ed", color: "#c2410c", fontWeight: 700 }}>등록 중</span>}
+        <div style={{ display: "flex", gap: 16, marginLeft: 8, color: "#6b7280", fontSize: 12.5, flexWrap: "wrap" }}>
+          <span>사용 서비스 <b style={{ color: "#111827" }}>{svcList.length ? svcList.map((x) => (x === "CASTERN" ? "casterN" : "폼솔루션")).join(" · ") : "없음"}</b></span>
+          <span>서비스 계정 <b style={{ color: "#111827" }}>{svcAccounts.length}명</b> (활성 {nOn})</span>
+          {!isNew && <span>업무 메모 <b style={{ color: "#111827" }}>{companyLogs.length}건</b></span>}
+          <span>편집 단가 <b style={{ color: "#111827" }}>{nRate ? `전용 ${nRate}항목` : "기본"}</b></span>
+        </div>
+        <span style={{ flex: 1 }} />
+        {/* 프로젝트 상태 — 고객사 전체를 진행중 / 사업 종료로 `PC-139` */}
+        <div style={{ position: "relative" }}>
+          <div style={{ display: "inline-flex", border: "1px solid #e5e7eb", borderRadius: 999, overflow: "hidden" }}
+            title={form.closed && form.closedNote ? `종료 사유: ${form.closedNote}` : "사업 종료 시 코드 발급 이력만 유지되고, 목록·코드 프로젝트에서 비활성(회색)으로 표시됩니다"}>
+            <button type="button" onClick={() => { if (form.closed && (isNew || confirm("진행중으로 되돌릴까요?"))) setStatus(false); }}
+              style={{ border: 0, padding: "6px 14px", fontSize: 12.5, cursor: "pointer", fontWeight: !form.closed ? 700 : 400,
+                background: !form.closed ? "#ecfdf5" : "#fff", color: !form.closed ? "#047857" : "#9ca3af" }}>진행중</button>
+            <button type="button" onClick={() => { if (!form.closed) { setCloseNote(""); setCloseAsk(true); } }}
+              style={{ border: 0, borderLeft: "1px solid #e5e7eb", padding: "6px 14px", fontSize: 12.5, cursor: "pointer", fontWeight: form.closed ? 700 : 400,
+                background: form.closed ? "#fef2f2" : "#fff", color: form.closed ? "#b91c1c" : "#9ca3af" }}>사업 종료</button>
+          </div>
+          {closeAsk && (<>
+            <div onClick={() => setCloseAsk(false)} style={{ position: "fixed", inset: 0, zIndex: 19 }} />
+            <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 20, width: 340, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, boxShadow: "0 12px 32px rgba(15,23,42,.14)", padding: 14 }}>
+              <b style={{ fontSize: 13 }}>사업 종료로 바꿀까요?</b>
+              <div style={{ fontSize: 11.5, color: "#6b7280", margin: "4px 0 10px", lineHeight: 1.6 }}>코드 발급 이력만 유지되고, 목록·코드 프로젝트에서 비활성(회색)으로 표시됩니다.</div>
+              <input style={S.input} value={closeNote} onChange={(e) => setCloseNote(e.target.value)} placeholder="종료 사유 / 코드 이관 메모 (예: 엠베스트-28로 코드 이관)" autoFocus />
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+                <button type="button" onClick={() => setCloseAsk(false)} style={S.ghost}>취소</button>
+                <button type="button" onClick={() => setStatus(true, closeNote.trim())} style={{ ...S.primary, background: "#dc2626", borderColor: "#dc2626" }}>사업 종료</button>
+              </div>
+            </div>
+          </>)}
+        </div>
+        {/* 등록 화면 — 어느 섹션에서든 [등록] 한 번으로 고객사 + 서비스 계정을 저장한다 `PC-136` */}
+        {isNew && (<>
+          <Link href="/companies" style={{ ...S.ghost, textDecoration: "none" }}>취소</Link>
+          <button onClick={() => save()} style={S.primary}>등록</button>
+        </>)}
+        {!isNew && (
+          <div style={{ position: "relative" }}>
+            <button onClick={() => setMoreOpen((o) => !o)} style={{ ...S.ghost, padding: "5px 11px" }} title="더 보기">⋯</button>
+            {moreOpen && (<>
+              <div onClick={() => setMoreOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 19 }} />
+              <div style={{ position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 20, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, boxShadow: "0 12px 32px rgba(15,23,42,.14)", minWidth: 140, overflow: "hidden" }}>
+                <button onClick={() => { setMoreOpen(false); setDelOpen(true); }}
+                  style={{ display: "block", width: "100%", textAlign: "left", border: 0, background: "#fff", padding: "10px 14px", fontSize: 12.5, color: "#dc2626", cursor: "pointer" }}>고객사 삭제</button>
+              </div>
+            </>)}
+          </div>
         )}
       </div>
 
       {toast && <div style={S.toast}>{toast}</div>}
 
-      {/* 좌(입력 탭) / 우(계정 및 서비스 권한 + 업무요청 메모) 2단 — 등록 화면도 오른쪽에서 계정을 함께 추가한다 `PC-128` */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 1fr)", gap: 20, alignItems: "start" }}>
-        {/* 좌 — 항목이 길어 탭으로 나눈다 */}
-        <div style={{ ...colBox, padding: 0 }}>
-          <div style={{ display: "flex", borderBottom: "1px solid #eef0f4" }}>
-            {([
-              ["base", "기본 정보", ""],
-              ["rate", "편집 단가", customRateCount(form) > 0 ? `전용 ${customRateCount(form)}` : ""],
-              ["docs", "관련 서류", form.docs.length ? String(form.docs.length) : ""],
-            ] as const).map(([v, label, badge]) => {
-              const on = tab === v;
-              return (
-                <button key={v} onClick={() => setTab(v)}
-                  style={{ border: 0, background: "none", padding: "11px 16px", fontSize: 13, cursor: "pointer",
-                    color: on ? "#111827" : "#6b7280", fontWeight: on ? 700 : 400,
-                    borderBottom: `2px solid ${on ? BLUE : "transparent"}`, marginBottom: -1,
-                    display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-                  {label}
-                  {badge && <span style={{ ...S.tag, fontSize: 10, background: on ? "#eef6ff" : "#f3f4f6", color: on ? "#2563eb" : "#9ca3af", fontWeight: 700 }}>{badge}</span>}
+      {/* 섹션 메뉴 | 본문 — 서비스 계정만 본문이 「카드 목록 | 상세」 2칸(전체 3단) `PC-136` */}
+      <div style={{ display: "grid", gridTemplateColumns: "210px minmax(0, 1fr)", gap: 12, alignItems: "start" }}>
+        <nav style={{ ...secCard, padding: 8 }}>
+          {NAV.map((n) => {
+            const on = sec === n.v;
+            const dirty = isDirty(n.v);
+            const locked = n.v === "acc" && !form.name.trim();   // 기본 정보가 먼저 `PC-139`
+            return (
+              <div key={n.v}>
+                {n.grp && <div style={{ fontSize: 10.5, color: "#9ca3af", padding: n.v === "base" ? "6px 12px 2px" : "10px 12px 2px", borderTop: n.v === "base" ? "none" : "1px solid #eef0f4", marginTop: n.v === "base" ? 0 : 6 }}>{n.grp}</div>}
+                <button onClick={() => { if (locked) { flash("기본 정보(업체명)를 먼저 입력하세요."); setSec("base"); return; } setSec(n.v); }}
+                  title={locked ? "기본 정보(업체명)를 먼저 입력하세요" : undefined}
+                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", border: 0, borderRadius: 9, padding: "9px 12px", cursor: locked ? "not-allowed" : "pointer", fontSize: 13,
+                    background: on ? "#eef6ff" : "transparent", color: locked ? "#c7cdd6" : on ? "#1d4ed8" : "#374151", fontWeight: on ? 700 : 400 }}>
+                  {n.label}
+                  <span style={{ flex: 1 }} />
+                  {dirty && <span title="저장하지 않은 변경" style={{ width: 7, height: 7, borderRadius: "50%", background: "#f59e0b" }} />}
+                  {n.badge && <span style={{ fontSize: 10.5, borderRadius: 999, padding: "1px 8px", fontWeight: 700, background: on ? "#dbeafe" : "#f3f4f6", color: on ? "#1d4ed8" : "#6b7280" }}>{n.badge}</span>}
                 </button>
-              );
-            })}
-          </div>
-          <div style={{ padding: 16 }}>
+              </div>
+            );
+          })}
+        </nav>
 
-        {tab === "base" && (<>
-          <div style={S.grid2}>
-            <Field label="업체명 *"><input style={S.input} value={form.name} onChange={(e) => set("name", e.target.value)} /></Field>
-            <Field label="담당자"><input style={S.input} value={form.manager} onChange={(e) => set("manager", e.target.value)} /></Field>
-            <Field label="연락처"><input style={S.input} value={form.contact} onChange={(e) => set("contact", e.target.value)} /></Field>
-            <Field label="사업자등록증번호"><input style={S.input} value={form.bizNo} onChange={(e) => set("bizNo", e.target.value)} placeholder="000-00-00000" /></Field>
-            <Field label="주소" full><input style={S.input} value={form.address} onChange={(e) => set("address", e.target.value)} /></Field>
-            <Field label="은행명"><input style={S.input} value={form.bankName} onChange={(e) => set("bankName", e.target.value)} /></Field>
-            <Field label="계좌번호"><input style={S.input} value={form.accountNo} onChange={(e) => set("accountNo", e.target.value)} /></Field>
-            <Field label="세금계산서 발행용 이메일" full>
-              <input type="email" style={S.input} value={form.taxEmail ?? ""} onChange={(e) => set("taxEmail", e.target.value)} placeholder="tax@company.com" />
-            </Field>
-            {/* 사용 서비스 — **이 고객사를 우리 어느 서비스로 다루나** `PC-076`.
-                서비스마다 딸린 설정이 달라 **탭**으로 나눈다 `PC-077`.
-                계정의 [인증 서비스]와 다르다: 저쪽은 외부 고객사가 우리 서비스에 로그인하는 범위다. */}
-            <Field label="사용 서비스" full>
-              <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
-                {/* 탭 바 — 고른 서비스에 ✓ */}
-                <div style={{ display: "flex", borderBottom: "1px solid #eef0f4", background: "#fafbfc" }}>
-                  {SERVICE.map((sv) => {
-                    const on = companyServices(form).includes(sv.v);
-                    const cur = svcTab === sv.v;
-                    return (
-                      <button key={sv.v} type="button" onClick={() => setSvcTab(sv.v)}
-                        style={{ flex: 1, padding: "10px 8px", fontSize: 12.5, cursor: "pointer", border: "none",
-                          borderBottom: `2px solid ${cur ? "#2563eb" : "transparent"}`,
-                          background: cur ? "#fff" : "transparent", fontWeight: cur ? 700 : 400,
-                          color: cur ? "#1d4ed8" : on ? "#374151" : "#9ca3af" }}>
-                        {on && <span style={{ color: "#2563eb", marginRight: 4 }}>✓</span>}{sv.label}
-                        {!sv.ready && <span style={{ ...S.tag, marginLeft: 6, fontSize: 9.5, background: "#fff7ed", color: "#c2410c", fontWeight: 700 }}>준비중</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* 탭 패널 — 맨 위에 사용 여부, 켜져 있을 때만 그 서비스의 설정이 나온다 */}
-                {SERVICE.filter((sv) => sv.v === svcTab).map((sv) => {
-                  const on = companyServices(form).includes(sv.v);
-                  const toggle = () => setForm((f) => {
-                    const cur = companyServices(f);
-                    return { ...f, services: on ? cur.filter((x) => x !== sv.v) : [...cur, sv.v] };
-                  });
-                  return (
-                    <div key={sv.v} style={{ padding: "12px 14px" }}>
-                      <label style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer" }}>
-                        <input type="checkbox" checked={on} onChange={toggle} style={{ marginTop: 2 }} />
-                        <span style={{ fontSize: 12.5 }}>
-                          <b style={{ color: on ? "#1e3a8a" : "#374151" }}>{sv.label}</b>
-                          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2, lineHeight: 1.6 }}>{sv.desc}</div>
-                        </span>
-                      </label>
-
-                      {/* casterN — 켜면 편집에 딸린 설정(프로젝트 상태 · 공통코드 사용 고객사)이 나온다 `PC-077` */}
-                      {sv.v === "CASTERN" && (on ? (
-                        <div style={{ marginTop: 12, display: "grid", gap: 14 }}>
-                          <div>
-                            <div style={{ ...secHead, margin: "0 0 8px" }}>프로젝트 상태</div>
-                            <div style={{ border: `1px solid ${form.closed ? "#fca5a5" : "#e5e7eb"}`, background: form.closed ? "#fef2f2" : "#fafbfc", borderRadius: 10, padding: "12px 14px" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                <button type="button" role="switch" aria-checked={!!form.closed} onClick={() => set("closed", !form.closed)}
-                                  title={form.closed ? "사업 종료 → 진행중으로 되돌리기" : "사업 종료로 전환"}
-                                  style={{ width: 46, height: 26, borderRadius: 13, border: "none", padding: 0, cursor: "pointer", position: "relative",
-                                    background: form.closed ? "#ef4444" : "#d1d5db", transition: "background .15s", flexShrink: 0 }}>
-                                  <span style={{ position: "absolute", top: 3, left: form.closed ? 23 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .15s", boxShadow: "0 1px 2px rgba(0,0,0,.25)" }} />
-                                </button>
-                                <div>
-                                  <b style={{ fontSize: 13.5, color: form.closed ? "#b91c1c" : "#374151" }}>{form.closed ? "사업 종료" : "진행중"}</b>
-                                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 1 }}>사업 종료 시 코드 발급 이력만 유지되고, 목록·코드 프로젝트에서 비활성(회색)으로 표시됩니다.</div>
-                                </div>
-                              </div>
-                              {form.closed && (
-                                <input style={{ ...S.input, marginTop: 10 }} value={form.closedNote ?? ""} onChange={(e) => set("closedNote", e.target.value)} placeholder="종료 사유 / 코드 이관 메모 (예: 엠베스트-28로 코드 이관)" />
-                              )}
-                            </div>
-                          </div>
-
+        <div style={{ minWidth: 0 }}>
+          {sec === "base" && secWrap({ sc: "base", title: "기본 정보", desc: "· 필수는 업체명", children: (<>
+              <div style={{ ...S.grid2, maxWidth: 900 }}>
+                <Field label="업체명 *"><input style={S.input} value={form.name} onChange={(e) => set("name", e.target.value)} /></Field>
+                <Field label="담당자"><input style={S.input} value={form.manager} onChange={(e) => set("manager", e.target.value)} /></Field>
+                <Field label="연락처"><input style={S.input} value={form.contact} onChange={(e) => set("contact", e.target.value)} /></Field>
+                <Field label="사업자등록증번호"><input style={S.input} value={form.bizNo} onChange={(e) => set("bizNo", e.target.value)} placeholder="000-00-00000" /></Field>
+                <Field label="주소" full><input style={S.input} value={form.address} onChange={(e) => set("address", e.target.value)} /></Field>
+                <Field label="은행명"><input style={S.input} value={form.bankName} onChange={(e) => set("bankName", e.target.value)} /></Field>
+                <Field label="계좌번호"><input style={S.input} value={form.accountNo} onChange={(e) => set("accountNo", e.target.value)} /></Field>
+                <Field label="세금계산서 발행용 이메일" full>
+                  <input type="email" style={S.input} value={form.taxEmail ?? ""} onChange={(e) => set("taxEmail", e.target.value)} placeholder="tax@company.com" />
+                </Field>
+              </div>
+              {/* 프로젝트 상태 · 공통코드 사용 고객사 — 기본 정보에 둔다 `PC-138` */}
+              <div style={{ maxWidth: 900, marginTop: 18, paddingTop: 16, borderTop: "1px solid #eef0f4" }}>
+                        <div style={{ display: "grid", gap: 14 }}>
                           {/* 공통코드 사용 고객사(하위) 등록 — 대표 회사 아래 귀속. 코드 할당 없이(기 발급) 편집·티켓만 */}
                           <div>
                             <div style={{ ...secHead, margin: "0 0 8px" }}>
@@ -583,28 +735,13 @@ export function CompanyFormView({ companyId, prefillEmail = "" }: { companyId: n
                             </div>
                           </div>
                         </div>
-                      ) : null)}   {/* 꺼져 있을 때 안내문은 뺐다 `PC-104` */}
-
-                      {/* 폼솔루션 — 지금은 지정할 항목이 없다. 어디에 나타나는지만 알려 준다 `PC-077` */}
-                      {sv.v === "FORMSOLUTION" && (
-                        <div style={{ marginTop: 10, fontSize: 12, color: "#6b7280", lineHeight: 1.75,
-                          border: "1px solid #eef0f4", background: "#fafbfc", borderRadius: 9, padding: "10px 12px" }}>
-                          <b style={{ color: "#c2410c" }}>준비중</b> — 폼솔루션에서 지정할 항목은 아직 없습니다.
-                          선택하면 이 고객사가 <b>[폼솔루션 서비스 관리]</b> 화면에 나타납니다.
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
               </div>
-              {/* 「아무것도 고르지 않으면 SDK 연동」 안내문은 뺐다 `PC-104` */}
-            </Field>
-          </div>
+              {isNew && <div style={{ fontSize: 11.5, color: "#9ca3af", marginTop: 12 }}>업체명을 입력하면 왼쪽 <b>서비스 계정</b>에서 계정을 추가할 수 있습니다. 계정을 추가하면 고객사가 함께 등록됩니다.</div>}
+            </>) })}
 
-        </>)}
-
-        {/* 편집 단가 — 항목별 개별 단가(2026 단가표). 기본값에서 바꾸면 이 고객사 전용 단가 */}
-        {tab === "rate" && (() => {
+          {sec === "rate" && secWrap({ sc: "rate", title: "편집 단가", desc: "· 2026 항목별", children: (<>
+              <div style={{ maxWidth: 980 }}>
+              {(() => {
             const rm = rateMapOf(form);
             const nCustom = customRateCount(form);
             const setRate = (key: string, base: number, raw: string) => setForm((f) => {
@@ -675,11 +812,12 @@ export function CompanyFormView({ companyId, prefillEmail = "" }: { companyId: n
               </>
             );
           })()}
+              </div>
+            </>) })}
 
-        {tab === "docs" && (<>
-          <div style={{ ...secHead, marginTop: 0 }}>관련 서류 <span style={{ color: "#9ca3af", fontWeight: 400 }}>· 항목명 수정 가능</span>
-            <button onClick={addDoc} style={{ ...S.smallBtn, marginLeft: "auto" }}>＋ 서류 추가</button>
-          </div>
+          {sec === "docs" && secWrap({ sc: "docs", title: "관련 서류", desc: "· 항목명 수정 가능", children: (<>
+              <div style={{ maxWidth: 900 }}>
+          <div style={{ display: "flex", marginBottom: 10 }}><button onClick={addDoc} style={{ ...S.smallBtn, marginLeft: "auto" }}>＋ 서류 추가</button></div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {form.docs.length === 0 && <div style={emptyBox}>등록된 서류가 없습니다.</div>}
             {form.docs.map((d) => (
@@ -694,21 +832,27 @@ export function CompanyFormView({ companyId, prefillEmail = "" }: { companyId: n
               </div>
             ))}
           </div>
-        </>)}
+              </div>
+            </>) })}
 
-          </div>
-        </div>
-
-        {/* 우 — 계정 및 서비스 권한(위) · 업무요청 메모(아래). 탭과 무관하게 항상 보인다. */}
-        <div style={{ display: "grid", gap: 16 }}>
-          <div style={colBox}>
+          {/* 서비스 계정 — 카드 목록 | 상세 `PC-128` `PC-136` */}
+          {sec === "acc" && !form.name.trim() && (
+            <div style={{ ...secCard, padding: "40px 0", alignItems: "center", color: "#9ca3af", fontSize: 12.5 }}>기본 정보(업체명)를 먼저 입력하세요.</div>
+          )}
+          {sec === "acc" && !!form.name.trim() && (<div style={{ display: "grid", gap: 12 }}>
             <CompanyAccountsPanel accounts={svcAccounts} ops={accountOps} draft={isNew} initialId={prefillEmail}
-              companyName={form.name.trim()} companyServices={companyServices(form)}
+              companyName={form.name.trim()} companyServices={svcList}
               appKeyOf={(id) => cast.appKeys.find((k) => k.accountId === id)?.key} />
-          </div>
-        {!isNew && (
-          <div style={colBox}>
-            <div style={colHead}>업무요청 메모 <span style={{ color: "#9ca3af", fontWeight: 400, fontSize: 11 }}>· 고객사 전용 원장 · 번호 유지 · 본인 글만 수정/삭제</span></div>
+          </div>)}
+
+          {sec === "memo" && (
+            <div style={secCard}>
+              <div style={secHd}>
+                <b style={{ fontSize: 14 }}>업무 메모</b>
+                <span style={{ fontSize: 11.5, color: "#9ca3af" }}>· 고객사 전용 원장 · 번호 유지 · 본인 글만 수정/삭제</span>
+              </div>
+              <div style={{ padding: "16px 18px", maxWidth: 980 }}>
+                {isNew ? <div style={emptyBox}>업무 메모는 고객사를 등록한 뒤 기록할 수 있습니다.</div> : (<>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 76px", gap: 8 }}>
               <select style={S.input} value={logDraft.projectId ?? ""} onChange={(e) => setLogDraft((d) => ({ ...d, projectId: e.target.value ? +e.target.value : null }))}>
                 <option value="">고객사 공통</option>
@@ -743,17 +887,11 @@ export function CompanyFormView({ companyId, prefillEmail = "" }: { companyId: n
                 </div>
               ))}
             </div>
-          </div>
-        )}
+                </>)}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-
-      {/* 하단 액션 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 18 }}>
-        {!isNew && <button onClick={() => setDelOpen(true)} style={{ ...S.ghost, color: "#dc2626", borderColor: "#fecaca" }}>고객사 삭제</button>}
-        <span style={{ flex: 1 }} />
-        <Link href="/companies" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>
-        <button onClick={save} style={S.primary}>{isNew ? "등록" : "저장"}</button>
       </div>
 
       {delOpen && company && (
@@ -802,8 +940,9 @@ function DeleteCompanyModal({ target, projects, onClose, onDone }: {
 
 const secHead: React.CSSProperties = { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#374151", fontWeight: 700, margin: "18px 0 8px" };
 const emptyBox: React.CSSProperties = { fontSize: 12, color: "#9ca3af", padding: "10px 12px", background: "#fafbfc", border: "1px dashed #e5e7eb", borderRadius: 8 };
-const colBox: React.CSSProperties = { border: "1px solid #eef0f4", borderRadius: 10, padding: 16, background: "#fff" };
-const colHead: React.CSSProperties = { fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 12, paddingBottom: 8, borderBottom: "1px solid #eef0f4" };
+const secCard: React.CSSProperties = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, display: "flex", flexDirection: "column" };
+const secHd: React.CSSProperties = { padding: "13px 18px", borderBottom: "1px solid #eef0f4", display: "flex", alignItems: "center", gap: 8 };
+const secFt: React.CSSProperties = { padding: "11px 18px", borderTop: "1px solid #eef0f4", display: "flex", alignItems: "center", gap: 8 };
 
 const pgBtn = (on: boolean, disabled: boolean): React.CSSProperties => ({
   minWidth: 28, fontSize: 12, padding: "4px 7px", borderRadius: 6, cursor: disabled ? "default" : "pointer",
