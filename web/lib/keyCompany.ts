@@ -70,3 +70,49 @@ export function nKeyRangesOfCompany(co: Company | undefined, projects: Project[]
   const mine = tickets.filter((t) => companyOfNTicket(t, companies)?.id === co.id);
   return dedupe([...rangesOfTicketRows(mine), ...sobpRangesOf(co, projects), ...keyAllocRangesOf(co, projects)]);
 }
+
+// ── 서비스 티켓 `PC-172` ─────────────────────────────────────────────
+/** 서비스 티켓 발급 범위 = 고객사의 SOBP 할당 + **공유(커먼) 코드 사용 고객사이면 그 S/O** `PC-171`
+ *  (공유 코드는 Owner 를 여럿이 쓰므로 Book 은 서비스 티켓끼리 겹치지 않게만 잡는다) */
+export type ServiceRange = TicketRange & { shared?: boolean };
+export function serviceRangesOfCompany(co: Company | undefined, projects: Project[], memberCodes: string[]): ServiceRange[] {
+  if (!co) return [];
+  const own: ServiceRange[] = sobpRangesOf(co, projects);
+  const shared: ServiceRange[] = memberCodes.flatMap((ck) => {
+    const [k, s, o] = ck.split(":");
+    if (k === "A") return [];                                     // 이력전용 OID(옛 IDS)는 발급하지 않는다
+    return [{ ...makeRange(patternOf(codeKind(k, +s)), +s, +o, null, null), shared: true }];
+  });
+  return dedupe([...own, ...shared]) as ServiceRange[];
+}
+
+/** 겹침 검사용 범위 한 칸 */
+export type Occupied = { by: string; section: number; owner: number; bookStart: number; bookEnd: number; pageStart: number; pageEnd: number };
+type AppKeyLike = { accountId: string; section: number; owner: number; bookStart: number; bookEnd: number; pageStart: number; pageEnd: number;
+  ranges?: { section: number; owner: number; bookStart: number | null; bookEnd: number | null; pageStart: number | null; pageEnd: number | null }[] };
+type AccountLike = AccLike & { id: string; scope?: string };
+
+/** 이 고객사가 이미 쓰는 App Key · N Key 범위 — 서비스 티켓과 겹치면 안 된다 `PC-171` ③ */
+export function keyRangesOfCompany(co: Company, companies: Company[], accounts: AccountLike[], appKeys: AppKeyLike[], tickets: (TicketLike & { kind: string })[]): Occupied[] {
+  const out: Occupied[] = [];
+  const mine = new Set(accounts.filter((a) => (a.scope ?? "key") === "key" && companyOfAccount(a, companies)?.id === co.id).map((a) => a.id));
+  for (const k of appKeys) {
+    if (!mine.has(k.accountId)) continue;
+    const rs = k.ranges?.length ? k.ranges : [k];
+    for (const r of rs) out.push({ by: "App Key", section: r.section, owner: r.owner,
+      bookStart: r.bookStart ?? 0, bookEnd: r.bookEnd ?? 1e9, pageStart: r.pageStart ?? 0, pageEnd: r.pageEnd ?? 1e9 });
+  }
+  for (const t of tickets) {
+    if (t.kind !== "N" || companyOfNTicket(t, companies)?.id !== co.id) continue;
+    const p = t.params ?? {};
+    const n = (v: unknown, d: number) => (Number.isFinite(Number(v)) && v !== "" && v != null ? Number(v) : d);
+    out.push({ by: "N Key", section: n(p.Section, -1), owner: n(p.Owner, -1),
+      bookStart: n(p["Book Start"], 0), bookEnd: n(p["Book End"], 1e9), pageStart: n(p["Page Start"], 0), pageEnd: n(p["Page End"], 1e9) });
+  }
+  return out;
+}
+/** 두 범위가 겹치는가 — 같은 S/O 이고 Book · Page 구간이 모두 겹칠 때 */
+export const rangesOverlap = (a: Omit<Occupied, "by">, b: Omit<Occupied, "by">) =>
+  a.section === b.section && a.owner === b.owner &&
+  a.bookStart <= b.bookEnd && b.bookStart <= a.bookEnd &&
+  a.pageStart <= b.pageEnd && b.pageStart <= a.pageEnd;

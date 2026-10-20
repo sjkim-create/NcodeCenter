@@ -19,6 +19,8 @@ import { COMMON_CODES, codeKey, codesOfCompany, isCommonCodeCompany, type Common
 import { codesOfMember, addMember, removeMember, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { caster, useCaster, accountScope, isActive, type CasterAccount } from "@/lib/accountStore";
 import { CompanyAccountsPanel, type AccountOps } from "./CompanyAccountsPanel";
+import { CompanyServiceTickets } from "./CompanyServiceTickets";
+import { serviceTicketsOf, useServiceTickets } from "@/lib/serviceTicketStore";
 
 type Draft = Omit<Company, "id">;
 const EMPTY: Draft = { name: "", manager: "", contact: "", address: "", bizNo: "", bankName: "", accountNo: "", taxEmail: "", docs: [] };
@@ -27,7 +29,7 @@ const KIND_FG: Record<string, string> = { 요청: "#92400e", 처리: "#166534", 
 
 type LogDraft = { id: number | null; kind: WorkKind; content: string; projectId: number | null };
 // 고객사 상세 섹션 `PC-136`
-type Sec = "base" | "rate" | "docs" | "acc" | "memo";
+type Sec = "base" | "rate" | "docs" | "acc" | "ticket" | "memo";
 type FormSec = "base" | "rate" | "docs";
 const SEC_KEYS: Record<FormSec, (keyof Draft)[]> = {
   base: ["name", "manager", "contact", "bizNo", "address", "bankName", "accountNo", "taxEmail"],
@@ -378,7 +380,8 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "" 
 
   // 입력 항목이 길어 탭으로 나눈다. 수정 화면에서는 우측 업무요청 메모가 탭과 무관하게 항상 보인다.
   // 섹션 메뉴 `PC-136` — 기본 정보 · 사용 서비스 · 편집 단가 · 관련 서류 · 서비스 계정 · 업무 메모
-  const [sec, setSec] = useState<Sec>(prefillEmail || initialSec === "acc" ? "acc" : "base");
+  const [sec, setSec] = useState<Sec>(prefillEmail || initialSec === "acc" ? "acc" : initialSec === "ticket" ? "ticket" : "base");
+  useServiceTickets();   // 서비스 티켓 섹션 배지 갱신 `PC-173`
   const [moreOpen, setMoreOpen] = useState(false);       // ⋯ 메뉴(고객사 삭제)
   // 프로젝트 상태 — 머리말 오른쪽에서 고객사 전체를 진행중 / 사업 종료로 바꾼다 `PC-139`
   const [closeAsk, setCloseAsk] = useState(false);
@@ -451,7 +454,7 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "" 
     JSON.stringify(SEC_KEYS[sc].map((k) => (o as Record<string, unknown> | null | undefined)?.[k] ?? null));
   const sameSet = (a: Set<string>, b: Set<string>) => a.size === b.size && [...a].every((x) => b.has(x));
   const isDirty = (sc: Sec): boolean => {
-    if (isNew || !company || sc === "memo" || sc === "acc") return false;
+    if (isNew || !company || sc === "memo" || sc === "acc" || sc === "ticket") return false;
     return pickKeys(form, sc) !== pickKeys(company, sc) || (sc === "base" && !sameSet(memberCodes, memberInit));
   };
   const syncMembers = (name: string) => {
@@ -556,11 +559,14 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "" 
   const svcList = [...new Set([...(isNew ? [] : companyServices(company ?? form)), ...servicesOfAccounts(svcAccounts)])];
   const nOn = svcAccounts.filter(isActive).length;
   const nRate = customRateCount(form);
+  const nTickets = company ? serviceTicketsOf(company.id).length : 0;
   const NAV: { v: Sec; label: string; badge?: string; grp?: string }[] = [
     { v: "base", label: "기본 정보", grp: "고객사 정보" },
     { v: "rate", label: "편집 단가", badge: nRate ? `전용 ${nRate}` : undefined },
     { v: "docs", label: "관련 서류", badge: form.docs.length ? String(form.docs.length) : undefined },
     { v: "acc", label: "서비스 계정", badge: `${svcList.length ? svcList.map((x) => (x === "CASTERN" ? "casterN" : "폼솔루션")).join("·") + " · " : ""}${svcAccounts.length}`, grp: "운영" },
+    // 서비스 티켓 — 고객사 계정과 매칭하는 서비스 사용 승인 기준. 고객사 관리에서 지정한다 `PC-173`
+    { v: "ticket", label: "서비스 티켓", badge: isNew || !company ? undefined : String(nTickets) },
     { v: "memo", label: "업무 메모", badge: isNew ? undefined : String(companyLogs.length) },
   ];
   const cls = isHolderCo(form.name) ? ["상위 고객사", "#ecfdf5", "#047857"] : isMemberCo(form.name) ? ["하위 고객사", "#f3e8ff", "#7e22ce"] : ["단독", "#f3f4f6", "#9ca3af"];
@@ -660,12 +666,13 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "" 
           {NAV.map((n) => {
             const on = sec === n.v;
             const dirty = isDirty(n.v);
-            const locked = n.v === "acc" && !form.name.trim();   // 기본 정보가 먼저 `PC-139`
+            const locked = (n.v === "acc" && !form.name.trim())   // 기본 정보가 먼저 `PC-139`
+              || (n.v === "ticket" && (isNew || !company));          // 서비스 티켓은 등록된 고객사에만 `PC-173`
             return (
               <div key={n.v}>
                 {n.grp && <div style={{ fontSize: 10.5, color: "#9ca3af", padding: n.v === "base" ? "6px 12px 2px" : "10px 12px 2px", borderTop: n.v === "base" ? "none" : "1px solid #eef0f4", marginTop: n.v === "base" ? 0 : 6 }}>{n.grp}</div>}
-                <button onClick={() => { if (locked) { flash("기본 정보(업체명)를 먼저 입력하세요."); setSec("base"); return; } setSec(n.v); }}
-                  title={locked ? "기본 정보(업체명)를 먼저 입력하세요" : undefined}
+                <button onClick={() => { if (locked) { flash(n.v === "ticket" ? "고객사를 먼저 등록하세요." : "기본 정보(업체명)를 먼저 입력하세요."); if (n.v !== "ticket") setSec("base"); return; } setSec(n.v); }}
+                  title={locked ? (n.v === "ticket" ? "고객사를 먼저 등록하세요" : "기본 정보(업체명)를 먼저 입력하세요") : undefined}
                   style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", border: 0, borderRadius: 9, padding: "9px 12px", cursor: locked ? "not-allowed" : "pointer", fontSize: 13,
                     background: on ? "#eef6ff" : "transparent", color: locked ? "#c7cdd6" : on ? "#1d4ed8" : "#374151", fontWeight: on ? 700 : 400 }}>
                   {n.label}
@@ -832,6 +839,9 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "" 
               companyName={form.name.trim()} companyServices={svcList}
               appKeyOf={(id) => cast.appKeys.find((k) => k.accountId === id)?.key} />
           </div>)}
+
+          {/* 서비스 티켓 — 할당 범위 · 티켓 목록 | 상세 / 지정 `PC-173` */}
+          {sec === "ticket" && company && !isNew && <CompanyServiceTickets company={company} accountCount={svcAccounts.length} />}
 
           {sec === "memo" && (
             <div style={secCard}>
