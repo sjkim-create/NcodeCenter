@@ -314,8 +314,9 @@ def build():
                 '<div class="mh"><div class="mt">고객사 삭제</div><div class="mx">✕</div></div>'
                 '<div style="font-size:13px;color:#374151;line-height:1.7">'
                 '삭제하려면 아래에 <b>웅진씽크빅</b> 을(를) 그대로 입력하세요.</div>'
-                '<div class="toast err" style="margin:12px 0 0"><b>SOBP 할당 전 고객사</b>만 삭제할 수 있습니다. '
-                '서류 · 업무 원장 기록도 함께 삭제되며, 되돌릴 수 없습니다.</div>'
+                '<div class="toast err" style="margin:12px 0 0"><b>SOBP 할당 전 고객사만 삭제할 수 있습니다.</b><br>'
+                '삭제 업체는 3~4년 뒤 재연락되는 경우가 많습니다. 정말 삭제가 필요한지 재확인하세요.<br>'
+                '서류 · 업무 원장 기록도 함께 삭제됩니다.</div>'
                 '<div class="fld" style="margin-top:12px"><div class="inp">%s</div></div>'
                 '<div class="mf"><div class="btn gho">취소</div>'
                 '<div style="border-radius:9px;padding:9px 16px;font-size:13px;font-weight:600;'
@@ -324,7 +325,7 @@ def build():
     boards.append((
         'S5', '삭제 확인 · 이름 미입력', '확인창',
         'PRD §4.5 — <b>SOBP 할당 전 고객사</b>만 이 확인창이 뜬다 <code>PC-166</code>. '
-        '되돌릴 수 없으므로 업체명을 정확히 입력해야 확정된다. 기본은 <b>[삭제 확정] 비활성</b>.',
+        '업체명을 정확히 입력해야 확정된다. 기본은 <b>[삭제 확정] 비활성</b>.',
         frame('MEM-01', '고객사 관리', content(), overlay=del_modal(False), height=900),
         [('이름 입력', '입력', '[삭제 확정] 활성', '업체명과 <b>정확히 일치</b>해야 활성'),
          ('[삭제 확정]', '—', '<b>비활성</b>', ''),
