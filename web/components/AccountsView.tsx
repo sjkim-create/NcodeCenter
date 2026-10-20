@@ -65,15 +65,17 @@ function KeyCard({ title, params, empty, href }: {
 }
 
 // 화면 탭 — 계정 정보 · App Key 발급 (인증 서비스 및 권한은 삭제 `PC-131`)
-export type AccTab = "info" | "key";
+// 정산 — N Key 관리처럼 **별도 탭** `PC-178`. 계정 추가 화면에는 발급된 티켓이 없어 두지 않는다
+export type AccTab = "info" | "key" | "bill";
 const ACC_TABS: { v: AccTab; label: string }[] = [
   { v: "info", label: "계정 정보" },
   { v: "key", label: "App Key 발급" },
 ];
-function AccTabs({ tab, onTab, badge }: { tab: AccTab; onTab: (v: AccTab) => void; badge?: Partial<Record<AccTab, string>> }) {
+const ACC_TABS_DETAIL: { v: AccTab; label: string }[] = [...ACC_TABS, { v: "bill", label: "정산" }];
+function AccTabs({ tab, onTab, badge, items = ACC_TABS }: { tab: AccTab; onTab: (v: AccTab) => void; badge?: Partial<Record<AccTab, string>>; items?: { v: AccTab; label: string }[] }) {
   return (
     <div style={{ display: "flex", borderBottom: "1px solid #eef0f4", marginBottom: 14 }}>
-      {ACC_TABS.map(({ v, label }) => {
+      {items.map(({ v, label }) => {
         const on = tab === v;
         return (
           <button key={v} onClick={() => onTab(v)}
@@ -394,7 +396,8 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   const [since, setSince] = useState("");                     // 사용기간 시작(범위 발급 시) — 범위별 기간 `PC-118`
   const [loaded, setLoaded] = useState(false);
   const sp = useSearchParams();
-  const tab0 = ((sp.get("tab") as AccTab) === "key" ? "key" : "info") as AccTab;            // 목록에서 누른 항목의 탭 `PC-067`
+  const tabQ = sp.get("tab") as AccTab;
+  const tab0: AccTab = tabQ === "key" || tabQ === "bill" ? tabQ : "info";            // 목록에서 누른 항목의 탭 `PC-067`
   const [tab, setTab] = useState<AccTab>(tab0);                // 화면 탭 `PC-062`
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [bStart, setBStart] = useState<number | null>(null);   // App Key Book Start `PC-050`
@@ -424,6 +427,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   // 발급 내역 항목(=키의 각 코드 범위/티켓) — 선택하면 아래 Key 정보에 표시 `PC-120`
   const rangeItems = keys.flatMap((k) => keyRanges(k).map((r, i) => ({ k, r, i })));
   const selected = (selRange && rangeItems.find((x) => x.k.id === selRange.keyId && x.i === selRange.idx)) || rangeItems[0] || null;
+  const nTodo = rangeItems.filter((x) => (x.r.billing ?? "미정") === "미정").length;   // 정산 미등록 티켓 수 `PC-178`
   // 티켓 원장 변경(범위 발급 등) 시 재렌더 — Key 정보는 선택한 범위에서 만든다 `PC-120`
   useTickets();
 
@@ -616,7 +620,8 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
         </div>
 
         {/* 탭 3개 `PC-062` */}
-        <AccTabs tab={tab} onTab={setTab} badge={{ key: keys.length ? "1" : undefined }} />
+        <AccTabs tab={tab} onTab={setTab} items={ACC_TABS_DETAIL}
+          badge={{ key: keys.length ? "1" : undefined, bill: nTodo ? `미정 ${nTodo}` : undefined }} />
 
         {/* 계정 정보 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "info" ? "block" : "none" }}>
@@ -729,7 +734,32 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
             })() : undefined;
             return <KeyCard title="App Key" empty="위에서 App Key 를 발급하세요." params={params} />;
           })()}
-          {/* 선택한 티켓(코드 범위)의 정산 — N Key 와 같은 4종 `PC-177` */}
+        </div>
+
+        {/* 정산 탭 — 티켓(코드 범위)을 고르고 그 정산을 등록한다. N Key 관리의 정산 탭과 같은 결 `PC-177` `PC-178` */}
+        <div style={{ ...SEC, marginTop: 0, display: tab === "bill" ? "block" : "none" }}>
+          <SecHead t="정산할 티켓" d={`· 티켓(코드 범위)마다 등록 · 미정 ${nTodo}건`} />
+          {rangeItems.length === 0 ? (
+            <div style={{ fontSize: 12, color: "#9ca3af", padding: "6px 0" }}>발급된 티켓이 없습니다. [App Key 발급] 탭에서 먼저 발급하세요.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 4 }}>
+              {rangeItems.map(({ k, r, i }) => {
+                const isSel = !!selected && selected.k.id === k.id && selected.i === i;
+                const p = rangePeriod(k, r);
+                return (
+                  <div key={`${k.id}-${i}`} onClick={() => setSelRange({ keyId: k.id, idx: i })} title="선택하면 아래에서 이 티켓의 정산을 등록합니다"
+                    style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", cursor: "pointer", fontSize: 11.5, color: "#6b7280",
+                      border: `1px solid ${isSel ? "#93c5fd" : "#eef0f4"}`, background: isSel ? "#f0f7ff" : "#fff", borderRadius: 8, padding: "6px 8px" }}>
+                    <span style={{ color: isSel ? "#2563eb" : "#d1d5db", fontWeight: 700, fontSize: 11 }}>{isSel ? "▸" : "·"}</span>
+                    <span style={{ fontFamily: "ui-monospace,monospace", color: "#374151" }}>{rangeText(r)}</span>
+                    <span>{p.since || "즉시"} ~ {p.until}</span>
+                    <span style={{ flex: 1 }} />
+                    <BillTag v={r} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {selected && (
             <BillingEditor key={`${selected.k.id}-${selected.i}`} v={selected.r} baseDate={selected.r.since || selected.k.createdAt.slice(0, 10)}
               onSave={(p) => {

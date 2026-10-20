@@ -61,7 +61,7 @@ def mid(co='Study123', cards=None, adding=False, off=False, h=670, warn=''):
     return kws.mid_col('App Key 계정', '%d개' % len(cards), '＋ 계정 추가', body, h, btn_off=off)
 
 
-ACC_TABS = (('info', '계정 정보', ''), ('key', 'App Key 발급', '1'))
+ACC_TABS = (('info', '계정 정보', ''), ('key', 'App Key 발급', '1'), ('bill', '정산', '미정 1'))   # 정산 탭 `PC-178`
 
 
 def info_tab(new=False, co='Study123', id_val='', err=''):
@@ -132,14 +132,29 @@ def key_info(sel_idx=0):
     rows = (('Company Name', 'Study123'), ('Account Id', STUDY[1]), ('App Key', '(대장 미기재)')) + rng + (
         ('Code Type', 'PDS3'), ('Valid From Time', '즉시'), ('Valid Until Time', '무제한'), ('Ticket Type', 'Unlimited'), ('Ticket Version', '1'))
     return ('<div style="margin-top:16px">' + kws.sec_head('Key 정보', '· 선택한 발급 내역 (%s)' %
-            ('PDS3 S3/O291/B0~249/P0~511' if sel_idx == 0 else 'PDS3 S3/O942/B73/P0~512')) + kws.kv_table(rows)
-            + (kws.billing_box() if sel_idx == 0 else kws.billing_box('미정', note='', last='—')) + '</div>')
+            ('PDS3 S3/O291/B0~249/P0~511' if sel_idx == 0 else 'PDS3 S3/O942/B73/P0~512')) + kws.kv_table(rows) + '</div>')
+
+
+def bill_tab(sel_idx=0):
+    """정산 탭 — 티켓(코드 범위)을 고르고 그 정산을 등록한다 `PC-177` `PC-178`"""
+    rows = (('PDS3 S3/O291/B0~249/P0~511', kws.tg('유료 1,200,000원', '#dbeafe', '#1d4ed8')),
+            ('PDS3 S3/O942/B73/P0~512', kws.bill_tag('미정')))
+    li = ''.join('<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:4px;border-radius:8px;'
+                 'border:1px solid %s;background:%s;font-size:12px"><span style="color:%s;font-weight:700">%s</span>'
+                 '<span style="%s;color:#374151">%s</span><span style="color:#6b7280">즉시 ~ 무제한</span><span style="flex:1"></span>%s</div>'
+                 % ('#93c5fd' if i == sel_idx else '#eef0f4', '#f0f7ff' if i == sel_idx else '#fff',
+                    '#2563eb' if i == sel_idx else '#d1d5db', '▸' if i == sel_idx else '·', MONO, t, b)
+                 for i, (t, b) in enumerate(rows))
+    return (kws.sec_head('정산할 티켓', '· 티켓(코드 범위)마다 등록 · 미정 1건') + li +
+            (kws.billing_box() if sel_idx == 0 else kws.billing_box('미정', note='', last='—')))
 
 
 def detail(tab='info', sel_idx=0, open_=False, picked=False, issued_key='', toast='', dirty=False):
     t = kws.tabs(ACC_TABS, tab)
     if tab == 'info':
         body = info_tab()
+    elif tab == 'bill':
+        body = bill_tab(sel_idx)
     else:
         body = (kws.sec_head('App Key 발급', '· 계정당 1개 · 발급된 키 1개') +
                 issue_form(RANGES[0] if picked else None, open_) +
@@ -256,8 +271,7 @@ def build():
               '발급 내역의 티켓 줄(▸)을 고르면 아래 <b>Key 정보</b>가 그 티켓 값으로 바뀐다. 기본은 첫 티켓 <code>PC-120</code>.',
               fr(H + kws.grid(left(h=col_h(1250)), mid(h=col_h(1250)), detail('key', sel_idx=1)), 1250),
               [('티켓 줄', '클릭', 'Key 정보 갱신', 'Company Name · Account Id · App Key · S/O/B/P · Code Type · 기간 · Ticket Type · Version'),
-               ('정산 배지', '—', '티켓 줄 오른쪽', '미정 · 유료(금액) · 무료 · 체험(D-day / 만료) <code>PC-177</code>'),
-               ('정산', '선택 · 입력', '[정산 저장]', 'Key 정보 아래 — N Key 와 같은 4종 · 유료는 금액 필수(<b>유료는 금액을 입력해야 합니다.</b>) · 체험 만료일 기본 = 1개월 뒤 · 비고 · <b>정산 정보가 저장되었습니다.</b> · 원장 티켓에도 같은 값')]))
+               ('정산 배지', '—', '티켓 줄 오른쪽', '미정 · 유료(금액) · 무료 · 체험(D-day / 만료) <code>PC-177</code> · 입력은 S13 정산 탭')]))
 
     B.append(('S10', '발급 범위 없음', '빈 상태',
               '고객사에 Caster 대장 이력도, 고객사 관리의 SOBP 할당도 없으면 범위 목록이 비어 발급할 수 없다. SOBP 맵(<code>SOB-02</code>)에서 할당한 뒤 다시 발급한다.',
@@ -280,6 +294,16 @@ def build():
     B.append(('S12', '계정 삭제 확인창', '확인창', '[계정 삭제]는 확인을 거친다. 연동 App Key 도 함께 지워지고, 같은 고객사의 다음 계정이 열린다.',
               frame('TKT-01', FT, H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)), detail()), overlay=dlg, height=1000),
               [('[삭제]', '클릭', '계정 + App Key 삭제', '다음 계정 상세 · <code>LOG-01</code>'), ('[취소] · ✕', '클릭', 'S1', '')]))
+
+    B.append(('S13', '정산 탭', '분기',
+              'N Key 관리처럼 <b>정산은 별도 탭</b>이다 <code>PC-178</code>. 티켓(코드 범위)을 고르고 그 정산을 등록한다 — '
+              'N Key · 서비스 티켓과 같은 4종 <code>PC-177</code>. 탭 머리 배지는 정산 미등록(미정) 티켓 수.',
+              fr(H + kws.grid(left(h=col_h(1100)), mid(h=col_h(1100)), detail('bill')), 1100),
+              [('[정산] 탭', '클릭', '정산할 티켓 + 정산 입력', '탭 배지 <b>미정 {n}</b> · 계정 추가 화면에는 없다'),
+               ('티켓 줄', '클릭', '그 티켓의 정산', 'S/O/B/P · 사용기간 · 정산 배지'),
+               ('과금 유형', '선택', '미정 · 유료 · 무료 · 체험', '유료 = 금액 필수 · 체험 = 만료일(기본 1개월 뒤)'),
+               ('[정산 저장]', '클릭', '저장', '<b>정산 정보가 저장되었습니다.</b> · 금액 0 이면 <b>유료는 금액을 입력해야 합니다.</b> · 원장 티켓에도 같은 값 · <code>LOG-01</code>'),
+               ('발급 티켓 없음', '—', '안내', '<b>발급된 티켓이 없습니다. [App Key 발급] 탭에서 먼저 발급하세요.</b>')]))
 
     intro = ('App Key 를 발급하는 화면이다. 「<b>고객사 | App Key 계정 | 계정 상세</b>」 3단 한 화면이며 옛 <code>TKT-01</code> 계정 발급(목록)과 '
              '옛 <code>TKT-02</code> 계정 등록·수정을 합쳤다 <code>PC-146</code> <code>PC-158</code>. 고객사는 <b>고객사 관리 고객사를 불러온다</b>(여기서 등록하지 않음) '

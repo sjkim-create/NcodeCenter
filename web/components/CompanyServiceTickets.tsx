@@ -24,7 +24,7 @@ import {
   ticketState, STATE_COLOR, serviceTicketText, setServiceBilling, type ServiceTicket,
 } from "@/lib/serviceTicketStore";
 import type { Company } from "@/lib/customerData";
-import { WS_CARD as card, WS_HD as hd, WS_EMPTY, WS_HEAD_BTN, wsTag as tag, wsItem } from "./KeyWorkspaceUI";   // 키 화면과 같은 조각 `PC-154`
+import { WS_CARD as card, WS_HD as hd, WS_EMPTY, WS_HEAD_BTN, wsTag as tag, wsItem, WsTabs } from "./KeyWorkspaceUI";   // 키 화면과 같은 조각 `PC-154`
 
 const PAGE_DEFAULT = 512;   // Page 볼륨 기본값 — App Key · N Key 발급과 같은 값
 type Right = { kind: "t"; id: number } | { kind: "add" } | { kind: "none" };
@@ -115,7 +115,7 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
               <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 4 }}>오른쪽에서 범위와 사용기간을 정하고 [티켓 지정]을 누르세요.</div>
             </div>
           )}
-          {mine.length === 0 && right.kind !== "add" && <div style={WS_EMPTY}>서비스 티켓이 없습니다.<br />[＋ 티켓 지정]으로 지정하세요.</div>}
+          {mine.length === 0 && right.kind !== "add" && <div style={WS_EMPTY}>서비스 티켓이 없습니다.<br />[＋ 티켓 지정]으로 지정하세요.<br />정산은 티켓을 지정한 뒤 티켓 상세의 [정산] 탭에서 등록합니다.</div>}
           {mine.map((t) => {
             const on = right.kind === "t" && right.id === t.id;
             const st = ticketState(t);
@@ -148,7 +148,7 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
         )}
         {right.kind === "none" && (
           <div style={{ ...card, padding: "48px 0", textAlign: "center", color: "#9ca3af", fontSize: 12.5, lineHeight: 1.8 }}>
-            티켓을 선택하거나 <b>[＋ 티켓 지정]</b>을 누르세요.
+            티켓을 선택하거나 <b>[＋ 티켓 지정]</b>을 누르세요.<br />정산은 티켓 상세의 <b>[정산] 탭</b>에서 등록합니다.
           </div>
         )}
       </div>
@@ -157,8 +157,13 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
 }
 
 /* ── 티켓 상세 ─────────────────────────────────────────────── */
+// 상세 탭 — 티켓 정보 · 정산. N Key · App Key 처럼 정산은 별도 탭 `PC-179`
+type DetailTab = "info" | "bill";
+const DETAIL_TABS: { v: DetailTab; label: string }[] = [{ v: "info", label: "티켓 정보" }, { v: "bill", label: "정산" }];
+
 function TicketDetail({ t, onDeleted, me }: { t: ServiceTicket; onDeleted: () => void; me: string }) {
   const st = ticketState(t);
+  const [tab, setTab] = useState<DetailTab>("info");
   const rows: [string, string | number][] = [
     ["Company Name", t.company], ["Code Type", t.pt], ["Section", t.section], ["Owner", t.owner],
     ["Book Start", t.bookStart], ["Book Volume", t.bookVol], ["Book End", t.bookEnd],
@@ -181,6 +186,8 @@ function TicketDetail({ t, onDeleted, me }: { t: ServiceTicket; onDeleted: () =>
         <button type="button" onClick={del} style={{ ...S.smallBtn, color: "#dc2626" }}>티켓 삭제</button>
       </div>
       <div style={{ padding: 16 }}>
+        <WsTabs items={DETAIL_TABS} tab={tab} onTab={setTab} badge={{ bill: (t.billing ?? "미정") === "미정" ? "미정" : undefined }} />
+        <div style={{ display: tab === "info" ? "block" : "none" }}>
         <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 10 }}>이 고객사의 서비스 계정은 아래 범위와 사용기간 안에서 서비스 사용이 승인됩니다.</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "6px 18px" }}>
           {rows.map(([k, v]) => (
@@ -191,11 +198,15 @@ function TicketDetail({ t, onDeleted, me }: { t: ServiceTicket; onDeleted: () =>
           ))}
         </div>
         <ExpiryNote />
-        {/* 정산 — N Key 와 같은 4종 `PC-176` */}
-        <BillingEditor key={t.id} v={t} baseDate={t.at.slice(0, 10)} onSave={(p) => {
-          setServiceBilling(t.id, { ...p, by: me });
-          logActivity("ticket", `서비스 티켓 정산 · ${t.company} · No.${t.no} · ${p.billing}${p.billing === "유료" ? ` ${p.amount.toLocaleString()}원` : ""}`, me);
-        }} />
+        </div>
+        {/* 정산 탭 — N Key 와 같은 4종 `PC-176` `PC-179` */}
+        <div style={{ display: tab === "bill" ? "block" : "none" }}>
+          <div style={{ fontSize: 12, color: "#6b7280" }}>이 서비스 티켓(No.{t.no} · {serviceTicketText(t)})의 정산을 등록합니다.</div>
+          <BillingEditor key={t.id} v={t} baseDate={t.at.slice(0, 10)} onSave={(p) => {
+            setServiceBilling(t.id, { ...p, by: me });
+            logActivity("ticket", `서비스 티켓 정산 · ${t.company} · No.${t.no} · ${p.billing}${p.billing === "유료" ? ` ${p.amount.toLocaleString()}원` : ""}`, me);
+          }} />
+        </div>
       </div>
     </div>
   );

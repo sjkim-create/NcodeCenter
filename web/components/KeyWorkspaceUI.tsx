@@ -107,3 +107,23 @@ export function WsCoItem({ label, n, todo = 0, on, warn = false, bold = false, t
 export const wsItem = (on: boolean): React.CSSProperties => ({
   border: `1px solid ${on ? "#5f8ff0" : "#eef0f4"}`, background: on ? "#f5f9ff" : "#fff", borderRadius: 10, padding: "10px 12px", marginBottom: 8, cursor: "pointer",
 });
+
+/** 상세 밑줄 탭 — App Key 계정 상세 · 서비스 티켓 상세가 같은 모양을 쓴다 `PC-178` `PC-179` */
+export function WsTabs<T extends string>({ items, tab, onTab, badge }: { items: { v: T; label: string }[]; tab: T; onTab: (v: T) => void; badge?: Partial<Record<T, string>> }) {
+  return (
+    <div style={{ display: "flex", borderBottom: "1px solid #eef0f4", marginBottom: 14 }}>
+      {items.map(({ v, label }) => {
+        const on = tab === v;
+        return (
+          <button key={v} type="button" onClick={() => onTab(v)}
+            style={{ border: 0, background: "none", padding: "9px 16px", fontSize: 13, cursor: "pointer",
+              color: on ? "#111827" : "#6b7280", fontWeight: on ? 700 : 400,
+              borderBottom: `2px solid ${on ? "#5f8ff0" : "transparent"}`, marginBottom: -1 }}>
+            {label}
+            {badge?.[v] && <span style={{ ...S.tag, fontSize: 9.5, marginLeft: 5, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>{badge[v]}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

@@ -566,9 +566,9 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "" 
     { v: "base", label: "기본 정보", grp: "고객사 정보" },
     { v: "rate", label: "편집 단가", badge: nRate ? `전용 ${nRate}` : undefined },
     { v: "docs", label: "관련 서류", badge: form.docs.length ? String(form.docs.length) : undefined },
-    { v: "acc", label: "서비스 계정", badge: `${svcList.length ? svcList.map((x) => (x === "CASTERN" ? "casterN" : "폼솔루션")).join("·") + " · " : ""}${svcAccounts.length}`, grp: "운영" },
-    // 서비스 티켓 — 고객사 계정과 매칭하는 서비스 사용 승인 기준. 고객사 관리에서 지정한다 `PC-173`
+    // 서비스 티켓 — 고객사별 지정이라 **고객사 정보** 묶음 끝(서비스 계정 위)에 둔다 `PC-173` `PC-180`
     { v: "ticket", label: "서비스 티켓", badge: isNew || !company ? undefined : String(nTickets) },
+    { v: "acc", label: "서비스 계정", badge: `${svcList.length ? svcList.map((x) => (x === "CASTERN" ? "casterN" : "폼솔루션")).join("·") + " · " : ""}${svcAccounts.length}`, grp: "운영" },
     { v: "memo", label: "업무 메모", badge: isNew ? undefined : String(companyLogs.length) },
   ];
   const cls = isHolderCo(form.name) ? ["상위 고객사", "#ecfdf5", "#047857"] : isMemberCo(form.name) ? ["하위 고객사", "#f3e8ff", "#7e22ce"] : ["단독", "#f3f4f6", "#9ca3af"];
