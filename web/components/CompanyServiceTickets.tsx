@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { S, Field } from "./ui";
 import { SobpRangePicker } from "./TicketsView";
+import { SobpChips } from "./sobp";
 import { useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
@@ -44,15 +45,6 @@ export function ExpiryNote() {
   );
 }
 
-// 범위 안에서 이 고객사 서비스 티켓이 덮은 Book 수
-const coveredBooks = (r: ServiceRange, ts: ServiceTicket[]) => {
-  const set = new Set<number>();
-  for (const t of ts) {
-    if (t.section !== r.section || t.owner !== r.owner) continue;
-    for (let b = Math.max(r.bookStart, t.bookStart); b <= Math.min(r.bookEnd, t.bookEnd); b++) set.add(b);
-  }
-  return set.size;
-};
 // 범위 안에서 아직 티켓이 없는 첫 Book
 const firstFreeBook = (r: ServiceRange, ts: ServiceTicket[]) => {
   for (let b = r.bookStart; b <= r.bookEnd; b++)
@@ -71,6 +63,8 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
   const ranges = useMemo(() => serviceRangesOfCompany(company, projects, codesOfMember(company.name)), [company, projects]);   // eslint-disable-line react-hooks/exhaustive-deps
   const first = (): Right => (mine[0] ? { kind: "t", id: mine[0].id } : { kind: "none" });
   const [right, setRight] = useState<Right>({ kind: "none" });
+  const [help, setHelp] = useState(false);   // ⓘ 설명 — 본문이 아니라 **토스트**로 띄운다 `PC-181` `PC-182`
+  useEffect(() => { if (!help) return; const id = setTimeout(() => setHelp(false), 5000); return () => clearTimeout(id); }, [help]);
   // 티켓은 브라우저 저장분이라 서버 렌더에는 없다 — 마운트 뒤에 그리고 첫 티켓을 고른다(하이드레이션 불일치 방지)
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); setRight(first()); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -78,33 +72,35 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "340px minmax(0, 1fr)", gap: 12, alignItems: "start" }}>
+      {help && (
+        <div role="status" onClick={() => setHelp(false)}
+          style={{ position: "fixed", top: 72, right: 24, zIndex: 60, maxWidth: 380, cursor: "pointer",
+            background: "#1f2937", color: "#f9fafb", borderRadius: 10, padding: "10px 14px", fontSize: 12.5, lineHeight: 1.6, boxShadow: "0 12px 32px rgba(15,23,42,.25)" }}>
+          사용자에게 발급하는 키가 아닙니다. 이 고객사의 <b>서비스 계정 {accountCount}명</b>이 서비스를 쓸 때 티켓의 범위와 기간으로 승인합니다.
+        </div>
+      )}
       {/* 왼쪽 — 할당 SOBP 범위 · 서비스 티켓 */}
       <div style={card}>
         <div style={hd}>
           <b style={{ fontSize: 14 }}>서비스 티켓</b>
           <span style={{ fontSize: 11.5, color: "#9ca3af" }}>{mine.length}건</span>
+          {/* 설명은 숨김 — ⓘ 를 누르면 토스트로 잠깐 보인다(본문에 넣지 않는다) `PC-182` */}
+          <button type="button" onClick={() => setHelp((v) => !v)} title="서비스 티켓이란?"
+            style={{ border: 0, background: help ? "#eef6ff" : "transparent", color: help ? "#2563eb" : "#9ca3af", borderRadius: 999, width: 20, height: 20, cursor: "pointer", fontSize: 12, padding: 0 }}>ⓘ</button>
           <span style={{ flex: 1 }} />
           <button type="button" onClick={() => setRight({ kind: "add" })} style={WS_HEAD_BTN}>＋ 티켓 지정</button>
         </div>
         <div style={{ padding: 12 }}>
-          <div style={{ fontSize: 11.5, color: "#6b7280", lineHeight: 1.6, marginBottom: 10 }}>
-            사용자에게 발급하는 키가 아닙니다. 이 고객사의 <b>서비스 계정 {accountCount}명</b>이 서비스를 쓸 때 티켓의 범위와 기간으로 승인합니다.
-          </div>
-          {/* 할당 SOBP 범위 — 범위마다 티켓이 덮은 Book 수 `PC-171` ② */}
-          <div style={{ border: "1px solid #eef0f4", borderRadius: 10, padding: "9px 11px", marginBottom: 10, background: "#fafbfc" }}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: "#374151", marginBottom: 6 }}>할당 SOBP 범위 <span style={{ fontWeight: 400, color: "#9ca3af" }}>· 티켓 지정 Book / 전체</span></div>
+          {/* 할당된 SOBP — SOBP 맵과 같은 S · O · B 칩만 보인다 `PC-181` */}
+          <div style={{ border: "1px solid #eef0f4", borderRadius: 10, padding: "8px 10px", marginBottom: 10, background: "#fafbfc" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: "#374151", marginBottom: 6 }}>할당된 SOBP</div>
             {ranges.length === 0 && <div style={{ fontSize: 11.5, color: "#9ca3af", lineHeight: 1.6 }}>SOBP 할당이 없습니다. <Link href="/ownership" style={{ color: "#2563eb" }}>SOBP 맵</Link>에서 먼저 할당하세요.</div>}
-            {ranges.map((r, i) => {
-              const cov = coveredBooks(r, mine), full = cov >= r.bookCount;
-              return (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, padding: "3px 0", flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: "ui-monospace,monospace", color: "#374151" }}>{r.pt} S{r.section}/O{r.owner}/B{r.bookStart}~{r.bookEnd}</span>
-                  {r.shared && <span style={tag("#f3e8ff", "#7e22ce")}>공유</span>}
-                  <span style={{ flex: 1 }} />
-                  <span style={tag(full ? "#dcfce7" : cov ? "#eef6ff" : "#fef3c7", full ? "#166534" : cov ? "#2563eb" : "#92400e")}>{cov.toLocaleString()} / {r.bookCount.toLocaleString()}권</span>
-                </div>
-              );
-            })}
+            {ranges.map((r, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 0", flexWrap: "wrap" }}>
+                <SobpChips s={r.section} o={r.owner} b={`${r.bookStart}~${r.bookEnd}`} small />
+                {r.shared && <span style={tag("#f3e8ff", "#7e22ce")}>공유</span>}
+              </div>
+            ))}
           </div>
           {right.kind === "add" && (
             <div style={{ border: "1px dashed #5f8ff0", background: "#f5f9ff", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
@@ -115,7 +111,7 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
               <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 4 }}>오른쪽에서 범위와 사용기간을 정하고 [티켓 지정]을 누르세요.</div>
             </div>
           )}
-          {mine.length === 0 && right.kind !== "add" && <div style={WS_EMPTY}>서비스 티켓이 없습니다.<br />[＋ 티켓 지정]으로 지정하세요.<br />정산은 티켓을 지정한 뒤 티켓 상세의 [정산] 탭에서 등록합니다.</div>}
+          {mine.length === 0 && right.kind !== "add" && <div style={WS_EMPTY}>서비스 티켓이 없습니다.</div>   /* 안내는 오른쪽 칸에만 — 중복 제거 `PC-183` */}
           {mine.map((t) => {
             const on = right.kind === "t" && right.id === t.id;
             const st = ticketState(t);
@@ -128,7 +124,7 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
                   <span style={{ flex: 1 }} />
                   <BillTag v={t} />
                 </div>
-                <div style={{ fontFamily: "ui-monospace,monospace", fontSize: 11.5, color: "#374151", marginTop: 4 }}>{serviceTicketText(t)}</div>
+                <div style={{ marginTop: 5 }}><SobpChips s={t.section} o={t.owner} b={`${t.bookStart}~${t.bookEnd}`} p={`${t.pageStart}~${t.pageEnd}`} small /></div>
                 <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 3 }}>{t.since} ~ {t.until}</div>
               </div>
             );

@@ -439,9 +439,17 @@ def memo_section():
 
 
 # ── 서비스 티켓 `PC-171` `PC-173` ── 할당 범위 · 티켓 목록 | 티켓 상세 / 지정
-TK_RANGES = (('PDS3 S3/O17/B431~464', False, 25, 34), ('PDS2 S3/O21/B0~4095', True, 0, 4096))
-TICKETS = (('2', '사용 중', 'PDS3 S3/O17/B431~450/P0~511', '2026-10-20 ~ 2027-10-19', ('유료 3,000,000원', '#eef6ff', '#1d4ed8')),
-           ('1', '만료', 'PDS3 S3/O17/B451~455/P0~511', '2025-01-01 ~ 2025-12-31', ('체험 (만료)', '#fef3c7', '#92400e')))
+TK_RANGES = ((('3', '17', '431~464'), False), (('3', '21', '0~4095'), True))   # 할당된 SOBP — S · O · B 칩만 `PC-181`
+TICKETS = (('2', '사용 중', ('3', '17', '431~450', '0~511'), '2026-10-20 ~ 2027-10-19', ('유료 3,000,000원', '#eef6ff', '#1d4ed8')),
+           ('1', '만료', ('3', '17', '451~455', '0~511'), '2025-01-01 ~ 2025-12-31', ('체험 (만료)', '#fef3c7', '#92400e')))
+SC = '<span style="display:inline-flex;align-items:center;gap:3px;border:1px solid #e5e7eb;border-radius:6px;padding:1px 5px 1px 1px;background:#fff;font-size:10.5px"><span style="background:%s;color:#fff;font-weight:700;font-size:9px;border-radius:4px;padding:1px 4px">%s</span><span style="font-family:ui-monospace,monospace;color:#111827">%s</span></span>'
+SOBP_C = (('S', '#5f8ff0'), ('O', '#14b8a6'), ('B', '#8b5cf6'), ('P', '#f59e0b'))
+
+
+def sobp_chips(vals):
+    """SOBP 맵과 같은 S · O · B · P 칩 (web/components/sobp.tsx SobpChips small)"""
+    return ('<span style="display:inline-flex;gap:4px;flex-wrap:wrap">%s</span>'
+            % ''.join(SC % (c, k, v) for (k, c), v in zip(SOBP_C, vals)))
 ST_C = {'사용 중': ('#dcfce7', '#166534'), '대기': ('#fef3c7', '#92400e'), '만료': ('#f3f4f6', '#6b7280')}
 
 
@@ -456,13 +464,11 @@ def expiry_note(open_=False):
             '<b style="color:#6b7280">%s ⓘ 만료 후 동작</b>%s</div>' % ('▾' if open_ else '▸', body))
 
 
-def ticket_list(adding=False, sel='2'):
+def ticket_list(adding=False, sel='2', help_=False):
     rng = ''
-    for txt, shared, cov, tot in TK_RANGES:
-        bg, fg = (('#dcfce7', '#166534') if cov >= tot else ('#eef6ff', '#2563eb') if cov else ('#fef3c7', '#92400e'))
-        rng += ('<div style="display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 0">'
-                '<span style="font-family:ui-monospace,monospace;color:#374151">%s</span>%s<span style="flex:1"></span>%s</div>'
-                % (txt, tg('공유', '#f3e8ff', '#7e22ce') if shared else '', tg('%s / %s권' % (format(cov, ','), format(tot, ',')), bg, fg)))
+    for vals, shared in TK_RANGES:
+        rng += ('<div style="display:flex;align-items:center;gap:6px;padding:3px 0">%s%s</div>'
+                % (sobp_chips(vals), tg('공유', '#f3e8ff', '#7e22ce') if shared else ''))
     add = ('<div style="border:1px dashed #5f8ff0;background:#f5f9ff;border-radius:10px;padding:10px 12px;margin-bottom:8px">'
            '<div style="display:flex;align-items:center;gap:6px"><b style="font-size:13.5px;color:#1d4ed8">새 서비스 티켓</b>%s</div>'
            '<div style="font-size:11.5px;color:#6b7280;margin-top:4px">오른쪽에서 범위와 사용기간을 정하고 [티켓 지정]을 누르세요.</div></div>'
@@ -472,18 +478,17 @@ def ticket_list(adding=False, sel='2'):
         cur = (no == sel and not adding)
         cards += ('<div style="border:1px solid %s;background:%s;border-radius:10px;padding:10px 12px;margin-bottom:8px">'
                   '<div style="display:flex;align-items:center;gap:6px"><b style="font-size:13px">No.%s</b>%s<span style="flex:1"></span>%s</div>'
-                  '<div style="font-family:ui-monospace,monospace;font-size:11.5px;color:#374151;margin-top:4px">%s</div>'
+                  '<div style="margin-top:5px">%s</div>'
                   '<div style="font-size:11px;color:#9ca3af;margin-top:3px">%s</div></div>'
-                  % ('#5f8ff0' if cur else '#eef0f4', '#f5f9ff' if cur else '#fff', no, tg(st, *ST_C[st]), tg(*bill), txt, per))
+                  % ('#5f8ff0' if cur else '#eef0f4', '#f5f9ff' if cur else '#fff', no, tg(st, *ST_C[st]), tg(*bill), sobp_chips(txt), per))
+    hint = ''   # ⓘ 설명은 본문에 넣지 않고 토스트로 띄운다 `PC-182` — S23 그림 위쪽 참고
     return ('<div style="' + CARD + '"><div style="padding:13px 16px;border-bottom:1px solid #eef0f4;display:flex;align-items:center;gap:8px">'
-            '<b style="font-size:14px">서비스 티켓</b><span style="font-size:11.5px;color:#9ca3af">2건</span><span style="flex:1"></span>'
-            '<span class="btn pri" style="padding:6px 12px;font-size:12.5px">＋ 티켓 지정</span></div><div style="padding:12px">'
-            '<div style="font-size:11.5px;color:#6b7280;line-height:1.6;margin-bottom:10px">사용자에게 발급하는 키가 아닙니다. '
-            '이 고객사의 <b>서비스 계정 3명</b>이 서비스를 쓸 때 티켓의 범위와 기간으로 승인합니다.</div>'
-            '<div style="border:1px solid #eef0f4;border-radius:10px;padding:9px 11px;margin-bottom:10px;background:#fafbfc">'
-            '<div style="font-size:11.5px;font-weight:700;color:#374151;margin-bottom:6px">할당 SOBP 범위 '
-            '<span style="font-weight:400;color:#9ca3af">· 티켓 지정 Book / 전체</span></div>%s</div>%s%s</div></div>'
-            % (rng, add, cards))
+            '<b style="font-size:14px">서비스 티켓</b><span style="font-size:11.5px;color:#9ca3af">2건</span>'
+            '<span style="font-size:12px;color:%s;background:%s;border-radius:999px;width:20px;text-align:center">ⓘ</span><span style="flex:1"></span>'
+            '<span class="btn pri" style="padding:6px 12px;font-size:12.5px">＋ 티켓 지정</span></div><div style="padding:12px">%s'
+            '<div style="border:1px solid #eef0f4;border-radius:10px;padding:8px 10px;margin-bottom:10px;background:#fafbfc">'
+            '<div style="font-size:11.5px;font-weight:700;color:#374151;margin-bottom:6px">할당된 SOBP</div>%s</div>%s%s</div></div>'
+            % ('#2563eb' if help_ else '#9ca3af', '#eef6ff' if help_ else 'transparent', hint, rng, add, cards))
 
 
 def ticket_tabs(active='info'):
@@ -710,17 +715,18 @@ def build():
     B.append(('S23', '서비스 티켓 — 할당 범위 · 목록 | 상세', '기본',
               '서비스 티켓은 사용자에게 발급하는 키가 아니라 <b>고객사 계정과 매칭해 서비스 사용을 승인하는 기준</b>이다. '
               '그래서 [티켓 발급] 메뉴가 아니라 여기서 지정한다 <code>PC-173</code>. 주인은 <b>고객사</b>, 이 고객사의 서비스 계정 전원이 '
-              '티켓의 범위 · 기간으로 승인된다. 할당 SOBP 범위마다 <b>티켓이 덮은 권 / 전체 권</b>을 보여 빠진 범위를 알 수 있다 <code>PC-171</code>.',
-              frame('MEM-01', FR, layout(H, nav('ticket'), acc_section(ticket_list(), ticket_detail())), height=1000),
-              [('할당 SOBP 범위', '—', '범위별 권 수', 'SOBP 할당 + <b>공유 코드 사용 고객사면 그 S/O</b>(공유 배지) · 없음 노랑 · 일부 파랑 · 전부 초록'),
-               ('티켓 카드', '클릭', '오른쪽 상세', 'No. · <b>사용 중 / 대기 / 만료</b> · 범위 · 사용기간'),
+              '티켓의 범위 · 기간으로 승인된다. 이 설명은 본문에 두지 않고 머리의 <b>ⓘ</b> 를 누르면 <b>토스트</b>로 잠깐 보인다(그림 위쪽 = 띄운 상태) <code>PC-182</code>.',
+              frame('MEM-01', FR, layout(H, nav('ticket'), '<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><div style="max-width:380px;background:#1f2937;color:#f9fafb;border-radius:10px;padding:10px 14px;font-size:12.5px;line-height:1.6;box-shadow:0 12px 32px rgba(15,23,42,.25)">사용자에게 발급하는 키가 아닙니다. 이 고객사의 <b>서비스 계정 3명</b>이 서비스를 쓸 때 티켓의 범위와 기간으로 승인합니다.</div></div>' + acc_section(ticket_list(help_=True), ticket_detail())), height=1050),
+              [('ⓘ', '클릭', '토스트', '화면 오른쪽 위에 <b>사용자에게 발급하는 키가 아닙니다. 이 고객사의 서비스 계정 {n}명이 서비스를 쓸 때 티켓의 범위와 기간으로 승인합니다.</b> — 5초 뒤 사라지고 누르면 바로 닫힌다 · 본문에는 넣지 않는다 <code>PC-182</code>'),
+               ('할당된 SOBP', '—', 'S · O · B 칩', 'SOBP 맵과 같은 칩 · 코드 종류(PDS2/PDS3) · 권 수는 보이지 않는다 · SOBP 할당 + <b>공유 코드 사용 고객사면 그 S/O</b>(공유 배지) <code>PC-181</code>'),
+               ('티켓 카드', '클릭', '오른쪽 상세', 'No. · <b>사용 중 / 대기 / 만료</b> · 정산 배지 · S · O · B · P 칩 · 사용기간'),
                ('[＋ 티켓 지정]', '클릭', 'S24', ''),
                ('[티켓 삭제]', '클릭', '확인창', '<b>서비스 티켓 No.{n} 을(를) 삭제할까요?</b> · SOBP 할당은 그대로 <code>PC-165</code>'),
                ('[정산] 탭', '클릭', 'S26', '상세 탭 = 티켓 정보 · 정산 <code>PC-179</code> · 카드에 정산 배지'),
                ('ⓘ 만료 후 동작', '클릭', '펼침', '숨김 안내 — S24'),
                ('등록 화면', '—', '<b>잠김</b>', '고객사를 먼저 등록해야 열린다 · <b>고객사를 먼저 등록하세요.</b>')]))
     B.append(('S24', '서비스 티켓 — 지정 폼 · 만료 후 동작 펼침', '분기',
-              '할당 SOBP 범위에서 고르고 <b>Start Book · Book 볼륨 · Start Page · Page 볼륨 · 사용기간 시작 · 끝</b>을 정한다(모두 필수). '
+              '할당된 SOBP 에서 고르고 <b>Start Book · Book 볼륨 · Start Page · Page 볼륨 · 사용기간 시작 · 끝</b>을 정한다(모두 필수). '
               'Start Book 기본값은 <b>범위 안에서 아직 티켓이 없는 첫 Book</b>. 「ⓘ 만료 후 동작」 은 눌러야 펼쳐지는 숨김 안내다 <code>PC-171</code> ④.',
               frame('MEM-01', FR, layout(H, nav('ticket'), acc_section(ticket_list(adding=True), ticket_form(open_=True))), height=1150),
               [('지정 범위', '선택', 'Section · Owner · 코드 종류 자동', '할당 SOBP · 공유 코드 범위만'),
