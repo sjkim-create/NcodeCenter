@@ -24,6 +24,24 @@ def bill_tag(b):
     return tg(b, bg, fg)
 
 
+def billing_box(sel='유료', amount='1200000', note='2026 연간 계약 포함', last='2026-10-20 10:20 · 김순정'):
+    """정산 — 미정 · 유료 · 무료 · 체험 4종 (web/components/BillingEditor.tsx) `PC-176` `PC-177`"""
+    sub = {'미정': '미등록', '유료': '금액 입력', '무료': '청구 없음', '체험': '1개월'}
+    btns = ''.join('<div style="padding:9px 8px;border-radius:9px;text-align:center;font-size:12.5px;border:1px solid %s;background:%s;color:%s;font-weight:%s">'
+                   '%s<div style="font-size:10px;font-weight:400;margin-top:2px">%s</div></div>'
+                   % (BILL[b][1] if b == sel else '#e5e7eb', BILL[b][0] if b == sel else '#fff',
+                      BILL[b][1] if b == sel else '#6b7280', '700' if b == sel else '400', b, sub[b]) for b in BILL)
+    amt = ('<div class="fld" style="max-width:320px"><span class="lbl">금액 (원) *</span><div class="inp">%s</div></div>' % amount
+           if sel == '유료' else '')
+    return ('<div style="margin-top:14px;border:1px solid #eef0f4;border-radius:10px;padding:12px 14px">'
+            '<div style="font-size:13px;font-weight:700;margin-bottom:8px">정산 <span style="font-size:11.5px;font-weight:400;color:#9ca3af">'
+            '· 고객사 · 티켓마다 다르게 등록할 수 있습니다</span></div>'
+            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">%s</div>%s'
+            '<div class="fld" style="margin-top:10px"><span class="lbl">비고 (사유 · 계약 정보)</span><div class="inp">%s</div></div>'
+            '<div style="display:flex;align-items:center;gap:8px;margin-top:12px"><span style="font-size:11.5px;color:#9ca3af">최근 등록: %s</span>'
+            '<span style="flex:1"></span><span class="btn pri">정산 저장</span></div></div>' % (btns, amt, note, last))
+
+
 def chip(label, on=False):
     return ('<span style="font-size:12.5px;padding:6px 12px;border-radius:8px;white-space:nowrap;font-weight:%s;'
             'border:1px solid %s;background:%s;color:%s">%s</span>'

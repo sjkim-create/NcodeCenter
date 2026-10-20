@@ -1,12 +1,12 @@
 "use client";
 
-// 서비스 티켓 원장 `PC-171` `PC-172`
+// 서비스 티켓 원장 `PC-171` `PC-173`
 // - App Key · N Key 와 별개인 세 번째 티켓. **주인 = 고객사** — 소속 user(서비스 계정) 전원이 이 범위 · 기간을 공유한다.
-// - 고객사가 SOBP 맵에서 할당받은 코드 안에서 Book · Page 범위와 사용기간을 정해 발급한다.
-// - 한 고객사 안에서 App Key · N Key · 서비스 티켓의 범위는 겹치지 않는다(검사는 lib/keyCompany).
-// - 사용기간은 SOBP 할당 기간을 넘지 못한다 — 할당 기간 필드가 생기면 그 값으로 상한을 건다(지금은 할당일만 있다).
+// - 고객사 관리 ▸ 서비스 티켓에서, 할당받은 SOBP 안의 Book · Page 범위와 사용기간을 정해 지정한다.
+// - N Key · App Key · 서비스 티켓은 SOBP 가 절대 겹칠 수 없다(검사는 lib/rangeGuard) `PC-174`.
+// - 기간은 **키 관리에서만** 정한다 — SOBP 할당에는 기간이 없다 `PC-175`.
 import { useSyncExternalStore } from "react";
-import { nowKst, today } from "./ticketStore";
+import { nowKst, today, plusMonth, type Billing } from "./ticketStore";
 
 const KEY = "ncc-service-tickets-v1";
 
@@ -24,6 +24,13 @@ export type ServiceTicket = {
   shared?: boolean;        // 공유(커먼) 코드 안에서 발급
   at: string;              // 발급 일시 (KST)
   by: string;
+  // 정산 — N Key 와 같은 4종(미정 · 유료 · 무료 · 체험) `PC-176`. 지정할 때는 미정
+  billing?: Billing;
+  amount?: number;         // 유료 금액(원)
+  trialUntil?: string;     // 체험 만료일 (기본 = 지정일 + 1개월)
+  billNote?: string;
+  billedAt?: string;
+  billedBy?: string;
 };
 
 let list: ServiceTicket[] = [];
@@ -51,6 +58,21 @@ export function addServiceTicket(t: Omit<ServiceTicket, "id" | "no" | "at">): Se
   persist(); notify();
   return rec;
 }
+/** 정산 등록 — 유료면 금액, 체험이면 만료일을 함께 둔다 `PC-176` */
+export function setServiceBilling(id: number, patch: { billing: Billing; amount?: number; trialUntil?: string; billNote?: string; by?: string }) {
+  hydrateServiceTickets();
+  list = list.map((t) => {
+    if (t.id !== id) return t;
+    const b = patch.billing;
+    return { ...t, billing: b,
+      amount: b === "유료" ? Math.max(0, patch.amount ?? t.amount ?? 0) : 0,
+      trialUntil: b === "체험" ? (patch.trialUntil || plusMonth(t.at)) : undefined,
+      billNote: patch.billNote ?? t.billNote, billedAt: nowKst(), billedBy: patch.by ?? t.billedBy };
+  });
+  persist(); notify();
+}
+export const billingOf = (t: ServiceTicket): Billing => t.billing ?? "미정";
+
 export function deleteServiceTicket(id: number) {
   hydrateServiceTickets();
   list = list.filter((t) => t.id !== id);

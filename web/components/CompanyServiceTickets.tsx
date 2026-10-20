@@ -14,13 +14,14 @@ import { SobpRangePicker } from "./TicketsView";
 import { useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
-import { useCaster } from "@/lib/accountStore";
-import { allTickets, hydrateTickets, useTickets, today } from "@/lib/ticketStore";
+import { hydrateTickets, useTickets, today } from "@/lib/ticketStore";
+import { BillingEditor, BillTag } from "./BillingEditor";
 import { codesOfMember, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
-import { serviceRangesOfCompany, keyRangesOfCompany, rangesOverlap, type ServiceRange } from "@/lib/keyCompany";
+import { serviceRangesOfCompany, type ServiceRange } from "@/lib/keyCompany";
+import { sobpOverlapMsg } from "@/lib/rangeGuard";
 import {
   addServiceTicket, deleteServiceTicket, allServiceTickets, hydrateServiceTickets, useServiceTickets,
-  ticketState, STATE_COLOR, serviceTicketText, type ServiceTicket,
+  ticketState, STATE_COLOR, serviceTicketText, setServiceBilling, type ServiceTicket,
 } from "@/lib/serviceTicketStore";
 import type { Company } from "@/lib/customerData";
 import { WS_CARD as card, WS_HD as hd, WS_EMPTY, WS_HEAD_BTN, wsTag as tag, wsItem } from "./KeyWorkspaceUI";   // 키 화면과 같은 조각 `PC-154`
@@ -37,7 +38,7 @@ export function ExpiryNote() {
         <b>사용기간이 끝나면</b>
         <div>• 이 범위의 코드로 <b>편집 · 추가 작업을 할 수 없습니다.</b> (당사 서버를 거치는 서비스 — casterN 편집, Ncode SDK)</div>
         <div>• <b>이미 만든 작업물(PDF)의 인쇄 · 배포는 막을 수 없습니다.</b> 실물 출판물에는 코드가 남습니다.</div>
-        <div>• SOBP 할당 기간이 끝난 코드는 다른 고객사에 다시 할당될 수 있으며, 이때 기존 출판물을 당사 서버로 서비스하면 데이터가 겹칠 수 있습니다.</div>
+        <div>• 계약이 끝난 코드는 다른 고객사에 다시 할당될 수 있으며, 이때 기존 출판물을 당사 서버로 서비스하면 데이터가 겹칠 수 있습니다.</div>
       </div>
     </details>
   );
@@ -61,16 +62,19 @@ const firstFreeBook = (r: ServiceRange, ts: ServiceTicket[]) => {
 
 /** 고객사 관리 ▸ 서비스 티켓 섹션 — 「할당 범위 · 티켓 목록 | 티켓 상세 / 지정」 2칸 `PC-173` */
 export function CompanyServiceTickets({ company, accountCount }: { company: Company; accountCount: number }) {
-  const { companies, projects } = useStore();
+  const { projects } = useStore();
   const me = currentUser(useAuth());
-  const cast = useCaster();
   useServiceTickets(); useTickets(); useCommonMembers();
   useEffect(() => { hydrateServiceTickets(); hydrateTickets(); hydrateMembers(); }, []);
 
   const mine = allServiceTickets().filter((t) => t.companyId === company.id).sort((a, b) => b.no - a.no);
   const ranges = useMemo(() => serviceRangesOfCompany(company, projects, codesOfMember(company.name)), [company, projects]);   // eslint-disable-line react-hooks/exhaustive-deps
   const first = (): Right => (mine[0] ? { kind: "t", id: mine[0].id } : { kind: "none" });
-  const [right, setRight] = useState<Right>(first);
+  const [right, setRight] = useState<Right>({ kind: "none" });
+  // 티켓은 브라우저 저장분이라 서버 렌더에는 없다 — 마운트 뒤에 그리고 첫 티켓을 고른다(하이드레이션 불일치 방지)
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); setRight(first()); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  if (!mounted) return null;
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "340px minmax(0, 1fr)", gap: 12, alignItems: "start" }}>
@@ -121,6 +125,8 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
                   <b style={{ fontSize: 13 }}>No.{t.no}</b>
                   <span style={tag(STATE_COLOR[st].bg, STATE_COLOR[st].fg)}>{st}</span>
                   {t.shared && <span style={tag("#f3e8ff", "#7e22ce")}>공유</span>}
+                  <span style={{ flex: 1 }} />
+                  <BillTag v={t} />
                 </div>
                 <div style={{ fontFamily: "ui-monospace,monospace", fontSize: 11.5, color: "#374151", marginTop: 4 }}>{serviceTicketText(t)}</div>
                 <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 3 }}>{t.since} ~ {t.until}</div>
@@ -138,7 +144,6 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
         })()}
         {right.kind === "add" && (
           <IssueForm key={`add-${company.id}`} coId={company.id} coName={company.name} ranges={ranges} mine={mine} me={me?.name ?? ""}
-            occupied={() => keyRangesOfCompany(company, companies, cast.accounts, cast.appKeys, allTickets())}
             onDone={(id) => setRight({ kind: "t", id })} onCancel={() => setRight(first())} />
         )}
         {right.kind === "none" && (
@@ -186,15 +191,20 @@ function TicketDetail({ t, onDeleted, me }: { t: ServiceTicket; onDeleted: () =>
           ))}
         </div>
         <ExpiryNote />
+        {/* 정산 — N Key 와 같은 4종 `PC-176` */}
+        <BillingEditor key={t.id} v={t} baseDate={t.at.slice(0, 10)} onSave={(p) => {
+          setServiceBilling(t.id, { ...p, by: me });
+          logActivity("ticket", `서비스 티켓 정산 · ${t.company} · No.${t.no} · ${p.billing}${p.billing === "유료" ? ` ${p.amount.toLocaleString()}원` : ""}`, me);
+        }} />
       </div>
     </div>
   );
 }
 
 /* ── 티켓 지정 ─────────────────────────────────────────────── */
-function IssueForm({ coId, coName, ranges, mine, me, occupied, onDone, onCancel }: {
+function IssueForm({ coId, coName, ranges, mine, me, onDone, onCancel }: {
   coId: number; coName: string; ranges: ServiceRange[]; mine: ServiceTicket[]; me: string;
-  occupied: () => ReturnType<typeof keyRangesOfCompany>; onDone: (id: number) => void; onCancel: () => void;
+  onDone: (id: number) => void; onCancel: () => void;
 }) {
   const [idx, setIdx] = useState(-1);
   const [bStart, setBStart] = useState(0);
@@ -218,11 +228,9 @@ function IssueForm({ coId, coName, ranges, mine, me, occupied, onDone, onCancel 
     if (!since || !until) { setErr("사용기간 시작과 끝을 모두 정하세요."); return; }
     if (until < since) { setErr("사용기간 끝이 시작보다 앞설 수 없습니다."); return; }
     const cand = { section: r.section, owner: r.owner, bookStart: bStart, bookEnd: bStart + bVol - 1, pageStart: pStart, pageEnd: pStart + pVol - 1 };
-    // 겹침 — 이 고객사의 App Key · N Key, 그리고 같은 S/O 의 서비스 티켓(공유 코드는 고객사끼리도) `PC-171` ③ ⑥
-    const hit = occupied().find((o) => rangesOverlap(o, cand));
-    if (hit) { setErr(`이 고객사의 ${hit.by} 범위(S${hit.section}/O${hit.owner}/B${hit.bookStart}~${hit.bookEnd})와 겹칩니다. 다른 Book · Page 를 고르세요.`); return; }
-    const dup = allServiceTickets().find((t) => rangesOverlap(t, cand));
-    if (dup) { setErr(`서비스 티켓 No.${dup.no}(${dup.company} · ${serviceTicketText(dup)})과 겹칩니다. 다른 Book · Page 를 고르세요.`); return; }
+    // N Key · App Key · 서비스 티켓은 SOBP 가 절대 겹칠 수 없다 — 고객사를 가리지 않고 전체에서 검사 `PC-174`
+    const clash = sobpOverlapMsg(cand);
+    if (clash) { setErr(clash); return; }
     const t = addServiceTicket({ companyId: coId, company: coName, pt: r.pt, section: r.section, owner: r.owner,
       bookStart: cand.bookStart, bookVol: bVol, bookEnd: cand.bookEnd, pageStart: pStart, pageVol: pVol, pageEnd: cand.pageEnd,
       since, until, shared: r.shared, by: me });
@@ -261,9 +269,6 @@ function IssueForm({ coId, coName, ranges, mine, me, occupied, onDone, onCancel 
           <Field label="Valid Until Time (사용기간 끝) *">
             <input type="date" style={S.input} value={until} disabled={!r} min={since || undefined} onChange={(e) => setUntil(e.target.value)} />
           </Field>
-        </div>
-        <div style={{ fontSize: 11.5, color: "#9ca3af", marginTop: 8, lineHeight: 1.6 }}>
-          사용기간은 SOBP 할당 기간을 넘을 수 없습니다. (SOBP 할당에 기간이 생기면 자동으로 막습니다 — 지금 할당에는 할당일만 있습니다)
         </div>
         <ExpiryNote />
         {err && <div style={{ marginTop: 12, fontSize: 12.5, color: "#b91c1c", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: "9px 12px" }}>{err}</div>}

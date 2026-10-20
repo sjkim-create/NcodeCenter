@@ -382,6 +382,8 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "" 
   // 섹션 메뉴 `PC-136` — 기본 정보 · 사용 서비스 · 편집 단가 · 관련 서류 · 서비스 계정 · 업무 메모
   const [sec, setSec] = useState<Sec>(prefillEmail || initialSec === "acc" ? "acc" : initialSec === "ticket" ? "ticket" : "base");
   useServiceTickets();   // 서비스 티켓 섹션 배지 갱신 `PC-173`
+  const [mounted, setMounted] = useState(false);   // 배지는 브라우저 저장분을 읽으므로 첫 렌더(서버)와 맞추려고 마운트 뒤에 센다
+  useEffect(() => setMounted(true), []);
   const [moreOpen, setMoreOpen] = useState(false);       // ⋯ 메뉴(고객사 삭제)
   // 프로젝트 상태 — 머리말 오른쪽에서 고객사 전체를 진행중 / 사업 종료로 바꾼다 `PC-139`
   const [closeAsk, setCloseAsk] = useState(false);
@@ -559,7 +561,7 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "" 
   const svcList = [...new Set([...(isNew ? [] : companyServices(company ?? form)), ...servicesOfAccounts(svcAccounts)])];
   const nOn = svcAccounts.filter(isActive).length;
   const nRate = customRateCount(form);
-  const nTickets = company ? serviceTicketsOf(company.id).length : 0;
+  const nTickets = mounted && company ? serviceTicketsOf(company.id).length : 0;
   const NAV: { v: Sec; label: string; badge?: string; grp?: string }[] = [
     { v: "base", label: "기본 정보", grp: "고객사 정보" },
     { v: "rate", label: "편집 단가", badge: nRate ? `전용 ${nRate}` : undefined },

@@ -440,8 +440,8 @@ def memo_section():
 
 # ── 서비스 티켓 `PC-171` `PC-173` ── 할당 범위 · 티켓 목록 | 티켓 상세 / 지정
 TK_RANGES = (('PDS3 S3/O17/B431~464', False, 25, 34), ('PDS2 S3/O21/B0~4095', True, 0, 4096))
-TICKETS = (('2', '사용 중', 'PDS3 S3/O17/B431~450/P0~511', '2026-10-20 ~ 2027-10-19'),
-           ('1', '만료', 'PDS3 S3/O17/B451~455/P0~511', '2025-01-01 ~ 2025-12-31'))
+TICKETS = (('2', '사용 중', 'PDS3 S3/O17/B431~450/P0~511', '2026-10-20 ~ 2027-10-19', ('유료 3,000,000원', '#eef6ff', '#1d4ed8')),
+           ('1', '만료', 'PDS3 S3/O17/B451~455/P0~511', '2025-01-01 ~ 2025-12-31', ('체험 (만료)', '#fef3c7', '#92400e')))
 ST_C = {'사용 중': ('#dcfce7', '#166534'), '대기': ('#fef3c7', '#92400e'), '만료': ('#f3f4f6', '#6b7280')}
 
 
@@ -450,7 +450,7 @@ def expiry_note(open_=False):
     body = ('<div style="margin-top:8px;color:#374151;line-height:1.75"><b>사용기간이 끝나면</b>'
             '<div>• 이 범위의 코드로 <b>편집 · 추가 작업을 할 수 없습니다.</b> (당사 서버를 거치는 서비스 — casterN 편집, Ncode SDK)</div>'
             '<div>• <b>이미 만든 작업물(PDF)의 인쇄 · 배포는 막을 수 없습니다.</b> 실물 출판물에는 코드가 남습니다.</div>'
-            '<div>• SOBP 할당 기간이 끝난 코드는 다른 고객사에 다시 할당될 수 있으며, 이때 기존 출판물을 당사 서버로 서비스하면 데이터가 겹칠 수 있습니다.</div></div>'
+            '<div>• 계약이 끝난 코드는 다른 고객사에 다시 할당될 수 있으며, 이때 기존 출판물을 당사 서버로 서비스하면 데이터가 겹칠 수 있습니다.</div></div>'
             if open_ else '')
     return ('<div style="margin-top:12px;border:1px solid #eef0f4;border-radius:9px;background:#fafbfc;padding:8px 12px;font-size:12px">'
             '<b style="color:#6b7280">%s ⓘ 만료 후 동작</b>%s</div>' % ('▾' if open_ else '▸', body))
@@ -468,13 +468,13 @@ def ticket_list(adding=False, sel='2'):
            '<div style="font-size:11.5px;color:#6b7280;margin-top:4px">오른쪽에서 범위와 사용기간을 정하고 [티켓 지정]을 누르세요.</div></div>'
            % tg('작성 중', '#dbeafe', '#1d4ed8')) if adding else ''
     cards = ''
-    for no, st, txt, per in TICKETS:
+    for no, st, txt, per, bill in TICKETS:
         cur = (no == sel and not adding)
         cards += ('<div style="border:1px solid %s;background:%s;border-radius:10px;padding:10px 12px;margin-bottom:8px">'
-                  '<div style="display:flex;align-items:center;gap:6px"><b style="font-size:13px">No.%s</b>%s</div>'
+                  '<div style="display:flex;align-items:center;gap:6px"><b style="font-size:13px">No.%s</b>%s<span style="flex:1"></span>%s</div>'
                   '<div style="font-family:ui-monospace,monospace;font-size:11.5px;color:#374151;margin-top:4px">%s</div>'
                   '<div style="font-size:11px;color:#9ca3af;margin-top:3px">%s</div></div>'
-                  % ('#5f8ff0' if cur else '#eef0f4', '#f5f9ff' if cur else '#fff', no, tg(st, *ST_C[st]), txt, per))
+                  % ('#5f8ff0' if cur else '#eef0f4', '#f5f9ff' if cur else '#fff', no, tg(st, *ST_C[st]), tg(*bill), txt, per))
     return ('<div style="' + CARD + '"><div style="padding:13px 16px;border-bottom:1px solid #eef0f4;display:flex;align-items:center;gap:8px">'
             '<b style="font-size:14px">서비스 티켓</b><span style="font-size:11.5px;color:#9ca3af">2건</span><span style="flex:1"></span>'
             '<span class="btn pri" style="padding:6px 12px;font-size:12.5px">＋ 티켓 지정</span></div><div style="padding:12px">'
@@ -498,8 +498,25 @@ def ticket_detail():
             '<b style="font-size:14px">서비스 티켓 No.2</b>%s<span style="flex:1"></span>'
             '<span class="btn sm" style="color:#dc2626">티켓 삭제</span></div><div style="padding:16px">'
             '<div style="font-size:12px;color:#6b7280;margin-bottom:10px">이 고객사의 서비스 계정은 아래 범위와 사용기간 안에서 서비스 사용이 승인됩니다.</div>'
-            '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px">%s</div>%s</div></div>'
-            % (tg('사용 중', *ST_C['사용 중']), cells, expiry_note()))
+            '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px">%s</div>%s%s</div></div>'
+            % (tg('사용 중', *ST_C['사용 중']), cells, expiry_note(), billing_box()))
+
+
+def billing_box():
+    """정산 — N Key 관리와 같은 4종 `PC-176`"""
+    opts = (('미정', '미등록', False), ('유료', '금액 입력', True), ('무료', '청구 없음', False), ('체험', '1개월', False))
+    btns = ''.join('<div style="padding:9px 8px;border-radius:9px;text-align:center;font-size:12.5px;border:1px solid %s;background:%s;color:%s;font-weight:%s">'
+                   '%s<div style="font-size:10px;font-weight:400;margin-top:2px">%s</div></div>'
+                   % ('#1d4ed8' if on else '#e5e7eb', '#eef6ff' if on else '#fff', '#1d4ed8' if on else '#6b7280', '700' if on else '400', b, d)
+                   for b, d, on in opts)
+    return ('<div style="margin-top:14px;border:1px solid #eef0f4;border-radius:10px;padding:12px 14px">'
+            '<div style="font-size:13px;font-weight:700;margin-bottom:8px">정산 <span style="font-size:11.5px;font-weight:400;color:#9ca3af">'
+            '· 고객사 · 티켓마다 다르게 등록할 수 있습니다</span></div>'
+            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">%s</div>'
+            '<div class="fld" style="max-width:320px"><span class="lbl">금액 (원) *</span><div class="inp">3000000</div></div>'
+            '<div class="fld" style="margin-top:10px"><span class="lbl">비고 (사유 · 계약 정보)</span><div class="inp">2026 연간 계약 포함</div></div>'
+            '<div style="display:flex;align-items:center;gap:8px;margin-top:12px"><span style="font-size:11.5px;color:#9ca3af">'
+            '최근 등록: 2026-10-20 10:20 · 김순정</span><span style="flex:1"></span><span class="btn pri">정산 저장</span></div></div>' % btns)
 
 
 def ticket_form(err='', open_=False, start='451'):
@@ -514,8 +531,7 @@ def ticket_form(err='', open_=False, start='451'):
             '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">지정 범위 (할당 SOBP · 공유 코드) *</div>%s'
             '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px">%s%s%s%s</div>'
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">%s%s</div>'
-            '<div style="font-size:11.5px;color:#9ca3af;margin-top:8px">사용기간은 SOBP 할당 기간을 넘을 수 없습니다. '
-            '(SOBP 할당에 기간이 생기면 자동으로 막습니다 — 지금 할당에는 할당일만 있습니다)</div>%s%s'
+            '%s%s'
             '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><span class="btn gho">취소</span>'
             '<span class="btn pri">티켓 지정</span></div></div></div>'
             % (CO, pick, f('Start Book · 431~464', start), f('Book 볼륨 (권) · 최대 14', '5'), f('Start Page · 0~511', '0'),
@@ -683,11 +699,12 @@ def build():
               '서비스 티켓은 사용자에게 발급하는 키가 아니라 <b>고객사 계정과 매칭해 서비스 사용을 승인하는 기준</b>이다. '
               '그래서 [티켓 발급] 메뉴가 아니라 여기서 지정한다 <code>PC-173</code>. 주인은 <b>고객사</b>, 이 고객사의 서비스 계정 전원이 '
               '티켓의 범위 · 기간으로 승인된다. 할당 SOBP 범위마다 <b>티켓이 덮은 권 / 전체 권</b>을 보여 빠진 범위를 알 수 있다 <code>PC-171</code>.',
-              frame('MEM-01', FR, layout(H, nav('ticket'), acc_section(ticket_list(), ticket_detail())), height=1000),
+              frame('MEM-01', FR, layout(H, nav('ticket'), acc_section(ticket_list(), ticket_detail())), height=1300),
               [('할당 SOBP 범위', '—', '범위별 권 수', 'SOBP 할당 + <b>공유 코드 사용 고객사면 그 S/O</b>(공유 배지) · 없음 노랑 · 일부 파랑 · 전부 초록'),
                ('티켓 카드', '클릭', '오른쪽 상세', 'No. · <b>사용 중 / 대기 / 만료</b> · 범위 · 사용기간'),
                ('[＋ 티켓 지정]', '클릭', 'S24', ''),
                ('[티켓 삭제]', '클릭', '확인창', '<b>서비스 티켓 No.{n} 을(를) 삭제할까요?</b> · SOBP 할당은 그대로 <code>PC-165</code>'),
+               ('정산', '선택 · 입력', '[정산 저장]', '<b>미정 · 유료 · 무료 · 체험</b> — N Key 와 같은 4종 <code>PC-176</code> · 유료는 금액 필수(<b>유료는 금액을 입력해야 합니다.</b>) · 체험은 만료일(기본 지정일 + 1개월) · 카드에 정산 배지'),
                ('ⓘ 만료 후 동작', '클릭', '펼침', '숨김 안내 — S24'),
                ('등록 화면', '—', '<b>잠김</b>', '고객사를 먼저 등록해야 열린다 · <b>고객사를 먼저 등록하세요.</b>')]))
     B.append(('S24', '서비스 티켓 — 지정 폼 · 만료 후 동작 펼침', '분기',
@@ -696,19 +713,17 @@ def build():
               frame('MEM-01', FR, layout(H, nav('ticket'), acc_section(ticket_list(adding=True), ticket_form(open_=True))), height=1150),
               [('지정 범위', '선택', 'Section · Owner · 코드 종류 자동', '할당 SOBP · 공유 코드 범위만'),
                ('Book · Page', '입력', '범위 안으로 제한', 'Page 볼륨 기본 512'),
-               ('사용기간', '입력 (필수)', '—', '무제한 없음 · SOBP 할당 기간을 넘을 수 없다(할당 기간 필드가 생기면 적용)'),
+               ('사용기간', '입력 (필수)', '—', '무제한 없음 · 기간은 키 관리에서만 정한다(SOBP 할당에는 기간 없음) <code>PC-175</code>'),
                ('[티켓 지정]', '클릭', 'S23 상세', '검사 통과 시 · <code>LOG-01</code> 티켓 발급 활동'),
                ('[취소]', '클릭', 'S23', '')]))
     B.append(('S25', '서비스 티켓 — 겹침 오류', '오류',
-              '한 고객사 안에서 <b>App Key · N Key · 서비스 티켓 범위는 겹치지 않는다</b> <code>PC-171</code> ③. '
-              '공유 코드는 Book 이 고객사끼리도 겹치지 않는다 ⑥.',
+              '<b>N Key · App Key · 서비스 티켓은 SOBP 가 절대 겹칠 수 없다</b> — 고객사를 가리지 않고 전체 발급분과 비교한다 <code>PC-174</code>.',
               frame('MEM-01', FR, layout(H, nav('ticket'), acc_section(ticket_list(adding=True),
-                    ticket_form(err='서비스 티켓 No.2(%s · PDS3 S3/O17/B431~450/P0~511)과 겹칩니다. 다른 Book · Page 를 고르세요.' % CO, start='445'))), height=1050),
+                    ticket_form(err='이미 서비스 티켓로 발급된 SOBP 와 겹칩니다 — %s · S3/O17/B431~450/P0~511. N Key · App Key · 서비스 티켓은 SOBP 가 겹칠 수 없습니다. 다른 Book · Page 를 고르세요.' % CO, start='445'))), height=1050),
               [('① 범위 미선택', '—', '오류', '<b>지정 범위(할당 SOBP)를 선택하세요.</b>'),
                ('② 기간 비어 있음', '—', '오류', '<b>사용기간 시작과 끝을 모두 정하세요.</b>'),
                ('③ 끝 &lt; 시작', '—', '오류', '<b>사용기간 끝이 시작보다 앞설 수 없습니다.</b>'),
-               ('④ App Key · N Key 겹침', '—', '오류', '<b>이 고객사의 {App Key / N Key} 범위(S/O/B)와 겹칩니다. 다른 Book · Page 를 고르세요.</b>'),
-               ('⑤ 서비스 티켓 겹침', '—', '오류', '<b>서비스 티켓 No.{n}({고객사} · {범위})과 겹칩니다. 다른 Book · Page 를 고르세요.</b>')]))
+               ('④ SOBP 겹침', '—', '오류', '<b>이미 {App Key / N Key / 서비스 티켓}로 발급된 SOBP 와 겹칩니다 — {고객사} · S/O/B/P. N Key · App Key · 서비스 티켓은 SOBP 가 겹칠 수 없습니다.</b> (전체 고객사 기준)')]))
 
     intro = ('고객사를 <b>등록</b>하고 <b>상세·수정</b>하는 화면이다. 「<b>머리말 + 섹션 메뉴 | 본문</b>」 구조이며 '
              '섹션은 고객사 정보(기본 정보 · 편집 단가 · 관련 서류)와 운영(서비스 계정 · <b>서비스 티켓</b> · 업무 메모)이다 <code>PC-136</code> <code>PC-173</code>. '

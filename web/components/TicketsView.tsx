@@ -11,6 +11,7 @@ import { codeKind, kindLabel, patternOf, patternTypeParam, CODE_KINDS, PAGE_CAP,
 import { codesOfCompany } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { companyOfNTicket, nKeyRangesOfCompany } from "@/lib/keyCompany";
+import { sobpOverlapMsg } from "@/lib/rangeGuard";
 import {
   WS_CARD, WS_HD, WS_GRID, WS_EMPTY, WS_HEAD_BTN, wsItem,
   WsTitle, WsStats, WsCoHead, WsCoToggle, WsCoItem, WsFillScroll, type CoView,
@@ -652,6 +653,9 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     if (books < 1 || bookEnd > range.bookEnd) { setToast(`Book 볼륨은 1~${maxBooks}권이어야 합니다. (B${bookStart}~B${range.bookEnd})`); return; }
     if (pageVolume < 1) { setToast("Page 볼륨은 1 이상이어야 합니다."); return; }
     if (!untilUnlimited && !/^\d{6}$/.test(validUntil)) { setToast("Valid Until Time 은 6자리(YYMMDD)이거나 무제한이어야 합니다."); return; }
+    // N Key · App Key · 서비스 티켓은 SOBP 가 겹칠 수 없다 `PC-174`
+    const clash = sobpOverlapMsg({ section: range.section, owner: range.owner, bookStart, bookEnd, pageStart, pageEnd: pageStart + pageVolume - 1 });
+    if (clash) { setToast(clash); return; }
     const ticket = {
       companyName: company.name, issuedTime, validUntilTime: validValue,
       ...(selCu ? { usedCustomer: selCu.cu } : {}),   // 공통코드: 사용 고객사

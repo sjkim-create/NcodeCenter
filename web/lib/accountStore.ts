@@ -134,6 +134,13 @@ export type KeyRange = {
   until?: string;          // 사용기간 끝 (YYYY-MM-DD / "무제한")
   ticketId?: number;       // 원장(Key 발급 목록) 티켓 id — [티켓 삭제] 시 함께 제거 `PC-121`
   note?: string;
+  // 정산 — N Key 와 같은 4종(미정 · 유료 · 무료 · 체험) `PC-177`. 범위(=티켓)마다 둔다
+  billing?: "미정" | "유료" | "무료" | "체험";
+  amount?: number;
+  trialUntil?: string;
+  billNote?: string;
+  billedAt?: string;
+  billedBy?: string;
 };
 export type AppKey = {
   id: number;
@@ -328,6 +335,15 @@ export const caster = {
   // 발급된 App Key 에 코드 범위를 하나 더 물린다 `PC-103`
   addKeyRange(id: number, r: KeyRange) {
     const appKeys = state.appKeys.map((k) => (k.id === id ? { ...k, ranges: [...keyRanges(k), r] } : k));
+    commit({ ...state, appKeys });
+  },
+  /** 코드 범위(=티켓) 정산 등록 `PC-177` */
+  setRangeBilling(id: number, idx: number, patch: Pick<KeyRange, "billing" | "amount" | "trialUntil" | "billNote" | "billedBy">) {
+    const appKeys = state.appKeys.map((k) => {
+      if (k.id !== id) return k;
+      const rs = keyRanges(k).map((r, i) => (i === idx ? { ...r, ...patch, billedAt: kstNow() } : r));
+      return { ...k, ranges: rs };
+    });
     commit({ ...state, appKeys });
   },
   removeKeyRange(id: number, idx: number) {

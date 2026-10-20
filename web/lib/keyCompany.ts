@@ -85,34 +85,3 @@ export function serviceRangesOfCompany(co: Company | undefined, projects: Projec
   });
   return dedupe([...own, ...shared]) as ServiceRange[];
 }
-
-/** 겹침 검사용 범위 한 칸 */
-export type Occupied = { by: string; section: number; owner: number; bookStart: number; bookEnd: number; pageStart: number; pageEnd: number };
-type AppKeyLike = { accountId: string; section: number; owner: number; bookStart: number; bookEnd: number; pageStart: number; pageEnd: number;
-  ranges?: { section: number; owner: number; bookStart: number | null; bookEnd: number | null; pageStart: number | null; pageEnd: number | null }[] };
-type AccountLike = AccLike & { id: string; scope?: string };
-
-/** 이 고객사가 이미 쓰는 App Key · N Key 범위 — 서비스 티켓과 겹치면 안 된다 `PC-171` ③ */
-export function keyRangesOfCompany(co: Company, companies: Company[], accounts: AccountLike[], appKeys: AppKeyLike[], tickets: (TicketLike & { kind: string })[]): Occupied[] {
-  const out: Occupied[] = [];
-  const mine = new Set(accounts.filter((a) => (a.scope ?? "key") === "key" && companyOfAccount(a, companies)?.id === co.id).map((a) => a.id));
-  for (const k of appKeys) {
-    if (!mine.has(k.accountId)) continue;
-    const rs = k.ranges?.length ? k.ranges : [k];
-    for (const r of rs) out.push({ by: "App Key", section: r.section, owner: r.owner,
-      bookStart: r.bookStart ?? 0, bookEnd: r.bookEnd ?? 1e9, pageStart: r.pageStart ?? 0, pageEnd: r.pageEnd ?? 1e9 });
-  }
-  for (const t of tickets) {
-    if (t.kind !== "N" || companyOfNTicket(t, companies)?.id !== co.id) continue;
-    const p = t.params ?? {};
-    const n = (v: unknown, d: number) => (Number.isFinite(Number(v)) && v !== "" && v != null ? Number(v) : d);
-    out.push({ by: "N Key", section: n(p.Section, -1), owner: n(p.Owner, -1),
-      bookStart: n(p["Book Start"], 0), bookEnd: n(p["Book End"], 1e9), pageStart: n(p["Page Start"], 0), pageEnd: n(p["Page End"], 1e9) });
-  }
-  return out;
-}
-/** 두 범위가 겹치는가 — 같은 S/O 이고 Book · Page 구간이 모두 겹칠 때 */
-export const rangesOverlap = (a: Omit<Occupied, "by">, b: Omit<Occupied, "by">) =>
-  a.section === b.section && a.owner === b.owner &&
-  a.bookStart <= b.bookEnd && b.bookStart <= a.bookEnd &&
-  a.pageStart <= b.pageEnd && b.pageStart <= a.pageEnd;

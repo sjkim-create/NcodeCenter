@@ -106,15 +106,16 @@ def issue_form(sel=None, open_=False, new=False):
 
 
 def key_history(sel_idx=0, issued_key=''):
-    rows = (('PDS3 S3/O291/B0~249/P0~511', '250권'), ('PDS3 S3/O942/B73/P0~512', '1권'))
+    rows = (('PDS3 S3/O291/B0~249/P0~511', '250권', kws.tg('유료 1,200,000원', '#dbeafe', '#1d4ed8')),
+            ('PDS3 S3/O942/B73/P0~512', '1권', kws.bill_tag('미정')))
     if issued_key:
-        rows = rows + (('PDS3 S3/O291/B250~299/P1~512', '50권'),)
+        rows = rows + (('PDS3 S3/O291/B250~299/P1~512', '50권', kws.bill_tag('미정')),)
     li = ''.join('<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid #f3f4f6;%s">'
                  '<span style="color:%s">%s</span><b style="%s;font-size:12px">%s</b><span style="color:#6b7280;font-size:12px">%s</span>'
-                 '<span style="color:#6b7280;font-size:12px">즉시 ~ 무제한</span><span style="flex:1"></span>'
+                 '<span style="color:#6b7280;font-size:12px">즉시 ~ 무제한</span><span style="flex:1"></span>%s'
                  '<span class="btn gho" style="padding:3px 10px;font-size:11px;color:#dc2626;border-color:#fecaca">티켓 삭제</span></div>'
                  % ('background:#f5f9ff' if i == sel_idx else '', '#2563eb' if i == sel_idx else '#c7cdd6',
-                    '▸' if i == sel_idx else '·', MONO, t, b) for i, (t, b) in enumerate(rows))
+                    '▸' if i == sel_idx else '·', MONO, t, b, bill) for i, (t, b, bill) in enumerate(rows))
     return (kws.sec_head('App Key 발급 내역', '· 발급된 키 1개') +
             '<div style="border:1px solid #eef0f4;border-radius:10px;overflow:hidden">'
             '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#fafbfc">%s%s'
@@ -131,7 +132,8 @@ def key_info(sel_idx=0):
     rows = (('Company Name', 'Study123'), ('Account Id', STUDY[1]), ('App Key', '(대장 미기재)')) + rng + (
         ('Code Type', 'PDS3'), ('Valid From Time', '즉시'), ('Valid Until Time', '무제한'), ('Ticket Type', 'Unlimited'), ('Ticket Version', '1'))
     return ('<div style="margin-top:16px">' + kws.sec_head('Key 정보', '· 선택한 발급 내역 (%s)' %
-            ('PDS3 S3/O291/B0~249/P0~511' if sel_idx == 0 else 'PDS3 S3/O942/B73/P0~512')) + kws.kv_table(rows) + '</div>')
+            ('PDS3 S3/O291/B0~249/P0~511' if sel_idx == 0 else 'PDS3 S3/O942/B73/P0~512')) + kws.kv_table(rows)
+            + (kws.billing_box() if sel_idx == 0 else kws.billing_box('미정', note='', last='—')) + '</div>')
 
 
 def detail(tab='info', sel_idx=0, open_=False, picked=False, issued_key='', toast='', dirty=False):
@@ -253,7 +255,9 @@ def build():
     B.append(('S9', '발급 내역 선택 → Key 정보', '분기',
               '발급 내역의 티켓 줄(▸)을 고르면 아래 <b>Key 정보</b>가 그 티켓 값으로 바뀐다. 기본은 첫 티켓 <code>PC-120</code>.',
               fr(H + kws.grid(left(h=col_h(1250)), mid(h=col_h(1250)), detail('key', sel_idx=1)), 1250),
-              [('티켓 줄', '클릭', 'Key 정보 갱신', 'Company Name · Account Id · App Key · S/O/B/P · Code Type · 기간 · Ticket Type · Version')]))
+              [('티켓 줄', '클릭', 'Key 정보 갱신', 'Company Name · Account Id · App Key · S/O/B/P · Code Type · 기간 · Ticket Type · Version'),
+               ('정산 배지', '—', '티켓 줄 오른쪽', '미정 · 유료(금액) · 무료 · 체험(D-day / 만료) <code>PC-177</code>'),
+               ('정산', '선택 · 입력', '[정산 저장]', 'Key 정보 아래 — N Key 와 같은 4종 · 유료는 금액 필수(<b>유료는 금액을 입력해야 합니다.</b>) · 체험 만료일 기본 = 1개월 뒤 · 비고 · <b>정산 정보가 저장되었습니다.</b> · 원장 티켓에도 같은 값')]))
 
     B.append(('S10', '발급 범위 없음', '빈 상태',
               '고객사에 Caster 대장 이력도, 고객사 관리의 SOBP 할당도 없으면 범위 목록이 비어 발급할 수 없다. SOBP 맵(<code>SOB-02</code>)에서 할당한 뒤 다시 발급한다.',

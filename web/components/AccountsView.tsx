@@ -12,7 +12,9 @@ import { S, Field } from "./ui";
 import { useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
-import { addTicket, deleteTicket, hydrateTickets, useTickets } from "@/lib/ticketStore";
+import { addTicket, deleteTicket, hydrateTickets, setBilling, useTickets } from "@/lib/ticketStore";
+import { BillingEditor, BillTag } from "./BillingEditor";
+import { sobpOverlapMsg } from "@/lib/rangeGuard";
 import { SobpRangePicker, type SobpRange } from "./TicketsView";
 import { useTicketCustomers } from "@/lib/ticketCustomerStore";
 import { appKeyRangesOfCompany, companyOfAccount } from "@/lib/keyCompany";
@@ -251,6 +253,11 @@ export function AccountNewView({ embedded = false, fixedCompanyId = 0, onDone, o
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(id.trim())) { setToast({ ok: false, text: "ID 는 이메일 형식이어야 합니다." }); return; }
     if (!pwd.trim()) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
     const wantKey = !!range;   // 범위를 골랐으면 함께 발급한다 `PC-071`
+    // N Key · App Key · 서비스 티켓은 SOBP 가 겹칠 수 없다 `PC-174` — 계정을 만들기 전에 막는다
+    if (wantKey && range) {
+      const clash = sobpOverlapMsg({ section: range.section, owner: range.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, pageStart: pStart, pageEnd: pStart + keyPVol - 1 });
+      if (clash) { setToast({ ok: false, text: clash }); return; }
+    }
 
     const acc: CasterAccount = {
       id: id.trim(), pwd: pwd.trim(), name: name.trim(), services: [], settings: {}, scope: "key",   // 인증 서비스·권한 없음 `PC-131`
@@ -452,6 +459,8 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   //   범위 발급 = 티켓 발급이므로 **원장(Key 발급 목록)에도 티켓 1건을 남긴다** `PC-119`
   const addRange = () => {
     if (!range || !myKey) return;
+    const clash = sobpOverlapMsg({ section: range.section, owner: range.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, pageStart: pStart, pageEnd: pStart + keyPVol - 1 });
+    if (clash) { setToast({ ok: false, text: clash }); return; }   // SOBP 무겹침 `PC-174`
     const untilStr = untilVal();
     const r: KeyRange = { pt: range.pt, section: range.section, owner: range.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, bookVol: keyVol,
       pageStart: pStart, pageEnd: pStart + keyPVol - 1, pageVol: keyPVol, since, until: untilStr };
@@ -492,6 +501,8 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   const addKey = () => {
     if (!range) { setToast({ ok: false, text: "발급 범위를 선택하세요." }); return; }
     if (myKey) { setToast({ ok: false, text: "App Key 는 계정당 1개입니다. 아래에서 코드 범위를 더 발급하세요." }); return; }
+    const clash = sobpOverlapMsg({ section: range.section, owner: range.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, pageStart: pStart, pageEnd: pStart + keyPVol - 1 });
+    if (clash) { setToast({ ok: false, text: clash }); return; }   // SOBP 무겹침 `PC-174`
     const key = issueAppKey(acc, range, keyBS, keyVol, pStart, keyPVol, ctype, untilVal(), me?.name, since);
     setIssued(key);
     setToast({ ok: true, text: "App Key 발급 완료 — 계정과 연동되어 서비스 DB에 등록되었습니다." });
@@ -684,6 +695,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
                       {(() => { const p = rangePeriod(k, r); return <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }} title="이 코드 범위의 사용기간">{p.since || "즉시"} ~ {p.until}</span>; })()}
                       {r.note && <span style={{ color: "#9ca3af" }}>{r.note}</span>}
                       <span style={{ flex: 1 }} />
+                      <BillTag v={r} />
                       {/* 티켓(=발급 범위)마다 삭제 — 원장 티켓도 함께 제거 `PC-121` */}
                       <button onClick={(e) => { e.stopPropagation(); delTicket(k, i); }}
                         style={{ ...S.ghost, padding: "3px 10px", fontSize: 11, color: "#dc2626", borderColor: "#fecaca", background: "#fff" }}>티켓 삭제</button>
@@ -717,6 +729,15 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
             })() : undefined;
             return <KeyCard title="App Key" empty="위에서 App Key 를 발급하세요." params={params} />;
           })()}
+          {/* 선택한 티켓(코드 범위)의 정산 — N Key 와 같은 4종 `PC-177` */}
+          {selected && (
+            <BillingEditor key={`${selected.k.id}-${selected.i}`} v={selected.r} baseDate={selected.r.since || selected.k.createdAt.slice(0, 10)}
+              onSave={(p) => {
+                caster.setRangeBilling(selected.k.id, selected.i, { ...p, billedBy: me?.name ?? "" });
+                if (selected.r.ticketId) setBilling(selected.r.ticketId, { ...p, by: me?.name ?? "" });   // 원장 티켓에도 같은 값
+                logActivity("ticket", `App Key 정산 · ${acc.company} · ${acc.id} · ${rangeText(selected.r)} · ${p.billing}${p.billing === "유료" ? ` ${p.amount.toLocaleString()}원` : ""}`, me?.name);
+              }} />
+          )}
         </div>
 
         {/* 이동·저장 버튼은 화면 맨 아래에 모은다 `PC-069` */}
