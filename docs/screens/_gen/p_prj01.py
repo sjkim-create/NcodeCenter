@@ -198,9 +198,7 @@ def col_detail(state='none', share=False, cust='신사고-6', closed=False):
             '<span class="tag">신사고-6</span>'
             '<span style="display:inline-flex;align-items:center;gap:4px">%s%s%s</span>'
             '<span class="tag" style="background:#f3f4f6;color:#6b7280">SDK 연동 (코드만 할당)</span>%s'
-            '%s<div style="flex:1"></div>'
-            '<span class="btn sm">수정</span>'
-            '<span class="btn sm" style="color:#dc2626">삭제</span></div>'
+            '%s</div>'
             '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0">%s</div>'
             '%s'
             '<div style="font-size:12.5px;font-weight:700;margin-bottom:8px">발급 SOBP 내역 '
@@ -259,15 +257,13 @@ def build():
     boards.append((
         'S2', '프로젝트 선택 · 발급 구성', '기본',
         '프로젝트를 고르면 ③에 <b>발급 요약 4종 + 발급 SOBP 내역</b>이 표시된다. '
-        '발급 내역은 <b>조회 전용</b> — 발급/수정은 <code>SOB-02</code>(Ncode 예약·할당)에서 한다 '
+        '프로젝트와 발급 내역은 <b>조회 전용</b>(수정·삭제 없음 <code>PC-164</code>) — 발급은 <code>SOB-02</code>(Ncode 예약·할당)에서 한다 '
         '<code>PC-011</code>.',
         frame('PRJ-01', '코드 프로젝트',
               content(sel_proj='신사고-6 코드발급', detail='full'), height=1000),
         [('발급 요약 4종', '조회', '—', '발급 코드(B×P) · 실등록 페이지 · 편집 심볼 · 코드 종류'),
          ('발급 SOBP 내역', '조회', '—', '블록마다 <b>N(PDS3) S O B P</b> 칩 + 발급일 + '
           '<b>{권}권 × {p}p = {코드}</b> + 실등록'),
-         ('[수정]', '클릭', 'S5 프로젝트 수정 모달', ''),
-         ('[삭제]', '클릭', 'S6 삭제 확인', '발급 코드가 <b>reset(회수)</b>'),
          ('미발급 프로젝트', '표시', '—', '<b>발급 내역이 없습니다. (미발급)</b>')] + NAV))
 
     boards.append((
@@ -296,63 +292,8 @@ def build():
          ('고객사 칩', '클릭', '그 고객사의 사용 SOBP 표시', 'Book 단위 · 다시 누르면 해제'),
          ('사용 고객사 없음', '표시', '—', '<b>등록된 사용 고객사가 없습니다.</b>')]))
 
-    edit_modal = (
-        '<div class="ovl"><div class="mdl w">'
-        '<div class="mh"><div class="mt">프로젝트 수정</div><div class="mx">✕</div></div>'
-        '<div style="display:grid;gap:12px">'
-        '<div class="fld"><span class="lbl">프로젝트명 <span style="color:#dc2626">*</span></span>'
-        '<div class="inp">신사고-6 코드발급</div></div>'
-        '<div class="fld"><span class="lbl">고객사(업체) <span style="color:#dc2626">*</span></span>'
-        '<div class="inp" style="display:flex;justify-content:space-between">신사고-6'
-        '<span style="color:#9ca3af;font-size:10px">▾</span></div></div>'
-        '<div class="fld"><span class="lbl">사용 서비스</span>'
-        '<div class="inp" style="background:#fafbfc;display:flex;justify-content:space-between">'
-        'SDK 연동 (코드만 할당)'
-        '<span style="color:#2563eb;font-size:11px">고객사 관리 &rarr;</span></div>'
-        '<div style="font-size:11px;color:#9ca3af;margin-top:3px">'
-        '<b>조회 전용</b> — 서비스는 고객사 속성이라 <b><code>MEM-02</code> 고객사 등록·수정</b>에서 '
-        '정한다 <code>PC-076</code></div></div>'
-        '<div style="border:1px solid #e5e7eb;border-radius:9px;padding:11px 13px;font-size:12px;'
-        'color:#6b7280;background:#f8fafc"><b style="color:#374151">발급 SOBP 내역</b> — 조회 전용<br>'
-        '발급 추가·수정은 <b>현재 숨김 상태</b>입니다. (⚠ §7 미결)</div>'
-        '</div><div class="mf"><div class="btn gho">취소</div><div class="btn pri">저장</div></div>'
-        '</div></div>')
-    boards.append((
-        'S5', '프로젝트 수정 (모달)', '모달',
-        'PRD §4.4 — ③ 상세의 <b>[수정]</b>으로 연다. <b>사용 서비스는 조회 전용</b>이며 '
-        '고른 고객사의 값을 읽어 보여 준다 <code>PC-076</code> — 바꾸려면 '
-        '<b><code>MEM-02</code> 고객사 등록·수정</b>으로 간다.',
-        frame('PRJ-01', '코드 프로젝트',
-              content(sel_proj='신사고-6 코드발급', detail='full'),
-              overlay=edit_modal, height=1000),
-        [('프로젝트명', '입력 (필수)', '—', '미입력 시 <b>프로젝트명은 필수입니다.</b>'),
-         ('고객사(업체)', '선택 (필수)', '—', '미선택 시 <b>고객사를 선택하세요.</b>'),
-         ('사용 서비스', '선택', '—', '정본은 <code>SOB-02</code>'),
-         ('등급(폼솔루션)', '선택', '—', '사용 서비스가 폼솔루션일 때만'),
-         ('[저장]', '클릭', '목록 갱신', '<b>수정됨 · {프로젝트명}</b>'),
-         ('[취소] · [✕]', '클릭', 'S2 복귀', '')]))
-
-    del_modal = ('<div class="ovl"><div class="mdl">'
-                 '<div class="mh"><div class="mt">프로젝트 삭제</div><div class="mx">✕</div></div>'
-                 '<div style="font-size:13px;color:#374151;line-height:1.7">'
-                 '삭제하려면 아래에 <b>신사고-6 코드발급</b> 을(를) 그대로 입력하세요.</div>'
-                 '<div class="toast err" style="margin:12px 0 0">삭제하면 이 프로젝트가 보유한 '
-                 '<b>발급 코드 29,286건이 reset(회수)</b>됩니다. 되돌릴 수 없습니다.</div>'
-                 '<div class="fld" style="margin-top:12px">'
-                 '<div class="inp ph">신사고-6 코드발급</div></div>'
-                 '<div class="mf"><div class="btn gho">취소</div>'
-                 '<div class="btn dis">삭제 확정</div></div></div></div>')
-    boards.append((
-        'S6', '프로젝트 삭제 확인', '확인창',
-        'PRD §4.5 — 삭제하면 <b>발급 코드가 reset(회수)</b> 되므로 '
-        '<b>프로젝트명을 정확히 입력</b>해야 [삭제 확정]이 활성화된다.',
-        frame('PRJ-01', '코드 프로젝트',
-              content(sel_proj='신사고-6 코드발급', detail='full'),
-              overlay=del_modal, height=1000),
-        [('프로젝트명 입력', '입력', '[삭제 확정] 활성', '<b>정확히 일치</b>해야 활성'),
-         ('[삭제 확정]', '클릭', '코드 reset · 목록 갱신',
-          '<b>삭제됨 · {프로젝트명} · 발급 코드 {n}건 reset</b>'),
-         ('[취소] · [✕]', '클릭', 'S2 복귀', '')]))
+    # S5 프로젝트 수정 · S6 프로젝트 삭제 — 기능 삭제로 결번 `PC-164`
+    #   (S7 · S8 은 Figma 프레임 이름 유지를 위해 번호 그대로)
 
     boards.append((
         'S7', '검색 결과 없음', '빈 상태',
@@ -381,7 +322,7 @@ def build():
 
     intro = ('<b>고객사별로 어떤 코드(SOBP)를 얼마나 발급받았는지</b>를 조회·검색하는 화면. '
              '코드 발급 자체는 <code>SOB-02</code>에서 이뤄지므로 '
-             '<b>이 화면에는 프로젝트 등록 기능이 없다</b>(조회·검색 전용 / 수정·삭제만 가능). '
+             '<b>이 화면에는 프로젝트 등록 기능이 없다</b>(<b>조회·검색 전용</b> — 프로젝트 수정·삭제도 없다 <code>PC-164</code>). '
              '실제 구현은 <b>고객사 선택 → 프로젝트 → 발급 구성</b> 3단이며, '
              '좌측에 <b>코드 종류(PDS2/PDS3) · 유형(편집/코드발급) · 사용 서비스</b> 3중 필터가 있다. '
              ' (2026-08-27 확인).')

@@ -304,7 +304,7 @@ def build():
         [('종료 행', '표시', '—', '흐리게 + <b>종료</b> 배지'),
          ('종료 배지', 'hover', '툴팁', '종료 사유 · 없으면 <b>프로젝트 종료</b>'),
          ('행 클릭', '클릭', '<code>MEM-02</code>', '툴팁 <b>프로젝트 종료 고객사 (코드 발급 이력만)</b>'),
-         ('[삭제]', '클릭', 'S5', '종료 ≠ 삭제 — 종료는 이력 보존, 삭제는 코드 reset')]))
+         ('[삭제]', '클릭', 'S14', 'SOBP 가 할당된 고객사는 <b>삭제 불가</b> — 종료로 처리한다 <code>PC-166</code>')]))
 
     def del_modal(typed=False):
         btn = ('background:#dc2626;color:#fff' if typed
@@ -314,8 +314,8 @@ def build():
                 '<div class="mh"><div class="mt">고객사 삭제</div><div class="mx">✕</div></div>'
                 '<div style="font-size:13px;color:#374151;line-height:1.7">'
                 '삭제하려면 아래에 <b>웅진씽크빅</b> 을(를) 그대로 입력하세요.</div>'
-                '<div class="toast err" style="margin:12px 0 0">삭제하면 이 고객사의 '
-                '<b>프로젝트 3건 · 코드 8건이 reset(회수)</b>됩니다. 되돌릴 수 없습니다.</div>'
+                '<div class="toast err" style="margin:12px 0 0"><b>SOBP 할당 전 고객사</b>만 삭제할 수 있습니다. '
+                '서류 · 업무 원장 기록도 함께 삭제되며, 되돌릴 수 없습니다.</div>'
                 '<div class="fld" style="margin-top:12px"><div class="inp">%s</div></div>'
                 '<div class="mf"><div class="btn gho">취소</div>'
                 '<div style="border-radius:9px;padding:9px 16px;font-size:13px;font-weight:600;'
@@ -323,8 +323,8 @@ def build():
 
     boards.append((
         'S5', '삭제 확인 · 이름 미입력', '확인창',
-        'PRD §4.4 — 삭제하면 그 고객사의 <b>프로젝트와 발급 코드가 reset(회수)</b> 되므로 '
-        '업체명을 정확히 입력해야 확정된다. 기본은 <b>[삭제 확정] 비활성</b>.',
+        'PRD §4.5 — <b>SOBP 할당 전 고객사</b>만 이 확인창이 뜬다 <code>PC-166</code>. '
+        '되돌릴 수 없으므로 업체명을 정확히 입력해야 확정된다. 기본은 <b>[삭제 확정] 비활성</b>.',
         frame('MEM-01', '고객사 관리', content(), overlay=del_modal(False), height=900),
         [('이름 입력', '입력', '[삭제 확정] 활성', '업체명과 <b>정확히 일치</b>해야 활성'),
          ('[삭제 확정]', '—', '<b>비활성</b>', ''),
@@ -334,17 +334,17 @@ def build():
         'S6', '삭제 확인 · 이름 일치', '확인창',
         '업체명이 정확히 일치하면 [삭제 확정]이 활성화된다.',
         frame('MEM-01', '고객사 관리', content(), overlay=del_modal(True), height=900),
-        [('[삭제 확정]', '클릭', 'S7', '프로젝트·코드 reset 후 목록 갱신'),
+        [('[삭제 확정]', '클릭', 'S7', '고객사 · 서류 · 업무 원장 삭제 후 목록 갱신'),
          ('[취소]', '클릭', 'S1 복귀', '')]))
 
-    toast_del = '<div class="toast">삭제됨 · 웅진씽크빅 · 프로젝트 3건 / 코드 8건 reset</div>'
+    toast_del = '<div class="toast">삭제됨 · 웅진씽크빅</div>'
     boards.append((
         'S7', '삭제 완료 · 상단 알림', '성공',
         'PRD §5 메시지 — 삭제 후 목록이 갱신되고 상단 알림이 뜬다. '
         '<code>LOG-01</code>에 <b>고객사 관리</b> 활동으로 기록된다.',
         frame('MEM-01', '고객사 관리',
               content([r for r in ROWS if r[0] != '웅진씽크빅'], toast=toast_del), height=900),
-        [('상단 알림', '표시', '—', '<b>삭제됨 · {업체명} · 프로젝트 {n}건 / 코드 {n}건 reset</b>'),
+        [('상단 알림', '표시', '—', '<b>삭제됨 · {업체명}</b>'),
          ('목록', '자동', '갱신', ''),
          ('활동 로그', '자동 기록', '<code>LOG-01</code>', '<b>고객사 관리</b>')]))
 
@@ -430,6 +430,24 @@ def build():
          ('[계정 관리 →]', '클릭', '<code>MEM-02</code> S11', '<code>/companies/{id}?sec=acc</code>'),
          ('[닫기] · ✕', '클릭', 'S1', '')]))
 
+
+    blocked = ('<div class="ovl"><div class="mdl">'
+               '<div class="mh"><div class="mt">고객사 삭제 불가</div><div class="mx">✕</div></div>'
+               '<div class="toast err" style="margin:0">'
+               '<b>교원구몬</b> 은(는) <b>SOBP 가 할당된 고객사</b>입니다 (S/O 2개 · 코드 프로젝트 2건).<br>'
+               '• SOBP 할당 전 고객사만 삭제할 수 있습니다. 할당된 코드는 회수하지 않습니다.<br>'
+               '• 거래가 끝났다면 상세 화면에서 <b>사업 종료</b>로 바꾸세요. 코드 발급 이력은 그대로 보관됩니다.</div>'
+               '<div class="mf"><div class="btn gho">닫기</div></div></div></div>')
+    boards.append((
+        'S14', '삭제 불가 · SOBP 할당 고객사', '확인창',
+        'PRD §4.5 — <b>SOBP 가 할당된 고객사</b>(코드 프로젝트에 발급 블록이 있는 고객사)는 삭제할 수 없다 '
+        '<code>PC-166</code>. 서비스에 코드 회수 기능이 없으므로 <code>PC-165</code>, 거래가 끝나면 '
+        '<code>MEM-02</code> 에서 <b>사업 종료</b>로 처리한다(S4).',
+        frame('MEM-01', '고객사 관리', content(), overlay=blocked, height=900),
+        [('[삭제]', '클릭', '이 안내창', 'SOBP 할당 고객사일 때 — 확인 입력란 · [삭제 확정] 없음'),
+         ('안내', '표시', '—', '할당된 S/O 개수 · 코드 프로젝트 건수'),
+         ('[닫기] · ✕', '클릭', 'S1', ''),
+         ('사업 종료', '이동', '<code>MEM-02</code>', '종료 토글 → S4')]))
     intro = ('코드를 발급받는 <b>업체(고객사) 마스터</b>. 사업자·계좌·서류·편집 단가·업무 이력을 관리한다. '
              '<b>App Key 관리 · N Key 관리(<code>TKT-01</code> · <code>TKT-02</code>)는 이 고객사를 불러와 키를 발급</b>한다 '
              '<code>PC-153</code>. 고객사마다 <b>서비스 계정</b>(서비스 권한 · OWNER 1명 · 선택)을 <code>MEM-02</code>에서 관리한다 '

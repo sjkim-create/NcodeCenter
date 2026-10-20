@@ -2,21 +2,18 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { S, Field, Modal } from "./ui";
+import { S } from "./ui";
 import { KindChip, Sc, SobpChips } from "./sobp";
 import { codeKind, CODE_KINDS, kindLabel, type CodeKind } from "@/lib/codeKind";
 import { store, useStore } from "@/lib/store";
 import {
   Project, ServiceType,
-  SERVICE, serviceLabel, GRADES, projectCodes, projectUsed,
-  companyServices, companyUsesService, companyServiceText,
+  SERVICE, serviceLabel, projectCodes, projectUsed,
+  companyServices, companyUsesService,
 } from "@/lib/customerData";
 import { EDIT_BOOKS } from "@/lib/codeUsage";
 import { codesOfCompany, isCommonCodeCompany, type CommonCode } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
-import { logActivity } from "@/lib/activityStore";
-
-type Draft = Omit<Project, "id">;
 
 // 고객사별 코드 종류 — 좌표(SOBP) 속성으로 판별 (PDS3 · PDS2 · PDS4 · OID). 옛 IDS(A) = OID 동일 `PC-035`
 const KIND_BY_NAME: Record<string, CodeKind[]> = EDIT_BOOKS.reduce((m, r) => {
@@ -35,13 +32,7 @@ export default function ProjectsView() {
   const { companies, projects } = useStore();
   useEffect(() => { hydrateMembers(); }, []);
   useCommonMembers();   // 공통코드 사용 고객사(하위) 변경 시 재렌더
-  const emptyDraft = (): Draft => ({ name: "", companyId: companies[0]?.id ?? 0, service: "NONE", grade: "", issued: [] });
-
-  const [editing, setEditing] = useState<Project | null>(null);
-  const [form, setForm] = useState<Draft>(emptyDraft);
-  const [delTarget, setDelTarget] = useState<Project | null>(null);
-  const [delConfirm, setDelConfirm] = useState("");
-  const [toast, setToast] = useState("");
+  // 조회 전용 — 프로젝트 수정·삭제 없음 `PC-164`
   const [selCo, setSelCo] = useState<number>(0);
   const [selP, setSelP] = useState<number | null>(null);
   const [q, setQ] = useState("");
@@ -52,33 +43,7 @@ export default function ProjectsView() {
   const [selMember, setSelMember] = useState<string | null>(null);   // 선택된 하위 고객사
   useEffect(() => { setSelMember(null); setMemberQ(""); }, [selP, selCo]);
 
-  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 4000); };
-  const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setForm((f) => ({ ...f, [k]: v }));
   const companyName = (id: number) => companies.find((c) => c.id === id)?.name ?? "-";
-
-  const openEdit = (p: Project) => { setForm({ ...p, issued: p.issued.map((b) => ({ ...b })) }); setEditing(p); };
-  const close = () => setEditing(null);
-
-  // 발급 SOBP 내역 (view only — 발급/수정은 [Ncode 예약·할당]에서 처리)
-  const draftCodes = form.issued.reduce((s, b) => s + (b.codes || 0), 0);
-
-  const save = () => {
-    if (!form.name.trim()) { flash("프로젝트명은 필수입니다."); return; }
-    if (!form.companyId) { flash("고객사를 선택하세요."); return; }
-    const id = store.upsertProject({ ...form, id: editing?.id ?? 0 });
-    if (!editing?.id) logActivity("project", `${companyName(form.companyId)} / ${form.name}`);
-    flash(editing?.id ? `수정됨 · ${form.name}` : `등록됨 · ${companyName(form.companyId)} / ${form.name}`);
-    if (!editing?.id) setEditing({ ...form, id } as Project);
-    else setEditing(null);
-  };
-
-  const confirmDelete = () => {
-    if (!delTarget) return;
-    const n = projectCodes(delTarget);
-    store.deleteProject(delTarget.id);
-    flash(`삭제됨 · ${delTarget.name} · 발급 코드 ${n.toLocaleString()}건 reset`);
-    setDelTarget(null); setDelConfirm("");
-  };
 
   const curCo = companies.find((c) => c.id === selCo) ?? companies[0];
   const kindsOf = (name: string) => KIND_BY_NAME[name] ?? [];
@@ -129,8 +94,6 @@ export default function ProjectsView() {
         <div style={{ flex: 1 }} />
         <button onClick={() => { if (confirm("테스트 데이터를 초기화할까요? (엑셀 시드로 복원)")) store.reset(); }} style={S.ghost}>초기화</button>
       </div>
-
-      {toast && <div style={S.toast}>{toast}</div>}
 
       <div style={{ display: "grid", gridTemplateColumns: "280px 250px 1fr", gap: 12, alignItems: "start" }}>
         {/* 고객사 카드 */}
@@ -256,9 +219,6 @@ export default function ProjectsView() {
                     <span style={{ ...S.tag, background: "#ecfdf5", color: "#047857", border: "1px solid #a7f3d0", cursor: "pointer" }} title={`편집 실적은 ${proj.editLinkLabel ?? proj.editLinkOwner}에 귀속 — 클릭하면 이동`}>✏️ 편집 → {proj.editLinkLabel ?? `owner ${proj.editLinkOwner}`}</span>
                   </Link>
                 )}
-                <span style={{ flex: 1 }} />
-                <button onClick={() => openEdit(proj)} style={S.smallBtn}>수정</button>
-                <button onClick={() => { setDelTarget(proj); setDelConfirm(""); }} style={{ ...S.smallBtn, color: "#dc2626" }}>삭제</button>
               </div>
 
               {/* 발급 요약 */}
@@ -371,92 +331,11 @@ export default function ProjectsView() {
           )}
         </div>
       </div>
-
-      {/* 등록/수정 — 기본 정보 + 발급 SOBP (업무 메모 없음: 고객사 관리에서 관리) */}
-      {editing && (
-        <Modal onClose={close} title={editing.id ? "프로젝트 수정" : "프로젝트 등록"} width={720}>
-          <div>
-            <div style={colBox}>
-              <div style={colHead}>기본 정보</div>
-              <div style={S.grid2}>
-                <Field label="프로젝트명 *"><input style={S.input} value={form.name} onChange={(e) => set("name", e.target.value)} /></Field>
-                <Field label="고객사 (업체)">
-                  <select style={S.input} value={form.companyId} onChange={(e) => set("companyId", +e.target.value)}>
-                    {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </Field>
-                {/* 사용 서비스는 **고객사 속성** — 여기서는 조회만 한다 `PC-076` */}
-                <Field label="사용 서비스">
-                  <div style={{ ...S.input, background: "#fafbfc", display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ color: "#374151" }}>{companyServiceText(companies.find((c2) => c2.id === form.companyId))}</span>
-                    <span style={{ flex: 1 }} />
-                    <Link href="/companies" style={{ fontSize: 11, color: "#2563eb", textDecoration: "none" }} title="고객사 관리에서 사용 서비스를 정합니다">고객사 관리 →</Link>
-                  </div>
-                </Field>
-                {companyUsesService(companies.find((c2) => c2.id === form.companyId), "FORMSOLUTION") && (
-                  <Field label="등급 (폼솔루션)">
-                    <select style={S.input} value={form.grade} onChange={(e) => set("grade", e.target.value)}>
-                      <option value="">미지정</option>
-                      {GRADES.map((g) => <option key={g} value={g}>{g} 등급</option>)}
-                    </select>
-                  </Field>
-                )}
-              </div>
-              {companyServices(companies.find((c2) => c2.id === form.companyId)).length === 0 && (
-                <div style={{ ...emptyBox, marginTop: 10, color: "#6b7280" }}>이 고객사는 <b>SDK 연동(코드만 할당)</b> 입니다 — 우리 서비스를 거치지 않고 코드만 받아 직접 연동합니다 <code>PC-076</code>.</div>
-              )}
-              <div style={secHead}>발급 SOBP 내역 <span style={{ color: "#9ca3af", fontWeight: 400 }}>· 조회 전용 (발급은 [Ncode 예약·할당])</span>
-                <span style={{ marginLeft: 8, color: "#2563eb", fontFamily: "ui-monospace,monospace" }}>합계 {draftCodes.toLocaleString()}코드</span>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 320, overflow: "auto" }}>
-                {form.issued.length === 0 && <div style={emptyBox}>발급 내역이 없습니다. (미발급)</div>}
-                {form.issued.map((b) => (
-                  <div key={b.id} style={{ border: "1px solid #eef0f4", borderRadius: 10, padding: "10px 12px", background: "#fafbfc" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <SobpChipRow b={b} />
-                      <span style={{ flex: 1 }} />
-                      <span style={{ color: "#9ca3af", fontSize: 11, fontFamily: "ui-monospace,monospace" }}>{b.date}</span>
-                      <span style={S.tag}>코드 {b.codes.toLocaleString()}건</span>
-                    </div>
-                  </div>
-                ))}
-                {form.issued.length > 0 && (
-                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>※ S=Section · O=Owner · B=Book · P=Page · 코드 수 = 발급 Ncode 개수(페이지 1장 = 1코드). 발급 추가·수정은 현재 숨김 상태.</div>
-                )}
-              </div>
-            </div>
-
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
-            <button onClick={close} style={S.ghost}>{editing.id ? "닫기" : "취소"}</button>
-            <button onClick={save} style={S.primary}>{editing.id ? "저장" : "등록"}</button>
-          </div>
-        </Modal>
-      )}
-
-      {/* 삭제 경고 */}
-      {delTarget && (
-        <Modal onClose={() => setDelTarget(null)} title="⚠ 프로젝트 삭제 — 신중히 확인하세요">
-          <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "14px 16px", fontSize: 13, color: "#991b1b", lineHeight: 1.7 }}>
-            <b>{companyName(delTarget.companyId)} / {delTarget.name}</b> 을(를) 삭제합니다.<br />
-            • 삭제 시 <b>발급 코드 {projectCodes(delTarget).toLocaleString()}건이 reset</b>됩니다(회수).<br />
-            • 되돌릴 수 없습니다. (고객사와 고객사 업무요청 메모는 유지)
-          </div>
-          <div style={{ marginTop: 14, fontSize: 12.5, color: "#374151" }}>확인을 위해 프로젝트명 <b>{delTarget.name}</b> 을(를) 입력하세요:</div>
-          <input style={{ ...S.input, marginTop: 6 }} value={delConfirm} onChange={(e) => setDelConfirm(e.target.value)} placeholder={delTarget.name} />
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-            <button onClick={() => setDelTarget(null)} style={S.ghost}>취소</button>
-            <button onClick={confirmDelete} disabled={delConfirm.trim() !== delTarget.name}
-              style={{ ...S.danger, ...(delConfirm.trim() !== delTarget.name ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>삭제 확정 (코드 reset)</button>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }
 
-// SOBP를 S/O/B/P 색상 칩으로 표시 (목록·수정 공용)
+// SOBP를 S/O/B/P 색상 칩으로 표시
 // 프로젝트명 끝의 "· S3/O1022" 표기 제거 — 옆에 S/O 칩으로 표시하므로 중복
 const stripSO = (name: string) => name.replace(/\s*[·・|/-]?\s*S\s*\d+\s*\/\s*O\s*\d+\s*$/i, "").trim() || name;
 
@@ -473,7 +352,6 @@ function SobpChipRow({ b }: { b: { kind?: string; section: number; owner: number
   );
 }
 
-const secHead: React.CSSProperties = { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#374151", fontWeight: 700, margin: "18px 0 8px" };
 const emptyBox: React.CSSProperties = { fontSize: 12, color: "#9ca3af", padding: "10px 12px", background: "#fafbfc", border: "1px dashed #e5e7eb", borderRadius: 8 };
 const clearBtn: React.CSSProperties = {
   position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
@@ -485,5 +363,3 @@ const pdsChip = (on: boolean): React.CSSProperties => ({
   color: on ? "#2563eb" : "#6b7280", fontWeight: on ? 700 : 400,
 });
 const cardBtn = (on: boolean): React.CSSProperties => ({ display: "block", width: "100%", textAlign: "left", border: `1px solid ${on ? "#93c5fd" : "#eef0f4"}`, background: on ? "#f5f9ff" : "#fff", borderRadius: 10, padding: "9px 11px", cursor: "pointer" });
-const colBox: React.CSSProperties = { border: "1px solid #eef0f4", borderRadius: 10, padding: 16, background: "#fff" };
-const colHead: React.CSSProperties = { fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 12, paddingBottom: 8, borderBottom: "1px solid #eef0f4" };

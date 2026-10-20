@@ -12,7 +12,7 @@ import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { onboarding, useOnboarding, onboardServiceToCompany, onboardServiceLabel,
          type OnboardingRequest } from "@/lib/onboardingStore";
-import { Company, CompanyDoc, WorkKind, WorkLog, projectCodes, nextId,
+import { Company, CompanyDoc, WorkKind, WorkLog, nextId,
          SERVICE, companyServices } from "@/lib/customerData";
 import { SOUND_ITEMS, PEN_ITEMS, rateMapOf, customRateCount, type RateItem } from "@/lib/pricing";
 import { COMMON_CODES, codeKey, codesOfCompany, isCommonCodeCompany, type CommonCode } from "@/lib/commonCodes";
@@ -899,20 +899,34 @@ function DeleteCompanyModal({ target, projects, onClose, onDone }: {
   onDone: (msg: string) => void;
 }) {
   const [confirmText, setConfirmText] = useState("");
-  const ps = projects.filter((p) => p.companyId === target.id);
-  const im = { projects: ps.length, codes: ps.reduce((s, p) => s + projectCodes(p), 0) };
+  // SOBP 가 할당된 고객사는 삭제할 수 없다 — 서비스에 코드 회수 기능이 없다 `PC-165` `PC-166`
+  const allocated = projects.filter((p) => p.companyId === target.id && p.issued.length > 0);
+  const soCount = new Set(allocated.flatMap((p) => p.issued.map((b) => `${b.section}/${b.owner}`))).size;
 
   const run = () => {
+    if (allocated.length) return;
     store.deleteCompany(target.id);
-    onDone(`삭제됨 · ${target.name} · 프로젝트 ${im.projects}건 / 코드 ${im.codes.toLocaleString()}건 reset`);
+    onDone(`삭제됨 · ${target.name}`);
   };
+
+  if (allocated.length) return (
+    <Modal onClose={onClose} title="고객사 삭제 불가">
+      <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "14px 16px", fontSize: 13, color: "#991b1b", lineHeight: 1.7 }}>
+        <b>{target.name}</b> 은(는) <b>SOBP 가 할당된 고객사</b>입니다 (S/O {soCount}개 · 코드 프로젝트 {allocated.length}건).<br />
+        • SOBP 할당 전 고객사만 삭제할 수 있습니다. 할당된 코드는 회수하지 않습니다.<br />
+        • 거래가 끝났다면 상세 화면에서 <b>사업 종료</b>로 바꾸세요. 코드 발급 이력은 그대로 보관됩니다.
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+        <button onClick={onClose} style={S.ghost}>닫기</button>
+      </div>
+    </Modal>
+  );
 
   return (
     <Modal onClose={onClose} title="⚠ 고객사 삭제 — 신중히 확인하세요">
       <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "14px 16px", fontSize: 13, color: "#991b1b", lineHeight: 1.7 }}>
-        <b>{target.name}</b> 을(를) 삭제합니다.<br />
+        <b>{target.name}</b> 을(를) 삭제합니다. (SOBP 할당 전 고객사)<br />
         • 삭제 업체는 <b>3~4년 뒤 재연락되는 경우가 많습니다.</b> 정말 삭제가 필요한지 재확인하세요.<br />
-        • 이 고객사의 <b>프로젝트 {im.projects}건 / 발급 코드 {im.codes.toLocaleString()}건이 reset</b>됩니다(회수).<br />
         • 서류·업무 원장 기록도 함께 삭제되며, 되돌릴 수 없습니다.
       </div>
       <div style={{ marginTop: 14, fontSize: 12.5, color: "#374151" }}>확인을 위해 업체명 <b>{target.name}</b> 을(를) 입력하세요:</div>
@@ -920,7 +934,7 @@ function DeleteCompanyModal({ target, projects, onClose, onDone }: {
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
         <button onClick={onClose} style={S.ghost}>취소</button>
         <button onClick={run} disabled={confirmText.trim() !== target.name}
-          style={{ ...S.danger, ...(confirmText.trim() !== target.name ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>삭제 확정 (코드 reset)</button>
+          style={{ ...S.danger, ...(confirmText.trim() !== target.name ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>삭제 확정</button>
       </div>
     </Modal>
   );
