@@ -927,7 +927,6 @@ function DeleteCompanyModal({ target, projects, onClose, onDone }: {
       <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "14px 16px", fontSize: 13, color: "#991b1b", lineHeight: 1.7 }}>
         <b>{target.name}</b> 을(를) 삭제합니다.<br />
         • <b>SOBP 할당 전 고객사만 삭제할 수 있습니다.</b><br />
-        • 삭제 업체는 <b>3~4년 뒤 재연락되는 경우가 많습니다.</b> 정말 삭제가 필요한지 재확인하세요.<br />
         • 서류·업무 원장 기록도 함께 삭제됩니다.
       </div>
       <div style={{ marginTop: 14, fontSize: 12.5, color: "#374151" }}>확인을 위해 업체명 <b>{target.name}</b> 을(를) 입력하세요:</div>

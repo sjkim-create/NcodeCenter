@@ -315,7 +315,6 @@ def build():
                 '<div style="font-size:13px;color:#374151;line-height:1.7">'
                 '삭제하려면 아래에 <b>웅진씽크빅</b> 을(를) 그대로 입력하세요.</div>'
                 '<div class="toast err" style="margin:12px 0 0"><b>SOBP 할당 전 고객사만 삭제할 수 있습니다.</b><br>'
-                '삭제 업체는 3~4년 뒤 재연락되는 경우가 많습니다. 정말 삭제가 필요한지 재확인하세요.<br>'
                 '서류 · 업무 원장 기록도 함께 삭제됩니다.</div>'
                 '<div class="fld" style="margin-top:12px"><div class="inp">%s</div></div>'
                 '<div class="mf"><div class="btn gho">취소</div>'
