@@ -72,21 +72,27 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "340px minmax(0, 1fr)", gap: 12, alignItems: "start" }}>
-      {help && (
-        <div role="status" onClick={() => setHelp(false)}
-          style={{ position: "fixed", top: 72, right: 24, zIndex: 60, maxWidth: 380, cursor: "pointer",
-            background: "#1f2937", color: "#f9fafb", borderRadius: 10, padding: "10px 14px", fontSize: 12.5, lineHeight: 1.6, boxShadow: "0 12px 32px rgba(15,23,42,.25)" }}>
-          사용자에게 발급하는 키가 아닙니다. 이 고객사의 <b>서비스 계정 {accountCount}명</b>이 서비스를 쓸 때 티켓의 범위와 기간으로 승인합니다.
-        </div>
-      )}
+
       {/* 왼쪽 — 할당 SOBP 범위 · 서비스 티켓 */}
       <div style={card}>
         <div style={hd}>
           <b style={{ fontSize: 14 }}>서비스 티켓</b>
           <span style={{ fontSize: 11.5, color: "#9ca3af" }}>{mine.length}건</span>
-          {/* 설명은 숨김 — ⓘ 를 누르면 토스트로 잠깐 보인다(본문에 넣지 않는다) `PC-182` */}
-          <button type="button" onClick={() => setHelp((v) => !v)} title="서비스 티켓이란?"
-            style={{ border: 0, background: help ? "#eef6ff" : "transparent", color: help ? "#2563eb" : "#9ca3af", borderRadius: 999, width: 20, height: 20, cursor: "pointer", fontSize: 12, padding: 0 }}>ⓘ</button>
+          {/* 설명은 숨김 — ⓘ 를 누르면 **바로 아래**에 토스트로 잠깐 보인다(본문에 넣지 않는다) `PC-182` `PC-184` */}
+          <span style={{ position: "relative", display: "inline-flex" }}>
+            <button type="button" onClick={() => setHelp((v) => !v)} title="서비스 티켓이란?"
+              style={{ border: 0, background: help ? "#eef6ff" : "transparent", color: help ? "#2563eb" : "#9ca3af", borderRadius: 999, width: 20, height: 20, cursor: "pointer", fontSize: 12, padding: 0 }}>ⓘ</button>
+            {help && (
+              <div role="status" onClick={() => setHelp(false)}
+                style={{ position: "absolute", top: "calc(100% + 8px)", left: -10, zIndex: 60, width: 300, cursor: "pointer",
+                  background: "#1f2937", color: "#f9fafb", borderRadius: 10, padding: "10px 14px", fontSize: 12.5, lineHeight: 1.6, fontWeight: 400,
+                  boxShadow: "0 12px 32px rgba(15,23,42,.25)" }}>
+                {/* 말풍선 꼬리 — ⓘ 를 가리킨다 */}
+                <span style={{ position: "absolute", top: -5, left: 16, width: 10, height: 10, background: "#1f2937", transform: "rotate(45deg)" }} />
+                사용자에게 발급하는 키가 아닙니다. 이 고객사의 <b>서비스 계정 {accountCount}명</b>이 서비스를 쓸 때 티켓의 범위와 기간으로 승인합니다.
+              </div>
+            )}
+          </span>
           <span style={{ flex: 1 }} />
           <button type="button" onClick={() => setRight({ kind: "add" })} style={WS_HEAD_BTN}>＋ 티켓 지정</button>
         </div>
