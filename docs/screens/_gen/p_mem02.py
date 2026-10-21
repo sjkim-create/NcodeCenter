@@ -355,7 +355,7 @@ def perm_box(cast_on=True, n=6, tab='CASTERN'):
                          '#1d4ed8' if sel else '#374151', lb, k))
         body = ('<div style="display:flex;align-items:center;gap:12px">' + sw +
                 '<div><div style="font-size:13px;font-weight:700;color:%s">CasterN %s</div>'
-                '<div style="font-size:11.5px;color:#9ca3af">[편집 프로젝트]의 대상이 되고, 이 고객사 계정에 CasterN 사용 권한을 줄 수 있습니다</div></div>'
+                '<div style="font-size:11.5px;color:#9ca3af">이 계정에 CasterN 사용 권한을 주고 제어합니다</div></div>'
                 '<span style="flex:1"></span><span class="btn sm" style="opacity:%s">%s</span></div>'
                 '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px;opacity:%s">%s</div>'
                 % ('#111827' if on else '#6b7280', '사용' if on else '사용 안 함', '1' if on else '.4',
