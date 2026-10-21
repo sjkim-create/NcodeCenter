@@ -457,8 +457,7 @@ def expiry_note(open_=False):
     """만료 후 동작 — 눌러야 펼쳐지는 숨김 안내 `PC-171` ④"""
     body = ('<div style="margin-top:8px;color:#374151;line-height:1.75"><b>사용기간이 끝나면</b>'
             '<div>• 이 범위의 코드로 <b>편집 · 추가 작업을 할 수 없습니다.</b> (당사 서버를 거치는 서비스 — casterN 편집, Ncode SDK)</div>'
-            '<div>• <b>이미 만든 작업물(PDF)의 인쇄 · 배포는 막을 수 없습니다.</b> 실물 출판물에는 코드가 남습니다.</div>'
-            '<div>• 계약이 끝난 코드는 다른 고객사에 다시 할당될 수 있으며, 이때 기존 출판물을 당사 서버로 서비스하면 데이터가 겹칠 수 있습니다.</div></div>'
+            '<div>• <b>이미 만든 작업물(PDF)의 인쇄 · 배포는 막을 수 없습니다.</b> 실물 출판물에는 코드가 남습니다.</div></div>'
             if open_ else '')
     return ('<div style="margin-top:12px;border:1px solid #eef0f4;border-radius:9px;background:#fafbfc;padding:8px 12px;font-size:12px">'
             '<b style="color:#6b7280">%s ⓘ 만료 후 동작</b>%s</div>' % ('▾' if open_ else '▸', body))
