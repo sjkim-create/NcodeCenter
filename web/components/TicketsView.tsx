@@ -11,10 +11,11 @@ import { codeKind, kindLabel, patternOf, patternTypeParam, CODE_KINDS, PAGE_CAP,
 import { codesOfCompany } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { companyOfNTicket, nKeyRangesOfCompany } from "@/lib/keyCompany";
-import { sobpOverlapMsg } from "@/lib/rangeGuard";
+import { sobpOverlapMsg, spanOfParams, spansOverlap } from "@/lib/rangeGuard";
+import { SobpUsage } from "./SobpUsage";
 import {
   WS_CARD, WS_HD, WS_GRID, WS_EMPTY, WS_HEAD_BTN, wsItem,
-  WsTitle, WsStats, WsCoHead, WsCoToggle, WsCoItem, WsFillScroll, type CoView,
+  WsTitle, WsStats, WsCoHead, WsCoToggle, WsCoItem, WsFillScroll, WsCoGroup, useSubsOf, nestCompanies, type CoView, type WsFold,
 } from "./KeyWorkspaceUI";   // App Key 관리와 같은 조각 `PC-154`
 import { useCaster } from "@/lib/accountStore";
 import { useStore } from "@/lib/store";
@@ -87,11 +88,27 @@ function NKeyWorkspace() {
     return m;
   }, [tickets, companies]);
   const coKey = (t: Ticket) => keyOf.get(t.id) ?? UNLINKED_CO;
+  // 공통코드 티켓의 사용 고객사(하위) — 고객사 관리에 등록돼 있으면 그 하위 고객사 티켓으로도 본다 `PC-199`
+  const subKeyOf = useMemo(() => {
+    const byName = new Map(companies.map((c) => [c.name.replace(/\s+/g, "").toLowerCase(), String(c.id)]));
+    const m = new Map<number, string>();
+    for (const t of tickets) {
+      const uc = String(t.params?.["Used Customer"] ?? "").replace(/\s+/g, "").toLowerCase();
+      const k = uc && uc !== "-" ? byName.get(uc) : undefined;
+      if (k) m.set(t.id, k);
+    }
+    return m;
+  }, [tickets, companies]);
+  const ownKey = (t: Ticket) => subKeyOf.get(t.id) ?? coKey(t);   // 하위 고객사가 있으면 하위, 없으면 고객사
+  const isOf = (t: Ticket, k: string) => coKey(t) === k || subKeyOf.get(t.id) === k;
   const labelOf = (k: string) => (k === ALL_CO ? "전체 고객사" : k === UNLINKED_CO ? "고객사 미연결" : companies.find((c) => String(c.id) === k)?.name ?? "고객사 미연결");
   const [view, setView] = useState<CoView>("issued");
-  const issuedKeys = new Set([...keyOf.values()].filter((k) => k !== UNLINKED_CO));
-  // 왼쪽 목록 — 발급 고객사(N Key 가 이어진 고객사) / 전체 고객사(고객사 관리 전체)
-  const names = (view === "issued" ? companies.filter((c) => issuedKeys.has(String(c.id))) : companies)
+  const issuedKeys = new Set([...keyOf.values(), ...subKeyOf.values()].filter((k) => k !== UNLINKED_CO));
+  const subsOf = useSubsOf(companies);   // 상위 → 하위 고객사 — App Key 관리와 같은 묶음 `PC-197`
+  // 왼쪽 목록 — 발급 고객사(N Key 가 이어진 고객사 + 하위 고객사가 발급받은 상위 고객사) / 전체 고객사(고객사 관리 전체)
+  const names = (view === "issued"
+    ? companies.filter((c) => issuedKeys.has(String(c.id)) || (subsOf.get(c.id) ?? []).some((id) => issuedKeys.has(String(id))))
+    : companies)
     .slice().sort((a, b) => a.name.localeCompare(b.name, "ko")).map((c) => String(c.id));
 
   const [co, setCo] = useState<string>(ALL_CO);
@@ -112,7 +129,7 @@ function NKeyWorkspace() {
     rd.readAsText(f);
   };
 
-  const ofCo = (k: string) => tickets.filter((t) => (k === ALL_CO ? true : coKey(t) === k));
+  const ofCo = (k: string) => tickets.filter((t) => (k === ALL_CO ? true : isOf(t, k)));
   const sortAt = (a: Ticket, b: Ticket) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.no - a.no);   // 최근순
 
   // 첫 선택 — ?t= 발급 / ?co= 고객사 / ?new=1 발급 폼 · 없으면 전체 + 최근 발급
@@ -137,13 +154,17 @@ function NKeyWorkspace() {
     && (fSrc === "ledger" ? t.src === "ledger" : fSrc === "new" ? t.src !== "ledger" : true)
     && (q ? (labelOf(coKey(t)) + " " + t.company + " " + t.summary + " " + t.by + " " + t.no).toLowerCase().includes(q.toLowerCase()) : true);
   const hitAll = tickets.filter(hits);
-  const hitOf = (k: string) => hitAll.filter((t) => (k === ALL_CO ? true : coKey(t) === k));
-  const list = hitOf(co).sort(sortAt);
+  const hitOf = (k: string) => hitAll.filter((t) => (k === ALL_CO ? true : isOf(t, k)));
+  // 고객사 검색 중 「전체」면 가운데에 검색한 고객사(하위 고객사 포함)의 발급 티켓을 보인다 `PC-199`
+  const cqHit = (k: string) => k !== UNLINKED_CO && labelOf(k).toLowerCase().includes(cq.toLowerCase());
+  const list = (co === ALL_CO && cq ? hitAll.filter((t) => cqHit(coKey(t)) || cqHit(ownKey(t))) : hitOf(co)).sort(sortAt);
   // 필터를 바꿨는데 오른쪽 티켓이 결과에 없으면 결과의 첫 티켓으로 바꾼다
   useEffect(() => {
     if (!inited || right.kind !== "t" || list.some((t) => t.id === right.id)) return;
     setRight(list[0] ? { kind: "t", id: list[0].id } : { kind: "none" });
-  }, [fBill, fSrc, q]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fBill, fSrc, q, cq]);   // eslint-disable-line react-hooks/exhaustive-deps
+  // 고객사를 검색하면 가운데를 검색 결과(전체 기준)로 바꾼다 `PC-199`
+  useEffect(() => { if (inited && cq) setCo(ALL_CO); }, [cq]);   // eslint-disable-line react-hooks/exhaustive-deps
   // 정산 집계 — 고른 고객사 · 필터 결과 기준 (옛 목록 요약과 같은 규칙)
   const agg = list.reduce((a, t) => ({
     paid: a.paid + (t.billing === "유료" ? 1 : 0), amount: a.amount + (t.billing === "유료" ? t.amount : 0),
@@ -164,20 +185,24 @@ function NKeyWorkspace() {
   const unlinkedN = hitOf(UNLINKED_CO).length;
   // 「전체」일 때 가운데 목록은 고객사별 묶음 — 고객사는 가장 최근 발급 순
   const groups = co === ALL_CO
-    ? [...new Set(list.map((t) => coKey(t)))].map((k) => ({ key: k, ts: list.filter((t) => coKey(t) === k) }))
+    ? [...new Set(list.map((t) => ownKey(t)))].map((k) => ({ key: k, ts: list.filter((t) => ownKey(t) === k) }))   // 하위 고객사 티켓은 하위 고객사로 묶는다 `PC-199`
     : [{ key: co, ts: list }];
   const coCompany = companies.find((c) => String(c.id) === co);
   const filtered = !!(fBill || fSrc || q);
 
   const card = WS_CARD, hd = WS_HD;
-  const coBtn = (name: string, label: string, n: number, todo: number, warn = false) =>
-    <WsCoItem key={name || "__all"} label={label} n={n} todo={todo} on={co === name} warn={warn} bold={name === ALL_CO} title="N Key 발급 건수" onClick={() => pickCo(name)} />;
+  // 고객사 한 줄 — App Key 관리와 같은 모양(미정 표시 없음) `PC-198`
+  const coBtn = (name: string, label: string, n: number, warn = false, sub = false, fold?: WsFold) =>
+    <WsCoItem key={name || "__all"} label={label} n={n} on={co === name} warn={warn} sub={sub} fold={fold} bold={name === ALL_CO} title="N Key 발급 건수" onClick={() => pickCo(name)} />;
+  // 하위 고객사는 상위 고객사 밑에 들여 보인다 — App Key 관리와 같다 `PC-197`
+  const keepCo = (k: string) => (cq ? labelOf(k).toLowerCase().includes(cq.toLowerCase()) : true) && (filtered0 ? hitOf(k).length > 0 : true);
+  const coRows = nestCompanies(coList.map((k) => companies.find((c) => String(c.id) === k)!).filter(Boolean), companies, subsOf, (c) => keepCo(String(c.id)));
 
   if (!ready) return null;   // 발급 원장을 읽기 전에는 0건 집계가 잠깐 보이지 않게
   return (
     <div style={{ maxWidth: 1680 }}>
       {/* 정산 집계 — 금액 · 건수는 고른 고객사와 필터를 따른다 */}
-      <WsTitle title="N Key 관리" scope={<>집계 대상 <b style={{ color: "#111827" }}>{labelOf(co)}</b>{filtered ? " · 필터 적용" : ""}</>}
+      <WsTitle title="N Key 관리" scope={<>집계 대상 <b style={{ color: "#111827" }}>{co === ALL_CO && cq ? `고객사 검색 「${cq}」` : labelOf(co)}</b>{filtered ? " · 필터 적용" : ""}</>}
         note="고객사는 고객사 관리에서 불러옵니다 · 자료: nkey(HLP) N Key 발급 대장 + 새로 발급" />
       <WsStats items={[
         ["발급 티켓", `${list.length.toLocaleString()}건`, "#111827"],
@@ -225,15 +250,18 @@ function NKeyWorkspace() {
             <input style={{ ...S.input, marginBottom: 8 }} value={cq} onChange={(e) => setCq(e.target.value)} placeholder="고객사 검색" />
             {/* 고객사 목록 — 화면 아래 끝(100vh)까지 `PC-156` */}
             <WsFillScroll>
-              {!cq && coBtn(ALL_CO, "전체", hitAll.length, hitAll.filter((t) => t.billing === "미정").length)}
-              {coList.map((k) => {
-                const ts = hitOf(k);
-                return coBtn(k, labelOf(k), ts.length, ts.filter((t) => t.billing === "미정").length);
-              })}
+              {!cq && coBtn(ALL_CO, "전체", hitAll.length)}
+              {/* 상위 고객사 ▸ 접기 · 펼치기 — 하위는 세로 안내선 안에 `PC-198` */}
+              {coRows.map(({ c, subs }) => (
+                <WsCoGroup key={c.id} n={subs.length} autoOpen={!!cq}
+                  head={(fold) => coBtn(String(c.id), c.name, hitOf(String(c.id)).length, false, false, fold)}>
+                  {subs.map((x) => coBtn(String(x.id), x.name, hitOf(String(x.id)).length, false, true))}
+                </WsCoGroup>
+              ))}
               {coList.length === 0 && <div style={{ fontSize: 12, color: "#9ca3af", padding: "14px 6px", textAlign: "center", lineHeight: 1.7 }}>{filtered ? "필터에 맞는 고객사가 없습니다." : view === "issued" && cq ? <>발급 고객사에 없습니다.<br />[전체 고객사]에서 찾아 발급하세요.</> : "검색 결과가 없습니다."}</div>}
               {unlinkedN > 0 && !cq && (
                 <div style={{ borderTop: "1px solid #eef0f4", marginTop: 6, paddingTop: 6 }}>
-                  {coBtn(UNLINKED_CO, "고객사 미연결", unlinkedN, hitOf(UNLINKED_CO).filter((t) => t.billing === "미정").length, true)}
+                  {coBtn(UNLINKED_CO, "고객사 미연결", unlinkedN, true)}
                 </div>
               )}
             </WsFillScroll>
@@ -346,6 +374,7 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
 }) {
   const router = useRouter();
   const me = currentUser(useAuth());
+  const { projects, companies } = useStore();
   useTickets();
 
   const [ready, setReady] = useState(false);
@@ -397,6 +426,18 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
     const params = Object.fromEntries(kv.map((r) => [
       r.k, r.num && r.v.trim() !== "" && !Number.isNaN(Number(r.v)) ? Number(r.v) : r.v,
     ]));
+    // 코드 구간(Section · Owner · Book · Page)을 바꿨으면 **사용 가능한 구간**인지 본다 `PC-192`
+    //   ① 이 고객사의 발급 범위(대장 이력 · SOBP 할당) 안 ② 다른 발급분과 겹치지 않음(자기 자신 제외)
+    const before = spanOfParams(t.params), after = spanOfParams(params);
+    const moved = JSON.stringify(before) !== JSON.stringify(after);
+    if (moved) {
+      const co = companyOfNTicket(t, companies);
+      const inside = nKeyRangesOfCompany(co, projects, allTickets(), companies).some((x) =>
+        x.section === after.section && x.owner === after.owner && after.bookStart >= x.bookStart && after.bookEnd <= x.bookEnd);
+      if (!inside && !spansOverlap(before, after)) { setTab("base"); setToast({ ok: false, text: "이 고객사의 발급 범위(SOBP 할당) 밖의 코드 구간입니다. 할당된 Section · Owner · Book 안에서 고치세요." }); return; }
+      const clash = sobpOverlapMsg(after, `N${t.id}`);
+      if (clash) { setTab("base"); setToast({ ok: false, text: clash }); return; }
+    }
     updateTicket(t.id, { summary: summary.trim(), params });
     setBilling(t.id, { billing, amount, billNote: billNote.trim(), trialUntil: trial, by: me?.name ?? "" });
     logActivity("ticket", `발급 수정 · ${t.company} · 발급 ${t.no}번 · ${kindLabel2} · ${billing}`, me?.name);
@@ -527,8 +568,7 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
 
         {/* 하단 액션 — [목록]은 여기 있다. 저장은 두 탭 내용을 함께 기록한다. */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 18, paddingTop: 14, borderTop: "1px solid #eef0f4" }}>
-          <button onClick={() => { if (confirm(`발급 ${t.no}번 기록을 삭제할까요?`)) { deleteTicket(t.id); if (onDeleted) onDeleted(); else router.push("/tickets/nkey"); } }}
-            style={{ ...S.ghost, color: "#dc2626", borderColor: "#fecaca" }}>발급 기록 삭제</button>
+          {/* 발급된 티켓은 지우지 않는다 — 정보만 고친다(코드 구간은 사용 가능한 구간일 때만) `PC-192` */}
           <span style={{ flex: 1 }} />
           {!embedded && <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>}
           <button onClick={save} style={S.primary}>저장</button>
@@ -569,6 +609,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
   // 그 고객사의 계정 중 **아직 N Key 가 없는 계정**만 발급 대상이다 `PC-059`
 
   const { projects, companies } = useStore();
+  const subsOf = useSubsOf(companies);   // 고객사 선택 — 상 · 하위 구별 `PC-197`
   // 고객사 = **고객사 관리 고객사** `PC-153`
   const company = companyId ? companies.find((c) => c.id === companyId) : undefined;
   const issuedTime = yyyymmdd();
@@ -718,7 +759,11 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
               : (
                 <select style={S.input} value={companyId} onChange={(e) => onCompany(Number(e.target.value))}>
                   <option value={0}>- 고객사 관리 고객사 선택 -</option>
-                  {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {/* 상 · 하위 고객사 구별 — 하위는 상위 밑에 들여 `PC-197` `PC-198` */}
+                  {nestCompanies([...companies].sort((a, b) => a.name.localeCompare(b.name, "ko")), companies, subsOf).flatMap(({ c, subs }) => [
+                    <option key={c.id} value={c.id}>{c.name}{subs.length ? ` · 하위 ${subs.length}` : ""}</option>,
+                    ...subs.map((x) => <option key={`${c.id}-${x.id}`} value={x.id}>{`  ${x.name}`}</option>),
+                  ])}
                 </select>
               )}
           </Field>
@@ -744,6 +789,10 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
           )}
         </div>
       </div>
+
+      {/* 구간 사용 현황 — 상위 SOBP 를 나눠 쓰는 하위 고객사끼리도 보인다 `PC-195` */}
+      {range && <SobpUsage range={range} onPickBook={(b) => setBookStart(b)}
+        cand={{ section: range.section, owner: range.owner, bookStart, bookEnd, pageStart, pageEnd: pageStart + pageVolume - 1 }} />}
 
       {/* Book / Page 범위 — 한 행에 4개 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginTop: 12 }}>
@@ -931,12 +980,17 @@ export function SobpRangePicker({ company, ranges, value, onSelect }: { company:
   if (!company) return note("고객사를 먼저 선택하세요.");
   if (ranges.length === 0) return note("이 고객사의 발급 범위(대장 이력)가 없습니다.");
   const sel = ranges[value];
+  // 하위 고객사가 받은 상위 고객사 SOBP — 어느 상위 것인지 보인다 `PC-199`
+  const parentTag = (r: SobpRange) => {
+    const p = (r as SobpRange & { parent?: string }).parent;
+    return p ? <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={`상위 고객사 ${p}의 SOBP`}>상위 · {p}</span> : null;
+  };
   return (
     <div style={{ position: "relative" }}>
       {/* 트리거(접힘) */}
       <button onClick={() => setOpen((o) => !o)}
         style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "8px 12px", border: "1px solid #e5e7eb", borderRadius: 10, background: "#fff", cursor: "pointer", minHeight: 40 }}>
-        {sel ? <Chips r={sel} /> : <span style={{ color: "#9ca3af", fontSize: 12.5 }}>- 범위 선택 -</span>}
+        {sel ? <><Chips r={sel} />{parentTag(sel)}</> : <span style={{ color: "#9ca3af", fontSize: 12.5 }}>- 범위 선택 -</span>}
         <span style={{ marginLeft: "auto", color: "#9ca3af", fontSize: 12 }}>{open ? "▲" : "▼"}</span>
       </button>
       {/* 펼침 목록 */}
@@ -951,6 +1005,7 @@ export function SobpRangePicker({ company, ranges, value, onSelect }: { company:
                   style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "9px 12px", border: 0, borderTop: i ? "1px solid #f1f3f6" : "none", background: on ? "#eef6ff" : "#fff", cursor: "pointer" }}>
                   <span style={{ fontSize: 11, color: on ? "#2563eb" : "#9ca3af", width: 16, textAlign: "center", fontWeight: 700 }}>{i + 1}</span>
                   <Chips r={r} />
+                  {parentTag(r)}
                   {on && <span style={{ marginLeft: "auto", fontSize: 11, color: "#2563eb", fontWeight: 700 }}>✓</span>}
                 </button>
               );

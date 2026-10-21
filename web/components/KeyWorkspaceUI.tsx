@@ -2,8 +2,57 @@
 
 // 키 발급 3단 화면 공용 UI — App Key 관리 · N Key 관리가 **같은 조각**을 쓴다 `PC-154`
 //   한쪽만 고치면 화면이 어긋나므로 모양(색 · 크기 · 간격)은 여기서만 정한다.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { S } from "./ui";
+import { codesOfCompany } from "@/lib/commonCodes";
+import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
+
+const nz = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+/** 상위 고객사 id → 하위 고객사 id 목록 — 상위가 보유한 공통코드의 멤버 중 고객사 관리에 등록된 곳 `PC-196` `PC-197`
+ *  App Key 관리 · N Key 관리 고객사 목록과 발급 폼 고객사 선택이 같은 묶음을 쓴다 */
+export function useSubsOf(companies: { id: number; name: string }[]): Map<number, number[]> {
+  useEffect(() => { hydrateMembers(); }, []);
+  const ver = useCommonMembers();
+  return useMemo(() => {
+    const byName = new Map(companies.map((c) => [nz(c.name), c.id]));
+    const m = new Map<number, number[]>();
+    for (const c of companies) {
+      const ids = new Set<number>();
+      for (const cc of codesOfCompany(c.name)) {
+        if (cc.historyOnly) continue;
+        for (const mb of membersOf(cc.k, cc.s, cc.o)) { const id = byName.get(nz(mb.name)); if (id && id !== c.id) ids.add(id); }
+      }
+      if (ids.size) m.set(c.id, [...ids]);
+    }
+    return m;
+  }, [companies, ver]);
+}
+
+/** 상 · 하위로 묶은 고객사 — 상위 고객사마다 그 하위 고객사(가나다순) `PC-197` `PC-198`
+ *  하위 고객사는 **목록 제자리에도** 그대로 둔다 — 전체 고객사에서 바로 골라 발급할 수 있게 `PC-199` */
+export function nestCompanies<T extends { id: number; name: string }>(list: T[], all: T[], subsOf: Map<number, number[]>, keep: (c: T) => boolean = () => true): { c: T; subs: T[] }[] {
+  return list.map((c) => ({
+    c,
+    subs: (subsOf.get(c.id) ?? [])
+      .map((id) => all.find((x) => x.id === id)).filter((x): x is T => !!x && keep(x))
+      .sort((a, b) => a.name.localeCompare(b.name, "ko")),
+  }));
+}
+
+/** 상위 고객사 묶음 — 상위 줄의 ▸ 로 하위 고객사를 접고 편다(기본 접힘) `PC-198`
+ *  하위 고객사는 왼쪽 세로 안내선 안에 들여 보인다. 검색 중이면 저절로 펼친다 */
+export type WsFold = { open: boolean; n: number; onToggle: () => void };
+export function WsCoGroup({ n, autoOpen, head, children }: { n: number; autoOpen: boolean; head: (fold?: WsFold) => React.ReactNode; children: React.ReactNode }) {
+  const [open, setOpen] = useState(autoOpen);
+  useEffect(() => { if (autoOpen) setOpen(true); }, [autoOpen]);
+  if (n === 0) return <>{head()}</>;
+  return (
+    <div>
+      {head({ open, n, onToggle: () => setOpen((v) => !v) })}
+      {open && <div style={{ margin: "1px 0 4px 17px", paddingLeft: 6, borderLeft: "2px solid #e5e7eb" }}>{children}</div>}
+    </div>
+  );
+}
 
 /** 화면 아래 끝(100vh)까지 채우는 스크롤 목록 — 위쪽 머리 · 집계 높이를 빼고 남은 높이를 쓴다 `PC-156`
  *  (창 크기 · 스크롤 · 위쪽 내용이 바뀌면 다시 잰다) */
@@ -87,17 +136,24 @@ export function WsCoToggle({ view, onView, issued, total }: { view: CoView; onVi
   );
 }
 
-/** 고객사 한 줄 — 이름 · (미정 n) · 건수 배지 */
-export function WsCoItem({ label, n, todo = 0, on, warn = false, bold = false, title, onClick }: {
-  label: string; n: number; todo?: number; on: boolean; warn?: boolean; bold?: boolean; title?: string; onClick: () => void;
+/** 고객사 한 줄 — [접기 ▸] · 이름 · (하위 n) · 건수 배지. App Key 관리 · N Key 관리 같은 모양 `PC-198` */
+export function WsCoItem({ label, n, on, warn = false, bold = false, sub = false, fold, title, onClick }: {
+  label: string; n: number; on: boolean; warn?: boolean; bold?: boolean; sub?: boolean; fold?: WsFold; title?: string; onClick: () => void;
 }) {
+  // sub = 하위 고객사 — 묶음(WsCoGroup)의 세로 안내선 안에 놓인다
   return (
     <button type="button" onClick={onClick}
-      style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", textAlign: "left", border: 0, borderRadius: 9, padding: "8px 10px", cursor: "pointer", fontSize: 13,
-        background: on ? "#eef6ff" : "transparent", color: on ? "#1d4ed8" : warn ? "#b45309" : "#374151", fontWeight: on || bold ? 700 : 400 }}>
+      style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", textAlign: "left", border: 0, borderRadius: 9, padding: sub ? "6px 10px" : "8px 10px 8px 4px", cursor: "pointer", fontSize: sub ? 12.5 : 13,
+        background: on ? "#eef6ff" : "transparent", color: on ? "#1d4ed8" : warn ? "#b45309" : sub ? "#4b5563" : "#374151", fontWeight: on || bold ? 700 : 400 }}>
+      {!sub && (
+        <span role="button" aria-label={fold ? (fold.open ? "하위 고객사 접기" : "하위 고객사 펼치기") : undefined}
+          onClick={fold ? (e) => { e.stopPropagation(); fold.onToggle(); } : undefined}
+          style={{ width: 16, height: 16, flex: "0 0 16px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 4, color: "#9ca3af", fontSize: 10,
+            transform: fold?.open ? "rotate(90deg)" : "none", transition: "transform .15s", visibility: fold ? "visible" : "hidden" }}>▶</span>
+      )}
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={label}>{label}</span>
+      {fold && <span style={{ fontSize: 10.5, color: "#9ca3af", fontWeight: 400, whiteSpace: "nowrap" }}>하위 {fold.n}</span>}
       <span style={{ flex: 1 }} />
-      {todo > 0 && <span title="정산 미등록" style={{ fontSize: 10.5, color: "#dc2626", whiteSpace: "nowrap" }}>미정 {todo}</span>}
       <span title={title} style={{ fontSize: 10.5, borderRadius: 999, padding: "1px 8px", fontWeight: 700, background: on ? "#dbeafe" : "#f3f4f6", color: on ? "#1d4ed8" : n ? "#6b7280" : "#c7cdd6" }}>{n}</span>
     </button>
   );

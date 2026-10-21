@@ -12,6 +12,22 @@ import type { Company, Project } from "@/lib/customerData";
 import { codeKind, patternOf } from "@/lib/codeKind";
 import { keyNameOf } from "@/lib/keyCustomer";
 import { makeRange, rangesOfTicketRows, ticketCustomerByName, type TicketRange } from "@/lib/ticketCustomerStore";
+import { codesOfMember } from "@/lib/commonMembers";
+import { COMMON_CODES } from "@/lib/commonCodes";
+
+/** 하위 고객사 → **상위(공통코드 보유) 고객사의 SOBP 영역** `PC-195`
+ *  공통코드의 사용 고객사(하위)면 그 S/O 전체를 발급 범위로 준다. 자기가 보유한 공통코드 · 이력전용(A)은 뺀다.
+ *  하위 고객사끼리는 SOBP 무겹침(`PC-174`)으로 Book · Page 가 겹치지 않게 나눠 쓴다. App Key · N Key · 서비스 티켓 공통 */
+export function parentRangesOf(co: Company | undefined): (TicketRange & { shared: true; parent: string })[] {
+  if (!co) return [];
+  return codesOfMember(co.name).flatMap((ck) => {
+    const [k, s, o] = ck.split(":");
+    if (k === "A") return [];
+    const holder = COMMON_CODES.find((c) => c.k === k && c.s === +s && c.o === +o);
+    if (holder && holder.company === co.name) return [];
+    return [{ ...makeRange(patternOf(codeKind(k, +s)), +s, +o, null, null), shared: true as const, parent: holder?.company ?? "상위 고객사" }];
+  });
+}
 
 const norm = (s?: string) => (s ?? "").trim().toLowerCase();
 /** 비교용 이름 — 괄호 · 끝의 -오너 · 기호 · 공백을 뺀다 (KODION-46 → kodion, Inform DS-302 → informds) */
@@ -60,7 +76,7 @@ const dedupe = (rs: TicketRange[]) =>
 export function appKeyRangesOfCompany(co: Company | undefined, projects: Project[]): TicketRange[] {
   if (!co) return [];
   const ledger = ticketCustomerByName(co.name, "appkey")?.ranges ?? [];
-  return dedupe([...ledger, ...sobpRangesOf(co, projects)]);
+  return dedupe([...ledger, ...sobpRangesOf(co, projects), ...parentRangesOf(co)]);   // 하위 고객사 = 상위 SOBP 영역 `PC-195`
 }
 
 /** N Key 발급 범위 — nkey(HLP) 대장 이력(이 고객사로 이어진 티켓) + 고객사의 SOBP 할당 + (K) 할당 */
@@ -68,20 +84,15 @@ export function appKeyRangesOfCompany(co: Company | undefined, projects: Project
 export function nKeyRangesOfCompany(co: Company | undefined, projects: Project[], tickets: TicketLike[], companies: Company[]): TicketRange[] {
   if (!co) return [];
   const mine = tickets.filter((t) => companyOfNTicket(t, companies)?.id === co.id);
-  return dedupe([...rangesOfTicketRows(mine), ...sobpRangesOf(co, projects), ...keyAllocRangesOf(co, projects)]);
+  return dedupe([...rangesOfTicketRows(mine), ...sobpRangesOf(co, projects), ...keyAllocRangesOf(co, projects), ...parentRangesOf(co)]);   // 하위 = 상위 SOBP `PC-195`
 }
 
 // ── 서비스 티켓 `PC-172` ─────────────────────────────────────────────
 /** 서비스 티켓 발급 범위 = 고객사의 SOBP 할당 + **공유(커먼) 코드 사용 고객사이면 그 S/O** `PC-171`
  *  (공유 코드는 Owner 를 여럿이 쓰므로 Book 은 서비스 티켓끼리 겹치지 않게만 잡는다) */
 export type ServiceRange = TicketRange & { shared?: boolean };
-export function serviceRangesOfCompany(co: Company | undefined, projects: Project[], memberCodes: string[]): ServiceRange[] {
+export function serviceRangesOfCompany(co: Company | undefined, projects: Project[], _memberCodes?: string[]): ServiceRange[] {
   if (!co) return [];
   const own: ServiceRange[] = sobpRangesOf(co, projects);
-  const shared: ServiceRange[] = memberCodes.flatMap((ck) => {
-    const [k, s, o] = ck.split(":");
-    if (k === "A") return [];                                     // 이력전용 OID(옛 IDS)는 발급하지 않는다
-    return [{ ...makeRange(patternOf(codeKind(k, +s)), +s, +o, null, null), shared: true }];
-  });
-  return dedupe([...own, ...shared]) as ServiceRange[];
+  return dedupe([...own, ...parentRangesOf(co)]) as ServiceRange[];   // 하위 고객사 = 상위 SOBP 영역 `PC-195`
 }

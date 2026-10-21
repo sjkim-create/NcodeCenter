@@ -42,6 +42,22 @@ def billing_box(sel='유료', amount='1200000', note='2026 연간 계약 포함'
             '<span style="flex:1"></span><span class="btn pri">정산 저장</span></div></div>' % (btns, amt, note, last))
 
 
+def usage_box(s, o, gaps, occ, ok=True):
+    """구간 사용 현황 (web/components/SobpUsage.tsx) `PC-195` — gaps: ['0~165', …] · occ: [(종류, 고객사, B, P), …]"""
+    kc = {'App Key': ('#f5f3ff', '#6d28d9'), 'N Key': ('#eef6ff', '#1d4ed8'), '서비스 티켓': ('#ecfdf5', '#047857')}
+    sc = ('<span style="display:inline-flex;align-items:center;gap:3px;border:1px solid #e5e7eb;border-radius:6px;padding:1px 5px 1px 1px;background:#fff;font-size:10.5px">'
+          '<span style="background:%s;color:#fff;font-weight:700;font-size:9px;border-radius:4px;padding:1px 4px">%s</span><span style="' + MONO + '">%s</span></span>')
+    g = ''.join('<span style="border:1px solid #bbf7d0;background:#f0fdf4;color:#166534;border-radius:7px;padding:2px 8px;font-size:11.5px;' + MONO + '">B%s</span>' % x for x in gaps)
+    rows = ''.join('<div style="display:flex;align-items:center;gap:6px;padding:3px 6px">%s<span style="color:#374151;min-width:90px">%s</span>%s%s</div>'
+                   % (tg(k, *kc[k]), who, sc % ('#8b5cf6', 'B', b), sc % ('#f59e0b', 'P', p)) for k, who, b, p in occ)
+    st = tg('입력 구간 사용 가능', '#dcfce7', '#166534') if ok else tg('입력 구간 겹침', '#fef2f2', '#b91c1c')
+    return ('<div style="margin-top:10px;border:1px solid #eef0f4;border-radius:10px;background:#fafbfc;padding:9px 12px;font-size:12px">'
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><b style="color:#374151">구간 사용 현황</b>'
+            '<span style="color:#9ca3af">S%s / O%s · 발급 %d건 · 빈 Book 구간 %d곳</span><span style="flex:1"></span>%s</div>'
+            '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px"><span style="color:#6b7280;min-width:64px">빈 구간</span>%s</div>%s</div>'
+            % (s, o, len(occ), len(gaps), st, g, rows))
+
+
 def chip(label, on=False):
     return ('<span style="font-size:12.5px;padding:6px 12px;border-radius:8px;white-space:nowrap;font-weight:%s;'
             'border:1px solid %s;background:%s;color:%s">%s</span>'

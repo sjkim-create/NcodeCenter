@@ -140,7 +140,7 @@ def ticket_detail(tab='base', no=36, co='KODION', bill='무료', amount='', tria
         body = ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">과금 유형 <span style="color:#9ca3af">· 업체·티켓마다 다르게 등록할 수 있습니다</span></div>'
                 '<div class="g4" style="gap:8px;margin-bottom:14px">%s</div>%s<div style="margin-top:12px">%s</div>'
                 % (cells, extra, fld('비고 (사유·계약 정보)', note or '예) 2026 연간 계약 포함 · 데모 제공', ph=not note)))
-    foot = kws.footer('<span class="btn gho" style="color:#dc2626;border-color:#fecaca">발급 기록 삭제</span>', '<span class="btn pri">저장</span>')
+    foot = kws.footer('', '<span class="btn pri">저장</span>')   # 발급 기록 삭제 없음 `PC-192`
     msg = kws.toast_line(toast) if toast else ''
     return '<div style="%s;padding:18px">%s%s%s%s%s</div>' % (kws.CARD, head, t, body, foot, msg)
 
@@ -156,6 +156,9 @@ def nkey_form(co='KODION-46', picked=False, open_=False, common=False, sep=False
         pick = ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">발급 범위 (nkey 대장 이력 · SOBP 할당) * '
                 '<span style="color:#9ca3af">(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다)</span></div>' +
                 kws.range_picker(open_, sel, rng))
+    if picked or common:   # 구간 사용 현황 — 하위 고객사끼리도 보인다 `PC-195`
+        pick += (kws.usage_box('3', '21', ['0~165', '167~899', '983~4095'], [('App Key', '유니메이션', '166', '1~4095'), ('App Key', '스콜라스틱', '900~982', '0~2000')])
+                 if common else kws.usage_box('3', '46', ['0~7', '12~4095'], [('N Key', 'KODION', '8~9', '0~511'), ('N Key', 'KODION', '10~11', '0~511')], ok=not over))
     bs, bv = ('8', '4' if not over else '6') if (picked or common) else ('', '')
     grid1 = ('<div class="g4" style="margin-top:12px">' + fld('Start Book (시작 북코드)', bs, ph=not bs) + fld('Book 볼륨 (권)', bv, ph=not bv, err=over) +
              fld('Start Page', '1 (기본)') + fld('Page 볼륨', '512') + '</div>'
@@ -365,13 +368,14 @@ def build():
               [('zip', '다운로드', 'Ticket_{고객사}[_{사용고객사}]_S{S}O{O}_B{시작}[-{끝}].zip', 'Separate Each Book = Book 하나당 파일 1개'),
                ('발급(자동)', '—', '목록 · 집계 · <code>LOG-01</code>', '티켓 발급 · 신규발급')]))
 
-    dlg = ('<div class="ovl"><div class="mdl"><div class="mh"><div class="mt">발급 기록 삭제</div><div class="mx">✕</div></div>'
-           '<div style="font-size:13px;color:#374151;line-height:1.7">발급 36번 기록을 삭제할까요?</div>'
-           '<div class="mf"><div class="btn gho">취소</div><div class="btn dan">삭제</div></div></div></div>')
-    B.append(('S16', '발급 기록 삭제 확인창', '확인창',
-              '[발급 기록 삭제]는 확인을 거친다. 발급 번호는 다시 쓰지 않는다. 대장 발급분을 지우면 그 번호를 기억해 다음에 되살리지 않는다 <code>PC-155</code>.',
-              fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(1000), grouped=False), ticket_detail()), 1000, overlay=dlg),
-              [('[삭제]', '클릭', '기록 제거 · 다음 티켓', ''), ('[취소] · ✕', '클릭', 'S1', '')]))
+    B.append(('S16', '코드 구간 수정 — 사용할 수 없는 구간', '오류',
+              '발급 기록은 <b>지우지 않고 고친다</b> <code>PC-192</code>. Key 정보에서 <b>Section · Owner · Book · Page</b> 를 바꾸면 [저장] 때 '
+              '① 이 고객사의 발급 범위(대장 이력 · SOBP 할당) 안인지 ② 다른 발급분과 겹치지 않는지(자기 자신 제외) 본다. 사용할 수 없는 구간이면 저장하지 않는다.',
+              fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(1000), grouped=False),
+                                  ticket_detail(toast='이 고객사의 발급 범위(SOBP 할당) 밖의 코드 구간입니다. 할당된 Section · Owner · Book 안에서 고치세요.').replace('#047857', '#dc2626')), 1000),
+              [('범위 밖', '[저장]', '<b>차단</b>', '<b>이 고객사의 발급 범위(SOBP 할당) 밖의 코드 구간입니다. 할당된 Section · Owner · Book 안에서 고치세요.</b>'),
+               ('겹침', '[저장]', '<b>차단</b>', '<b>이미 {App Key / N Key / 서비스 티켓}로 발급된 SOBP 와 겹칩니다 — … 다른 Book · Page 를 고르세요.</b>'),
+               ('구간 그대로', '[저장]', '저장', '정산 · 발급 내용 등 다른 값만 바꾸면 검사하지 않는다')]))
 
     B.append(('S17', 'N Key 불러오기 — 항목 표', '분기',
               '필터 바의 <b>[📂 N Key 불러오기]</b>로 내려받은 키 파일(.json)을 열어 <b>Key · Value</b> 표로 본다. <b>조회 전용</b>이고 원장에 없는 외부 파일도 연다. '

@@ -12,6 +12,7 @@ import Link from "next/link";
 import { S, Field } from "./ui";
 import { SobpRangePicker } from "./TicketsView";
 import { SobpChips } from "./sobp";
+import { SobpUsage } from "./SobpUsage";
 import { useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
@@ -21,14 +22,14 @@ import { codesOfMember, hydrateMembers, useCommonMembers } from "@/lib/commonMem
 import { serviceRangesOfCompany, type ServiceRange } from "@/lib/keyCompany";
 import { sobpOverlapMsg } from "@/lib/rangeGuard";
 import {
-  addServiceTicket, deleteServiceTicket, allServiceTickets, hydrateServiceTickets, useServiceTickets,
+  addServiceTicket, updateServiceTicket, allServiceTickets, hydrateServiceTickets, useServiceTickets,
   ticketState, STATE_COLOR, serviceTicketText, setServiceBilling, TICKET_SERVICES, ticketServiceOf, type ServiceTicket, type TicketService,
 } from "@/lib/serviceTicketStore";
 import { companyServices, type Company } from "@/lib/customerData";
 import { WS_CARD as card, WS_HD as hd, WS_EMPTY, WS_HEAD_BTN, wsTag as tag, wsItem, WsTabs } from "./KeyWorkspaceUI";   // 키 화면과 같은 조각 `PC-154`
 
 const PAGE_DEFAULT = 512;   // Page 볼륨 기본값 — App Key · N Key 발급과 같은 값
-type Right = { kind: "t"; id: number } | { kind: "add" } | { kind: "none" };
+type Right = { kind: "t"; id: number } | { kind: "add" } | { kind: "edit"; id: number } | { kind: "none" };
 
 /** 만료 후 동작 — 숨김 안내(눌러야 펼쳐진다) `PC-171` ④ */
 export function ExpiryNote() {
@@ -118,7 +119,7 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
           )}
           {mine.length === 0 && right.kind !== "add" && <div style={WS_EMPTY}>서비스 티켓이 없습니다.</div>   /* 안내는 오른쪽 칸에만 — 중복 제거 `PC-183` */}
           {mine.map((t) => {
-            const on = right.kind === "t" && right.id === t.id;
+            const on = (right.kind === "t" || right.kind === "edit") && right.id === t.id;
             const st = ticketState(t);
             return (
               <div key={t.id} onClick={() => setRight({ kind: "t", id: t.id })} style={wsItem(on)}>
@@ -142,7 +143,15 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
       <div style={{ minWidth: 0 }}>
         {right.kind === "t" && (() => {
           const t = mine.find((x) => x.id === right.id);
-          return t ? <TicketDetail key={t.id} t={t} me={me?.name ?? ""} onDeleted={() => { const rest = mine.filter((x) => x.id !== t.id); setRight(rest[0] ? { kind: "t", id: rest[0].id } : { kind: "none" }); }} /> : null;
+          return t ? <TicketDetail key={t.id} t={t} me={me?.name ?? ""} onEdit={() => setRight({ kind: "edit", id: t.id })} /> : null;
+        })()}
+        {/* 티켓 수정 — 지정 폼을 그 티켓 값으로 연다 `PC-192` */}
+        {right.kind === "edit" && (() => {
+          const t = mine.find((x) => x.id === right.id);
+          return t ? (
+            <IssueForm key={`edit-${t.id}`} edit={t} coId={company.id} coName={company.name} coSvcs={[]} ranges={ranges} mine={mine} me={me?.name ?? ""}
+              onDone={(id) => setRight({ kind: "t", id })} onCancel={() => setRight({ kind: "t", id: t.id })} />
+          ) : null;
         })()}
         {right.kind === "add" && (
           <IssueForm key={`add-${company.id}`} coId={company.id} coName={company.name} coSvcs={companyServices(company).filter((v): v is TicketService => v === "CASTERN" || v === "FORMSOLUTION")} ranges={ranges} mine={mine} me={me?.name ?? ""}
@@ -163,7 +172,7 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
 type DetailTab = "info" | "bill";
 const DETAIL_TABS: { v: DetailTab; label: string }[] = [{ v: "info", label: "티켓 정보" }, { v: "bill", label: "정산" }];
 
-function TicketDetail({ t, onDeleted, me }: { t: ServiceTicket; onDeleted: () => void; me: string }) {
+function TicketDetail({ t, onEdit, me }: { t: ServiceTicket; onEdit: () => void; me: string }) {
   const st = ticketState(t);
   const [tab, setTab] = useState<DetailTab>("info");
   const rows: [string, string | number][] = [
@@ -172,12 +181,6 @@ function TicketDetail({ t, onDeleted, me }: { t: ServiceTicket; onDeleted: () =>
     ["Page Start", t.pageStart], ["Page Volume", t.pageVol], ["Page End", t.pageEnd],
     ["Valid From Time", t.since], ["Valid Until Time", t.until], ["지정 일시", t.at.replace("T", " ")], ["지정인", t.by || "-"],
   ];
-  const del = () => {
-    if (!confirm(`서비스 티켓 No.${t.no} 을(를) 삭제할까요?\n${serviceTicketText(t)}`)) return;
-    deleteServiceTicket(t.id);
-    logActivity("ticket", `서비스 티켓 삭제 · ${t.company} · No.${t.no} · ${serviceTicketText(t)}`, me);
-    onDeleted();
-  };
   return (
     <div style={card}>
       <div style={hd}>
@@ -186,7 +189,8 @@ function TicketDetail({ t, onDeleted, me }: { t: ServiceTicket; onDeleted: () =>
         <SvcTag v={t.service} />
         {t.shared && <span style={tag("#f3e8ff", "#7e22ce")}>공유 코드</span>}
         <span style={{ flex: 1 }} />
-        <button type="button" onClick={del} style={{ ...S.smallBtn, color: "#dc2626" }}>티켓 삭제</button>
+        {/* 발급된 티켓은 지우지 않는다 — 정보만 고친다 `PC-192` */}
+        <button type="button" onClick={onEdit} style={S.smallBtn}>티켓 수정</button>
       </div>
       <div style={{ padding: 16 }}>
         <WsTabs items={DETAIL_TABS} tab={tab} onTab={setTab} badge={{ bill: (t.billing ?? "미정") === "미정" ? "미정" : undefined }} />
@@ -222,29 +226,32 @@ function SvcTag({ v }: { v?: string }) {
 }
 
 /* ── 티켓 지정 ─────────────────────────────────────────────── */
-function IssueForm({ coId, coName, coSvcs, ranges, mine, me, onDone, onCancel }: {
+function IssueForm({ edit, coId, coName, coSvcs, ranges, mine, me, onDone, onCancel }: {
+  edit?: ServiceTicket;   // 있으면 수정 모드 — 그 티켓 값으로 채운다 `PC-192`
   coId: number; coName: string; coSvcs: TicketService[]; ranges: ServiceRange[]; mine: ServiceTicket[]; me: string;
   onDone: (id: number) => void; onCancel: () => void;
 }) {
+  // 수정 모드: 그 티켓이 속한 할당 범위(같은 S/O 에서 Book 이 들어가는 것)
+  const editIdx = edit ? ranges.findIndex((x) => x.section === edit.section && x.owner === edit.owner && edit.bookStart >= x.bookStart && edit.bookStart <= x.bookEnd) : -1;
   // 서비스 구분 — 고객사가 쓰는 서비스가 하나면 그것으로 시작 `PC-186`
-  const [svc, setSvc] = useState<TicketService | "">(coSvcs.length === 1 ? coSvcs[0] : "");
+  const [svc, setSvc] = useState<TicketService | "">(edit?.service ?? (coSvcs.length === 1 ? coSvcs[0] : ""));
   // Code Type — PDS3 / PDS2 를 직접 고른다. 범위를 고르면 그 범위의 종류로 맞춘다 `PC-188`
-  const [ctype, setCtype] = useState<"PDS3" | "PDS2">("PDS3");
-  const [ctypeSet, setCtypeSet] = useState(false);   // 직접 고르면 범위를 바꿔도 그대로 둔다
-  const [idx, setIdx] = useState(-1);
-  const [bStart, setBStart] = useState(0);
-  const [bVol, setBVol] = useState(1);
-  const [pStart, setPStart] = useState(0);
-  const [pVol, setPVol] = useState(PAGE_DEFAULT);
-  const [since, setSince] = useState(today());
-  const [until, setUntil] = useState("");
+  const [ctype, setCtype] = useState<"PDS3" | "PDS2">(edit?.pt === "PDS2" ? "PDS2" : "PDS3");
+  const [ctypeSet, setCtypeSet] = useState(!!edit);   // 직접 고르면(또는 수정이면) 범위를 바꿔도 그대로 둔다
+  const [idx, setIdx] = useState(editIdx);
+  const [bStart, setBStart] = useState(edit?.bookStart ?? 0);
+  const [bVol, setBVol] = useState(edit?.bookVol ?? 1);
+  const [pStart, setPStart] = useState(edit?.pageStart ?? 0);
+  const [pVol, setPVol] = useState(edit?.pageVol ?? PAGE_DEFAULT);
+  const [since, setSince] = useState(edit?.since ?? today());
+  const [until, setUntil] = useState(edit?.until ?? "");
   const [err, setErr] = useState("");
   const r = ranges[idx];
   const pick = (i: number) => {
     const x = ranges[i]; setIdx(i); setErr("");
     if (!x) return;
     if (!ctypeSet && (x.pt === "PDS2" || x.pt === "PDS3")) setCtype(x.pt);
-    setBStart(firstFreeBook(x, mine)); setBVol(1); setPStart(x.pageStart); setPVol(Math.min(PAGE_DEFAULT, x.pageEnd - x.pageStart + 1));
+    setBStart(firstFreeBook(x, mine.filter((m) => m.id !== edit?.id))); setBVol(1); setPStart(x.pageStart); setPVol(Math.min(PAGE_DEFAULT, x.pageEnd - x.pageStart + 1));
   };
   const maxVol = r ? Math.max(1, r.bookEnd - bStart + 1) : 1;
   const maxPVol = r ? Math.max(1, r.pageEnd - pStart + 1) : 1;
@@ -260,8 +267,17 @@ function IssueForm({ coId, coName, coSvcs, ranges, mine, me, onDone, onCancel }:
     if (until < since) { setErr("사용기간 끝이 시작보다 앞설 수 없습니다."); return; }
     const cand = { section: r.section, owner: r.owner, bookStart: bStart, bookEnd: bStart + bVol - 1, pageStart: pStart, pageEnd: pStart + pVol - 1 };
     // N Key · App Key · 서비스 티켓은 SOBP 가 절대 겹칠 수 없다 — 고객사를 가리지 않고 전체에서 검사 `PC-174`
-    const clash = sobpOverlapMsg(cand);
+    //   수정이면 자기 자신은 빼고 본다 — 사용 가능한 구간이면 고칠 수 있다 `PC-192`
+    const clash = sobpOverlapMsg(cand, edit ? `S${edit.id}` : undefined);
     if (clash) { setErr(clash); return; }
+    if (edit) {
+      updateServiceTicket(edit.id, { pt: ctype, section: r.section, owner: r.owner,
+        bookStart: cand.bookStart, bookVol: bVol, bookEnd: cand.bookEnd, pageStart: pStart, pageVol: pVol, pageEnd: cand.pageEnd,
+        since, until, shared: r.shared, service: svc });
+      logActivity("ticket", `서비스 티켓 수정 · ${coName} · No.${edit.no} · ${ticketServiceOf(svc)?.label} · ${ctype} S${r.section}/O${r.owner}/B${cand.bookStart}~${cand.bookEnd}/P${pStart}~${cand.pageEnd} · 기간 ${since}~${until}`, me);
+      onDone(edit.id);
+      return;
+    }
     const t = addServiceTicket({ companyId: coId, company: coName, pt: ctype, section: r.section, owner: r.owner,
       bookStart: cand.bookStart, bookVol: bVol, bookEnd: cand.bookEnd, pageStart: pStart, pageVol: pVol, pageEnd: cand.pageEnd,
       since, until, shared: r.shared, service: svc, by: me });
@@ -271,7 +287,7 @@ function IssueForm({ coId, coName, coSvcs, ranges, mine, me, onDone, onCancel }:
 
   return (
     <div style={card}>
-      <div style={hd}><b style={{ fontSize: 14 }}>서비스 티켓 지정</b><span style={{ fontSize: 11.5, color: "#9ca3af" }}>{coName}</span></div>
+      <div style={hd}><b style={{ fontSize: 14 }}>{edit ? `서비스 티켓 수정 · No.${edit.no}` : "서비스 티켓 지정"}</b><span style={{ fontSize: 11.5, color: "#9ca3af" }}>{coName}</span></div>
       <div style={{ padding: 16 }}>
         {/* 서비스 · Code Type — 한 줄에 나란히, 두 항목은 세로선으로 떼어 놓는다 `PC-188` `PC-190` */}
         <div style={{ display: "flex", gap: 32, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 22 }}>
@@ -305,6 +321,9 @@ function IssueForm({ coId, coName, coSvcs, ranges, mine, me, onDone, onCancel }:
         {/* 항목 묶음 사이 세로 간격 22px — 지정 범위 · Book/Page · 사용기간이 구분되게 `PC-191` */}
         <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>지정 범위 (할당 SOBP · 공유 코드) *</div>
         <SobpRangePicker company ranges={ranges} value={idx} onSelect={pick} />
+        {/* 구간 사용 현황 — 수정 중이면 자기 자신은 빼고 본다 `PC-195` */}
+        {r && <SobpUsage range={r} exclude={edit ? `S${edit.id}` : undefined} onPickBook={(b) => setBStart(b)}
+          cand={{ section: r.section, owner: r.owner, bookStart: bStart, bookEnd: bStart + Math.min(bVol, maxVol) - 1, pageStart: pStart, pageEnd: pStart + Math.min(pVol, maxPVol) - 1 }} />}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 22 }}>
           <Field label={`Start Book ${r ? `· ${r.bookStart}~${r.bookEnd}` : ""}`}>
             <input type="number" style={S.input} value={bStart} disabled={!r} min={r?.bookStart} max={r?.bookEnd}
@@ -336,7 +355,7 @@ function IssueForm({ coId, coName, coSvcs, ranges, mine, me, onDone, onCancel }:
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 22 }}>
           <button type="button" onClick={onCancel} style={S.ghost}>취소</button>
           <button type="button" onClick={issue} disabled={!ready} title={ready ? undefined : `입력하지 않은 항목: ${missing.join(" · ")}`}
-            style={{ ...S.primary, opacity: ready ? 1 : 0.5, cursor: ready ? "pointer" : "not-allowed" }}>티켓 지정</button>
+            style={{ ...S.primary, opacity: ready ? 1 : 0.5, cursor: ready ? "pointer" : "not-allowed" }}>{edit ? "수정 저장" : "티켓 지정"}</button>
         </div>
       </div>
     </div>

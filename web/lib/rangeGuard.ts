@@ -47,10 +47,17 @@ export const spansOverlap = (a: SobpSpan, b: SobpSpan) =>
   a.bookStart <= b.bookEnd && b.bookStart <= a.bookEnd &&
   a.pageStart <= b.pageEnd && b.pageStart <= a.pageEnd;
 
+/** N Key 티켓 파라미터 → SOBP 구간 (End 가 없으면 Start + Volume) `PC-192` */
+export function spanOfParams(p: Record<string, string | number>): SobpSpan {
+  return { section: val(p.Section) ?? -1, owner: val(p.Owner) ?? -1,
+    bookStart: val(p["Book Start"]) ?? 0, bookEnd: endOf(val(p["Book Start"]), val(p["Book End"]), val(p["Book Volume"])),
+    pageStart: val(p["Page Start"]) ?? 0, pageEnd: endOf(val(p["Page Start"]), val(p["Page End"]), val(p["Page Volume"])) };
+}
 const span = (a: number, b: number) => (b >= MAX ? `${a}~` : a === b ? `${a}` : `${a}~${b}`);
-/** 겹치는 발급분이 있으면 안내 문구, 없으면 "" */
-export function sobpOverlapMsg(cand: SobpSpan): string {
-  const hit = occupiedSobp().find((o) => spansOverlap(o, cand));
+/** 겹치는 발급분이 있으면 안내 문구, 없으면 ""
+ *  exclude = 수정 중인 티켓 자신(ref) — 「App Key: {계정}#{범위순번}」 · 「N{id}」 · 「S{id}」 `PC-192` */
+export function sobpOverlapMsg(cand: SobpSpan, exclude?: string): string {
+  const hit = occupiedSobp().find((o) => o.ref !== exclude && spansOverlap(o, cand));
   if (!hit) return "";
   return `이미 ${hit.kind}로 발급된 SOBP 와 겹칩니다 — ${hit.who} · S${hit.section}/O${hit.owner}/B${span(hit.bookStart, hit.bookEnd)}/P${span(hit.pageStart, hit.pageEnd)}. ` +
     "N Key · App Key · 서비스 티켓은 SOBP 가 겹칠 수 없습니다. 다른 Book · Page 를 고르세요.";

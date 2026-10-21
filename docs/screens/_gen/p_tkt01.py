@@ -102,7 +102,8 @@ def issue_form(sel=None, open_=False, new=False):
     lab = ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">발급 범위 (Caster 대장 이력 · SOBP 할당)%s '
            '<span style="color:#9ca3af">(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다 · %s)</span></div>'
            % ('' if new else ' *', '선택하지 않으면 계정만 등록합니다' if new else '사용기간을 함께 지정합니다'))
-    return lab + kws.range_picker(open_, sel, RANGES) + fields + summ
+    usage = kws.usage_box('3', '291', ['250~299'], [('App Key', 'Study123', '0~249', '0~511')]) if r else ''   # 구간 사용 현황 `PC-195`
+    return lab + kws.range_picker(open_, sel, RANGES) + usage + fields + summ
 
 
 def key_history(sel_idx=0, issued_key=''):
@@ -113,14 +114,14 @@ def key_history(sel_idx=0, issued_key=''):
     li = ''.join('<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid #f3f4f6;%s">'
                  '<span style="color:%s">%s</span><b style="%s;font-size:12px">%s</b><span style="color:#6b7280;font-size:12px">%s</span>'
                  '<span style="color:#6b7280;font-size:12px">즉시 ~ 무제한</span><span style="flex:1"></span>%s'
-                 '<span class="btn gho" style="padding:3px 10px;font-size:11px;color:#dc2626;border-color:#fecaca">티켓 삭제</span></div>'
+                 '<span class="btn gho" style="padding:3px 10px;font-size:11px">티켓 수정</span></div>'
                  % ('background:#f5f9ff' if i == sel_idx else '', '#2563eb' if i == sel_idx else '#c7cdd6',
                     '▸' if i == sel_idx else '·', MONO, t, b, bill) for i, (t, b, bill) in enumerate(rows))
     return (kws.sec_head('App Key 발급 내역', '· 발급된 키 1개') +
             '<div style="border:1px solid #eef0f4;border-radius:10px;overflow:hidden">'
             '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#fafbfc">%s%s'
             '<span style="font-size:11.5px;color:#6b7280">코드 범위 %d개</span>%s<span style="flex:1"></span>'
-            '<span class="btn gho" style="padding:4px 12px;font-size:11.5px;color:#dc2626;border-color:#fecaca">키 삭제</span></div>%s</div>'
+            '</div>%s</div>'
             % (('<b style="%s;font-size:12px">%s</b>' % (MONO, issued_key)) if issued_key else tg('키 미기재', '#fef3c7', '#92400e'),
                '', len(rows), tg('대장', '#f3f4f6', '#9ca3af') if not issued_key else '', li))
 
@@ -161,7 +162,7 @@ def detail(tab='info', sel_idx=0, open_=False, picked=False, issued_key='', toas
                 '<div style="display:flex;justify-content:flex-end;margin-top:10px"><span class="btn pri"%s>코드 범위 발급</span></div>'
                 % ('' if picked else ' style="opacity:.5"') +
                 '<div style="margin-top:16px">' + key_history(sel_idx, issued_key) + '</div>' + key_info(sel_idx))
-    foot = kws.footer('<span class="btn gho" style="color:#dc2626;border-color:#fecaca">계정 삭제</span>',
+    foot = kws.footer('<span class="btn gho" style="color:#dc2626;border-color:#fecaca;opacity:.4" title="발급된 App Key 티켓이 있는 계정은 삭제할 수 없습니다">계정 삭제</span>',
                       '<span class="btn pri">저장</span>')
     return ('<div style="%s;padding:18px"><div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">'
             '<b style="font-size:15px">%s</b><span style="%s;font-size:12px;color:#6b7280">%s</span></div>%s%s%s%s</div>'
@@ -253,11 +254,10 @@ def build():
 
     B.append(('S7', '계정 상세 — App Key 발급 탭', '기본',
               '<b>App Key 는 계정당 1개</b>이고, 키 아래 <b>코드 범위(=티켓)</b>를 여러 건 발급한다 <code>PC-050</code>. 위는 코드 범위 발급 폼, 아래는 '
-              '<b>App Key 발급 내역</b>(키 · 티켓 줄 · [티켓 삭제] · [키 삭제])과 <b>Key 정보</b>.',
+              '<b>App Key 발급 내역</b>(키 · 티켓 줄 · [티켓 수정])과 <b>Key 정보</b>. 발급된 키 · 티켓은 <b>지우지 않는다</b> <code>PC-192</code>.',
               fr(H + kws.grid(left(h=col_h(1250)), mid(h=col_h(1250)), detail('key', picked=True)), 1250),
               [('[코드 범위 발급]', '클릭', '티켓 1건 + 원장 티켓', '<b>티켓 발급 — {범위} · {기간}</b> · <code>PC-119</code>'),
-               ('[티켓 삭제]', '클릭', '그 티켓 + 원장 티켓', '마지막 티켓이면 S11'),
-               ('[키 삭제]', '클릭', '키 전체 삭제', ''),
+               ('[티켓 수정]', '클릭', 'S11', '그 티켓을 고르고 아래에 수정 폼 <code>PC-192</code>'),
                ('발급 범위', '선택', '범위 목록', '없으면 S10')]))
 
     B.append(('S8', 'App Key 발급 완료', '분기',
@@ -281,19 +281,35 @@ def build():
               [('발급 범위', '—', '빈 목록', '<b>이 고객사의 발급 범위가 없습니다.</b>'),
                ('SOBP 할당', '—', '<code>SOB-02</code>', '할당 후 다시 발급')]))
 
-    last = ('<div class="ovl"><div class="mdl"><div class="mh"><div class="mt">티켓 삭제</div><div class="mx">✕</div></div>'
-            '<div style="font-size:13px;color:#374151;line-height:1.7">마지막 티켓입니다. 삭제하면 이 App Key 도 함께 삭제됩니다. 진행할까요?</div>'
-            '<div class="mf"><div class="btn gho">취소</div><div class="btn dan">삭제</div></div></div></div>')
-    B.append(('S11', '마지막 티켓 삭제 확인창', '확인창', '키의 마지막 코드 범위(=티켓)를 지우면 App Key 까지 함께 지워진다 <code>PC-121</code>.',
-              frame('TKT-01', FT, H + kws.grid(left(h=col_h(1250)), mid(h=col_h(1250)), detail('key')), overlay=last, height=1250),
-              [('[삭제]', '클릭', '티켓 + App Key 삭제', '원장 티켓도 제거'), ('[취소] · ✕', '클릭', 'S7', '')]))
+    # [티켓 수정] — 위의 발급 폼을 그 티켓 값으로 채워 고친다(아래 별도 폼 없음) `PC-192` `PC-193`
+    # 수정 중 — 「티켓 수정」 칸만 보인다(현재 App Key 줄 · 발급 내역 · Key 정보 · 계정 버튼 숨김) `PC-194`
+    ed = ('<div style="%s;padding:18px"><div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">'
+          '<b style="font-size:15px">%s</b><span style="%s;font-size:12px;color:#6b7280">%s</span></div>%s'
+          '<div style="border:1px solid #93c5fd;background:#fbfdff;border-radius:10px;padding:14px 16px">%s'
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 12px;border-radius:9px;border:1px solid #93c5fd;'
+          'background:#f0f7ff;font-size:12.5px"><b style="color:#1d4ed8">수정 전</b><span style="%s;color:#374151">PDS3 S3/O291/B0~249/P0~511 · 즉시~무제한</span>'
+          '<span style="color:#6b7280">· 할당 범위 B0~299 안에서 고칩니다</span></div>%s'
+          '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><span class="btn gho">취소</span><span class="btn pri">수정 저장</span></div></div></div>'
+          % (kws.CARD, STUDY[0], MONO, STUDY[1], kws.tabs(ACC_TABS, 'key'),
+             kws.sec_head('티켓 수정', '· 발급된 티켓의 정보를 고칩니다 — 다른 발급분과 겹치지 않는 구간이면 저장됩니다'), MONO, issue_form(RANGES[0])))
+    B.append(('S11', '티켓 수정', '분기',
+              '발급된 티켓(코드 범위)은 <b>지우지 않고 정보를 고친다</b> <code>PC-192</code>. [티켓 수정]을 누르면 <b>위의 발급 입력 폼</b>이 그 티켓 값으로 채워지고 '
+              '제목이 <b>「티켓 수정」</b> 으로 바뀌고 <b>수정 전</b> 값이 보인다 — 아래에 별도 폼을 열지 않는다 <code>PC-193</code>. 입력에 집중하도록 <b>현재 App Key 줄 · 발급 내역 · Key 정보 · [계정 삭제] [저장]</b> 은 숨긴다 <code>PC-194</code>. 범위 목록은 그 티켓의 테두리(같은 S/O 의 할당 범위 ∪ 지금 쓰는 구간) 하나뿐이고, '
+              '<b>다른 발급분과 겹치지 않으면</b>(자기 자신 제외) [수정 저장]. 원장 티켓의 Key 정보도 같은 값으로 고친다.',
+              fr(H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)), ed), 1000),
+              [('[티켓 수정]', '클릭', '위 발급 폼 채움', '칸 제목 「티켓 수정」 · 파란 테두리 · 다른 영역 숨김 · 화면이 폼으로 올라간다'),
+               ('[수정 저장]', '클릭', 'S9 Key 정보 갱신', '<b>티켓 수정 — {범위} · {기간}</b> · <code>LOG-01</code>'),
+               ('겹침', '[수정 저장]', '<b>차단</b>', '<b>이미 {App Key / N Key / 서비스 티켓}로 발급된 SOBP 와 겹칩니다 — … 다른 Book · Page 를 고르세요.</b>'),
+               ('[취소]', '클릭', '발급 폼 비움', '「App Key 발급」 · 발급 내역 · Key 정보가 다시 보인다')]))
 
     dlg = ('<div class="ovl"><div class="mdl"><div class="mh"><div class="mt">계정 삭제</div><div class="mx">✕</div></div>'
-           '<div style="font-size:13px;color:#374151;line-height:1.7">이 계정과 연동 App Key를 삭제할까요?</div>'
+           '<div style="font-size:13px;color:#374151;line-height:1.7">이 계정을 삭제할까요?</div>'
            '<div class="mf"><div class="btn gho">취소</div><div class="btn dan">삭제</div></div></div></div>')
-    B.append(('S12', '계정 삭제 확인창', '확인창', '[계정 삭제]는 확인을 거친다. 연동 App Key 도 함께 지워지고, 같은 고객사의 다음 계정이 열린다.',
+    B.append(('S12', '계정 삭제 확인창', '확인창', '[계정 삭제]는 확인을 거친다. <b>발급된 App Key 티켓이 있는 계정은 [계정 삭제]가 비활성</b>이다(티켓 삭제 없음) <code>PC-192</code>.',
               frame('TKT-01', FT, H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)), detail()), overlay=dlg, height=1000),
-              [('[삭제]', '클릭', '계정 + App Key 삭제', '다음 계정 상세 · <code>LOG-01</code>'), ('[취소] · ✕', '클릭', 'S1', '')]))
+              [('[삭제]', '클릭', '계정 삭제', '티켓이 없는 계정만 · 다음 계정 상세 · <code>LOG-01</code>'),
+               ('티켓 있는 계정', '—', '<b>[계정 삭제] 비활성</b>', '툴팁 <b>발급된 App Key 티켓이 있는 계정은 삭제할 수 없습니다</b>'),
+               ('[취소] · ✕', '클릭', 'S1', '')]))
 
     B.append(('S13', '정산 탭', '분기',
               'N Key 관리처럼 <b>정산은 별도 탭</b>이다 <code>PC-178</code>. 티켓(코드 범위)을 고르고 그 정산을 등록한다 — '

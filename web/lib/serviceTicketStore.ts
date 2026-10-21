@@ -82,6 +82,12 @@ export function setServiceBilling(id: number, patch: { billing: Billing; amount?
 }
 export const billingOf = (t: ServiceTicket): Billing => t.billing ?? "미정";
 
+/** 발급된 티켓 수정 — 삭제는 하지 않고 정보만 고친다 `PC-192` */
+export function updateServiceTicket(id: number, patch: Partial<Omit<ServiceTicket, "id" | "no" | "companyId" | "company" | "at">>) {
+  hydrateServiceTickets();
+  list = list.map((t) => (t.id === id ? { ...t, ...patch } : t));
+  persist(); notify();
+}
 export function deleteServiceTicket(id: number) {
   hydrateServiceTickets();
   list = list.filter((t) => t.id !== id);

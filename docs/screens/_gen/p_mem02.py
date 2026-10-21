@@ -6,8 +6,7 @@
 등록과 저장 순서는 PRD §4.8.
 """
 from shell import page, frame
-
-from shell import page, frame
+import kws
 
 CODE, NAME = 'MEM-02', '고객사 등록·수정'
 PRD = 'docs/prd/MEM-02_고객사 등록·수정.md'
@@ -516,7 +515,7 @@ def ticket_detail(tab='info'):
                     for r in rows)
     return ('<div style="' + CARD + '"><div style="padding:13px 16px;border-bottom:1px solid #eef0f4;display:flex;align-items:center;gap:8px">'
             '<b style="font-size:14px">서비스 티켓 No.2</b>%s%s<span style="flex:1"></span>'
-            '<span class="btn sm" style="color:#dc2626">티켓 삭제</span></div><div style="padding:16px">%s%s</div></div>'
+            '<span class="btn sm">티켓 수정</span></div><div style="padding:16px">%s%s</div></div>'
             % (tg('사용 중', *ST_C['사용 중']), tg('casterN', '#eef6ff', '#1d4ed8'), ticket_tabs(tab),
                ('<div style="font-size:12px;color:#6b7280;margin-bottom:10px">이 고객사의 서비스 계정은 아래 범위와 사용기간 안에서 서비스 사용이 승인됩니다.</div>'
                 '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px">%s</div>%s' % (cells, expiry_note()))
@@ -546,6 +545,8 @@ def ticket_form(err='', open_=False, start='451'):
         return '<div class="fld"><span class="lbl">%s</span><div class="inp">%s</div></div>' % (lb, v)
     pick = ('<div class="inp" style="display:flex;align-items:center;gap:6px"><span style="font-family:ui-monospace,monospace">'
             'S 3 · O 17 · B 431~464 · P 0~511</span><span style="flex:1"></span><span style="color:#9ca3af;font-size:11px">▼</span></div>')
+    # 구간 사용 현황 — 발급된 구간 · 빈 Book · 입력 구간 사용 가능 여부 `PC-195`
+    pick += kws.usage_box('3', '17', ['451~464'], [('서비스 티켓', CO, '431~450', '0~511')], ok=not err)
     e = ('<div style="margin-top:12px;font-size:12.5px;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;'
          'border-radius:9px;padding:9px 12px">%s</div>' % err) if err else ''
     return ('<div style="' + CARD + '"><div style="padding:13px 16px;border-bottom:1px solid #eef0f4;display:flex;align-items:center;gap:8px">'
@@ -735,7 +736,7 @@ def build():
                ('할당된 SOBP', '—', 'S · O · B 칩', 'SOBP 맵과 같은 칩 · 코드 종류(PDS2/PDS3) · 권 수는 보이지 않는다 · SOBP 할당 + <b>공유 코드 사용 고객사면 그 S/O</b>(공유 배지) <code>PC-181</code>'),
                ('티켓 카드', '클릭', '오른쪽 상세', 'No. · <b>사용 중 / 대기 / 만료</b> · 정산 배지 · S · O · B · P 칩 · 사용기간'),
                ('[＋ 티켓 지정]', '클릭', 'S24', ''),
-               ('[티켓 삭제]', '클릭', '확인창', '<b>서비스 티켓 No.{n} 을(를) 삭제할까요?</b> · SOBP 할당은 그대로 <code>PC-165</code>'),
+               ('[티켓 수정]', '클릭', 'S24 폼(수정 모드)', '티켓은 <b>지우지 않고 고친다</b> — 그 티켓 값으로 채운 지정 폼 · 머리 「서비스 티켓 수정 · No.{n}」 · 버튼 [수정 저장] · 겹침 검사에서 자기 자신 제외 <code>PC-192</code>'),
                ('[정산] 탭', '클릭', 'S26', '상세 탭 = 티켓 정보 · 정산 <code>PC-179</code> · 카드에 정산 배지'),
                ('ⓘ 만료 후 동작', '클릭', '펼침', '숨김 안내 — S24'),
                ('등록 화면', '—', '<b>잠김</b>', '고객사를 먼저 등록해야 열린다 · <b>고객사를 먼저 등록하세요.</b>')]))
@@ -745,7 +746,8 @@ def build():
               frame('MEM-01', FR, layout(H, nav('ticket'), acc_section(ticket_list(adding=True), ticket_form(open_=True))), height=1150),
               [('서비스', '선택 (필수)', 'casterN / 폼솔루션', '이 티켓으로 승인하는 서비스 · 고객사가 쓰는 서비스가 하나면 그것으로 시작 <code>PC-186</code>'),
                ('Code Type', '선택 (필수)', 'PDS3 / PDS2', '서비스 옆에 나란히(세로선으로 구분) · 범위를 고르면 그 범위의 종류로 맞추고, 직접 고르면 그대로 둔다 <code>PC-188</code>'),
-               ('지정 범위', '선택', 'Section · Owner 자동', '할당 SOBP · 공유 코드 범위만'),
+               ('지정 범위', '선택', 'Section · Owner 자동', '할당 SOBP · <b>하위 고객사면 상위 SOBP 영역</b>(공유) <code>PC-195</code>'),
+               ('구간 사용 현황', '자동', '범위 아래', '이미 발급된 구간(App Key · N Key · 서비스 티켓 · 고객사) · <b>빈 Book 구간</b>(누르면 Start Book 이동) · 입력 구간 사용 가능 / 겹침 <code>PC-195</code>'),
                ('Book · Page', '입력', '범위 안으로 제한', 'Page 볼륨 기본 512'),
                ('사용기간', '입력 (필수)', '—', '무제한 없음 · 기간은 키 관리에서만 정한다(SOBP 할당에는 기간 없음) <code>PC-175</code>'),
                ('[티켓 지정]', '클릭', 'S23 상세', '<b>필수 항목이 하나라도 비면 비활성</b> · 툴팁 <b>입력하지 않은 항목: {항목들}</b> <code>PC-189</code> · 겹침 검사 통과 시 · <code>LOG-01</code> 티켓 발급 활동'),

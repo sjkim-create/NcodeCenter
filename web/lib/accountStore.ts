@@ -337,6 +337,16 @@ export const caster = {
     const appKeys = state.appKeys.map((k) => (k.id === id ? { ...k, ranges: [...keyRanges(k), r] } : k));
     commit({ ...state, appKeys });
   },
+  /** 코드 범위(=티켓) 수정 — 삭제 대신 정보만 고친다 `PC-192` */
+  updateKeyRange(id: number, idx: number, patch: Partial<KeyRange>) {
+    const appKeys = state.appKeys.map((k) => {
+      if (k.id !== id) return k;
+      const rs = keyRanges(k).map((r, i) => (i === idx ? { ...r, ...patch } : r));
+      const f = rs[0];
+      return { ...k, ranges: rs, ...(f ? { pt: f.pt, section: f.section, owner: f.owner, bookStart: f.bookStart ?? 0, bookEnd: f.bookEnd ?? 0, bookVol: f.bookVol ?? k.bookVol, pageStart: f.pageStart ?? 0, pageEnd: f.pageEnd ?? 0, pageVol: f.pageVol } : {}) };
+    });
+    commit({ ...state, appKeys });
+  },
   /** 코드 범위(=티켓) 정산 등록 `PC-177` */
   setRangeBilling(id: number, idx: number, patch: Pick<KeyRange, "billing" | "amount" | "trialUntil" | "billNote" | "billedBy">) {
     const appKeys = state.appKeys.map((k) => {
