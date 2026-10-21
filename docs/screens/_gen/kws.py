@@ -91,21 +91,50 @@ def warn_bar(text):
             'font-size:12.5px;margin-bottom:12px">%s</div>' % text)
 
 
-def co_item(label, n, on=False, todo=0, warn=False, bold=False):
-    return ('<div style="display:flex;align-items:center;gap:6px;border-radius:9px;padding:8px 10px;font-size:13px;'
-            'background:%s;color:%s;font-weight:%s"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">%s</span>'
-            '<span style="flex:1"></span>%s<span style="font-size:10.5px;border-radius:999px;padding:1px 8px;font-weight:700;'
+def co_item(label, n, on=False, todo=0, warn=False, bold=False, fold=None, sub=False):
+    """고객사 한 줄 — [▶ 접기] · 이름 · (하위 n) · 건수 배지. App Key · N Key 같은 모양 `PC-198`
+    「미정 n」 표시는 없앴다(todo 는 받기만) · fold = ('open' | 'closed', 하위 수) · sub = 하위 고객사(세로 안내선 안)"""
+    slot = ''
+    if not sub:
+        slot = ('<span style="width:16px;flex:0 0 16px;display:inline-flex;justify-content:center;color:#9ca3af;font-size:10px;%s">▶</span>'
+                % ('visibility:hidden' if not fold else ('transform:rotate(90deg)' if fold[0] == 'open' else '')))
+    sub_n = ('<span style="font-size:10.5px;color:#9ca3af;white-space:nowrap">하위 %d</span>' % fold[1]) if fold else ''
+    return ('<div style="display:flex;align-items:center;gap:6px;border-radius:9px;padding:%s;font-size:%s;'
+            'background:%s;color:%s;font-weight:%s">%s<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">%s</span>%s'
+            '<span style="flex:1"></span><span style="font-size:10.5px;border-radius:999px;padding:1px 8px;font-weight:700;'
             'background:%s;color:%s">%d</span></div>'
-            % ('#eef6ff' if on else 'transparent', '#1d4ed8' if on else ('#b45309' if warn else '#374151'),
-               '700' if (on or bold) else '400', label,
-               ('<span style="font-size:10.5px;color:#dc2626;white-space:nowrap">미정 %d</span>' % todo) if todo else '',
+            % ('6px 10px' if sub else '8px 10px 8px 4px', '12.5px' if sub else '13px',
+               '#eef6ff' if on else 'transparent', '#1d4ed8' if on else ('#b45309' if warn else ('#4b5563' if sub else '#374151')),
+               '700' if (on or bold) else '400', slot, label, sub_n,
                '#dbeafe' if on else '#f3f4f6', '#1d4ed8' if on else ('#6b7280' if n else '#c7cdd6'), n))
+
+
+def co_group(label, n, on, total_subs, subs=(), open_=False, more=0):
+    """상위 고객사 묶음 — ▶ 로 하위 고객사를 접고 편다(기본 접힘). 하위는 세로 안내선 안에 들여 `PC-196` `PC-198`
+    subs: (라벨, 건수, 선택)"""
+    head = co_item(label, n, on, fold=('open' if open_ else 'closed', total_subs))
+    if not open_:
+        return head
+    li = ''.join(co_item(l, c, o, sub=True) for l, c, o in subs)
+    if more:
+        li += '<div style="font-size:11px;color:#9ca3af;padding:4px 10px">… 외 %d곳</div>' % more
+    return head + '<div style="margin:1px 0 4px 17px;padding-left:6px;border-left:2px solid #e5e7eb">%s</div>' % li
+
+
+def sobp_chips(kind, s_, o, b, p_):
+    """SOBP 칩 — 종류 · S · O · B · P (web/components/sobp.tsx SobpChips small)"""
+    sc = ('<span style="display:inline-flex;align-items:center;gap:3px;border:1px solid #e5e7eb;border-radius:6px;padding:1px 5px 1px 1px;'
+          'background:#fff;font-size:10.5px"><span style="background:%s;color:#fff;font-weight:700;font-size:9px;border-radius:4px;padding:1px 4px">%s</span>'
+          '<span style="' + MONO + '">%s</span></span>')
+    return ('<span style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap">'
+            '<span style="background:#2563eb;color:#fff;font-weight:700;font-size:9.5px;border-radius:4px;padding:1px 5px">%s</span>%s%s%s%s</span>'
+            % (kind, sc % ('#5f8ff0', 'S', s_), sc % ('#14b8a6', 'O', o), sc % ('#8b5cf6', 'B', b), sc % ('#f59e0b', 'P', p_)))
 
 
 def co_col(rows, height, view='issued', issued=15, total=537, count=None, search='', unlinked=None, empty=''):
     """왼쪽 칸 — 고객사(고객사 관리) · [발급 고객사][전체 고객사] · 검색 · 목록 · 고객사 미연결
-    rows: (라벨, 건수, 선택, 미정, 굵게)"""
-    li = ''.join(co_item(l, n, on, td, bold=b) for l, n, on, td, b in rows)
+    rows: (라벨, 건수, 선택, 미정, 굵게) 또는 미리 그린 줄(co_group)"""
+    li = ''.join(r if isinstance(r, str) else co_item(r[0], r[1], r[2], r[3], bold=r[4]) for r in rows)
     if empty:
         li += '<div style="font-size:12px;color:#9ca3af;padding:14px 6px;text-align:center;line-height:1.7">%s</div>' % empty
     if unlinked:
@@ -207,9 +236,11 @@ def toast_line(text, ok=True):
 def range_picker(open_=False, sel=None, ranges=()):
     """발급 범위 선택 — 접힘: S·O·B·P 칩 / 펼침: 번호 + 칩 목록"""
     def chips(r):
-        s, o, b, p = r
+        s, o, b, p = r[:4]
+        # 하위 고객사가 받은 상위 고객사 SOBP 는 「상위 · 고객사」 를 붙인다 `PC-199`
+        par = ('<span style="font-size:11px;color:#6b7280;margin-left:2px">상위 · %s</span>' % r[4]) if len(r) > 4 else ''
         return ''.join('<span style="font-size:11px;border-radius:5px;padding:1px 6px;margin-right:4px;background:#f3f4f6;color:#374151">'
-                       '<b style="color:#9ca3af">%s</b> %s</span>' % (k, v) for k, v in (('S', s), ('O', o), ('B', b), ('P', p)))
+                       '<b style="color:#9ca3af">%s</b> %s</span>' % (k, v) for k, v in (('S', s), ('O', o), ('B', b), ('P', p))) + par
     head = chips(sel) if sel else '<span style="color:#9ca3af">- 범위 선택 -</span>'
     box = ('<div class="inp" style="display:flex;align-items:center;justify-content:space-between">%s'
            '<span style="color:#9ca3af">%s</span></div>' % (head, '▲' if open_ else '▼'))

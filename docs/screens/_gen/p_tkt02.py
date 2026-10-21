@@ -14,7 +14,7 @@ PRD = 'docs/prd/TKT-02_N Key 관리.md'
 FT = 'N Key 관리'
 NOTE = '고객사는 고객사 관리에서 불러옵니다 · 자료: nkey(HLP) N Key 발급 대장 + 새로 발급'
 
-# (고객사, 건수, 미정)
+# (고객사, 건수, 미정) — 왼쪽 칸에는 「미정 n」 을 보이지 않는다 `PC-198`
 COS = (('네오랩타이완-101', 1, 1), ('ACE Solution-700', 1, 1), ('ezwrite-305', 1, 1), ('Global Communications Inc.-202', 1, 0),
        ('Globalspace-308', 1, 0), ('ICsolutions-300', 1, 1), ('ICsolutions-301', 1, 1), ('ICsolutions-302', 1, 1),
        ('Inform DS-302', 16, 1), ('InformDS-231', 1, 0), ('KODION-46', 2, 0), ('Luginbühl-450', 7, 4),
@@ -56,9 +56,17 @@ def filter_bar(bill='', src='', q='', hits=None):
                ('<span style="color:#6b7280">전체 <b style="color:#111827">%s건</b> · 고객사 <b style="color:#111827">%s곳</b></span>' % hits) if (filt and hits) else ''))
 
 
-def left(sel='', view='issued', rows=None, unlinked=(4, 6), h=600, search='', empty='', total_all=(61, 35), count=None):
+# 상위 고객사(공통코드 보유) — ▶ 로 접고 편다. App Key 관리와 같은 묶음 `PC-197` `PC-198`
+GROUPS = {'네오노트-0-27': (6, ('네오랩컨버전스', '애슐런', '에슐런러닝(개념원리에듀)', '프랭클린', '하나금융투자', '호주 애슐런')),
+          '네오노트-1012': (30, ('네스프레소', '네오랩컨버전스', '라미'))}
+
+
+def left(sel='', view='issued', rows=None, unlinked=(4, 6), h=600, search='', empty='', total_all=(61, 35), count=None, open_=None):
     if rows is None:
         rows = [(n, c, n == sel, td, False) for n, c, td in COS]
+    if view == 'all' and not search and open_:   # 전체 고객사 — 상위 묶음
+        cnt, subs = GROUPS[open_]
+        rows = rows[:1] + [kws.co_group(open_, 0, False, cnt, [(x, 0, x == sel) for x in subs], open_=True, more=cnt - len(subs))] + rows[1:]
     allrow = [] if search else [('전체', total_all[0], sel == '', total_all[1], True)]
     ul = ('고객사 미연결', unlinked[1], sel == '고객사 미연결', unlinked[0]) if (unlinked and not search) else None
     return kws.co_col(allrow + rows, h, view=view, issued=31, total=537, count=count, search=search, empty=empty, unlinked=ul)
@@ -145,8 +153,8 @@ def ticket_detail(tab='base', no=36, co='KODION', bill='무료', amount='', tria
     return '<div style="%s;padding:18px">%s%s%s%s%s</div>' % (kws.CARD, head, t, body, foot, msg)
 
 
-def nkey_form(co='KODION-46', picked=False, open_=False, common=False, sep=False, over=False, err='', toast=''):
-    rng = (('3', '46', '8~11', '0~511'), ('3', '46', '1~11', '0~511'), ('14', '46', '5~6', '0~31'))
+def nkey_form(co='KODION-46', picked=False, open_=False, common=False, sep=False, over=False, err='', toast='', rng=None):
+    rng = rng or (('3', '46', '8~11', '0~511'), ('3', '46', '1~11', '0~511'), ('14', '46', '5~6', '0~31'))
     sel = rng[0] if picked else None
     if common:
         pick = ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">사용 고객사 * <span style="color:#a855f7;font-weight:700">공통코드</span>'
@@ -223,7 +231,8 @@ def build():
     B.append(('S1', '기본 — 전체 · 고객사별 묶음', '기본',
               '좌측 메뉴 <b>[티켓 발급] ▸ [N Key 관리]</b>(<code>/tickets/nkey</code>). 위는 <b>정산 집계 5칸</b>과 <b>필터 바</b>, 아래는 3단이다. '
               '왼쪽 고객사는 <b>고객사 관리 고객사</b>(기본 = N Key 가 이어진 발급 고객사 31곳) <code>PC-153</code>. 「전체」를 고르면 가운데가 '
-              '<b>고객사별 묶음</b>(고객사 머리 · 건수 · 유료 합계)이고 오른쪽은 가장 최근 발급 건의 상세다. nkey(HLP) 발급 대장 61건은 <b>정본</b>이라 늘 보인다 <code>PC-155</code>.',
+              '<b>고객사별 묶음</b>(고객사 머리 · 건수 · 유료 합계)이고 오른쪽은 가장 최근 발급 건의 상세다. nkey(HLP) 발급 대장 61건은 <b>정본</b>이라 늘 보인다 <code>PC-155</code>. '
+              '왼쪽 고객사 칸은 <b>App Key 관리와 같은 모양</b> — 이름 · 건수만 보이고 「미정 n」 은 보이지 않는다(정산 미등록은 집계 칸) <code>PC-198</code>.',
               fr(H + F + kws.grid(left(h=col_h(1000)), mid(ALL_GROUPS, sel_no=36, h=col_h(1000), count=61), ticket_detail()), 1000),
               [('고객사', '클릭', 'S2', '집계 · 목록이 그 고객사 기준'),
                ('고객사 묶음 머리', '클릭', '그 고객사만 보기', ''),
@@ -389,6 +398,36 @@ def build():
               fr(H + F + kws.grid(left(h=col_h(1000)), mid(ALL_GROUPS, sel_no=36, h=col_h(1000), count=61), ticket_detail()), 1000,
                  overlay=keyinfo_modal(err=True)),
               [('형식 오류', '—', '안내 + 빈 표', '<b>⚠ JSON 형식의 티켓 파일이 아닙니다. Key 생성으로 내려받은 .json 파일을 선택하세요.</b>')]))
+
+    # 하위 고객사 — 상위 묶음 안 · 전체 목록에서 바로 골라 발급(모든 상위 SOBP) `PC-197` `PC-198` `PC-199`
+    NLC = (('0', '27', '0~16383', '0~4095', '네오노트-0-27'), ('3', '27', '0~8191', '0~511', '네오노트-3-27'),
+           ('3', '1012', '0~8191', '0~511', '네오노트-1012'), ('3', '1013', '0~8191', '0~511', '스마트클래스키트-1013'))
+    B.append(('S19', '하위 고객사 — 상위 묶음 · 바로 선택해 발급', '분기',
+              '<b>[전체 고객사]</b>에서 상위 고객사(공통코드 보유)의 <b>▶</b> 를 누르면 하위 고객사가 <b>세로 안내선</b> 안에 펼쳐진다(기본 접힘 · 「하위 n」) <code>PC-197</code> <code>PC-198</code>. '
+              '하위 고객사는 <b>목록 제자리에도</b> 있어 묶음을 열지 않고 바로 골라도 된다 <code>PC-199</code>. 하위 고객사로 [＋ N Key 발급]을 열면 발급 범위에 '
+              '<b>그 하위 고객사가 들어간 모든 상위 고객사의 SOBP</b> 가 「상위 · 상위 고객사명」 과 함께 나온다. 발급 폼의 고객사 선택도 하위 고객사를 상위 밑에 들여 보인다. '
+              '상위 고객사를 고르고 「사용 고객사」 로 고르는 방식(S13)도 그대로다.',
+              fr(head_('네오랩컨버전스', stats=ZERO) + F +
+                 kws.grid(left('네오랩컨버전스', view='all', open_='네오노트-0-27', h=col_h(1150),
+                               rows=[('(주)투이아이앤씨', 0, False, 0, False), ('가우스-1022', 0, False, 0, False), ('교원구몬-10', 0, False, 0, False)]),
+                          mid((), h=col_h(1150), count=0, empty='발급된 N Key 가 없습니다.<br>[＋ N Key 발급]으로 발급하세요.'),
+                          nkey_form(co='네오랩컨버전스', open_=True, rng=NLC)), 1150),
+              [('상위 고객사 ▶', '클릭', '하위 고객사 펼침 / 접힘', '검색 중이면 저절로 펼침'),
+               ('하위 고객사', '클릭', '그 고객사 기준 집계 · 발급 티켓', '사용 고객사로 발급한 티켓도 그 하위 고객사로 잡힌다'),
+               ('발급 범위', '선택', '모든 상위 SOBP', '「상위 · 상위 고객사명」 · 구간 사용 현황으로 겹침 확인 <code>PC-195</code>')]))
+
+    # 고객사 검색 → 가운데 발급 티켓 `PC-199`
+    B.append(('S20', '고객사 검색 → 발급 티켓', '분기',
+              '왼쪽 <b>고객사 검색</b>에 이름을 넣으면 가운데 발급 티켓 칸이 <b>검색한 고객사들의 발급 티켓</b>(고객사별 묶음)으로 바뀐다 — 머리는 「집계 대상 고객사 검색 「…」」 <code>PC-199</code>. '
+              '하위 고객사를 검색하면 그 하위 고객사로 발급한 티켓과, 상위 고객사에서 <b>사용 고객사</b>로 그 하위 고객사에 발급한 티켓이 함께 나온다. 고객사를 누르면 그 고객사만 본다.',
+              fr(head_('고객사 검색 「Inform」', stats=(('발급 티켓', '17건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '16건', '#2563eb'),
+                                                  ('무료 / 체험', '0 / 0건', '#166534'), ('정산 미등록', '1건', '#dc2626'))) + F +
+                 kws.grid(left(view='issued', search='Inform', rows=[('Inform DS-302', 16, False, 0, False), ('InformDS-231', 1, False, 0, False)], count=2, h=col_h(1000)),
+                          mid((('Inform DS-302', T['Inform DS-302']),), sel_no=21, h=col_h(1000), count=17),
+                          ticket_detail(no=21, co='InformDS', bill='미정', note='판매용 (미사용건)', at='2026-03-17 00:00', by='안진')), 1000),
+              [('고객사 검색', '입력', '가운데 = 검색한 고객사의 발급 티켓', '「전체」 기준 · 고객사별 묶음'),
+               ('고객사', '클릭', 'S2', '그 고객사만'),
+               ('검색어 지움', '—', 'S1', '')]))
 
     intro = ('N Key 를 발급하고 정산하는 화면이다. 「<b>고객사 | 발급 티켓 | 발급 상세·정산</b>」 3단 한 화면이며 옛 <code>TKT-03</code> N Key 관리 · '
              '<code>TKT-04</code> N Key 발급 · <code>TKT-05</code> 발급 상세·수정 · <code>TKT-06</code> N Key 불러오기를 합쳤다 <code>PC-149</code> <code>PC-158</code>. '

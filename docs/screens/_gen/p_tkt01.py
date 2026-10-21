@@ -27,9 +27,26 @@ def head_(unlinked=0):
                        ('고객사 미연결', '%d개' % unlinked, '#b45309' if unlinked else '#9ca3af')]))
 
 
-def left(sel='Study123', view='issued', search='', names=COS, empty='', unlinked=None, h=670):
-    rows = [(n, 1 if n in COS else 0, n == sel, 0, False) for n in names]
-    return kws.co_col(rows, h, view=view, issued=15, total=537, count=len(names) if (search or view == 'all') else None,
+# 상위 고객사(공통코드 보유) → (하위 수, 보이는 하위 고객사) — ▶ 로 접고 편다 `PC-196` `PC-198`
+GROUPS = {'네오노트-1012': (31, ('네스프레소', '네오랩컨버전스', '라미', '메가로이어스', '메가엠디', '스콜라스틱')),
+          '네오노트-3-27': (149, ()), 'Common-21': (50, ())}
+ORDER = ('(주)투이아이앤씨', '네오노트-1012', '네오노트-3-27', '네오랩', '맥컬리', '스콜라스틱', '에듀프레소', '영신사', '영업용 테스트 코드',
+         '유니메이션', 'Common-21', 'iuEdu', 'Liangshishu-111', 'Luginbühl & Cie SA (TruxReport)', 'NHN EDU', 'Study123', 'Tranwisdom',
+         'Xiom Healthcare-304')
+
+
+def left(sel='Study123', view='issued', search='', names=None, empty='', unlinked=None, h=670, open_=None):
+    if names is None:
+        names = ORDER
+    rows = []
+    for n in names:
+        if n in GROUPS:   # 상위 고객사 — 하위 고객사가 발급받았으면 [발급 고객사]에도 보인다
+            cnt, subs = GROUPS[n]
+            rows.append(kws.co_group(n, 0, n == sel, cnt, [(x, 1 if x in COS else 0, x == sel) for x in subs],
+                                     open_=(open_ == n), more=cnt - len(subs)))
+        else:
+            rows.append((n, 1 if n in COS else 0, n == sel, 0, False))
+    return kws.co_col(rows, h, view=view, issued=15, total=537, count=len(names),
                       search=search, empty=empty, unlinked=unlinked)
 
 
@@ -61,7 +78,8 @@ def mid(co='Study123', cards=None, adding=False, off=False, h=670, warn=''):
     return kws.mid_col('App Key 계정', '%d개' % len(cards), '＋ 계정 추가', body, h, btn_off=off)
 
 
-ACC_TABS = (('info', '계정 정보', ''), ('key', 'App Key 발급', '1'), ('bill', '정산', '미정 1'))   # 정산 탭 `PC-178`
+# 탭 — 발급 내역(첫 탭) · App Key 발급 · 정산 · 계정 정보 `PC-178` `PC-200`
+ACC_TABS = (('hist', '발급 내역', '2'), ('key', 'App Key 발급', ''), ('bill', '정산', '미정 1'), ('info', '계정 정보', ''))
 
 
 def info_tab(new=False, co='Study123', id_val='', err=''):
@@ -84,7 +102,7 @@ def info_tab(new=False, co='Study123', id_val='', err=''):
     return head + '<div class="g2">' + g + '</div>' + note
 
 
-def issue_form(sel=None, open_=False, new=False):
+def issue_form(sel=None, open_=False, new=False, ranges=RANGES):
     r = sel
     fields = ('<div class="g4" style="margin-top:12px">' +
               fld('Start Book (시작 북코드)', r[2].split('~')[0] if r else '', ph=not r) +
@@ -103,37 +121,51 @@ def issue_form(sel=None, open_=False, new=False):
            '<span style="color:#9ca3af">(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다 · %s)</span></div>'
            % ('' if new else ' *', '선택하지 않으면 계정만 등록합니다' if new else '사용기간을 함께 지정합니다'))
     usage = kws.usage_box('3', '291', ['250~299'], [('App Key', 'Study123', '0~249', '0~511')]) if r else ''   # 구간 사용 현황 `PC-195`
-    return lab + kws.range_picker(open_, sel, RANGES) + usage + fields + summ
+    return lab + kws.range_picker(open_, sel, ranges) + usage + fields + summ
 
 
-def key_history(sel_idx=0, issued_key=''):
-    rows = (('PDS3 S3/O291/B0~249/P0~511', '250권', kws.tg('유료 1,200,000원', '#dbeafe', '#1d4ed8')),
-            ('PDS3 S3/O942/B73/P0~512', '1권', kws.bill_tag('미정')))
-    if issued_key:
-        rows = rows + (('PDS3 S3/O291/B250~299/P1~512', '50권', kws.bill_tag('미정')),)
-    li = ''.join('<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid #f3f4f6;%s">'
-                 '<span style="color:%s">%s</span><b style="%s;font-size:12px">%s</b><span style="color:#6b7280;font-size:12px">%s</span>'
-                 '<span style="color:#6b7280;font-size:12px">즉시 ~ 무제한</span><span style="flex:1"></span>%s'
-                 '<span class="btn gho" style="padding:3px 10px;font-size:11px">티켓 수정</span></div>'
-                 % ('background:#f5f9ff' if i == sel_idx else '', '#2563eb' if i == sel_idx else '#c7cdd6',
-                    '▸' if i == sel_idx else '·', MONO, t, b, bill) for i, (t, b, bill) in enumerate(rows))
-    return (kws.sec_head('App Key 발급 내역', '· 발급된 키 1개') +
-            '<div style="border:1px solid #eef0f4;border-radius:10px;overflow:hidden">'
-            '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#fafbfc">%s%s'
-            '<span style="font-size:11.5px;color:#6b7280">코드 범위 %d개</span>%s<span style="flex:1"></span>'
-            '</div>%s</div>'
-            % (('<b style="%s;font-size:12px">%s</b>' % (MONO, issued_key)) if issued_key else tg('키 미기재', '#fef3c7', '#92400e'),
-               '', len(rows), tg('대장', '#f3f4f6', '#9ca3af') if not issued_key else '', li))
+# 발급 내역 줄 — (종류, S, O, B, P, 권수, 발급일, 정산 배지)
+HIST = (('PDS3', '3', '291', '0~249', '0~511', '250권', '', kws.tg('유료 1,200,000원', '#dbeafe', '#1d4ed8')),
+        ('PDS3', '3', '942', '73', '0~512', '1권', '', kws.bill_tag('미정')))
+TRAN = (('PDS3', '0', '305', '39', '0~511', '1권', '', kws.bill_tag('미정')), ('PDS3', '3', '1012', '3070~3076', '0~511', '7권', '', kws.bill_tag('미정')),
+        ('PDS3', '3', '1012', '3092~3123', '0~511', '32권', '', kws.bill_tag('미정')), ('PDS3', '3', '1012', '3219~3318', '0~511', '100권', '', kws.bill_tag('미정')),
+        ('PDS3', '3', '942', '73', '0~511', '1권', '', kws.bill_tag('미정')))
 
 
-def key_info(sel_idx=0):
-    rng = (('Section', '3'), ('Owner', '291'), ('Book Start', '0'), ('Book Volume', '250'), ('Page Start', '0'), ('Page Volume', '512'))
-    if sel_idx == 1:
-        rng = (('Section', '3'), ('Owner', '942'), ('Book Start', '73'), ('Book Volume', '1'), ('Page Start', '0'), ('Page Volume', '513'))
-    rows = (('Company Name', 'Study123'), ('Account Id', STUDY[1]), ('App Key', '(대장 미기재)')) + rng + (
-        ('Code Type', 'PDS3'), ('Valid From Time', '즉시'), ('Valid Until Time', '무제한'), ('Ticket Type', 'Unlimited'), ('Ticket Version', '1'))
-    return ('<div style="margin-top:16px">' + kws.sec_head('Key 정보', '· 선택한 발급 내역 (%s)' %
-            ('PDS3 S3/O291/B0~249/P0~511' if sel_idx == 0 else 'PDS3 S3/O942/B73/P0~512')) + kws.kv_table(rows) + '</div>')
+def hist_tab(rows=HIST, sel_idx=0, open_=False, key='', co='Study123', mail=None):
+    """발급 내역 탭 — 지금까지 발급한 티켓을 한 줄씩. 줄을 누르면 그 아래 Key 정보 `PC-120` `PC-200`"""
+    li = ''
+    for i, (kd, s_, o, b, p_, vol, at, bill) in enumerate(rows):
+        on = i == sel_idx
+        li += ('<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;%s%s">'
+               '<span style="width:18px;flex:0 0 18px;padding-top:2px;font-size:11.5px;font-weight:700;color:%s">%d</span>'
+               '<div style="flex:1;min-width:0">%s<div style="display:flex;align-items:center;gap:6px;margin-top:5px;font-size:11.5px;color:#6b7280">'
+               '%s%s<span style="color:#d1d5db">·</span><span>%s</span><span style="color:#d1d5db">·</span><span>즉시 ~ 무제한</span></div></div>'
+               '%s<span class="btn gho" style="padding:3px 9px;font-size:11px">수정</span>'
+               '<span style="font-size:10px;color:#9ca3af;padding-top:5px;%s">▶</span></div>'
+               % ('border-top:1px solid #f1f3f6;' if i else '', 'background:#f0f7ff' if on else 'background:#fff',
+                  '#2563eb' if on else '#9ca3af', i + 1, kws.sobp_chips(kd, s_, o, b, p_),
+                  ('<span style="%s">%s</span>' % (MONO, at)) if at else '', tg('대장', '#f3f4f6', '#6b7280', False) if not at else '',
+                  vol, bill, 'transform:rotate(90deg)' if (on and open_) else ''))
+        if on and open_:
+            li += '<div style="padding:10px 12px 12px;background:#fbfdff;border-top:1px solid #e0ecff">' + key_info(i, co=co, mail=mail, row=rows[i]) + '</div>'
+    top = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;color:#6b7280">'
+           '<b style="font-size:13.5px;color:#111827">발급 내역</b><span>티켓 <b style="color:#111827">%d</b>건</span>'
+           '<span style="color:#dc2626">정산 미정 %d</span><span style="flex:1"></span>%s</div>'
+           % (len(rows), sum(1 for x in rows if '미정' in x[7]),
+              ('App Key <b style="%s;color:#374151">%s</b>' % (MONO, key)) if key else tg('App Key 미기재', '#fef3c7', '#92400e')))
+    return top + '<div style="border:1px solid #eef0f4;border-radius:10px;overflow:hidden">%s</div>' % li
+
+
+def key_info(sel_idx=0, co='Study123', mail=None, row=None):
+    r = row or HIST[sel_idx]
+    kd, s_, o, b, p_ = r[:5]
+    b0, b1 = (b.split('~') + [b])[:2]
+    rows = (('Company Name', co), ('Account Id', mail or STUDY[1]), ('App Key', '미기재'), ('Code Type', kd), ('Section', s_), ('Owner', o),
+            ('Book Start', b0), ('Book Volume', r[5].replace('권', '')), ('Book End', b1), ('Page Start', p_.split('~')[0]), ('Page End', p_.split('~')[-1]),
+            ('Valid From Time', '즉시'), ('Valid Until Time', '99999999 (무제한)'), ('Ticket Type', 'Unlimited'))
+    return ('<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">Key 정보 '
+            '<span style="font-weight:400;color:#9ca3af">· %s S%s/O%s/B%s/P%s</span></div>' % (kd, s_, o, b, p_) + kws.kv_table(rows))
 
 
 def bill_tab(sel_idx=0):
@@ -150,29 +182,31 @@ def bill_tab(sel_idx=0):
             (kws.billing_box() if sel_idx == 0 else kws.billing_box('미정', note='', last='—')))
 
 
-def detail(tab='info', sel_idx=0, open_=False, picked=False, issued_key='', toast='', dirty=False):
-    t = kws.tabs(ACC_TABS, tab)
+def detail(tab='hist', sel_idx=0, open_=False, picked=False, issued_key='', toast='', dirty=False, acc=None, rows=HIST, co='Study123'):
+    name, mail = acc or STUDY
+    t = kws.tabs(tuple((v, lb, (str(len(rows)) if v == 'hist' else bd)) for v, lb, bd in ACC_TABS), tab)
     if tab == 'info':
         body = info_tab()
     elif tab == 'bill':
         body = bill_tab(sel_idx)
-    else:
+    elif tab == 'hist':
+        body = hist_tab(rows, sel_idx, open_, key=issued_key, co=co, mail=mail)
+    else:   # App Key 발급 — 발급 · 수정 폼만(발급 내역은 첫 탭) `PC-200`
         body = (kws.sec_head('App Key 발급', '· 계정당 1개 · 발급된 키 1개') +
                 issue_form(RANGES[0] if picked else None, open_) +
                 '<div style="display:flex;justify-content:flex-end;margin-top:10px"><span class="btn pri"%s>코드 범위 발급</span></div>'
-                % ('' if picked else ' style="opacity:.5"') +
-                '<div style="margin-top:16px">' + key_history(sel_idx, issued_key) + '</div>' + key_info(sel_idx))
+                % ('' if picked else ' style="opacity:.5"'))
     foot = kws.footer('<span class="btn gho" style="color:#dc2626;border-color:#fecaca;opacity:.4" title="발급된 App Key 티켓이 있는 계정은 삭제할 수 없습니다">계정 삭제</span>',
-                      '<span class="btn pri">저장</span>')
+                      '<span class="btn pri">저장</span>') if tab == 'info' else ''
     return ('<div style="%s;padding:18px"><div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">'
             '<b style="font-size:15px">%s</b><span style="%s;font-size:12px;color:#6b7280">%s</span></div>%s%s%s%s</div>'
-            % (kws.CARD, STUDY[0], MONO, STUDY[1], t, body, foot, kws.toast_line(toast) if toast else ''))
+            % (kws.CARD, name, MONO, mail, t, body, foot, kws.toast_line(toast) if toast else ''))
 
 
-def new_form(tab='info', co='Study123', id_val='', err='', picked=False, open_=False):
+def new_form(tab='info', co='Study123', id_val='', err='', picked=False, open_=False, ranges=RANGES):
     t = kws.tabs((('info', '계정 정보', ''), ('key', 'App Key 발급', '발급' if picked else '')), tab)
     body = info_tab(new=True, co=co, id_val=id_val, err=err) if tab == 'info' else (
-        kws.sec_head('App Key 발급', '· 계정당 1개') + issue_form(RANGES[0] if picked else None, open_, new=True))
+        kws.sec_head('App Key 발급', '· 계정당 1개') + issue_form(ranges[0] if picked else None, open_, new=True, ranges=ranges))
     foot = kws.footer('', '<span class="btn gho">취소</span><span class="btn pri">계정 추가</span>')
     return ('<div style="%s;padding:18px"><div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">'
             '<b style="font-size:15px">새 계정 추가</b>%s<span style="font-size:13px;color:#6b7280">%s</span></div>%s%s%s%s</div>'
@@ -195,15 +229,17 @@ def build():
 
     B.append(('S1', '기본 — 고객사 | App Key 계정 | 계정 상세', '기본',
               '좌측 메뉴 <b>[티켓 발급] ▸ [App Key 관리 (계정 발급)]</b>(<code>/tickets/account</code>). 왼쪽 고객사는 <b>고객사 관리 고객사</b>이고 기본은 '
-              '<b>발급 고객사</b>(App Key 계정이 있는 곳)만 보인다 <code>PC-153</code>. 고객사를 고르면 가운데에 그 고객사의 App Key 계정, 오른쪽에 첫 계정 상세가 열린다. '
+              '<b>발급 고객사</b>(App Key 계정이 있는 곳)만 보인다 <code>PC-153</code>. <b>상위 고객사</b>(공통코드 보유)는 ▶ 와 「하위 n」 으로 보이고 접혀 있다 — 하위 고객사가 발급받은 상위 고객사는 [발급 고객사]에도 나온다 <code>PC-196</code> <code>PC-198</code>. '
+              '고객사를 고르면 가운데에 그 고객사의 App Key 계정, 오른쪽에 첫 계정 상세가 <b>[발급 내역]</b> 탭으로 열린다(발급분이 없으면 [App Key 발급]) <code>PC-200</code>. '
               '세 칸의 목록은 <b>화면 아래 끝까지</b> 쓴다 <code>PC-156</code> <code>PC-157</code>.',
               fr(H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)), detail()), 1000),
               [('[발급 고객사] / [전체 고객사]', '클릭', '왼쪽 목록 전환', '전체 = 고객사 관리 전체 · S2'),
+               ('상위 고객사 ▶', '클릭', '하위 고객사 접기 · 펼치기', '기본 접힘 · 검색 중이면 펼침 · S14 <code>PC-198</code>'),
                ('고객사', '클릭', '가운데 계정 · 오른쪽 첫 계정', '계정이 없으면 빈 안내'),
+               ('발급 내역 줄', '클릭', '그 아래 Key 정보 펼침 · 다시 누르면 접힘', 'S9 <code>PC-200</code>'),
                ('계정 카드', '클릭', '오른쪽 계정 상세', '이름 · ID · App Key/미발급 · 코드 범위 수 · 대장 · 등록일'),
                ('[＋ 계정 추가]', '클릭', 'S4', '고른 고객사로 새 계정'),
-               ('계정 정보 [저장]', '클릭', '계정 정보 반영', '<b>계정 정보가 저장되었습니다.</b>'),
-               ('[계정 삭제]', '클릭', 'S12 확인창', '')]))
+               ('계정 정보 [저장] · [계정 삭제]', '클릭', '[계정 정보] 탭에서만', '<b>계정 정보가 저장되었습니다.</b> · 삭제는 S12 확인창 <code>PC-200</code>')]))
 
     B.append(('S2', '전체 고객사 — 검색해 처음 발급', '분기',
               '<b>[전체 고객사 537]</b>로 바꾸면 고객사 관리의 모든 고객사가 나온다. 검색해 아직 App Key 계정이 없는 고객사를 고르면 가운데가 빈 안내이고, '
@@ -253,12 +289,11 @@ def build():
                ('PWD 없음', '[계정 추가]', '<b>차단</b>', '<b>비밀번호가 필요합니다. (요청 없으면 [임의 생성])</b>')]))
 
     B.append(('S7', '계정 상세 — App Key 발급 탭', '기본',
-              '<b>App Key 는 계정당 1개</b>이고, 키 아래 <b>코드 범위(=티켓)</b>를 여러 건 발급한다 <code>PC-050</code>. 위는 코드 범위 발급 폼, 아래는 '
-              '<b>App Key 발급 내역</b>(키 · 티켓 줄 · [티켓 수정])과 <b>Key 정보</b>. 발급된 키 · 티켓은 <b>지우지 않는다</b> <code>PC-192</code>.',
-              fr(H + kws.grid(left(h=col_h(1250)), mid(h=col_h(1250)), detail('key', picked=True)), 1250),
+              '<b>App Key 는 계정당 1개</b>이고, 키 아래 <b>코드 범위(=티켓)</b>를 여러 건 발급한다 <code>PC-050</code>. 이 탭에는 <b>발급 · 수정 폼만</b> 둔다 — '
+              '지금까지 발급한 티켓은 첫 탭 <b>[발급 내역]</b>에서 본다 <code>PC-200</code>. 발급된 키 · 티켓은 <b>지우지 않는다</b> <code>PC-192</code>.',
+              fr(H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)), detail('key', picked=True)), 1000),
               [('[코드 범위 발급]', '클릭', '티켓 1건 + 원장 티켓', '<b>티켓 발급 — {범위} · {기간}</b> · <code>PC-119</code>'),
-               ('[티켓 수정]', '클릭', 'S11', '그 티켓을 고르고 아래에 수정 폼 <code>PC-192</code>'),
-               ('발급 범위', '선택', '범위 목록', '없으면 S10')]))
+               ('발급 범위', '선택', '범위 목록', '하위 고객사면 상위 SOBP(S14) · 없으면 S10')]))
 
     B.append(('S8', 'App Key 발급 완료', '분기',
               '키가 없는 계정에서 범위를 골라 발급하면 <b>ID · PWD · App Key</b>(영문·숫자 29자 <code>PC-066</code>)가 나오고 [전체 복사]로 한 번에 복사한다.',
@@ -267,11 +302,14 @@ def build():
               [('[전체 복사]', '클릭', '클립보드', '<b>계정·키 정보가 복사되었습니다.</b>'),
                ('발급(자동)', '—', '<code>TKT-02</code> 원장 · <code>LOG-01</code>', 'APP 티켓 1건')]))
 
-    B.append(('S9', '발급 내역 선택 → Key 정보', '분기',
-              '발급 내역의 티켓 줄(▸)을 고르면 아래 <b>Key 정보</b>가 그 티켓 값으로 바뀐다. 기본은 첫 티켓 <code>PC-120</code>.',
-              fr(H + kws.grid(left(h=col_h(1250)), mid(h=col_h(1250)), detail('key', sel_idx=1)), 1250),
-              [('티켓 줄', '클릭', 'Key 정보 갱신', 'Company Name · Account Id · App Key · S/O/B/P · Code Type · 기간 · Ticket Type · Version'),
-               ('정산 배지', '—', '티켓 줄 오른쪽', '미정 · 유료(금액) · 무료 · 체험(D-day / 만료) <code>PC-177</code> · 입력은 S13 정산 탭')]))
+    B.append(('S9', '발급 내역 — 줄 펼침 → Key 정보', '분기',
+              '첫 탭 <b>[발급 내역]</b>은 지금까지 발급한 티켓을 한 줄씩 보인다 — 위 줄 <b>코드 구간</b>(종류 · S · O · B · P), 아래 줄 <b>발급일</b>(대장분은 「대장」) · <b>권수</b> · <b>사용기간</b>, '
+              '오른쪽 <b>정산</b> · <b>[수정]</b>. 줄을 누르면 <b>그 아래에 Key 정보</b>가 열리고 다시 누르면 접힌다 <code>PC-120</code> <code>PC-200</code>.',
+              fr(H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)), detail('hist', sel_idx=1, open_=True)), 1000),
+              [('발급 내역 줄', '클릭', '그 아래 Key 정보', 'Company Name · Account Id · App Key · Code Type · S/O/B/P · 기간 · Ticket Type'),
+               ('[수정]', '클릭', 'S11', '[App Key 발급] 탭의 폼이 그 티켓 값으로 채워진다 <code>PC-193</code>'),
+               ('정산 배지', '—', '줄 오른쪽', '미정 · 유료(금액) · 무료 · 체험(D-day / 만료) <code>PC-177</code> · 입력은 S13 정산 탭'),
+               ('발급분 없음', '—', '빈 안내', '<b>발급한 티켓이 없습니다.</b> · [App Key 발급으로]')]))
 
     B.append(('S10', '발급 범위 없음', '빈 상태',
               '고객사에 Caster 대장 이력도, 고객사 관리의 SOBP 할당도 없으면 범위 목록이 비어 발급할 수 없다. SOBP 맵(<code>SOB-02</code>)에서 할당한 뒤 다시 발급한다.',
@@ -306,7 +344,7 @@ def build():
            '<div style="font-size:13px;color:#374151;line-height:1.7">이 계정을 삭제할까요?</div>'
            '<div class="mf"><div class="btn gho">취소</div><div class="btn dan">삭제</div></div></div></div>')
     B.append(('S12', '계정 삭제 확인창', '확인창', '[계정 삭제]는 확인을 거친다. <b>발급된 App Key 티켓이 있는 계정은 [계정 삭제]가 비활성</b>이다(티켓 삭제 없음) <code>PC-192</code>.',
-              frame('TKT-01', FT, H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)), detail()), overlay=dlg, height=1000),
+              frame('TKT-01', FT, H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)), detail('info')), overlay=dlg, height=1000),
               [('[삭제]', '클릭', '계정 삭제', '티켓이 없는 계정만 · 다음 계정 상세 · <code>LOG-01</code>'),
                ('티켓 있는 계정', '—', '<b>[계정 삭제] 비활성</b>', '툴팁 <b>발급된 App Key 티켓이 있는 계정은 삭제할 수 없습니다</b>'),
                ('[취소] · ✕', '클릭', 'S1', '')]))
@@ -320,6 +358,31 @@ def build():
                ('과금 유형', '선택', '미정 · 유료 · 무료 · 체험', '유료 = 금액 필수 · 체험 = 만료일(기본 1개월 뒤)'),
                ('[정산 저장]', '클릭', '저장', '<b>정산 정보가 저장되었습니다.</b> · 금액 0 이면 <b>유료는 금액을 입력해야 합니다.</b> · 원장 티켓에도 같은 값 · <code>LOG-01</code>'),
                ('발급 티켓 없음', '—', '안내', '<b>발급된 티켓이 없습니다. [App Key 발급] 탭에서 먼저 발급하세요.</b>')]))
+
+    # 하위 고객사 — 상위 고객사 묶음 안에서 골라 발급(상위 SOBP) `PC-195` `PC-196` `PC-198`
+    LAMI = (('3', '1012', '0~8191', '0~511', '네오노트-1012'),)
+    B.append(('S14', '하위 고객사 — 상위 고객사 묶음에서 선택', '분기',
+              '상위 고객사(공통코드 보유)의 <b>▶</b> 를 누르면 <b>하위 고객사</b>가 왼쪽 <b>세로 안내선</b> 안에 들여 펼쳐진다(기본 접힘 · 「하위 n」) <code>PC-196</code> <code>PC-198</code>. '
+              '하위 고객사를 골라 [＋ 계정 추가] → [App Key 발급] 탭을 열면 발급 범위에 <b>상위 고객사의 SOBP</b> 가 「상위 · 상위 고객사명」 과 함께 나온다. '
+              '하위 고객사끼리는 같은 S/O 를 Book · Page 로 나눠 쓰고 겹칠 수 없다 <code>PC-174</code> <code>PC-195</code>.',
+              fr(H + kws.grid(left(sel='라미', view='all', open_='네오노트-1012', h=col_h(1000)),
+                              mid('라미', adding=True, cards=[], h=col_h(1000)),
+                              new_form('key', co='라미', picked=False, open_=True, ranges=LAMI)), 1000),
+              [('상위 고객사 ▶', '클릭', '하위 고객사 펼침 / 접힘', '「하위 n」 = 하위 고객사 수'),
+               ('하위 고객사', '클릭', '가운데 그 고객사의 App Key 계정', '세로 안내선 안 · 작은 글씨'),
+               ('발급 범위', '선택', '상위 SOBP', '「상위 · 네오노트-1012」 · 아래 구간 사용 현황으로 겹침 확인 <code>PC-195</code>')]))
+
+    # 하위 고객사 — 전체 고객사에서 바로 골라 지금까지 발급한 티켓 확인 `PC-199` `PC-200`
+    B.append(('S15', '하위 고객사 — 전체 고객사에서 바로 선택 · 발급 내역', '분기',
+              '하위 고객사는 상위 묶음 안뿐 아니라 <b>목록 제자리에도</b> 있어 <b>[전체 고객사]</b>에서 검색해 바로 고를 수 있다 <code>PC-199</code>. '
+              '고르면 그 고객사의 계정이 <b>[발급 내역]</b> 탭으로 열려 지금까지 발급한 티켓을 한눈에 본다 <code>PC-200</code>. '
+              '바로 골라 발급하면 그 하위 고객사가 들어간 <b>모든 상위 고객사의 SOBP</b> 가 발급 범위에 나온다.',
+              fr(H + kws.grid(left(sel='Tranwisdom', view='all', search='tranwisdom', names=('Tranwisdom',), h=col_h(1000)),
+                              mid('Tranwisdom', cards=[acc_card('', 'daniel.yang@tranwisdom.com', key=True, n=5, on=True)], h=col_h(1000)),
+                              detail('hist', acc=('daniel.yang@tranwisdom.com', 'daniel.yang@tranwisdom.com'), rows=TRAN, co='Tranwisdom')), 1000),
+              [('고객사 검색', '입력', '하위 고객사도 제자리에 보임', '상위 묶음이 목록에 있으면 그 안에도 보인다'),
+               ('하위 고객사', '클릭', '[발급 내역] 탭', '티켓 줄 · 정산 · [수정] · 줄을 누르면 Key 정보'),
+               ('[App Key 발급] 탭 범위', '선택', '모든 상위 고객사의 SOBP', '범위마다 「상위 · 상위 고객사명」')]))
 
     intro = ('App Key 를 발급하는 화면이다. 「<b>고객사 | App Key 계정 | 계정 상세</b>」 3단 한 화면이며 옛 <code>TKT-01</code> 계정 발급(목록)과 '
              '옛 <code>TKT-02</code> 계정 등록·수정을 합쳤다 <code>PC-146</code> <code>PC-158</code>. 고객사는 <b>고객사 관리 고객사를 불러온다</b>(여기서 등록하지 않음) '
