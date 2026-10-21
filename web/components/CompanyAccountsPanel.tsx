@@ -3,8 +3,8 @@
 // 고객사 관리 ▸ 서비스 계정 — 「카드 목록 | 상세」 2칸 `PC-128` `PC-136`
 // - 고객사마다 **서비스 로그인 계정을 여러 개** 둔다(개수 제한 없음 · ID(email)는 전체에서 유일).
 // - 왼쪽 카드 목록에서 계정을 고르면 오른쪽에 상세, [＋ 계정 추가]를 누르면 오른쪽에 등록 폼이 나온다.
-// - 계정의 **서비스 권한**에서 CasterN 사용을 체크하면 → 이 고객사가 **편집 프로젝트 대상**이 되고
-//   그 계정이 CasterN 을 쓴다(권한 6종). 고객사의 사용 서비스 = 계정들의 서비스의 합 `PC-138`.
+// - 계정의 **서비스 권한**에서 CasterN 사용을 체크하면 → 그 계정이 CasterN 을 쓴다(권한 6종).
+//   고객사의 사용 서비스 = 계정들의 서비스의 합 `PC-138`. **편집 프로젝트 대상과는 무관**하다 `PC-187`.
 // - 상세의 변경은 **[저장]** 으로 반영한다(즉시 저장하지 않는다) `PC-136`.
 // - App Key 관리(티켓 고객사의 키 발급 계정)와는 다른 계정이다(scope = "service").
 // - 비밀번호는 다루지 않는다 — 서비스 로그인은 SSO 다 `PC-159`
@@ -268,7 +268,7 @@ function AccountForm({ mode, account, companyName, allowed, draft, initialId = "
             const on = f.services.includes(sv.v);
             const isCast = sv.v === "CASTERN";
             const desc = isCast
-              ? "[편집 프로젝트]의 대상이 되고, 이 고객사 계정에 CasterN 사용 권한을 줄 수 있습니다"
+              ? "이 계정에 CasterN 사용 권한을 주고 제어합니다"
               : "폼솔루션 서비스 관리 화면에 나타납니다";
             const all = f.perms.length === ALL_PERMS.length;
             const togglePerm = (pm: CasterPerm) =>

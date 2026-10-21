@@ -10,6 +10,14 @@ import { nowKst, today, plusMonth, type Billing } from "./ticketStore";
 
 const KEY = "ncc-service-tickets-v1";
 
+// 서비스 구분 `PC-186` — 서비스 티켓은 서비스마다 따로 지정한다
+export type TicketService = "CASTERN" | "FORMSOLUTION";
+export const TICKET_SERVICES: { v: TicketService; label: string; bg: string; fg: string }[] = [
+  { v: "CASTERN", label: "casterN", bg: "#eef6ff", fg: "#1d4ed8" },
+  { v: "FORMSOLUTION", label: "폼솔루션", bg: "#fff7ed", fg: "#c2410c" },
+];
+export const ticketServiceOf = (v?: string) => TICKET_SERVICES.find((s) => s.v === v);
+
 export type ServiceTicket = {
   id: number;
   no: number;              // 발급 번호 (삭제해도 재사용하지 않음)
@@ -22,6 +30,7 @@ export type ServiceTicket = {
   since: string;           // 사용기간 시작 (YYYY-MM-DD)
   until: string;           // 사용기간 끝 (YYYY-MM-DD)
   shared?: boolean;        // 공유(커먼) 코드 안에서 발급
+  service?: TicketService; // 서비스 구분 — 이 티켓으로 승인하는 서비스 `PC-186` (옛 기록은 비어 있음 = 미지정)
   at: string;              // 발급 일시 (KST)
   by: string;
   // 정산 — N Key 와 같은 4종(미정 · 유료 · 무료 · 체험) `PC-176`. 지정할 때는 미정

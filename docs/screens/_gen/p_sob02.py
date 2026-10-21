@@ -244,7 +244,7 @@ def build():
         scr(modal(T, detail('웅진씽크빅') + cust_svc('웅진씽크빅', 'CASTERN')
                   + owned('웅진씽크빅', OWN2))),
         [('사용 서비스 = casterN', '—', '<code>PRJ-02</code> → <code>PRJ-03</code>',
-          '그 고객사가 편집 대상으로 표시된다 — 지정은 <code>MEM-02</code> 에서 <code>PC-076</code>'),
+          '서비스 계정 권한 표시 — 편집 프로젝트 대상은 등록 고객사 전부라 이와 무관 <code>PC-187</code>'),
          ('[할당]', '성공', '<code>LOG-01</code>',
           '<b>{고객사} · S{n}/O{n} · SO 점유(코드 종류 미정) · 사용 서비스 casterN (편집툴)</b>')]
         + CLOSE))

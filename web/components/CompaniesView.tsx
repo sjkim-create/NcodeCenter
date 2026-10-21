@@ -403,7 +403,7 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "" 
   const svcAccounts = isNew ? drafts
     : cast.accounts.filter((a) => accountScope(a) === "service" && a.companyId === companyId);
   // 고객사 사용 서비스 = **그 고객사 서비스 계정들이 쓰는 서비스의 합** `PC-138`
-  //   계정에 CasterN 사용을 체크하면 → 이 고객사가 편집 프로젝트 대상이 되고 CasterN 을 쓴다.
+  //   계정에 CasterN 사용을 체크하면 → 그 계정이 CasterN 을 쓴다(권한). 편집 프로젝트 대상과는 무관 `PC-187`.
   const servicesOfAccounts = (list: CasterAccount[]) =>
     SERVICE.map((x) => x.v).filter((v) => list.some((a) => (a.services ?? []).includes(v as never)));
   const syncServices = () => {

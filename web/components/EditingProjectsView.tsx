@@ -8,7 +8,6 @@ import { store, useStore } from "@/lib/store";
 import EditingDetailView from "./EditingDetailView";
 import { EditCustomer, loadCustomCustomers, saveCustomCustomers } from "@/lib/editingCustomers";
 import { clearOverridesOfCustomer } from "@/lib/editOverrides";
-import { customersOfService } from "@/lib/serviceCustomers";
 import { EDIT_CUSTOMERS, EDIT_SUMMARY } from "@/lib/editingData";
 import { rateOf, settle, BASE_RATE, won } from "@/lib/pricing";
 import { Sc } from "./sobp";
@@ -97,8 +96,10 @@ export default function EditingProjectsView() {
   const selCust = all.find((c) => uidOf(c) === sel) ?? all.find((c) => c.owner === sel);
 
   const openAdd = () => setAddForm({ companyId: 0, owner: "", kind: "N" });
-  // 편집(casterN) 대상 고객사 — **고객사 관리의 사용 서비스** 지정을 따른다 `PC-076`
-  const casternCos = useMemo(() => customersOfService("CASTERN", st.companies, st.projects), [st.companies, st.projects]);
+  // 편집 대상 고객사 = **고객사 관리에 등록된 고객사 전부** `PC-187`
+  //   편집 프로젝트는 casterN 마스터 계정으로 고객사 프로젝트를 대신 편집 · 취합하는 것이라,
+  //   서비스 계정의 casterN 체크(계정 권한)와 무관하다.
+  const editCos = useMemo(() => st.companies.slice().sort((a, b) => a.name.localeCompare(b.name, "ko")), [st.companies]);
   // 선택한 고객사가 보유한 코드의 Owner 목록 (코드 프로젝트 발급 내역 기준)
   const ownerOptsOf = (companyId: number) => {
     const m = new Map<string, { owner: number; kind: "N" | "G"; section: number }>();
@@ -263,15 +264,15 @@ export default function EditingProjectsView() {
         const co = st.companies.find((c) => c.id === addForm.companyId);
         return (
           <Modal onClose={() => setAddForm(null)} title="편집 고객사 추가">
-            {/* SOBP 맵에서 **사용 서비스 = casterN** 으로 지정한 고객사만 후보다 `PC-057` */}
-            <Field label={`casterN 고객사 * (SOBP 맵에서 사용 서비스 지정)`}>
+            {/* 고객사 관리에 **등록된 고객사 전부**가 후보다 — 서비스 계정의 casterN 체크와 무관 `PC-187` */}
+            <Field label="고객사 * (고객사 관리 등록 고객사)">
               <select style={S.input} value={addForm.companyId} onChange={(e) => onPickCompany(+e.target.value)}>
-                <option value={0}>- 고객사 선택 ({casternCos.length}곳) -</option>
-                {casternCos.map((c) => <option key={c.company.id} value={c.company.id}>{c.company.name}</option>)}
+                <option value={0}>- 고객사 선택 ({editCos.length}곳) -</option>
+                {editCos.map((c) => <option key={c.id} value={c.id}>{c.name}{c.closed ? " (사업 종료)" : ""}</option>)}
               </select>
-              {casternCos.length === 0 && (
+              {editCos.length === 0 && (
                 <div style={{ fontSize: 11.5, color: "#b45309", marginTop: 5, lineHeight: 1.6 }}>
-                  casterN 으로 지정된 고객사가 없습니다 — <b>SOBP 맵 ▸ 직접 코드 할당</b> 에서 사용 서비스를 <b>casterN</b> 으로 지정하세요.
+                  등록된 고객사가 없습니다 — <b>고객사 관리</b>에서 먼저 등록하세요.
                 </div>
               )}
             </Field>

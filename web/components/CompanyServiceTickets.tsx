@@ -22,9 +22,9 @@ import { serviceRangesOfCompany, type ServiceRange } from "@/lib/keyCompany";
 import { sobpOverlapMsg } from "@/lib/rangeGuard";
 import {
   addServiceTicket, deleteServiceTicket, allServiceTickets, hydrateServiceTickets, useServiceTickets,
-  ticketState, STATE_COLOR, serviceTicketText, setServiceBilling, type ServiceTicket,
+  ticketState, STATE_COLOR, serviceTicketText, setServiceBilling, TICKET_SERVICES, ticketServiceOf, type ServiceTicket, type TicketService,
 } from "@/lib/serviceTicketStore";
-import type { Company } from "@/lib/customerData";
+import { companyServices, type Company } from "@/lib/customerData";
 import { WS_CARD as card, WS_HD as hd, WS_EMPTY, WS_HEAD_BTN, wsTag as tag, wsItem, WsTabs } from "./KeyWorkspaceUI";   // 키 화면과 같은 조각 `PC-154`
 
 const PAGE_DEFAULT = 512;   // Page 볼륨 기본값 — App Key · N Key 발급과 같은 값
@@ -124,6 +124,7 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
               <div key={t.id} onClick={() => setRight({ kind: "t", id: t.id })} style={wsItem(on)}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <b style={{ fontSize: 13 }}>No.{t.no}</b>
+                  <SvcTag v={t.service} />
                   <span style={tag(STATE_COLOR[st].bg, STATE_COLOR[st].fg)}>{st}</span>
                   {t.shared && <span style={tag("#f3e8ff", "#7e22ce")}>공유</span>}
                   <span style={{ flex: 1 }} />
@@ -144,7 +145,7 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
           return t ? <TicketDetail key={t.id} t={t} me={me?.name ?? ""} onDeleted={() => { const rest = mine.filter((x) => x.id !== t.id); setRight(rest[0] ? { kind: "t", id: rest[0].id } : { kind: "none" }); }} /> : null;
         })()}
         {right.kind === "add" && (
-          <IssueForm key={`add-${company.id}`} coId={company.id} coName={company.name} ranges={ranges} mine={mine} me={me?.name ?? ""}
+          <IssueForm key={`add-${company.id}`} coId={company.id} coName={company.name} coSvcs={companyServices(company).filter((v): v is TicketService => v === "CASTERN" || v === "FORMSOLUTION")} ranges={ranges} mine={mine} me={me?.name ?? ""}
             onDone={(id) => setRight({ kind: "t", id })} onCancel={() => setRight(first())} />
         )}
         {right.kind === "none" && (
@@ -166,7 +167,7 @@ function TicketDetail({ t, onDeleted, me }: { t: ServiceTicket; onDeleted: () =>
   const st = ticketState(t);
   const [tab, setTab] = useState<DetailTab>("info");
   const rows: [string, string | number][] = [
-    ["Company Name", t.company], ["Code Type", t.pt], ["Section", t.section], ["Owner", t.owner],
+    ["Company Name", t.company], ["Service (서비스)", ticketServiceOf(t.service)?.label ?? "미지정"], ["Code Type", t.pt], ["Section", t.section], ["Owner", t.owner],
     ["Book Start", t.bookStart], ["Book Volume", t.bookVol], ["Book End", t.bookEnd],
     ["Page Start", t.pageStart], ["Page Volume", t.pageVol], ["Page End", t.pageEnd],
     ["Valid From Time", t.since], ["Valid Until Time", t.until], ["지정 일시", t.at.replace("T", " ")], ["지정인", t.by || "-"],
@@ -182,6 +183,7 @@ function TicketDetail({ t, onDeleted, me }: { t: ServiceTicket; onDeleted: () =>
       <div style={hd}>
         <b style={{ fontSize: 14 }}>서비스 티켓 No.{t.no}</b>
         <span style={tag(STATE_COLOR[st].bg, STATE_COLOR[st].fg)}>{st}</span>
+        <SvcTag v={t.service} />
         {t.shared && <span style={tag("#f3e8ff", "#7e22ce")}>공유 코드</span>}
         <span style={{ flex: 1 }} />
         <button type="button" onClick={del} style={{ ...S.smallBtn, color: "#dc2626" }}>티켓 삭제</button>
@@ -213,11 +215,19 @@ function TicketDetail({ t, onDeleted, me }: { t: ServiceTicket; onDeleted: () =>
   );
 }
 
+/** 서비스 구분 배지 — casterN · 폼솔루션 · (옛 기록) 미지정 `PC-186` */
+function SvcTag({ v }: { v?: string }) {
+  const s = ticketServiceOf(v);
+  return s ? <span style={tag(s.bg, s.fg)}>{s.label}</span> : <span style={tag("#f3f4f6", "#9ca3af")}>서비스 미지정</span>;
+}
+
 /* ── 티켓 지정 ─────────────────────────────────────────────── */
-function IssueForm({ coId, coName, ranges, mine, me, onDone, onCancel }: {
-  coId: number; coName: string; ranges: ServiceRange[]; mine: ServiceTicket[]; me: string;
+function IssueForm({ coId, coName, coSvcs, ranges, mine, me, onDone, onCancel }: {
+  coId: number; coName: string; coSvcs: TicketService[]; ranges: ServiceRange[]; mine: ServiceTicket[]; me: string;
   onDone: (id: number) => void; onCancel: () => void;
 }) {
+  // 서비스 구분 — 고객사가 쓰는 서비스가 하나면 그것으로 시작 `PC-186`
+  const [svc, setSvc] = useState<TicketService | "">(coSvcs.length === 1 ? coSvcs[0] : "");
   const [idx, setIdx] = useState(-1);
   const [bStart, setBStart] = useState(0);
   const [bVol, setBVol] = useState(1);
@@ -236,6 +246,7 @@ function IssueForm({ coId, coName, ranges, mine, me, onDone, onCancel }: {
   const maxPVol = r ? Math.max(1, r.pageEnd - pStart + 1) : 1;
 
   const issue = () => {
+    if (!svc) { setErr("서비스(casterN / 폼솔루션)를 선택하세요."); return; }
     if (!r) { setErr("지정 범위(할당 SOBP)를 선택하세요."); return; }
     if (!since || !until) { setErr("사용기간 시작과 끝을 모두 정하세요."); return; }
     if (until < since) { setErr("사용기간 끝이 시작보다 앞설 수 없습니다."); return; }
@@ -245,8 +256,8 @@ function IssueForm({ coId, coName, ranges, mine, me, onDone, onCancel }: {
     if (clash) { setErr(clash); return; }
     const t = addServiceTicket({ companyId: coId, company: coName, pt: r.pt, section: r.section, owner: r.owner,
       bookStart: cand.bookStart, bookVol: bVol, bookEnd: cand.bookEnd, pageStart: pStart, pageVol: pVol, pageEnd: cand.pageEnd,
-      since, until, shared: r.shared, by: me });
-    logActivity("ticket", `서비스 티켓 지정 · ${coName} · No.${t.no} · ${serviceTicketText(t)} · 기간 ${since}~${until}`, me);
+      since, until, shared: r.shared, service: svc, by: me });
+    logActivity("ticket", `서비스 티켓 지정 · ${coName} · No.${t.no} · ${ticketServiceOf(svc)?.label} · ${serviceTicketText(t)} · 기간 ${since}~${until}`, me);
     onDone(t.id);
   };
 
@@ -254,6 +265,17 @@ function IssueForm({ coId, coName, ranges, mine, me, onDone, onCancel }: {
     <div style={card}>
       <div style={hd}><b style={{ fontSize: 14 }}>서비스 티켓 지정</b><span style={{ fontSize: 11.5, color: "#9ca3af" }}>{coName}</span></div>
       <div style={{ padding: 16 }}>
+        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>서비스 *</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          {TICKET_SERVICES.map((x) => {
+            const on = svc === x.v;
+            return (
+              <button key={x.v} type="button" onClick={() => setSvc(x.v)}
+                style={{ padding: "8px 18px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontWeight: on ? 700 : 400,
+                  border: `1px solid ${on ? x.fg : "#e5e7eb"}`, background: on ? x.bg : "#fff", color: on ? x.fg : "#6b7280" }}>{x.label}</button>
+            );
+          })}
+        </div>
         <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>지정 범위 (할당 SOBP · 공유 코드) *</div>
         <SobpRangePicker company ranges={ranges} value={idx} onSelect={pick} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 12 }}>
