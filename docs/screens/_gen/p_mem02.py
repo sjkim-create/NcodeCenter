@@ -550,15 +550,20 @@ def ticket_form(err='', open_=False, start='451'):
          'border-radius:9px;padding:9px 12px">%s</div>' % err) if err else ''
     return ('<div style="' + CARD + '"><div style="padding:13px 16px;border-bottom:1px solid #eef0f4;display:flex;align-items:center;gap:8px">'
             '<b style="font-size:14px">서비스 티켓 지정</b><span style="font-size:11.5px;color:#9ca3af">%s</span></div><div style="padding:16px">'
+            '<div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;margin-bottom:22px"><div>'
             '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">서비스 *</div>'
-            '<div style="display:flex;gap:8px;margin-bottom:14px"><span style="padding:8px 18px;border-radius:9px;font-size:13px;font-weight:700;'
+            '<div style="display:flex;gap:8px"><span style="padding:8px 18px;border-radius:9px;font-size:13px;font-weight:700;'
             'border:1px solid #1d4ed8;background:#eef6ff;color:#1d4ed8">casterN</span><span style="padding:8px 18px;border-radius:9px;font-size:13px;'
-            'border:1px solid #e5e7eb;background:#fff;color:#6b7280">폼솔루션</span></div>'
+            'border:1px solid #e5e7eb;background:#fff;color:#6b7280">폼솔루션</span></div></div><div style="border-left:1px solid #e5e7eb;padding-left:32px">'
+            '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">Code Type *</div>'
+            '<div style="display:flex;gap:8px"><span style="padding:8px 18px;border-radius:9px;font-size:13px;font-weight:700;'
+            'border:1px solid #2563eb;background:#eef6ff;color:#2563eb">PDS3</span><span style="padding:8px 18px;border-radius:9px;font-size:13px;'
+            'border:1px solid #e5e7eb;background:#fff;color:#6b7280">PDS2</span></div></div></div>'
             '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">지정 범위 (할당 SOBP · 공유 코드) *</div>%s'
-            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px">%s%s%s%s</div>'
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">%s%s</div>'
+            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:22px">%s%s%s%s</div>'
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:22px">%s%s</div>'
             '%s%s'
-            '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><span class="btn gho">취소</span>'
+            '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:22px"><span class="btn gho">취소</span>'
             '<span class="btn pri">티켓 지정</span></div></div></div>'
             % (CO, pick, f('Start Book · 431~464', start), f('Book 볼륨 (권) · 최대 14', '5'), f('Start Page · 0~511', '0'),
                f('Page 볼륨 · 최대 512', '512'), f('Valid From Time (사용기간 시작) *', '2026-10-20'),
@@ -739,10 +744,11 @@ def build():
               'Start Book 기본값은 <b>범위 안에서 아직 티켓이 없는 첫 Book</b>. 「ⓘ 만료 후 동작」 은 눌러야 펼쳐지는 숨김 안내다 <code>PC-171</code> ④.',
               frame('MEM-01', FR, layout(H, nav('ticket'), acc_section(ticket_list(adding=True), ticket_form(open_=True))), height=1150),
               [('서비스', '선택 (필수)', 'casterN / 폼솔루션', '이 티켓으로 승인하는 서비스 · 고객사가 쓰는 서비스가 하나면 그것으로 시작 <code>PC-186</code>'),
-               ('지정 범위', '선택', 'Section · Owner · 코드 종류 자동', '할당 SOBP · 공유 코드 범위만'),
+               ('Code Type', '선택 (필수)', 'PDS3 / PDS2', '서비스 옆에 나란히(세로선으로 구분) · 범위를 고르면 그 범위의 종류로 맞추고, 직접 고르면 그대로 둔다 <code>PC-188</code>'),
+               ('지정 범위', '선택', 'Section · Owner 자동', '할당 SOBP · 공유 코드 범위만'),
                ('Book · Page', '입력', '범위 안으로 제한', 'Page 볼륨 기본 512'),
                ('사용기간', '입력 (필수)', '—', '무제한 없음 · 기간은 키 관리에서만 정한다(SOBP 할당에는 기간 없음) <code>PC-175</code>'),
-               ('[티켓 지정]', '클릭', 'S23 상세', '검사 통과 시 · <code>LOG-01</code> 티켓 발급 활동'),
+               ('[티켓 지정]', '클릭', 'S23 상세', '<b>필수 항목이 하나라도 비면 비활성</b> · 툴팁 <b>입력하지 않은 항목: {항목들}</b> <code>PC-189</code> · 겹침 검사 통과 시 · <code>LOG-01</code> 티켓 발급 활동'),
                ('[취소]', '클릭', 'S23', '')]))
     B.append(('S25', '서비스 티켓 — 겹침 오류', '오류',
               '<b>N Key · App Key · 서비스 티켓은 SOBP 가 절대 겹칠 수 없다</b> — 고객사를 가리지 않고 전체 발급분과 비교한다 <code>PC-174</code>.',

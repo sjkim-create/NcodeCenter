@@ -228,6 +228,9 @@ function IssueForm({ coId, coName, coSvcs, ranges, mine, me, onDone, onCancel }:
 }) {
   // 서비스 구분 — 고객사가 쓰는 서비스가 하나면 그것으로 시작 `PC-186`
   const [svc, setSvc] = useState<TicketService | "">(coSvcs.length === 1 ? coSvcs[0] : "");
+  // Code Type — PDS3 / PDS2 를 직접 고른다. 범위를 고르면 그 범위의 종류로 맞춘다 `PC-188`
+  const [ctype, setCtype] = useState<"PDS3" | "PDS2">("PDS3");
+  const [ctypeSet, setCtypeSet] = useState(false);   // 직접 고르면 범위를 바꿔도 그대로 둔다
   const [idx, setIdx] = useState(-1);
   const [bStart, setBStart] = useState(0);
   const [bVol, setBVol] = useState(1);
@@ -240,10 +243,15 @@ function IssueForm({ coId, coName, coSvcs, ranges, mine, me, onDone, onCancel }:
   const pick = (i: number) => {
     const x = ranges[i]; setIdx(i); setErr("");
     if (!x) return;
+    if (!ctypeSet && (x.pt === "PDS2" || x.pt === "PDS3")) setCtype(x.pt);
     setBStart(firstFreeBook(x, mine)); setBVol(1); setPStart(x.pageStart); setPVol(Math.min(PAGE_DEFAULT, x.pageEnd - x.pageStart + 1));
   };
   const maxVol = r ? Math.max(1, r.bookEnd - bStart + 1) : 1;
   const maxPVol = r ? Math.max(1, r.pageEnd - pStart + 1) : 1;
+  // 필수 항목이 하나라도 비면 [티켓 지정]을 막는다 `PC-189` — 무엇이 빠졌는지는 버튼 툴팁으로
+  const missing = [!svc && "서비스", !r && "지정 범위", !since && "사용기간 시작", !until && "사용기간 끝",
+    since && until && until < since && "사용기간(끝이 시작보다 앞섬)"].filter(Boolean) as string[];
+  const ready = missing.length === 0;
 
   const issue = () => {
     if (!svc) { setErr("서비스(casterN / 폼솔루션)를 선택하세요."); return; }
@@ -254,7 +262,7 @@ function IssueForm({ coId, coName, coSvcs, ranges, mine, me, onDone, onCancel }:
     // N Key · App Key · 서비스 티켓은 SOBP 가 절대 겹칠 수 없다 — 고객사를 가리지 않고 전체에서 검사 `PC-174`
     const clash = sobpOverlapMsg(cand);
     if (clash) { setErr(clash); return; }
-    const t = addServiceTicket({ companyId: coId, company: coName, pt: r.pt, section: r.section, owner: r.owner,
+    const t = addServiceTicket({ companyId: coId, company: coName, pt: ctype, section: r.section, owner: r.owner,
       bookStart: cand.bookStart, bookVol: bVol, bookEnd: cand.bookEnd, pageStart: pStart, pageVol: pVol, pageEnd: cand.pageEnd,
       since, until, shared: r.shared, service: svc, by: me });
     logActivity("ticket", `서비스 티켓 지정 · ${coName} · No.${t.no} · ${ticketServiceOf(svc)?.label} · ${serviceTicketText(t)} · 기간 ${since}~${until}`, me);
@@ -265,20 +273,39 @@ function IssueForm({ coId, coName, coSvcs, ranges, mine, me, onDone, onCancel }:
     <div style={card}>
       <div style={hd}><b style={{ fontSize: 14 }}>서비스 티켓 지정</b><span style={{ fontSize: 11.5, color: "#9ca3af" }}>{coName}</span></div>
       <div style={{ padding: 16 }}>
-        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>서비스 *</div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-          {TICKET_SERVICES.map((x) => {
-            const on = svc === x.v;
-            return (
-              <button key={x.v} type="button" onClick={() => setSvc(x.v)}
-                style={{ padding: "8px 18px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontWeight: on ? 700 : 400,
-                  border: `1px solid ${on ? x.fg : "#e5e7eb"}`, background: on ? x.bg : "#fff", color: on ? x.fg : "#6b7280" }}>{x.label}</button>
-            );
-          })}
+        {/* 서비스 · Code Type — 한 줄에 나란히, 두 항목은 세로선으로 떼어 놓는다 `PC-188` `PC-190` */}
+        <div style={{ display: "flex", gap: 32, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 22 }}>
+          <div>
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>서비스 *</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 0 }}>
+              {TICKET_SERVICES.map((x) => {
+                const on = svc === x.v;
+                return (
+                  <button key={x.v} type="button" onClick={() => setSvc(x.v)}
+                    style={{ padding: "8px 18px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontWeight: on ? 700 : 400,
+                      border: `1px solid ${on ? x.fg : "#e5e7eb"}`, background: on ? x.bg : "#fff", color: on ? x.fg : "#6b7280" }}>{x.label}</button>
+                );
+              })}
+            </div>
+          </div>
+          <div style={{ borderLeft: "1px solid #e5e7eb", paddingLeft: 32 }}>
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>Code Type *</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 0 }}>
+              {(["PDS3", "PDS2"] as const).map((k) => {
+                const on = ctype === k;
+                return (
+                  <button key={k} type="button" onClick={() => { setCtype(k); setCtypeSet(true); }}
+                    style={{ padding: "8px 18px", borderRadius: 9, cursor: "pointer", fontSize: 13, fontWeight: on ? 700 : 400,
+                      border: `1px solid ${on ? "#2563eb" : "#e5e7eb"}`, background: on ? "#eef6ff" : "#fff", color: on ? "#2563eb" : "#6b7280" }}>{k}</button>
+                );
+              })}
+            </div>
+          </div>
         </div>
+        {/* 항목 묶음 사이 세로 간격 22px — 지정 범위 · Book/Page · 사용기간이 구분되게 `PC-191` */}
         <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>지정 범위 (할당 SOBP · 공유 코드) *</div>
         <SobpRangePicker company ranges={ranges} value={idx} onSelect={pick} />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 22 }}>
           <Field label={`Start Book ${r ? `· ${r.bookStart}~${r.bookEnd}` : ""}`}>
             <input type="number" style={S.input} value={bStart} disabled={!r} min={r?.bookStart} max={r?.bookEnd}
               onChange={(e) => r && setBStart(Math.max(r.bookStart, Math.min(r.bookEnd, +e.target.value || 0)))} />
@@ -296,7 +323,7 @@ function IssueForm({ coId, coName, coSvcs, ranges, mine, me, onDone, onCancel }:
               onChange={(e) => setPVol(Math.max(1, Math.min(maxPVol, +e.target.value || 1)))} />
           </Field>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 22 }}>
           <Field label="Valid From Time (사용기간 시작) *">
             <input type="date" style={S.input} value={since} disabled={!r} onChange={(e) => setSince(e.target.value)} />
           </Field>
@@ -304,11 +331,12 @@ function IssueForm({ coId, coName, coSvcs, ranges, mine, me, onDone, onCancel }:
             <input type="date" style={S.input} value={until} disabled={!r} min={since || undefined} onChange={(e) => setUntil(e.target.value)} />
           </Field>
         </div>
-        <ExpiryNote />
+        <div style={{ marginTop: 10 }}><ExpiryNote /></div>   {/* ExpiryNote 자체 위 여백 12 + 10 = 22 */}
         {err && <div style={{ marginTop: 12, fontSize: 12.5, color: "#b91c1c", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: "9px 12px" }}>{err}</div>}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 22 }}>
           <button type="button" onClick={onCancel} style={S.ghost}>취소</button>
-          <button type="button" onClick={issue} disabled={!r} style={{ ...S.primary, opacity: r ? 1 : 0.5 }}>티켓 지정</button>
+          <button type="button" onClick={issue} disabled={!ready} title={ready ? undefined : `입력하지 않은 항목: ${missing.join(" · ")}`}
+            style={{ ...S.primary, opacity: ready ? 1 : 0.5, cursor: ready ? "pointer" : "not-allowed" }}>티켓 지정</button>
         </div>
       </div>
     </div>
