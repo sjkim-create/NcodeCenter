@@ -4,7 +4,7 @@
 // - 고객사를 가리지 않고 **전체**에서 검사한다(같은 종류끼리도). 같은 Section · Owner 에서 Book · Page 구간이 모두 겹치면 겹침.
 // - 대장(과거 발급분)에 End 가 없으면 Start + Volume 으로 끝을 잡고, Start 도 비어 있으면 그 Owner 전체를 쓴 것으로 본다.
 // - 세 발급 지점(App Key 관리 · N Key 관리 · 고객사 관리 ▸ 서비스 티켓)이 모두 이 함수를 쓴다.
-import { caster, keyRanges } from "./accountStore";
+import { caster, accountTickets } from "./accountStore";
 import { allTickets, hydrateTickets } from "./ticketStore";
 import { allServiceTickets } from "./serviceTicketStore";
 
@@ -21,8 +21,8 @@ const endOf = (start: number | null, end: number | null, vol: number | null) =>
 export function occupiedSobp(): Occupied[] {
   hydrateTickets();
   const out: Occupied[] = [];
-  for (const k of caster.snapshot().appKeys) {
-    keyRanges(k).forEach((r, i) => out.push({ kind: "App Key", who: k.company, ref: `${k.accountId}#${i}`,
+  for (const a of caster.snapshot().accounts) {   // App Key 티켓 = 계정 소속 `PC-206`
+    accountTickets(a).forEach((r, i) => out.push({ kind: "App Key", who: a.company, ref: `${a.id}#${i}`,
       section: r.section, owner: r.owner,
       bookStart: r.bookStart ?? 0, bookEnd: endOf(r.bookStart, r.bookEnd, r.bookVol ?? null),
       pageStart: r.pageStart ?? 0, pageEnd: endOf(r.pageStart, r.pageEnd, r.pageVol ?? null) }));

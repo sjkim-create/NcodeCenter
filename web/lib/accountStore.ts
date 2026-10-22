@@ -12,6 +12,7 @@
 import { useSyncExternalStore } from "react";
 import { isCasterExcluded } from "./ledgerExclude";
 import casterLedger from "@/data/caster-ledger.json";
+import { normAppKeyPerms } from "./appKeyPerms";
 
 // 사용처(연동 서비스) — 계정 로그인 허용 범위를 가르는 값
 // ── 인증 서비스 `PC-076` ──────────────────────────
@@ -103,6 +104,10 @@ export type CasterAccount = {
   owner?: boolean;     // 고객사 OWNER 계정 — 서비스 계정 중 **고객사당 1명** `PC-159`
   seeded?: boolean;    // 개발팀 대장에서 들어온 계정 — 비밀번호는 저장하지 않았다(「대장 참조」) `PC-103`
   note?: string;       // 대장의 안내문(영업용 테스트 계정 등)
+  // 티켓 — **계정에 소속**된다(App Key 소속 아님) `PC-206`. 계정당 여러 개 · SOBP 가 바뀌면 키 대신 티켓을 더 발급한다
+  tickets?: KeyRange[];
+  // App Key 권한 — Caster 권한 20항목 true / false `PC-207`. 기본 모두 false, 대장 계정은 대장 값
+  keyPerms?: Record<string, boolean>;
   createdAt: string;
   /** @deprecated 단일 사용처 시절 필드 — hydrate 에서 services 로 옮긴다 */
   service?: AccountService;
@@ -135,6 +140,7 @@ export type KeyRange = {
   until?: string;          // 사용기간 끝 (YYYY-MM-DD / "무제한")
   ticketId?: number;       // 원장(Key 발급 목록) 티켓 id — [티켓 삭제] 시 함께 제거 `PC-121`
   note?: string;
+  info?: string;           // 티켓 Info — 티켓 메모(예: sample) `PC-206`. 없으면 note(대장 안내)
   // 정산 — N Key 와 같은 4종(미정 · 유료 · 무료 · 체험) `PC-177`. 범위(=티켓)마다 둔다
   billing?: "미정" | "유료" | "무료" | "체험";
   amount?: number;
@@ -151,7 +157,7 @@ export type AppKey = {
   accountId: string;   // 연동 계정(email)
   services: AccountService[];   // 사용처 — 계정의 사용처 전체(공통)
   company: string;
-  ranges?: KeyRange[]; // 코드 범위 목록 `PC-103` — 아래 낱개 필드는 첫 범위(옛 데이터 호환)
+  ranges?: KeyRange[]; // 옛 저장 위치 — 티켓은 계정(tickets)으로 옮겼다 `PC-206`. 남은 값은 불러올 때 옮기고 [] 로 둔다
   seeded?: boolean;    // 대장 시드 `PC-103`
   pt: string; section: number; owner: number; bookStart: number; bookEnd: number;
   bookVol: number;     // Book Volume — 발급 권수 (bookEnd = bookStart + bookVol - 1)
@@ -164,9 +170,10 @@ export type AppKey = {
   /** @deprecated 사용처별 키였던 시절 필드 — hydrate 에서 services 로 옮긴다 */
   service?: AccountService;
 };
-// App Key 값 = **영문·숫자 29자 난수** `PC-066` — 접두어(ncc_live_ 등)를 붙이지 않는다.
+// App Key 값 = **영문 소문자·숫자가 섞인 29자 난수** `PC-066` `PC-207` — 개발팀이 발급하는 키와 같은 모양
+//   (예: 32b019140790385d8cb6fa32d9b81). 접두어(ncc_live_ 등)를 붙이지 않는다. 옛 대소문자 키도 그대로 둔다.
 export const APP_KEY_LEN = 29;
-const APP_KEY_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const APP_KEY_CHARS = "0123456789abcdef";
 export function genAppKey(): string {
   const buf = new Uint32Array(APP_KEY_LEN);
   (globalThis.crypto ?? window.crypto).getRandomValues(buf);
@@ -179,7 +186,7 @@ export const appKeyOf = (s: { appKeys: AppKey[] }, accountId: string) =>
   s.appKeys.find((k) => k.accountId === accountId);
 // App Key 의 코드 범위 목록 — ranges 가 없으면 낱개 필드를 한 범위로 `PC-103`
 export const keyRanges = (k: AppKey): KeyRange[] =>
-  k.ranges?.length ? k.ranges : [{ pt: k.pt, section: k.section, owner: k.owner, bookStart: k.bookStart, bookEnd: k.bookEnd,
+  Array.isArray(k.ranges) ? k.ranges : [{ pt: k.pt, section: k.section, owner: k.owner, bookStart: k.bookStart, bookEnd: k.bookEnd,
     bookVol: k.bookVol, pageStart: k.pageStart, pageEnd: k.pageEnd, pageVol: k.pageVol }];
 const span = (a: number | null | undefined, b?: number | null) =>
   a == null ? "—" : b != null && b !== a ? `${a}~${b}` : `${a}`;
@@ -189,10 +196,19 @@ export const rangeText = (r: KeyRange) =>
 export const rangeBooks = (r: KeyRange) =>
   r.count ?? (r.bookStart != null && r.bookEnd != null ? r.bookEnd - r.bookStart + 1 : null);
 // 범위(=티켓)의 사용기간 — 범위에 없으면 App Key 의 기간으로 대체(대장 시드) `PC-118`
-export const rangePeriod = (k: { since?: string; until?: string }, r: KeyRange) => ({
-  since: r.since ?? k.since ?? "",
-  until: r.until ?? k.until ?? "무제한",
+export const rangePeriod = (k: { since?: string; until?: string } | undefined, r: KeyRange) => ({
+  since: r.since ?? k?.since ?? "",
+  until: r.until ?? k?.until ?? "무제한",
 });
+/** 계정의 티켓 — 계정 소속 `PC-206` */
+export const accountTickets = (a?: CasterAccount): KeyRange[] => a?.tickets ?? [];
+/** 티켓 Type 코드 — Caster 티켓 표기(PDS3 = N3C6 · PDS2 = G3C6 · PDS4 = S1C6) `PC-206` */
+export const TYPE_CODE: Record<string, string> = { PDS3: "N3C6", PDS2: "G3C6", PDS4: "S1C6", Scode: "S1C6" };
+export const typeCode = (pt: string) => TYPE_CODE[pt] ?? pt;
+/** 티켓 Period — YYMMDD. 무제한 = 991231 `PC-206` */
+export const periodCode = (until?: string) =>
+  !until || until === "무제한" ? "991231" : until.replace(/-/g, "").slice(2, 8);
+export const ticketInfo = (r: KeyRange) => r.info ?? r.note ?? "";
 type State = { accounts: CasterAccount[]; appKeys: AppKey[] };
 
 const KEY = "ncc-caster-v1";
@@ -241,7 +257,18 @@ function migrate(s: State): State {
     const key = isAppKey(k.key) ? k.key : genAppKey();
     return { ...rest, key, services, bookVol: vol };
   });
-  return { ...s, accounts, appKeys };
+  // 티켓을 App Key → 계정으로 옮긴다 `PC-206` — 계정에 tickets 가 아직 없을 때 1회
+  // App Key 권한 `PC-207` — 없으면 대장 계정은 대장 값, 그 밖은 모두 false
+  const ledgerPerms = new Map((casterLedger.accounts as { id: string; company: string; perms: Record<string, boolean> }[])
+    .map((r) => [r.id || `${r.company} (계정 미기재)`, r.perms]));
+  const accs2 = accounts.map((a0) => {
+    const a = a0.keyPerms ? a0 : { ...a0, keyPerms: normAppKeyPerms(a0.seeded ? ledgerPerms.get(a0.id) : undefined) };
+    if (a.tickets) return a;
+    const mine = appKeys.filter((k) => k.accountId === a.id).flatMap((k) => keyRanges(k));
+    return { ...a, tickets: mine };
+  });
+  const keys2 = appKeys.map((k) => ({ ...k, ranges: [] as KeyRange[] }));
+  return { ...s, accounts: accs2, appKeys: keys2 };
 }
 
 // ── 개발팀 대장 시드 `PC-103` ─────────────────────────────
@@ -273,12 +300,14 @@ function seedFromLedger(s: State): State {
       addr: r.addr || "", homepage: r.homepage || "", phone: r.phone || "",
       seeded: true, note: r.note || "",   // 사용기간은 App Key(티켓)로 옮겼다 `PC-117`
       createdAt: r.since ? `${r.since} 00:00:00` : "대장",
+      keyPerms: normAppKeyPerms(r.perms),   // App Key 권한 = 대장 값 `PC-207`
+      tickets: r.ranges.map((x) => ({ ...x, since: x.since ?? r.since ?? "", until: x.until ?? r.until ?? "무제한" })),   // 티켓 = 계정 소속 `PC-206`
     });
     if (r.ranges.length || r.appKey) {
       const f = r.ranges[0];
       appKeys.push({
         id: seq++, key: r.appKey || "", accountId: id, services, company: r.company,
-        ranges: r.ranges, seeded: true,
+        ranges: [], seeded: true,   // 티켓은 계정에 `PC-206`
         pt: f?.pt ?? "PDS3", section: f?.section ?? 0, owner: f?.owner ?? 0,
         bookStart: f?.bookStart ?? 0, bookEnd: f?.bookEnd ?? 0, bookVol: rangeBooks(f ?? { pt: "", section: 0, owner: 0, bookStart: null, bookEnd: null, pageStart: null, pageEnd: null }) ?? 0,
         pageStart: f?.pageStart ?? 0, pageEnd: f?.pageEnd ?? 0,
@@ -316,7 +345,8 @@ export const caster = {
   addAccount(a: Omit<CasterAccount, "createdAt">): { ok: boolean; msg: string } {
     if (state.accounts.some((x) => x.id.toLowerCase() === a.id.toLowerCase())) return { ok: false, msg: "이미 등록된 ID(email)입니다." };
     // 인증 서비스는 **0개도 정상** — 아무것도 고르지 않으면 SDK 연동(코드만 할당) `PC-076`
-    commit({ ...state, accounts: [{ ...a, createdAt: kstNow() }, ...state.accounts] });
+    // App Key 권한 기본값 = 모두 false `PC-207`
+    commit({ ...state, accounts: [{ ...a, keyPerms: normAppKeyPerms(a.keyPerms), createdAt: kstNow() }, ...state.accounts] });
     return { ok: true, msg: "계정 등록됨" };
   },
   // 계정 수정 — ID(email)·고객사는 바꾸지 않는다(키 연동 기준값).
@@ -339,38 +369,25 @@ export const caster = {
     return rec;
   },
   removeAppKey(id: number) { commit({ ...state, appKeys: state.appKeys.filter((k) => k.id !== id) }); },
-  // 발급된 App Key 에 코드 범위를 하나 더 물린다 `PC-103`
-  addKeyRange(id: number, r: KeyRange) {
-    const appKeys = state.appKeys.map((k) => (k.id === id ? { ...k, ranges: [...keyRanges(k), r] } : k));
-    commit({ ...state, appKeys });
+  /** App Key 권한 저장 — 20항목 true / false `PC-207` */
+  setKeyPerms(accountId: string, perms: Record<string, boolean>) {
+    commit({ ...state, accounts: state.accounts.map((a) => (a.id === accountId ? { ...a, keyPerms: normAppKeyPerms(perms) } : a)) });
   },
-  /** 코드 범위(=티켓) 수정 — 삭제 대신 정보만 고친다 `PC-192` */
-  updateKeyRange(id: number, idx: number, patch: Partial<KeyRange>) {
-    const appKeys = state.appKeys.map((k) => {
-      if (k.id !== id) return k;
-      const rs = keyRanges(k).map((r, i) => (i === idx ? { ...r, ...patch } : r));
-      const f = rs[0];
-      return { ...k, ranges: rs, ...(f ? { pt: f.pt, section: f.section, owner: f.owner, bookStart: f.bookStart ?? 0, bookEnd: f.bookEnd ?? 0, bookVol: f.bookVol ?? k.bookVol, pageStart: f.pageStart ?? 0, pageEnd: f.pageEnd ?? 0, pageVol: f.pageVol } : {}) };
-    });
-    commit({ ...state, appKeys });
+  // 티켓 — **계정 소속** `PC-206`. 계정당 여러 개, 삭제 없이 정보만 고친다 `PC-192`
+  addAccountTicket(accountId: string, r: KeyRange) {
+    const accounts = state.accounts.map((a) => (a.id === accountId ? { ...a, tickets: [...accountTickets(a), r] } : a));
+    commit({ ...state, accounts });
   },
-  /** 코드 범위(=티켓) 정산 등록 `PC-177` */
-  setRangeBilling(id: number, idx: number, patch: Pick<KeyRange, "billing" | "amount" | "currency" | "fxRate" | "trialUntil" | "billNote" | "billedBy">) {
-    const appKeys = state.appKeys.map((k) => {
-      if (k.id !== id) return k;
-      const rs = keyRanges(k).map((r, i) => (i === idx ? { ...r, ...patch, billedAt: kstNow() } : r));
-      return { ...k, ranges: rs };
-    });
-    commit({ ...state, appKeys });
+  updateAccountTicket(accountId: string, idx: number, patch: Partial<KeyRange>) {
+    const accounts = state.accounts.map((a) => (a.id === accountId
+      ? { ...a, tickets: accountTickets(a).map((r, i) => (i === idx ? { ...r, ...patch } : r)) } : a));
+    commit({ ...state, accounts });
   },
-  removeKeyRange(id: number, idx: number) {
-    const appKeys = state.appKeys.map((k) => {
-      if (k.id !== id) return k;
-      const rs = keyRanges(k).filter((_, i) => i !== idx);
-      const f = rs[0];
-      return { ...k, ranges: rs, ...(f ? { pt: f.pt, section: f.section, owner: f.owner, bookStart: f.bookStart ?? 0, bookEnd: f.bookEnd ?? 0, pageStart: f.pageStart ?? 0, pageEnd: f.pageEnd ?? 0 } : {}) };
-    });
-    commit({ ...state, appKeys });
+  /** 티켓 정산 등록 — 티켓마다 `PC-177` */
+  setTicketBilling(accountId: string, idx: number, patch: Pick<KeyRange, "billing" | "amount" | "currency" | "fxRate" | "trialUntil" | "billNote" | "billedBy">) {
+    const accounts = state.accounts.map((a) => (a.id === accountId
+      ? { ...a, tickets: accountTickets(a).map((r, i) => (i === idx ? { ...r, ...patch, billedAt: kstNow() } : r)) } : a));
+    commit({ ...state, accounts });
   },
 
   // 고객사별 계정 목록 — 한 고객사에 여러 계정을 둘 수 있다(제한 없음).

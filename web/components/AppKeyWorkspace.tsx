@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { S } from "./ui";
 import { AccountDetailView, AccountNewView } from "./AccountsView";
-import { useCaster, accountScope, keyRanges, type CasterAccount } from "@/lib/accountStore";
+import { useCaster, accountScope, accountTickets, type CasterAccount } from "@/lib/accountStore";
 import { useStore } from "@/lib/store";
 import { companyOfAccount } from "@/lib/keyCompany";
 import {
@@ -151,7 +151,7 @@ export function AppKeyWorkspace() {
             {accs.map((a) => {
               const on = right.kind === "acc" && right.id === a.id;
               const key = cast.appKeys.find((k) => k.accountId === a.id);
-              const nRange = key ? keyRanges(key).length : 0;
+              const nRange = accountTickets(a).length;   // 티켓 = 계정 소속 `PC-206`
               return (
                 <div key={a.id} onClick={() => setRight({ kind: "acc", id: a.id })} style={wsItem(on)}>
                   <b style={{ fontSize: 13.5 }}>{a.name || <span style={{ color: "#9ca3af", fontWeight: 400 }}>이름 없음</span>}</b>
@@ -159,7 +159,7 @@ export function AppKeyWorkspace() {
                   {coId === UNLINKED && <div style={{ fontSize: 11.5, color: "#b45309", marginTop: 2 }}>대장 고객사명: {a.company}</div>}
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 7 }}>
                     {key ? <span style={tag("#f5f3ff", "#6d28d9")}>App Key</span> : <span style={tag("#f3f4f6", "#9ca3af")}>미발급</span>}
-                    {nRange > 0 && <span style={tag("#eef6ff", "#2563eb")}>코드 범위 {nRange}</span>}
+                    {nRange > 0 && <span style={tag("#eef6ff", "#2563eb")}>티켓 {nRange}</span>}
                     {a.seeded && <span style={tag("#f3f4f6", "#9ca3af")} title="개발팀 Caster 대장에서 들어온 계정">대장</span>}
                     <span style={{ marginLeft: "auto", fontSize: 11, color: "#9ca3af" }}>{a.createdAt ? a.createdAt.slice(0, 10) : ""}</span>
                   </div>
