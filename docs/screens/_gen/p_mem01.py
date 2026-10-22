@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
-"""MEM-01 고객사 관리 — web/components/CompaniesView.tsx 실제 구현 기준"""
+"""MEM-01 고객사 관리 — [표 보기] 목록 표 (web/components/CompaniesView.tsx CompaniesTable) `PC-204`
+고객사 관리는 3단(MEM-02)이 기본이고, 머리의 [표 보기]로 이 목록 표를 연다."""
 from shell import page, frame
+import kws
 
 CODE, NAME = 'MEM-01', '고객사 관리'
 PRD = 'docs/prd/MEM-01_고객사 관리.md'
 
-TIERS = (('', '전체', 537, '#374151', '#eef6ff'),
+TIERS = (('', '전체', 536, '#374151', '#eef6ff'),
          ('holder', '상위 고객사', 6, '#047857', '#ecfdf5'),
          ('member', '하위 고객사', 211, '#7e22ce', '#f3e8ff'),
-         ('solo', '단독 고객사', 320, '#6b7280', '#f3f4f6'))
+         ('solo', '단독 고객사', 319, '#6b7280', '#f3f4f6'))
 
 # 업체명, 계층, 담당자, 연락처, 사업자번호, 은행, 계좌, 커먼코드, 전용단가수, 주소, 서류, 업무, 종료
 ROWS = [
@@ -51,7 +53,7 @@ def toolbar(search='', filtered=None):
             'flex-wrap:wrap">'
             '<p style="margin:0;color:#6b7280;font-size:13px">'
             '업체(고객사) 마스터 · 사업자/계좌/서류/업무 원장. 행을 클릭하면 수정 화면으로 이동합니다. '
-            '고객사 537곳 · 프로젝트 511건</p>'
+            '고객사 536곳 · 프로젝트 511건</p>'
             '<div style="flex:1"></div>'
             '<div style="position:relative">'
             '<div style="width:240px;padding:8px 26px 8px 10px;border:1px solid #e5e7eb;'
@@ -155,7 +157,7 @@ def table(rows, search=''):
         foot = ('<div style="display:flex;align-items:center;justify-content:space-between;'
                 'gap:10px;padding:10px 14px;border-top:1px solid #eef0f4;flex-wrap:wrap">'
                 '<div style="font-size:12px;color:#6b7280">전체 '
-                '<b style="color:#111827">537</b>건 중 1~50 표시'
+                '<b style="color:#111827">536</b>건 중 1~50 표시'
                 '<span style="margin-left:8px;font-size:12px;padding:3px 6px;'
                 'border:1px solid #e5e7eb;border-radius:6px">50건씩 ▾</span></div>'
                 '<div style="display:flex;align-items:center;gap:4px">%s'
@@ -237,11 +239,12 @@ def content(rows=None, search='', tier='', shown=None, toast='', onboard=None, a
         top += onboard_card(onboard)
     if approved:
         top += approved_card(approved)
-    return top + toolbar(search) + tier_filter(tier, shown) + toast + table(rows, search)
+    return kws.co_ws_head('table') + top + toolbar(search) + tier_filter(tier, shown) + toast + table(rows, search)
 
 
 BASE = [
-    ('행 클릭', '클릭', '<code>MEM-02</code> (수정 모드)',
+    ('[3단 보기]', '클릭', '<code>MEM-02</code> 3단', '고객사 | 섹션 메뉴 | 상세 <code>PC-204</code>'),
+    ('행 클릭', '클릭', '<code>MEM-02</code> 3단의 그 고객사',
      '툴팁 <b>클릭하면 수정 화면으로 이동합니다</b> · 종료 업체는 <b>프로젝트 종료 고객사 (코드 발급 이력만)</b>'),
     ('업체명 옆 정렬 셀렉트', '선택', '목록 다시 정렬', '최신순(기본) / 오름차순 (가나다) / 내림차순 <code>PC-161</code>'),
     ('검색', '입력', '즉시 필터링', '<b>업체명·담당자·사업자번호</b> · ×로 해제'),
@@ -260,7 +263,8 @@ def build():
 
     boards.append((
         'S1', '기본 · 전체 목록', '기본',
-        '좌측 메뉴 [고객사 관리]로 진입. 구현은 <b>안내문 + 검색 + [＋ 고객사 등록]</b> 툴바 아래에 '
+        '좌측 메뉴 [고객사 관리]는 <b>3단</b>(<code>MEM-02</code>)으로 열리고, 머리의 <b>[표 보기]</b>를 누르면 이 목록 표가 나온다(<code>/companies?view=table</code>) <code>PC-204</code>. '
+        '구현은 <b>안내문 + 검색 + [＋ 고객사 등록]</b> 툴바 아래에 '
         '<b>구분 필터 줄</b>이 따로 있고, 표는 <b>12열</b>(No · 업체명 · 담당자/연락처 · 서비스 계정 · 사업자번호 · '
         '은행/계좌 · 커먼 코드 · 편집 단가 · <b>주소</b> · 서류 · 업무 · 작업)이다. '
         '표 하단에 <b>표시 건수 선택 + 페이지네이션</b>이 붙는다. '

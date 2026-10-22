@@ -12,7 +12,7 @@ import { S, Field } from "./ui";
 import { useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
-import { addTicket, deleteTicket, hydrateTickets, setBilling, ticketById, updateTicket, useTickets } from "@/lib/ticketStore";
+import { addTicket, deleteTicket, fmtMoney, hydrateTickets, setBilling, ticketById, updateTicket, useTickets } from "@/lib/ticketStore";
 import { BillingEditor, BillTag } from "./BillingEditor";
 import { sobpOverlapMsg } from "@/lib/rangeGuard";
 import { SobpRangePicker, type SobpRange } from "./TicketsView";
@@ -829,7 +829,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
               onSave={(p) => {
                 caster.setRangeBilling(selected.k.id, selected.i, { ...p, billedBy: me?.name ?? "" });
                 if (selected.r.ticketId) setBilling(selected.r.ticketId, { ...p, by: me?.name ?? "" });   // 원장 티켓에도 같은 값
-                logActivity("ticket", `App Key 정산 · ${acc.company} · ${acc.id} · ${rangeText(selected.r)} · ${p.billing}${p.billing === "유료" ? ` ${p.amount.toLocaleString()}원` : ""}`, me?.name);
+                logActivity("ticket", `App Key 정산 · ${acc.company} · ${acc.id} · ${rangeText(selected.r)} · ${p.billing}${p.billing === "유료" ? ` ${fmtMoney(p)}` : ""}`, me?.name);
               }} />
           )}
         </div>

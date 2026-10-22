@@ -35,7 +35,9 @@ export type Ticket = {
   params: Record<string, string | number>;   // Key 정보 확인용 전체 항목
   // 정산
   billing: Billing;
-  amount: number;             // 유료 금액(원)
+  amount: number;             // 유료 금액 — currency 단위(기본 원)
+  currency?: Currency;        // 금액 통화 — 원(KRW, 기본) · 달러(USD) `PC-202`
+  fxRate?: number;            // 환율 기록(1 USD = n원) — 자동 아님, 적어 둔 값 `PC-202`
   trialUntil?: string;        // 체험 만료일 (발급일 + 1개월)
   billNote?: string;
   billedAt?: string;          // 정산 등록 일시
@@ -169,7 +171,17 @@ export function hasNKey(accountId: string): boolean {
   return ticketsOfAccount(accountId).some((t) => t.kind === "N");
 }
 
-export function setBilling(id: number, patch: { billing: Billing; amount?: number; billNote?: string; trialUntil?: string; by?: string }) {
+// 정산 통화 — 원 · 달러, 달러면 환율을 적어 둘 수 있다(자동 환산 아님) `PC-202`
+export type Currency = "KRW" | "USD";
+export type Money = { amount?: number; currency?: Currency; fxRate?: number };
+/** 금액 표기 — 1,200,000원 / $1,200 */
+export const fmtMoney = (m: Money) =>
+  m.currency === "USD" ? `$${(m.amount ?? 0).toLocaleString()}` : `${(m.amount ?? 0).toLocaleString()}원`;
+/** 원화 환산 — 달러는 적어 둔 환율이 있을 때만(없으면 null) */
+export const krwOf = (m: Money): number | null =>
+  m.currency === "USD" ? (m.fxRate ? Math.round((m.amount ?? 0) * m.fxRate) : null) : (m.amount ?? 0);
+
+export function setBilling(id: number, patch: { billing: Billing; amount?: number; currency?: Currency; fxRate?: number; billNote?: string; trialUntil?: string; by?: string }) {
   hydrateTickets();
   list = list.map((t) => {
     if (t.id !== id) return t;
@@ -177,6 +189,8 @@ export function setBilling(id: number, patch: { billing: Billing; amount?: numbe
     return {
       ...t, billing,
       amount: billing === "유료" ? Math.max(0, patch.amount ?? t.amount) : 0,
+      currency: billing === "유료" ? (patch.currency ?? t.currency ?? "KRW") : undefined,
+      fxRate: billing === "유료" && (patch.currency ?? t.currency) === "USD" ? (patch.fxRate || undefined) : undefined,
       trialUntil: billing === "체험" ? (patch.trialUntil || plusMonth(t.at)) : undefined,
       billNote: patch.billNote ?? t.billNote,
       billedAt: nowKst(), billedBy: patch.by ?? t.billedBy,

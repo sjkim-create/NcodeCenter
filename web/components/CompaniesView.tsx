@@ -45,8 +45,8 @@ const memberCodesOf = (name: string): CommonCode[] =>
 const isHolderCo = (name: string) => isCommonCodeCompany(name);
 const isMemberCo = (name: string) => !isHolderCo(name) && memberCodesOf(name).length > 0;
 
-/* ── MEM-01 고객사 목록 ─────────────────────────────────────────── */
-export default function CompaniesView() {
+/* ── 고객사 목록 표 — 3단 화면의 [표 보기] `PC-204` ──────────────── */
+export function CompaniesTable() {
   const router = useRouter();
   const { companies, projects, logs } = useStore();
   const me = currentUser(useAuth());
@@ -124,7 +124,7 @@ export default function CompaniesView() {
     flash(`거절됨 · ${r.org}`);
   };
   return (
-    <div style={{ padding: "20px 22px" }}>
+    <div>
       {/* 가입 승인 요청 — **카드로 건수만** 표시, 클릭하면 모달로 목록·승인 `PC-119` */}
       {pending.length > 0 && (
         <button onClick={() => setShowOnboard(true)}
@@ -368,7 +368,8 @@ export default function CompaniesView() {
 
 /* ── MEM-02 고객사 등록 · 상세수정 ──────────────────────────────── */
 // companyId = 0 → 등록(/companies/new) · 그 외 → 상세·수정(/companies/{id})
-export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "" }: { companyId: number; prefillEmail?: string; initialSec?: string }) {
+// embedded — 고객사 관리 3단의 오른쪽 두 칸(섹션 메뉴 | 상세) `PC-204`
+export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "", embedded = false }: { companyId: number; prefillEmail?: string; initialSec?: string; embedded?: boolean }) {
   const router = useRouter();
   const { companies, projects, logs } = useStore();
   const me = currentUser(useAuth());
@@ -603,10 +604,10 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "" 
   );
 
   return (
-    <div style={{ padding: "16px 20px", maxWidth: 1680 }}>
+    <div style={embedded ? { minWidth: 0 } : { padding: "16px 20px", maxWidth: 1680 }}>
       {/* 머리말 — 업체명 · 구분 · 진행 상태 · 요약 · ⋯(고객사 삭제) `PC-136` */}
       <div style={{ ...secCard, padding: "12px 16px", flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-        <Link href="/companies" title="목록" style={{ ...S.ghost, textDecoration: "none", padding: "5px 11px" }}>←</Link>
+        {!embedded && <Link href="/companies" title="목록" style={{ ...S.ghost, textDecoration: "none", padding: "5px 11px" }}>←</Link>}
         <div style={{ fontSize: 20, fontWeight: 800, color: form.name ? "#111827" : "#c7cdd6" }}>{form.name || (isNew ? "새 고객사" : "")}</div>
         {form.name && <span style={{ ...S.tag, background: cls[1], color: cls[2], fontWeight: 700 }}>{cls[0]}</span>}
         {isNew && <span style={{ ...S.tag, background: "#fff7ed", color: "#c2410c", fontWeight: 700 }}>등록 중</span>}

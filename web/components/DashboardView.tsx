@@ -13,7 +13,7 @@ import { useStore } from "@/lib/store";
 import { EDIT_CUSTOMERS } from "@/lib/editingData";
 import { loadCustomCustomers, type EditCustomer } from "@/lib/editingCustomers";
 import { rateOf, settle, won, customRateCount } from "@/lib/pricing";
-import { allTickets, hydrateTickets, useTickets, daysLeft } from "@/lib/ticketStore";
+import { allTickets, hydrateTickets, useTickets, daysLeft, krwOf } from "@/lib/ticketStore";
 import { useCaster, accountScope } from "@/lib/accountStore";
 
 type Rec = { owner: number; product: string; account: string };
@@ -100,11 +100,12 @@ export default function DashboardView() {
   /* ── ③ 정산 ── */
   const bill = useMemo(() => {
     const tickets = allTickets().filter((t) => t.kind === "N");   // 정산 = N Key 관리 발급분만 `PC-152`
-    const paid = tickets.filter((t) => t.billing === "유료" && t.amount > 0);
-    const avg = paid.length ? Math.round(paid.reduce((a, t) => a + t.amount, 0) / paid.length) : 0;
+    // 원화 기준 — 달러는 환율을 적어 둔 것만 원화로 본다 `PC-202`
+    const paid = tickets.filter((t) => t.billing === "유료" && (krwOf(t) ?? 0) > 0);
+    const avg = paid.length ? Math.round(paid.reduce((a, t) => a + (krwOf(t) ?? 0), 0) / paid.length) : 0;
     // 고객사별 최근 유료 금액 — 미정산 추정의 1순위 기준
     const lastOf = new Map<string, number>();
-    [...paid].sort((a, b) => (a.at < b.at ? 1 : -1)).forEach((t) => { if (!lastOf.has(t.company)) lastOf.set(t.company, t.amount); });
+    [...paid].sort((a, b) => (a.at < b.at ? 1 : -1)).forEach((t) => { if (!lastOf.has(t.company)) lastOf.set(t.company, krwOf(t) ?? 0); });
     const todo = tickets.filter((t) => t.billing === "미정");
     let est = 0, byCo = 0, byAvg = 0;
     todo.forEach((t) => {
@@ -114,7 +115,7 @@ export default function DashboardView() {
     const free = tickets.filter((t) => t.billing === "무료").length;
     const trial = tickets.filter((t) => t.billing === "체험");
     return {
-      total: tickets.length, paidN: paid.length, paidAmt: paid.reduce((a, t) => a + t.amount, 0),
+      total: tickets.length, paidN: paid.length, paidAmt: paid.reduce((a, t) => a + (krwOf(t) ?? 0), 0),
       freeN: free, trialN: trial.length, todoN: todo.length, est, byCo, byAvg, avg,
       expired: trial.filter((t) => (daysLeft(t.trialUntil) ?? 0) < 0).length,
       soon: trial.filter((t) => { const d = daysLeft(t.trialUntil); return d != null && d >= 0 && d <= 7; }).length,

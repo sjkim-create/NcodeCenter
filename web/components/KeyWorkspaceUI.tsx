@@ -114,23 +114,25 @@ export function WsStats({ items }: { items: [string, string, string][] }) {
 }
 
 /** 왼쪽 칸 머리 — 「고객사 n곳 · 고객사 관리」 */
-export function WsCoHead({ count }: { count: React.ReactNode }) {
+export function WsCoHead({ count, right }: { count: React.ReactNode; right?: React.ReactNode }) {
+  // right — 오른쪽 자리(기본 「고객사 관리」 출처 표시). 고객사 관리 3단은 [＋ 고객사 등록] `PC-204`
   return (
     <div style={WS_HD}>
       <b style={{ fontSize: 14, whiteSpace: "nowrap" }}>고객사</b>
       <span style={{ fontSize: 11.5, color: "#9ca3af", whiteSpace: "nowrap" }}>{count}곳</span>
       <span style={{ flex: 1 }} />
-      <span style={{ fontSize: 11, color: "#9ca3af", whiteSpace: "nowrap" }}>고객사 관리</span>
+      {right ?? <span style={{ fontSize: 11, color: "#9ca3af", whiteSpace: "nowrap" }}>고객사 관리</span>}
     </div>
   );
 }
 
 /** 발급 고객사 / 전체 고객사 전환 */
 export type CoView = "issued" | "all";
-export function WsCoToggle({ view, onView, issued, total }: { view: CoView; onView: (v: CoView) => void; issued: number; total: number }) {
+export function WsCoToggle({ view, onView, issued, total, issuedLabel = "발급 고객사" }: { view: CoView; onView: (v: CoView) => void; issued: number; total: number; issuedLabel?: string }) {
+  // issuedLabel — 고객사 관리 3단은 「진행중」 `PC-204`
   return (
     <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-      <button type="button" onClick={() => onView("issued")} style={wsChip(view === "issued")}>발급 고객사 {issued}</button>
+      <button type="button" onClick={() => onView("issued")} style={wsChip(view === "issued")}>{issuedLabel} {issued}</button>
       <button type="button" onClick={() => onView("all")} style={wsChip(view === "all")}>전체 고객사 {total}</button>
     </div>
   );

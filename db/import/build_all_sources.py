@@ -932,10 +932,12 @@ print(f"하위(공통코드 사용) 고객사 회사레코드 생성 {_sub_added
 _CASTER_SRC = os.path.join(SRC, "Caster_계정_퍼미션_티켓.xlsx")
 _CASTER_ALIAS = {"Xiom HealthCare": "Xiom Healthcare-304", "Luginbühl & Cie SA": "Luginbühl & Cie SA (TruxReport)",
                  "Liangshishu": "Liangshishu-111", "tranwisdom": "Tranwisdom", "Copy of NHN EDU": "에듀프레소"}
+_CASTER_EXCLUDE = {"영신사"}   # 기록만 있고 App Key 미발급 — 고객사도 만들지 않는다 `PC-205` (build_caster_ledger.EXCLUDE_SHEETS 와 같게)
 _caster_added = 0
 if os.path.exists(_CASTER_SRC):
     _cwb = load_workbook(_CASTER_SRC, read_only=True)
     for _sn in _cwb.sheetnames[1:]:
+        if _sn in _CASTER_EXCLUDE: continue
         _nm = _CASTER_ALIAS.get(_sn, _sn)
         if nz(_nm) in _existing_nz: continue
         _existing_nz.add(nz(_nm))

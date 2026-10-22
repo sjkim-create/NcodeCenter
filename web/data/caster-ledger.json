@@ -634,57 +634,6 @@
    "homepage": "https://mackerly.com/"
   },
   {
-   "sheet": "영신사",
-   "company": "영신사",
-   "companyId": 534,
-   "id": "",
-   "name": "",
-   "since": "",
-   "until": "",
-   "appKey": "",
-   "perms": {
-    "Project/New/Enabled": false,
-    "Project/Review/Enabled": false,
-    "Edit/Symbol/Enabled": true,
-    "Edit/Symbol/RectWithText/Create/Enabled": true,
-    "Edit/Resource/Add/Enabled": true,
-    "Edit/Resource/Delete/Enabled": true,
-    "Edit/Resource/DragDrop/Enabled": true,
-    "Export/NcodePDF/Enabled": true,
-    "Export/NCP/Enabled": true,
-    "Export/PackageForApp/Enabled": false,
-    "Export/NcodePDF/CustomExport4HyundaiMotor/Enabled": false,
-    "Settings/Ncode/Enabled": false,
-    "Settings/Project/Enabled": true,
-    "Settings/PageAttrForApp/Enabled": false,
-    "Settings/PageAlias/Import/Enabled": true,
-    "Settings/ActionTable/Import/Enabled": true,
-    "Settings/DrawingPreset/Configure/Enabled": true,
-    "ResourcesView/Tool/Enabled": true,
-    "Ncode/Mode/ExtendedBookCode/Enabled": false,
-    "Nproj/Writer/StartPageSideAttr/Enabled": false
-   },
-   "ranges": [
-    {
-     "pt": "PDS3",
-     "section": 3,
-     "sectionEnd": null,
-     "owner": 27,
-     "ownerEnd": null,
-     "bookStart": null,
-     "bookEnd": null,
-     "pageStart": 0,
-     "pageEnd": 511,
-     "count": 250,
-     "note": ""
-    }
-   ],
-   "note": "",
-   "addr": "",
-   "phone": "",
-   "homepage": ""
-  },
-  {
    "sheet": "스콜라스틱",
    "company": "스콜라스틱",
    "companyId": 341,

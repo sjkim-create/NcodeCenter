@@ -24,22 +24,49 @@ def bill_tag(b):
     return tg(b, bg, fg)
 
 
-def billing_box(sel='유료', amount='1200000', note='2026 연간 계약 포함', last='2026-10-20 10:20 · 김순정'):
-    """정산 — 미정 · 유료 · 무료 · 체험 4종 (web/components/BillingEditor.tsx) `PC-176` `PC-177`"""
+def billing_box(sel='유료', amount='1,200,000', note='2026 연간 계약 포함', last='2026-10-20 10:20 · 김순정',
+                currency='KRW', fx='', trial='', bare=False, err=''):
+    """정산 — 왼쪽 과금 유형(미정 · 유료 · 무료 · 체험) · 오른쪽 금액(원 · USD) / 체험 만료일 · 비고 3줄
+    (web/components/BillingEditor.tsx — App Key · N Key · 서비스 티켓 공용) `PC-176` `PC-177` `PC-202`"""
     sub = {'미정': '미등록', '유료': '금액 입력', '무료': '청구 없음', '체험': '1개월'}
-    btns = ''.join('<div style="padding:9px 8px;border-radius:9px;text-align:center;font-size:12.5px;border:1px solid %s;background:%s;color:%s;font-weight:%s">'
+    btns = ''.join('<div style="padding:8px;border-radius:9px;text-align:center;font-size:12.5px;border:1px solid %s;background:%s;color:%s;font-weight:%s">'
                    '%s<div style="font-size:10px;font-weight:400;margin-top:2px">%s</div></div>'
                    % (BILL[b][1] if b == sel else '#e5e7eb', BILL[b][0] if b == sel else '#fff',
                       BILL[b][1] if b == sel else '#6b7280', '700' if b == sel else '400', b, sub[b]) for b in BILL)
-    amt = ('<div class="fld" style="max-width:320px"><span class="lbl">금액 (원) *</span><div class="inp">%s</div></div>' % amount
-           if sel == '유료' else '')
-    return ('<div style="margin-top:14px;border:1px solid #eef0f4;border-radius:10px;padding:12px 14px">'
-            '<div style="font-size:13px;font-weight:700;margin-bottom:8px">정산 <span style="font-size:11.5px;font-weight:400;color:#9ca3af">'
-            '· 고객사 · 티켓마다 다르게 등록할 수 있습니다</span></div>'
-            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">%s</div>%s'
-            '<div class="fld" style="margin-top:10px"><span class="lbl">비고 (사유 · 계약 정보)</span><div class="inp">%s</div></div>'
+    lab = '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">%s</div>'
+    if sel == '유료':
+        segs = ''.join('<span style="padding:7px 12px;font-size:12.5px;%s">%s</span>'
+                       % ('background:#eef6ff;color:#1d4ed8;font-weight:700' if c == currency else 'background:#fff;color:#6b7280', l)
+                       for c, l in (('KRW', '원'), ('USD', 'USD')))
+        right = (lab % '금액 *' + '<div style="display:flex;gap:6px"><div style="display:inline-flex;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">%s</div>'
+                 '<div class="inp%s" style="flex:1;text-align:right">%s</div></div>' % (segs, ' err' if err == 'amt' else '', amount or '0'))
+        if err == 'amt':
+            right += '<div class="inline-err">유료는 금액을 입력해야 합니다.</div>'
+        if currency == 'USD':
+            right += ('<div style="margin-top:8px">' + lab % '환율 기록 <span style="color:#9ca3af">(선택 · 자동 아님)</span>' +
+                      '<div style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#6b7280"><span>1 USD =</span>'
+                      '<div class="inp%s" style="flex:1;text-align:right">%s</div><span>원</span></div>%s</div>'
+                      % ('' if fx else ' ph', fx or '예) 1,385',
+                         ('<div style="font-size:11.5px;color:#6b7280;margin-top:4px">≈ %s원 (기록한 환율 기준)</div>'
+                          % '{:,}'.format(round(float(amount.replace(',', '')) * float(fx.replace(',', ''))))) if fx else ''))
+    elif sel == '체험':
+        right = '<div class="fld"><span class="lbl">체험 만료일 (기본 = 1개월 뒤)</span><div class="inp">%s</div></div>' % (trial or '2026-11-20')
+    elif sel == '무료':
+        right = '<div style="font-size:12.5px;color:#166534;padding-top:24px">청구하지 않는 티켓으로 기록됩니다.<br>사유는 아래 비고에 남겨 주세요.</div>'
+    else:
+        right = '<div style="font-size:12.5px;color:#9ca3af;padding-top:24px">과금 유형을 고르면 금액 · 기간을 입력합니다.</div>'
+    body = ('<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start">'
+            '<div>%s<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">%s</div></div><div>%s</div></div>'
+            '<div class="fld" style="margin-top:12px"><span class="lbl">비고 (사유 · 계약 정보)</span>'
+            '<div class="inp%s" style="min-height:72px;align-items:flex-start;line-height:1.6">%s</div></div>'
             '<div style="display:flex;align-items:center;gap:8px;margin-top:12px"><span style="font-size:11.5px;color:#9ca3af">최근 등록: %s</span>'
-            '<span style="flex:1"></span><span class="btn pri">정산 저장</span></div></div>' % (btns, amt, note, last))
+            '<span style="flex:1"></span><span class="btn pri">정산 저장</span></div>'
+            % (lab % '과금 유형', btns, right, '' if note else ' ph', note or '예) 2026 연간 계약 포함 · 데모 제공', last))
+    if bare:
+        return body
+    return ('<div style="margin-top:14px;border:1px solid #eef0f4;border-radius:10px;padding:12px 14px">'
+            '<div style="font-size:13px;font-weight:700;margin-bottom:10px">정산 <span style="font-size:11.5px;font-weight:400;color:#9ca3af">'
+            '· 고객사 · 티켓마다 다르게 등록할 수 있습니다</span></div>%s</div>' % body)
 
 
 def usage_box(s, o, gaps, occ, ok=True):
@@ -131,7 +158,8 @@ def sobp_chips(kind, s_, o, b, p_):
             % (kind, sc % ('#5f8ff0', 'S', s_), sc % ('#14b8a6', 'O', o), sc % ('#8b5cf6', 'B', b), sc % ('#f59e0b', 'P', p_)))
 
 
-def co_col(rows, height, view='issued', issued=15, total=537, count=None, search='', unlinked=None, empty=''):
+def co_col(rows, height, view='issued', issued=14, total=536, count=None, search='', unlinked=None, empty='',
+           issued_label='발급 고객사', right=''):
     """왼쪽 칸 — 고객사(고객사 관리) · [발급 고객사][전체 고객사] · 검색 · 목록 · 고객사 미연결
     rows: (라벨, 건수, 선택, 미정, 굵게) 또는 미리 그린 줄(co_group)"""
     li = ''.join(r if isinstance(r, str) else co_item(r[0], r[1], r[2], r[3], bold=r[4]) for r in rows)
@@ -144,13 +172,26 @@ def co_col(rows, height, view='issued', issued=15, total=537, count=None, search
     srch = ('<div class="inp%s" style="margin-bottom:8px">%s</div>' % ('' if search else ' ph', search or '고객사 검색'))
     return ('<div style="%s;height:%dpx;display:flex;flex-direction:column;overflow:hidden">'
             '<div style="%s"><b style="font-size:14px">고객사</b><span style="font-size:11.5px;color:#9ca3af">%s곳</span>'
-            '<span style="flex:1"></span><span style="font-size:11px;color:#9ca3af">고객사 관리</span></div>'
+            '<span style="flex:1"></span>%s</div>'
             '<div style="padding:10px;display:flex;flex-direction:column;flex:1;min-height:0">'
             '<div style="display:flex;gap:4px;margin-bottom:8px">%s%s</div>%s'
             '<div style="flex:1;overflow:hidden">%s</div></div></div>'
             % (CARD, height, HD, count if count is not None else (issued if view == 'issued' else total),
-               chip('발급 고객사 %d' % issued, view == 'issued'), chip('전체 고객사 %d' % total, view == 'all'),
+               right or '<span style="font-size:11px;color:#9ca3af">고객사 관리</span>',
+               chip('%s %d' % (issued_label, issued), view == 'issued'), chip('전체 고객사 %d' % total, view == 'all'),
                srch, li))
+
+
+def co_ws_head(view='ws', pending=3):
+    """고객사 관리 머리 — 제목 · 가입 승인 요청 · [3단 보기][표 보기] · 집계 6칸 (web/components/CompaniesWorkspace.tsx) `PC-204`"""
+    pend = ('<span style="font-size:12.5px;padding:6px 12px;border-radius:8px;border:1px solid #fcd34d;background:#fffbeb;color:#92400e;font-weight:700">'
+            '🔔 가입 승인 요청 %d건</span>' % pending) if (pending and view == 'ws') else ''
+    return ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12.5px;color:#6b7280">'
+            '<b style="font-size:15px;color:#111827">고객사 관리</b><span>· 업체(고객사) 마스터 · 사업자 / 계좌 / 서류 / 서비스 티켓 · 계정 / 업무 원장</span>'
+            '<span style="flex:1"></span>%s<div style="display:flex;gap:4px">%s%s</div></div>'
+            % (pend, chip('3단 보기', view == 'ws'), chip('표 보기', view == 'table')) +
+            stats([('고객사', '536곳', '#111827'), ('진행중', '535곳', '#047857'), ('사업 종료', '1곳', '#9ca3af'),
+                   ('상위 고객사', '6곳', '#047857'), ('하위 고객사', '211곳', '#7e22ce'), ('코드 프로젝트', '511건', '#2563eb')]))
 
 
 def mid_col(title_, count, btn, body, height, btn_off=False, sub=''):

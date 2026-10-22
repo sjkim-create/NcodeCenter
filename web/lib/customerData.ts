@@ -44,6 +44,7 @@ export type Company = {
   nwpCommon?: boolean; // NWP Common Code (필기펜) — S0/O27 · S3/O27 · S3/O1012~1013
   closed?: boolean;    // 프로젝트 종료(사업 정리) — 코드 발급 이력만 유지, 화면에서 비활성 표시
   closedNote?: string; // 종료 사유/이관 메모 (예: 엠베스트-28로 코드 이관)
+  casterLedger?: boolean; // 개발팀 Caster 대장에만 있어 만든 고객사 레코드 `PC-103` (제외 시트는 만들지 않음 `PC-205`)
   createdAt?: string;  // 등록 시각(YYYY-MM-DD…) — 최근 등록 고객사를 목록 상단에 올린다 `PC-119`
 };
 

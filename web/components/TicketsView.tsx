@@ -21,8 +21,9 @@ import { useCaster } from "@/lib/accountStore";
 import { useStore } from "@/lib/store";
 import {
   addTicket, allTickets, deleteTicket, hydrateTickets, setBilling, ticketById, updateTicket, useTickets,
-  BILLINGS, BILLINGS_FILTER, BILL_COLOR, daysLeft, plusMonth, type Billing, type Ticket,
+  BILLINGS, BILLINGS_FILTER, BILL_COLOR, daysLeft, plusMonth, fmtMoney, krwOf, type Billing, type Ticket,
 } from "@/lib/ticketStore";
+import { BillingEditor } from "./BillingEditor";   // 정산 입력 — App Key · 서비스 티켓과 같은 조각 `PC-202`
 
 type Tab = "nkey" | "list";
 
@@ -167,7 +168,7 @@ function NKeyWorkspace() {
   useEffect(() => { if (inited && cq) setCo(ALL_CO); }, [cq]);   // eslint-disable-line react-hooks/exhaustive-deps
   // 정산 집계 — 고른 고객사 · 필터 결과 기준 (옛 목록 요약과 같은 규칙)
   const agg = list.reduce((a, t) => ({
-    paid: a.paid + (t.billing === "유료" ? 1 : 0), amount: a.amount + (t.billing === "유료" ? t.amount : 0),
+    paid: a.paid + (t.billing === "유료" ? 1 : 0), amount: a.amount + (t.billing === "유료" ? krwOf(t) ?? 0 : 0),   // 원화 합계 `PC-202`
     free: a.free + (t.billing === "무료" ? 1 : 0), trial: a.trial + (t.billing === "체험" ? 1 : 0),
     todo: a.todo + (t.billing === "미정" ? 1 : 0),
     expired: a.expired + (t.billing === "체험" && (daysLeft(t.trialUntil) ?? 0) < 0 ? 1 : 0),
@@ -208,7 +209,9 @@ function NKeyWorkspace() {
         ["발급 티켓", `${list.length.toLocaleString()}건`, "#111827"],
         ["유료 합계", won(agg.amount), "#1d4ed8"],
         ["유료 건수", `${agg.paid}건`, "#2563eb"],
-        ["무료 / 체험", `${agg.free} / ${agg.trial}건`, "#166534"],
+        // 무료 · 체험도 유료 건수처럼 각각 한 칸 `PC-203`
+        ["무료 건수", `${agg.free}건`, "#166534"],
+        ["체험 건수", `${agg.trial}건`, "#92400e"],
         ["정산 미등록", `${agg.todo}건`, agg.todo ? "#dc2626" : "#9ca3af"],
       ]} />
       {agg.expired > 0 && (
@@ -296,7 +299,7 @@ function NKeyWorkspace() {
                   <b style={{ color: g.key === UNLINKED_CO ? "#b45309" : "#111827" }}>{labelOf(g.key)}</b>
                   <span style={{ color: "#9ca3af" }}>{g.ts.length}건</span>
                   <span style={{ flex: 1 }} />
-                  {g.ts.some((t) => t.billing === "유료") && <b style={{ color: "#1d4ed8", fontSize: 11.5 }}>{won(g.ts.reduce((x, t) => x + (t.billing === "유료" ? t.amount : 0), 0))}</b>}
+                  {g.ts.some((t) => t.billing === "유료") && <b style={{ color: "#1d4ed8", fontSize: 11.5 }}>{won(g.ts.reduce((x, t) => x + (t.billing === "유료" ? krwOf(t) ?? 0 : 0), 0))}</b>}
                   <span style={{ color: "#2563eb", fontSize: 11.5 }}>›</span>
                 </button>
               )}
@@ -320,7 +323,7 @@ function NKeyWorkspace() {
                     {p["Book Volume"] ? <span>{p["Book Volume"]}권</span> : null}
                     <span>{t.by || "-"}</span>
                     {coKey(t) === UNLINKED_CO && <span style={{ color: "#b45309" }}>대장명 {t.company}</span>}
-                    {t.billing === "유료" && <b style={{ color: "#1d4ed8" }}>{won(t.amount)}</b>}
+                    {t.billing === "유료" && <b style={{ color: "#1d4ed8" }}>{t.currency === "USD" ? fmtMoney(t) : won(t.amount)}</b>}
                     {t.billing === "체험" && t.trialUntil && <span style={{ color: (left ?? 0) < 0 ? "#dc2626" : "#92400e" }}>~{t.trialUntil.slice(5)} {(left ?? 0) < 0 ? "(만료)" : `D-${left}`}</span>}
                     <span style={{ marginLeft: "auto", fontFamily: "ui-monospace,monospace" }}>{t.at.slice(0, 10)}</span>
                   </div>
@@ -388,20 +391,20 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
   // ① 발급 기본정보
   const [summary, setSummary] = useState("");
   const [kv, setKv] = useState<{ k: string; v: string; num: boolean }[]>([]);
-  // ② 정산 정보 — 탭이 달라도 [저장] 한 번에 함께 저장한다.
-  const [billing, setBilling2] = useState<Billing>("미정");
-  const [amount, setAmount] = useState(0);
-  const [billNote, setBillNote] = useState("");
-  const [trial, setTrial] = useState("");
+  // ② 정산 정보 — 공용 정산 입력(BillingEditor)이 맡는다 `PC-202`
   const [loaded, setLoaded] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
+  // 보기 → [티켓 수정] → 수정 상태 — App Key 관리 발급 내역과 같은 흐름 `PC-201`
+  const [editing, setEditing] = useState(false);
+  const fillBase = (x: Ticket) => {
+    setSummary(x.summary);
+    setKv(Object.entries(x.params).map(([k, v]) => ({ k, v: String(v), num: typeof v === "number" })));
+  };
 
   // 티켓 값 주입 (최초 1회 — 편집 중 스토어 변경에 덮이지 않도록)
   useEffect(() => {
     if (!t || loaded) return;
-    setSummary(t.summary);
-    setKv(Object.entries(t.params).map(([k, v]) => ({ k, v: String(v), num: typeof v === "number" })));
-    setBilling2(t.billing); setAmount(t.amount); setBillNote(t.billNote ?? ""); setTrial(t.trialUntil ?? plusMonth(t.at));
+    fillBase(t);
     setLoaded(true);
   }, [t, loaded]);
 
@@ -418,10 +421,9 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
 
   const kindLabel2 = t.kind === "APP" ? "App Key" : "N Key";
 
-  // 저장 — 탭을 나눠 놨을 뿐이라 [저장]은 두 탭 내용을 함께 기록한다.
-  const save = () => {
-    if (!summary.trim()) { setTab("base"); setToast({ ok: false, text: "발급 내용을 입력하세요." }); return; }
-    if (billing === "유료" && amount <= 0) { setTab("bill"); setToast({ ok: false, text: "유료는 금액을 입력해야 합니다." }); return; }
+  // [수정 저장] — 발급 기본정보(발급 내용 · Key 정보)를 고친다 `PC-192` `PC-201`
+  const saveEdit = () => {
+    if (!summary.trim()) { setToast({ ok: false, text: "발급 내용을 입력하세요." }); return; }
     // 원래 숫자였던 항목은 숫자로 되돌린다 (표시·재사용 시 타입 유지)
     const params = Object.fromEntries(kv.map((r) => [
       r.k, r.num && r.v.trim() !== "" && !Number.isNaN(Number(r.v)) ? Number(r.v) : r.v,
@@ -434,15 +436,16 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
       const co = companyOfNTicket(t, companies);
       const inside = nKeyRangesOfCompany(co, projects, allTickets(), companies).some((x) =>
         x.section === after.section && x.owner === after.owner && after.bookStart >= x.bookStart && after.bookEnd <= x.bookEnd);
-      if (!inside && !spansOverlap(before, after)) { setTab("base"); setToast({ ok: false, text: "이 고객사의 발급 범위(SOBP 할당) 밖의 코드 구간입니다. 할당된 Section · Owner · Book 안에서 고치세요." }); return; }
+      if (!inside && !spansOverlap(before, after)) { setToast({ ok: false, text: "이 고객사의 발급 범위(SOBP 할당) 밖의 코드 구간입니다. 할당된 Section · Owner · Book 안에서 고치세요." }); return; }
       const clash = sobpOverlapMsg(after, `N${t.id}`);
-      if (clash) { setTab("base"); setToast({ ok: false, text: clash }); return; }
+      if (clash) { setToast({ ok: false, text: clash }); return; }
     }
     updateTicket(t.id, { summary: summary.trim(), params });
-    setBilling(t.id, { billing, amount, billNote: billNote.trim(), trialUntil: trial, by: me?.name ?? "" });
-    logActivity("ticket", `발급 수정 · ${t.company} · 발급 ${t.no}번 · ${kindLabel2} · ${billing}`, me?.name);
-    setToast({ ok: true, text: "발급 기본정보와 정산 정보가 저장되었습니다." });
+    logActivity("ticket", `티켓 수정 · ${t.company} · 발급 ${t.no}번 · ${kindLabel2}`, me?.name);
+    setEditing(false);
+    setToast({ ok: true, text: `티켓 수정 — 발급 ${t.no}번` });
   };
+  const cancelEdit = () => { fillBase(t); setEditing(false); setToast(null); };
 
   const TABS = [["base", "발급 기본정보"], ["bill", "정산 정보"]] as const;
 
@@ -450,15 +453,15 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
     <div style={embedded ? undefined : { padding: "18px 20px", maxWidth: 900 }}>
       <div style={{ ...S.card, padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>발급 상세 · 수정</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: editing ? "#1d4ed8" : undefined }}>{editing ? "티켓 수정" : "발급 상세"}</div>
           <span style={{ ...S.tag, background: t.kind === "APP" ? "#fef3c7" : "#eef6ff", color: t.kind === "APP" ? "#92400e" : "#2563eb", fontWeight: 700 }}>{kindLabel2}</span>
           <code style={{ fontFamily: "ui-monospace,monospace", color: "#374151", fontSize: 12.5 }}>발급 {t.no}번</code>
           <span style={{ ...S.tag, background: "#f3f4f6", color: "#6b7280" }}>{t.company}</span>
           {t.src === "ledger" && <span style={{ ...S.tag, background: "#f3f4f6", color: "#9ca3af" }} title="nkey(HLP) 발급 대장에서 가져온 과거 이력">대장</span>}
         </div>
 
-        {/* 탭 — 발급 기본정보 / 정산 정보. 저장은 아래 [저장] 하나로 두 탭 모두 반영된다. */}
-        <div style={{ display: "flex", borderBottom: "1px solid #eef0f4", marginBottom: 14 }}>
+        {/* 탭 — 발급 기본정보 / 정산 정보. 수정 중에는 숨긴다(입력에 집중) `PC-201` */}
+        <div style={{ display: editing ? "none" : "flex", borderBottom: "1px solid #eef0f4", marginBottom: 14 }}>
           {TABS.map(([v, l]) => {
             const on = tab === v;
             return (
@@ -472,8 +475,15 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
           })}
         </div>
 
-        {tab === "base" ? (
-          <>
+        {tab === "base" || editing ? (
+          <div style={editing ? { border: "1px solid #93c5fd", background: "#fbfdff", borderRadius: 10, padding: "14px 16px" } : undefined}>
+            {/* 수정 중 — 수정 전 값을 보이고 그 아래에서 고친다 `PC-201` */}
+            {editing && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "8px 12px", borderRadius: 9, border: "1px solid #93c5fd", background: "#f0f7ff", fontSize: 12.5, flexWrap: "wrap" }}>
+                <b style={{ color: "#1d4ed8" }}>수정 전</b>
+                <span style={{ color: "#374151" }}>{t.summary}</span>
+              </div>
+            )}
             {/* 고객사·일시·발급인은 원장 기준값이라 고정 */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
               <Field label="고객사"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{t.company}</div></Field>
@@ -481,15 +491,17 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
               <Field label="발급인"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{t.by || "-"}</div></Field>
             </div>
             <div style={{ marginTop: 12 }}>
-              <Field label="발급 내용 (목록 표기) *">
-                <input style={S.input} value={summary} onChange={(e) => setSummary(e.target.value)} />
+              <Field label={editing ? "발급 내용 (목록 표기) *" : "발급 내용 (목록 표기)"}>
+                {editing
+                  ? <input style={S.input} value={summary} onChange={(e) => setSummary(e.target.value)} />
+                  : <div style={{ ...S.input, background: "#f7f8fa", color: "#374151" }}>{t.summary}</div>}
               </Field>
             </div>
 
-            {/* Key 정보 — 발급 당시 파라미터를 값만 수정 */}
+            {/* Key 정보 — 보기는 읽기 전용 표, 수정 중에는 값만 고친다 */}
             <div style={{ marginTop: 16 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
-                Key 정보 <span style={{ fontWeight: 400, color: "#9ca3af" }}>· {kv.length}개 항목 · 값만 수정합니다</span>
+                Key 정보 <span style={{ fontWeight: 400, color: "#9ca3af" }}>· {kv.length}개 항목{editing ? " · 값만 수정합니다" : ""}</span>
               </div>
               <div style={{ border: "1px solid #eef0f4", borderRadius: 9, overflow: "hidden" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
@@ -503,9 +515,11 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
                     {kv.map((r, i) => (
                       <tr key={r.k} style={{ borderTop: "1px solid #f3f4f6" }}>
                         <td style={{ padding: "6px 12px", color: "#374151", fontWeight: 600, fontFamily: "ui-monospace,monospace", wordBreak: "break-all" }}>{r.k}</td>
-                        <td style={{ padding: "5px 10px" }}>
-                          <input style={{ ...S.input, padding: "6px 9px", fontSize: 12.5 }} value={r.v}
-                            onChange={(e) => setKv(kv.map((x, j) => (j === i ? { ...x, v: e.target.value } : x)))} />
+                        <td style={{ padding: editing ? "5px 10px" : "6px 12px", color: "#374151" }}>
+                          {editing
+                            ? <input style={{ ...S.input, padding: "6px 9px", fontSize: 12.5 }} value={r.v}
+                                onChange={(e) => setKv(kv.map((x, j) => (j === i ? { ...x, v: e.target.value } : x)))} />
+                            : r.v}
                         </td>
                       </tr>
                     ))}
@@ -515,63 +529,34 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
                   </tbody>
                 </table>
               </div>
-              <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6, lineHeight: 1.6 }}>
-                이미 내려받은 키 파일은 바뀌지 않습니다. 여기 수정은 <b>발급 원장의 기록</b>을 바로잡는 용도입니다.
-              </div>
+              {editing && (
+                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6, lineHeight: 1.6 }}>
+                  이미 내려받은 키 파일은 바뀌지 않습니다. 여기 수정은 <b>발급 원장의 기록</b>을 바로잡는 용도입니다. 코드 구간을 바꾸면 사용할 수 있는 구간인지 검사합니다.
+                </div>
+              )}
             </div>
-          </>
+          </div>
         ) : (
-          <>
-            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>과금 유형 <span style={{ color: "#9ca3af" }}>· 업체·티켓마다 다르게 등록할 수 있습니다</span></div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
-              {BILLINGS.map((b) => {
-                const on = billing === b; const bc = BILL_COLOR[b];
-                return (
-                  <button key={b} onClick={() => setBilling2(b)}
-                    style={{ padding: "10px 8px", borderRadius: 9, cursor: "pointer", fontSize: 12.5, fontWeight: on ? 700 : 400,
-                      border: `1px solid ${on ? bc.fg : "#e5e7eb"}`, background: on ? bc.bg : "#fff", color: on ? bc.fg : "#6b7280" }}>
-                    {b}
-                    <div style={{ fontSize: 10, fontWeight: 400, color: on ? bc.fg : "#9ca3af", marginTop: 2 }}>
-                      {b === "유료" ? "금액 입력" : b === "무료" ? "청구 없음" : b === "체험" ? "1개월" : "미등록"}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {billing === "유료" && (
-              <div style={{ maxWidth: 320 }}>
-                <Field label="금액 (원) *">
-                  <input type="number" min={0} step={10000} style={S.input} value={amount} onChange={(e) => setAmount(Math.max(0, Math.round(+e.target.value)))} />
-                </Field>
-              </div>
-            )}
-            {billing === "체험" && (
-              <div style={{ maxWidth: 320 }}>
-                <Field label="체험 만료일 (기본 = 발급일 + 1개월)">
-                  <input type="date" style={S.input} value={trial} onChange={(e) => setTrial(e.target.value)} />
-                </Field>
-                <div style={{ fontSize: 11.5, color: "#92400e", marginTop: 4 }}>만료되면 목록에서 <b>(만료)</b>로 표시되고 상단에 경고가 뜹니다.</div>
-              </div>
-            )}
-            {billing === "무료" && <div style={{ fontSize: 12.5, color: "#166534" }}>청구하지 않는 티켓으로 기록됩니다. (사유는 아래 비고에 남겨 주세요)</div>}
-
-            <div style={{ marginTop: 12 }}>
-              <Field label="비고 (사유·계약 정보)">
-                <input style={S.input} value={billNote} onChange={(e) => setBillNote(e.target.value)} placeholder="예) 2026 연간 계약 포함 · 데모 제공" />
-              </Field>
-            </div>
-
-            {t.billedAt && <div style={{ fontSize: 11.5, color: "#9ca3af", marginTop: 10 }}>최근 등록: {t.billedAt.slice(0, 16).replace("T", " ")} {t.billedBy ? `· ${t.billedBy}` : ""}</div>}
-          </>
+          // 정산 정보 — App Key · 서비스 티켓과 같은 공용 정산 입력 `PC-202`
+          <BillingEditor key={t.id} bare v={t} baseDate={t.at.slice(0, 10)} onSave={(p) => {
+            setBilling(t.id, { ...p, by: me?.name ?? "" });
+            logActivity("ticket", `정산 등록 · ${t.company} · 발급 ${t.no}번 · ${kindLabel2} · ${p.billing}${p.billing === "유료" ? ` ${fmtMoney(p)}` : ""}`, me?.name);
+          }} />
         )}
 
         {/* 하단 액션 — [목록]은 여기 있다. 저장은 두 탭 내용을 함께 기록한다. */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 18, paddingTop: 14, borderTop: "1px solid #eef0f4" }}>
           {/* 발급된 티켓은 지우지 않는다 — 정보만 고친다(코드 구간은 사용 가능한 구간일 때만) `PC-192` */}
           <span style={{ flex: 1 }} />
-          {!embedded && <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>}
-          <button onClick={save} style={S.primary}>저장</button>
+          {!embedded && !editing && <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>}
+          {editing ? (
+            <>
+              <button onClick={cancelEdit} style={S.ghost}>취소</button>
+              <button onClick={saveEdit} style={S.primary}>수정 저장</button>
+            </>
+          ) : tab === "base" ? (
+            <button onClick={() => { setEditing(true); setToast(null); }} style={S.primary}>티켓 수정</button>
+          ) : null}
         </div>
         {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: toast.ok ? "#047857" : "#dc2626", textAlign: "right" }}>{toast.text}</div>}
       </div>

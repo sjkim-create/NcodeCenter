@@ -1,6 +1,6 @@
-import { CompanyFormView } from "@/components/CompaniesView";
+import { CompaniesWorkspace } from "@/components/CompaniesWorkspace";
 export const metadata = { title: "고객사 등록" };
-// 목록(/companies)의 [＋ 고객사 등록]으로 들어오는 등록 화면
+// [＋ 고객사 등록] — 3단 화면에서 새 고객사 입력 `PC-204`
 export default function Page() {
-  return <CompanyFormView companyId={0} />;
+  return <CompaniesWorkspace isNew />;
 }

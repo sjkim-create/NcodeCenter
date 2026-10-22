@@ -8,6 +8,7 @@
 import { useSyncExternalStore } from "react";
 import seed from "@/data/seed-customers.json";
 import type { Company, Project, WorkLog, WorkKind } from "./customerData";
+import { isCasterExcluded } from "./ledgerExclude";
 
 export type State = { companies: Company[]; projects: Project[]; logs: WorkLog[] };
 
@@ -51,7 +52,13 @@ function hydrate() {
   hydrated = true;
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { state = JSON.parse(raw); subs.forEach((f) => f()); }
+    if (raw) {
+      state = JSON.parse(raw);
+      // 대장 제외 시트(영신사)로만 생긴 고객사는 뺀다 — 앱키 대장 때문에 생긴 레코드 `PC-205`
+      const drop = state.companies.filter((c) => c.casterLedger && isCasterExcluded(c.name)).map((c) => c.id);
+      if (drop.length) state = { ...state, companies: state.companies.filter((c) => !drop.includes(c.id)) };
+      subs.forEach((f) => f());
+    }
   } catch { /* ignore */ }
 }
 

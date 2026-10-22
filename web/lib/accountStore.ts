@@ -10,6 +10,7 @@
 // - settings(서비스별 설정): 서비스마다 권한·설정 항목이 다르다.
 //   지금 권한 체계가 정의된 서비스는 CasterN 뿐이고, 나머지는 준비중이라 설정 항목이 없다.
 import { useSyncExternalStore } from "react";
+import { isCasterExcluded } from "./ledgerExclude";
 import casterLedger from "@/data/caster-ledger.json";
 
 // 사용처(연동 서비스) — 계정 로그인 허용 범위를 가르는 값
@@ -137,6 +138,8 @@ export type KeyRange = {
   // 정산 — N Key 와 같은 4종(미정 · 유료 · 무료 · 체험) `PC-177`. 범위(=티켓)마다 둔다
   billing?: "미정" | "유료" | "무료" | "체험";
   amount?: number;
+  currency?: "KRW" | "USD";   // 금액 통화 `PC-202`
+  fxRate?: number;            // 환율 기록(1 USD = n원 · 수기) `PC-202`
   trialUntil?: string;
   billNote?: string;
   billedAt?: string;
@@ -206,6 +209,9 @@ function commit(next: State) { state = next; persist(); subs.forEach((f) => f())
 // 옛 데이터의 "SDK" 선택값 → **선택 없음**(= SDK 연동) `PC-076`
 const dropSdk = (v?: AccountService[]) => (v ?? []).filter((x) => x !== "SDK");
 function migrate(s: State): State {
+  // 대장 제외 시트(영신사 — 기록만 있고 App Key 미발급)의 시드 계정 · 키는 지운다 `PC-205`
+  const gone = new Set(s.accounts.filter((a) => a.seeded && isCasterExcluded(a.company)).map((a) => a.id));
+  s = { ...s, accounts: s.accounts.filter((a) => !gone.has(a.id)), appKeys: s.appKeys.filter((k) => !gone.has(k.accountId)) };
   const accounts = s.accounts.map((a) => {
     // 권한 키는 옛 6종 → Web Caster 20종으로 `PC-103`
     if (a.settings?.CASTERN?.perms) a = { ...a, settings: { ...a.settings, CASTERN: { ...a.settings.CASTERN, perms: migratePerms(a.settings.CASTERN.perms) } } };
@@ -253,7 +259,8 @@ function seedFromLedger(s: State): State {
   const accounts = [...s.accounts];
   const appKeys = [...s.appKeys];
   for (const r of rows) {
-    const id = r.id || `${r.company} (계정 미기재)`;          // 대장에 계정이 비어 있는 시트(영신사)
+    if (isCasterExcluded(r.company)) continue;               // 대장 제외 시트 `PC-205`
+    const id = r.id || `${r.company} (계정 미기재)`;          // 대장에 계정이 비어 있는 시트
     if (have.has(id.toLowerCase())) continue;
     have.add(id.toLowerCase());
     const permKeys = Object.keys(r.perms);
@@ -348,7 +355,7 @@ export const caster = {
     commit({ ...state, appKeys });
   },
   /** 코드 범위(=티켓) 정산 등록 `PC-177` */
-  setRangeBilling(id: number, idx: number, patch: Pick<KeyRange, "billing" | "amount" | "trialUntil" | "billNote" | "billedBy">) {
+  setRangeBilling(id: number, idx: number, patch: Pick<KeyRange, "billing" | "amount" | "currency" | "fxRate" | "trialUntil" | "billNote" | "billedBy">) {
     const appKeys = state.appKeys.map((k) => {
       if (k.id !== id) return k;
       const rs = keyRanges(k).map((r, i) => (i === idx ? { ...r, ...patch, billedAt: kstNow() } : r));

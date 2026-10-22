@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""MEM-02 고객사 등록·수정 — 「머리말 + 섹션 메뉴 | 본문」 `PC-136`~`PC-144`.
+"""MEM-02 고객사 등록·수정 — 고객사 관리 3단 「고객사 | 섹션 메뉴 | 본문」 `PC-136`~`PC-144` `PC-204`.
 
 등록(/companies/new) · 상세(/companies/{id}) 같은 구조. 섹션 = 기본 정보 · 편집 단가 · 관련 서류 · 서비스 티켓 / 서비스 계정 · 업무 메모.
 진행 상태는 머리말 오른쪽 진행중/사업 종료, 서비스 계정은 「카드 목록 | 상세」 + 서비스 권한 탭.
@@ -232,9 +232,32 @@ def nav(active='base', new=False, locked=False, dirty=()):
     return '<div style="' + CARD + ';padding:8px">' + out + '</div>'
 
 
+# 왼쪽 고객사 칸 — 진행중 · 상위 고객사 묶음(▶ 접힘) · [＋ 고객사 등록] `PC-204`
+LEFT = ('(주)투이아이앤씨', '21세기 북스', '가구소-1022', '대교', ('네오노트-0-27', 6), ('네오노트-1012', 31), '시원스쿨',
+        '아들과딸', '엠베스트', CO, '크레버스', '한솔교육')
+
+
+def left_col(adding=False):
+    rows = []
+    if adding:
+        rows.append('<div style="border:1px dashed #5f8ff0;background:#f5f9ff;border-radius:9px;padding:8px 10px;margin-bottom:6px;'
+                    'font-size:13px;color:#1d4ed8;font-weight:700">새 고객사 <span style="font-size:11px;font-weight:400;color:#6b7280">'
+                    '· 오른쪽에서 입력 후 [등록]</span></div>')
+    for x in LEFT:
+        if isinstance(x, tuple):
+            rows.append(kws.co_group(x[0], 0, False, x[1]))
+        else:
+            rows.append((x, 3 if x == CO else 0, (x == CO and not adding), 0, False))
+    return kws.co_col(rows, 820, view='issued', issued=535, total=536, issued_label='진행중',
+                      right='<span class="btn pri" style="padding:5px 10px;font-size:12px">＋ 고객사 등록</span>')
+
+
 def layout(head, nv, body):
-    return (head + '<div style="display:grid;grid-template-columns:210px minmax(0,1fr);gap:12px;align-items:start">'
-            + nv + '<div style="min-width:0">' + body + '</div></div>')
+    """고객사 관리 3단 — 머리 · 집계 / 고객사 | (머리말 + 섹션 메뉴 | 본문) `PC-204`"""
+    inner = (head + '<div style="display:grid;grid-template-columns:210px minmax(0,1fr);gap:12px;align-items:start">'
+             + nv + '<div style="min-width:0">' + body + '</div></div>')
+    return (kws.co_ws_head('ws') + '<div style="display:grid;grid-template-columns:270px minmax(0,1fr);gap:12px;align-items:start">'
+            + left_col(adding='등록 중' in head) + '<div style="min-width:0">' + inner + '</div></div>')
 
 
 def sec_card(title, desc, inner, new=False, dirty=False):
@@ -524,20 +547,8 @@ def ticket_detail(tab='info'):
 
 
 def billing_box():
-    """정산 — N Key 관리와 같은 4종 `PC-176`"""
-    opts = (('미정', '미등록', False), ('유료', '금액 입력', True), ('무료', '청구 없음', False), ('체험', '1개월', False))
-    btns = ''.join('<div style="padding:9px 8px;border-radius:9px;text-align:center;font-size:12.5px;border:1px solid %s;background:%s;color:%s;font-weight:%s">'
-                   '%s<div style="font-size:10px;font-weight:400;margin-top:2px">%s</div></div>'
-                   % ('#1d4ed8' if on else '#e5e7eb', '#eef6ff' if on else '#fff', '#1d4ed8' if on else '#6b7280', '700' if on else '400', b, d)
-                   for b, d, on in opts)
-    return ('<div style="margin-top:14px;border:1px solid #eef0f4;border-radius:10px;padding:12px 14px">'
-            '<div style="font-size:13px;font-weight:700;margin-bottom:8px">정산 <span style="font-size:11.5px;font-weight:400;color:#9ca3af">'
-            '· 고객사 · 티켓마다 다르게 등록할 수 있습니다</span></div>'
-            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">%s</div>'
-            '<div class="fld" style="max-width:320px"><span class="lbl">금액 (원) *</span><div class="inp">3000000</div></div>'
-            '<div class="fld" style="margin-top:10px"><span class="lbl">비고 (사유 · 계약 정보)</span><div class="inp">2026 연간 계약 포함</div></div>'
-            '<div style="display:flex;align-items:center;gap:8px;margin-top:12px"><span style="font-size:11.5px;color:#9ca3af">'
-            '최근 등록: 2026-10-20 10:20 · 김순정</span><span style="flex:1"></span><span class="btn pri">정산 저장</span></div></div>' % btns)
+    """정산 — App Key · N Key 와 같은 공용 정산 입력 `PC-176` `PC-202`"""
+    return kws.billing_box(amount='3,000,000')
 
 
 def ticket_form(err='', open_=False, start='451'):

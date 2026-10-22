@@ -35,7 +35,9 @@ export type ServiceTicket = {
   by: string;
   // 정산 — N Key 와 같은 4종(미정 · 유료 · 무료 · 체험) `PC-176`. 지정할 때는 미정
   billing?: Billing;
-  amount?: number;         // 유료 금액(원)
+  amount?: number;         // 유료 금액 — currency 단위(기본 원)
+  currency?: "KRW" | "USD";   // 금액 통화 `PC-202`
+  fxRate?: number;            // 환율 기록(1 USD = n원 · 수기) `PC-202`
   trialUntil?: string;     // 체험 만료일 (기본 = 지정일 + 1개월)
   billNote?: string;
   billedAt?: string;
@@ -68,13 +70,15 @@ export function addServiceTicket(t: Omit<ServiceTicket, "id" | "no" | "at">): Se
   return rec;
 }
 /** 정산 등록 — 유료면 금액, 체험이면 만료일을 함께 둔다 `PC-176` */
-export function setServiceBilling(id: number, patch: { billing: Billing; amount?: number; trialUntil?: string; billNote?: string; by?: string }) {
+export function setServiceBilling(id: number, patch: { billing: Billing; amount?: number; currency?: "KRW" | "USD"; fxRate?: number; trialUntil?: string; billNote?: string; by?: string }) {
   hydrateServiceTickets();
   list = list.map((t) => {
     if (t.id !== id) return t;
     const b = patch.billing;
     return { ...t, billing: b,
       amount: b === "유료" ? Math.max(0, patch.amount ?? t.amount ?? 0) : 0,
+      currency: b === "유료" ? (patch.currency ?? t.currency ?? "KRW") : undefined,
+      fxRate: b === "유료" && (patch.currency ?? t.currency) === "USD" ? (patch.fxRate || undefined) : undefined,
       trialUntil: b === "체험" ? (patch.trialUntil || plusMonth(t.at)) : undefined,
       billNote: patch.billNote ?? t.billNote, billedAt: nowKst(), billedBy: patch.by ?? t.billedBy };
   });

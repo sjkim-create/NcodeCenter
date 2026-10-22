@@ -14,7 +14,7 @@ PRD = 'docs/prd/TKT-01_App Key 관리.md'
 FT = 'App Key 관리 (계정 발급)'
 NOTE = '고객사는 고객사 관리에서 불러옵니다 · App Key 계정은 서비스 계정과 별개입니다'
 
-COS = ('(주)투이아이앤씨', '네오랩', '맥컬리', '스콜라스틱', '에듀프레소', '영신사', '영업용 테스트 코드', '유니메이션',
+COS = ('(주)투이아이앤씨', '네오랩', '맥컬리', '스콜라스틱', '에듀프레소', '영업용 테스트 코드', '유니메이션',
        'iuEdu', 'Liangshishu-111', 'Luginbühl & Cie SA (TruxReport)', 'NHN EDU', 'Study123', 'Tranwisdom', 'Xiom Healthcare-304')
 KEY29 = 'Qk7vT2mX9pLr4NsW8cYb3HdJ6fGa1'
 RANGES = (('3', '291', '0~249', '0~511'), ('3', '942', '73', '0~512'), ('3', '291', '250~299', '0~511'))
@@ -22,7 +22,7 @@ RANGES = (('3', '291', '0~249', '0~511'), ('3', '942', '73', '0~512'), ('3', '29
 
 def head_(unlinked=0):
     return (kws.title('App Key 관리', '집계 대상 <b style="color:#111827">전체 고객사</b>', NOTE) +
-            kws.stats([('발급 고객사', '15곳', '#111827'), ('App Key 계정', '15개', '#111827'),
+            kws.stats([('발급 고객사', '14곳', '#111827'), ('App Key 계정', '14개', '#111827'),
                        ('App Key 연동', '14개', '#2563eb'), ('App Key 없음', '1개', '#92400e'),
                        ('고객사 미연결', '%d개' % unlinked, '#b45309' if unlinked else '#9ca3af')]))
 
@@ -30,7 +30,7 @@ def head_(unlinked=0):
 # 상위 고객사(공통코드 보유) → (하위 수, 보이는 하위 고객사) — ▶ 로 접고 편다 `PC-196` `PC-198`
 GROUPS = {'네오노트-1012': (31, ('네스프레소', '네오랩컨버전스', '라미', '메가로이어스', '메가엠디', '스콜라스틱')),
           '네오노트-3-27': (149, ()), 'Common-21': (50, ())}
-ORDER = ('(주)투이아이앤씨', '네오노트-1012', '네오노트-3-27', '네오랩', '맥컬리', '스콜라스틱', '에듀프레소', '영신사', '영업용 테스트 코드',
+ORDER = ('(주)투이아이앤씨', '네오노트-1012', '네오노트-3-27', '네오랩', '맥컬리', '스콜라스틱', '에듀프레소', '영업용 테스트 코드',
          '유니메이션', 'Common-21', 'iuEdu', 'Liangshishu-111', 'Luginbühl & Cie SA (TruxReport)', 'NHN EDU', 'Study123', 'Tranwisdom',
          'Xiom Healthcare-304')
 
@@ -46,7 +46,7 @@ def left(sel='Study123', view='issued', search='', names=None, empty='', unlinke
                                      open_=(open_ == n), more=cnt - len(subs)))
         else:
             rows.append((n, 1 if n in COS else 0, n == sel, 0, False))
-    return kws.co_col(rows, h, view=view, issued=15, total=537, count=len(names),
+    return kws.co_col(rows, h, view=view, issued=14, total=536, count=len(names),
                       search=search, empty=empty, unlinked=unlinked)
 
 
@@ -242,12 +242,12 @@ def build():
                ('계정 정보 [저장] · [계정 삭제]', '클릭', '[계정 정보] 탭에서만', '<b>계정 정보가 저장되었습니다.</b> · 삭제는 S12 확인창 <code>PC-200</code>')]))
 
     B.append(('S2', '전체 고객사 — 검색해 처음 발급', '분기',
-              '<b>[전체 고객사 537]</b>로 바꾸면 고객사 관리의 모든 고객사가 나온다. 검색해 아직 App Key 계정이 없는 고객사를 고르면 가운데가 빈 안내이고, '
+              '<b>[전체 고객사 536]</b>로 바꾸면 고객사 관리의 모든 고객사가 나온다. 검색해 아직 App Key 계정이 없는 고객사를 고르면 가운데가 빈 안내이고, '
               '<b>[＋ 계정 추가]</b>로 첫 계정을 만든다. 발급 고객사에서 검색해 없으면 「[전체 고객사]에서 찾아 계정을 추가하세요」 안내가 나온다.',
               fr(H + kws.grid(left(sel='KODION-46', view='all', search='KODION', names=('KODION-46',), h=col_h(900)),
                               mid('KODION-46', cards=[], h=col_h(900)),
                               kws.right_empty('계정을 선택하거나 <b>[＋ 계정 추가]</b>를 누르세요.')), 900),
-              [('[전체 고객사]', '클릭', '고객사 관리 전체', '537곳'),
+              [('[전체 고객사]', '클릭', '고객사 관리 전체', '536곳'),
                ('고객사 검색', '입력', '이름으로 거름', ''),
                ('[＋ 계정 추가]', '클릭', 'S4', '그 고객사의 첫 App Key 계정')]))
 

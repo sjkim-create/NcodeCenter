@@ -16,7 +16,7 @@ import { SobpUsage } from "./SobpUsage";
 import { useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
-import { hydrateTickets, useTickets, today } from "@/lib/ticketStore";
+import { fmtMoney, hydrateTickets, useTickets, today } from "@/lib/ticketStore";
 import { BillingEditor, BillTag } from "./BillingEditor";
 import { codesOfMember, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { serviceRangesOfCompany, type ServiceRange } from "@/lib/keyCompany";
@@ -211,7 +211,7 @@ function TicketDetail({ t, onEdit, me }: { t: ServiceTicket; onEdit: () => void;
           <div style={{ fontSize: 12, color: "#6b7280" }}>이 서비스 티켓(No.{t.no} · {serviceTicketText(t)})의 정산을 등록합니다.</div>
           <BillingEditor key={t.id} v={t} baseDate={t.at.slice(0, 10)} onSave={(p) => {
             setServiceBilling(t.id, { ...p, by: me });
-            logActivity("ticket", `서비스 티켓 정산 · ${t.company} · No.${t.no} · ${p.billing}${p.billing === "유료" ? ` ${p.amount.toLocaleString()}원` : ""}`, me);
+            logActivity("ticket", `서비스 티켓 정산 · ${t.company} · No.${t.no} · ${p.billing}${p.billing === "유료" ? ` ${fmtMoney(p)}` : ""}`, me);
           }} />
         </div>
       </div>

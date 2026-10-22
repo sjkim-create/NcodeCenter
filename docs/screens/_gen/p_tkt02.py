@@ -35,7 +35,7 @@ LEDGER_NAME = {58: 'hyssos', 57: 'hyssos', 49: 'ICsolutions', 37: 'inkwrx'}
 
 def head_(scope='전체 고객사', filt=False, stats=None, expired=0):
     st = stats or (('발급 티켓', '61건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '22건', '#2563eb'),
-                   ('무료 / 체험', '4 / 0건', '#166534'), ('정산 미등록', '35건', '#dc2626'))
+                   ('무료 건수', '4건', '#166534'), ('체험 건수', '0건', '#92400e'), ('정산 미등록', '35건', '#dc2626'))
     out = (kws.title('N Key 관리', '집계 대상 <b style="color:#111827">%s</b>%s' % (scope, ' · 필터 적용' if filt else ''), NOTE) +
            kws.stats(list(st)))
     if expired:
@@ -69,7 +69,7 @@ def left(sel='', view='issued', rows=None, unlinked=(4, 6), h=600, search='', em
         rows = rows[:1] + [kws.co_group(open_, 0, False, cnt, [(x, 0, x == sel) for x in subs], open_=True, more=cnt - len(subs))] + rows[1:]
     allrow = [] if search else [('전체', total_all[0], sel == '', total_all[1], True)]
     ul = ('고객사 미연결', unlinked[1], sel == '고객사 미연결', unlinked[0]) if (unlinked and not search) else None
-    return kws.co_col(allrow + rows, h, view=view, issued=31, total=537, count=count, search=search, empty=empty, unlinked=ul)
+    return kws.co_col(allrow + rows, h, view=view, issued=31, total=536, count=count, search=search, empty=empty, unlinked=ul)
 
 
 def tcard(co, t, on=False, unl=False):
@@ -114,41 +114,34 @@ KODION_PARAMS = (('Company Name', 'KODION'), ('Section', '3'), ('Owner', '46'), 
                  ('Separate Each Book', 'N (1개 티켓 병합)'), ('구분(대장)', '무상'), ('담당(대장)', '황락평'))
 
 
-def ticket_detail(tab='base', no=36, co='KODION', bill='무료', amount='', trial='', note='무상', err='', toast='', at='2026-07-07 00:00', by='황락평'):
-    t = kws.tabs((('base', '발급 기본정보', ''), ('bill', '정산 정보', '')), tab)
-    head = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap"><b style="font-size:14px">발급 상세 · 수정</b>'
+def ticket_detail(tab='base', no=36, co='KODION', bill='무료', amount='', trial='', note='무상', err='', toast='', at='2026-07-07 00:00', by='황락평', editing=False, currency='KRW', fx=''):
+    """발급 상세 — 보기(읽기 전용) → [티켓 수정] → 수정 상태(파란 테두리 · 수정 전 · 탭 숨김) `PC-201`"""
+    t = '' if editing else kws.tabs((('base', '발급 기본정보', ''), ('bill', '정산 정보', '')), tab)
+    head = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap"><b style="font-size:14px;color:%s">%s</b>'
             '%s<span style="%s;font-size:12.5px">발급 %d번</span>%s%s</div>'
-            % (tg('N Key', '#eef6ff', '#2563eb'), MONO, no, tg(co, '#f3f4f6', '#6b7280', False), tg('대장', '#f3f4f6', '#9ca3af')))
-    if tab == 'base':
-        body = ('<div class="g3">' + fld('고객사', co, ro=True) + fld('발급일시', at, ro=True, mono=True) + fld('발급인', by, ro=True) + '</div>'
-                '<div style="margin-top:12px">' + fld('발급 내용 (목록 표기) *', '' if err == 'sum' else
-                                                     'Ncode_PDS3 S3/O46/B10 · Book 2권 · P0~511 · 기간 무제한', err=(err == 'sum')) + '</div>'
+            % ('#1d4ed8' if editing else '#111827', '티켓 수정' if editing else '발급 상세',
+               tg('N Key', '#eef6ff', '#2563eb'), MONO, no, tg(co, '#f3f4f6', '#6b7280', False), tg('대장', '#f3f4f6', '#9ca3af')))
+    SUM = 'Ncode_PDS3 S3/O46/B10 · Book 2권 · P0~511 · 기간 무제한'
+    if tab == 'base' or editing:
+        body = (('<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 12px;border-radius:9px;border:1px solid #93c5fd;'
+                 'background:#f0f7ff;font-size:12.5px"><b style="color:#1d4ed8">수정 전</b><span style="color:#374151">%s</span></div>' % SUM) if editing else '') + (
+                '<div class="g3">' + fld('고객사', co, ro=True) + fld('발급일시', at, ro=True, mono=True) + fld('발급인', by, ro=True) + '</div>'
+                '<div style="margin-top:12px">' + (fld('발급 내용 (목록 표기) *', '' if err == 'sum' else SUM, err=(err == 'sum')) if editing
+                                                     else fld('발급 내용 (목록 표기)', SUM, ro=True)) + '</div>'
                 + ('<div class="inline-err">발급 내용을 입력하세요.</div>' if err == 'sum' else '') +
                 '<div style="margin-top:16px;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">Key 정보 '
-                '<span style="font-weight:400;color:#9ca3af">· 15개 항목 · 값만 수정합니다</span></div>' + kws.kv_table(KODION_PARAMS[:9], editable=True) +
-                '<div style="font-size:11px;color:#9ca3af;margin-top:6px">이미 내려받은 키 파일은 바뀌지 않습니다. 여기 수정은 <b>발급 원장의 기록</b>을 바로잡는 용도입니다.</div>')
+                '<span style="font-weight:400;color:#9ca3af">· 15개 항목%s</span></div>' % (' · 값만 수정합니다' if editing else '') +
+                kws.kv_table(KODION_PARAMS[:9], editable=editing) +
+                ('<div style="font-size:11px;color:#9ca3af;margin-top:6px">이미 내려받은 키 파일은 바뀌지 않습니다. 여기 수정은 <b>발급 원장의 기록</b>을 바로잡는 용도입니다. '
+                 '코드 구간을 바꾸면 사용할 수 있는 구간인지 검사합니다.</div>' if editing else ''))
+        if editing:
+            body = '<div style="border:1px solid #93c5fd;background:#fbfdff;border-radius:10px;padding:14px 16px">%s</div>' % body
     else:
-        cells = ''
-        for b, sub in (('미정', '미등록'), ('유료', '금액 입력'), ('무료', '청구 없음'), ('체험', '1개월')):
-            on = b == bill
-            bg, fg = kws.BILL[b]
-            cells += ('<div style="padding:10px 8px;border-radius:9px;text-align:center;font-size:12.5px;border:1px solid %s;background:%s;color:%s;font-weight:%s">'
-                      '%s<div style="font-size:10px;font-weight:400;margin-top:2px">%s</div></div>'
-                      % (fg if on else '#e5e7eb', bg if on else '#fff', fg if on else '#6b7280', '700' if on else '400', b, sub))
-        extra = ''
-        if bill == '유료':
-            extra = '<div style="max-width:320px">' + fld('금액 (원) *', amount or '0', err=(err == 'amt')) + '</div>'
-            if err == 'amt':
-                extra += '<div class="inline-err">유료는 금액을 입력해야 합니다.</div>'
-        elif bill == '체험':
-            extra = ('<div style="max-width:320px">' + fld('체험 만료일 (기본 = 발급일 + 1개월)', trial) + '</div>'
-                     '<div style="font-size:11.5px;color:#92400e;margin-top:4px">만료되면 목록에서 <b>(만료)</b>로 표시되고 상단에 경고가 뜹니다.</div>')
-        elif bill == '무료':
-            extra = '<div style="font-size:12.5px;color:#166534">청구하지 않는 티켓으로 기록됩니다. (사유는 아래 비고에 남겨 주세요)</div>'
-        body = ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">과금 유형 <span style="color:#9ca3af">· 업체·티켓마다 다르게 등록할 수 있습니다</span></div>'
-                '<div class="g4" style="gap:8px;margin-bottom:14px">%s</div>%s<div style="margin-top:12px">%s</div>'
-                % (cells, extra, fld('비고 (사유·계약 정보)', note or '예) 2026 연간 계약 포함 · 데모 제공', ph=not note)))
-    foot = kws.footer('', '<span class="btn pri">저장</span>')   # 발급 기록 삭제 없음 `PC-192`
+        # 정산 정보 — App Key · 서비스 티켓과 같은 공용 정산 입력 `PC-202`
+        body = kws.billing_box(bill, amount, note, '2026-10-20 10:20 · 김순정' if note else '—', currency=currency, fx=fx, trial=trial, bare=True, err=err)
+    # 보기 [티켓 수정] / 수정 [취소] [수정 저장] / 정산 탭 [정산 저장] — 발급 기록 삭제 없음 `PC-192` `PC-201`
+    foot = kws.footer('', '<span class="btn gho">취소</span><span class="btn pri">수정 저장</span>' if editing else
+                      ('<span class="btn pri">티켓 수정</span>' if tab == 'base' else ''))   # 정산 탭 저장은 정산 입력 안 [정산 저장]
     msg = kws.toast_line(toast) if toast else ''
     return '<div style="%s;padding:18px">%s%s%s%s%s</div>' % (kws.CARD, head, t, body, foot, msg)
 
@@ -220,7 +213,7 @@ def col_h(height, extra=0):
 
 
 ZERO = (('발급 티켓', '0건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '0건', '#2563eb'),
-        ('무료 / 체험', '0 / 0건', '#166534'), ('정산 미등록', '0건', '#9ca3af'))
+        ('무료 건수', '0건', '#166534'), ('체험 건수', '0건', '#92400e'), ('정산 미등록', '0건', '#9ca3af'))
 ALL_GROUPS = (('KODION-46', T['KODION-46']), ('Inform DS-302', T['Inform DS-302'][:3]), ('Luginbühl-450', T['Luginbühl-450'][:1]))
 
 
@@ -229,7 +222,7 @@ def build():
     H, F = head_(), filter_bar()
 
     B.append(('S1', '기본 — 전체 · 고객사별 묶음', '기본',
-              '좌측 메뉴 <b>[티켓 발급] ▸ [N Key 관리]</b>(<code>/tickets/nkey</code>). 위는 <b>정산 집계 5칸</b>과 <b>필터 바</b>, 아래는 3단이다. '
+              '좌측 메뉴 <b>[티켓 발급] ▸ [N Key 관리]</b>(<code>/tickets/nkey</code>). 위는 <b>정산 집계 6칸</b>과 <b>필터 바</b>, 아래는 3단이다. '
               '왼쪽 고객사는 <b>고객사 관리 고객사</b>(기본 = N Key 가 이어진 발급 고객사 31곳) <code>PC-153</code>. 「전체」를 고르면 가운데가 '
               '<b>고객사별 묶음</b>(고객사 머리 · 건수 · 유료 합계)이고 오른쪽은 가장 최근 발급 건의 상세다. nkey(HLP) 발급 대장 61건은 <b>정본</b>이라 늘 보인다 <code>PC-155</code>. '
               '왼쪽 고객사 칸은 <b>App Key 관리와 같은 모양</b> — 이름 · 건수만 보이고 「미정 n」 은 보이지 않는다(정산 미등록은 집계 칸) <code>PC-198</code>.',
@@ -241,18 +234,18 @@ def build():
                ('[📂 N Key 불러오기]', '클릭', 'S17', '.json 파일 선택')]))
 
     B.append(('S2', '고객사 선택 — 집계가 그 고객사 기준', '분기',
-              '고객사를 고르면 <b>집계 5칸이 그 고객사 기준</b>으로 다시 계산되고(머리에 「집계 대상 {고객사}」), 가운데는 그 고객사 티켓만 최근순으로 보인다.',
+              '고객사를 고르면 <b>집계 6칸이 그 고객사 기준</b>으로 다시 계산되고(머리에 「집계 대상 {고객사}」), 가운데는 그 고객사 티켓만 최근순으로 보인다.',
               fr(head_('Luginbühl-450', stats=(('발급 티켓', '7건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '3건', '#2563eb'),
-                                                   ('무료 / 체험', '0 / 0건', '#166534'), ('정산 미등록', '4건', '#dc2626'))) + F +
+                                                   ('무료 건수', '0건', '#166534'), ('체험 건수', '0건', '#92400e'), ('정산 미등록', '4건', '#dc2626'))) + F +
                  kws.grid(left('Luginbühl-450', h=col_h(1000)), mid((('Luginbühl-450', T['Luginbühl-450']),), sel_no=34, h=col_h(1000), grouped=False),
                           ticket_detail(no=34, co='Luginbühl', bill='유료', at='2026-03-06 00:00', by='안진')), 1000),
-              [('집계 5칸', '—', '그 고객사 기준', '페이지·묶음과 무관하게 필터 결과 전체')]))
+              [('집계 6칸', '—', '그 고객사 기준', '페이지·묶음과 무관하게 필터 결과 전체')]))
 
     B.append(('S3', '필터 — 전체에서 걸고 고객사별로', '분기',
               '필터(정산 · 출처 · 검색)는 <b>전체 발급분에 먼저</b> 건다 <code>PC-150</code>. 왼쪽은 <b>맞는 발급이 있는 고객사만</b> 남고 건수도 필터 결과로 바뀌며, '
               '가운데는 고객사별로 묶여 보인다. 오른쪽 티켓이 결과에서 빠지면 첫 결과로 바뀐다. 검색은 고객사명도 찾는다.',
               fr(head_(filt=True, stats=(('발급 티켓', '35건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '0건', '#2563eb'),
-                                         ('무료 / 체험', '0 / 0건', '#166534'), ('정산 미등록', '35건', '#dc2626'))) +
+                                         ('무료 건수', '0건', '#166534'), ('체험 건수', '0건', '#92400e'), ('정산 미등록', '35건', '#dc2626'))) +
                  filter_bar(bill='미정', hits=('35', '12')) +
                  kws.grid(left(rows=[(n, td, False, td, False) for n, c, td in COS if td], total_all=(35, 35), count='12/31', h=col_h(1000)),
                           mid((('Inform DS-302', T['Inform DS-302'][:1]), ('Luginbühl-450', T['Luginbühl-450'][3:])), sel_no=21, h=col_h(1000), count=35),
@@ -264,7 +257,7 @@ def build():
 
     B.append(('S4', '필터 결과 없음', '빈 상태', '필터에 맞는 발급이 없으면 왼쪽 · 가운데에 안내만 남는다.',
               fr(head_(filt=True, stats=(('발급 티켓', '0건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '0건', '#2563eb'),
-                                         ('무료 / 체험', '0 / 0건', '#166534'), ('정산 미등록', '0건', '#9ca3af'))) +
+                                         ('무료 건수', '0건', '#166534'), ('체험 건수', '0건', '#92400e'), ('정산 미등록', '0건', '#9ca3af'))) +
                  filter_bar(src='new', q='Photron', hits=('0', '0')) +
                  kws.grid(left(rows=[], total_all=(0, 0), count='0/31', empty='필터에 맞는 고객사가 없습니다.', unlinked=None, h=col_h(900)),
                           mid((), h=col_h(900), count=0, empty='필터에 맞는 N Key 가 없습니다.'),
@@ -272,7 +265,7 @@ def build():
               [('[필터 해제]', '클릭', 'S1', '')]))
 
     trial = (('발급 티켓', '3건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '0건', '#2563eb'),
-             ('무료 / 체험', '0 / 3건', '#166534'), ('정산 미등록', '0건', '#9ca3af'))
+             ('무료 건수', '0건', '#166534'), ('체험 건수', '3건', '#92400e'), ('정산 미등록', '0건', '#9ca3af'))
     tt = ((62, 'S3/O46/B12', '체험', 2, '김순정', '2026-09-01', '', False), (63, 'S3/O46/B14', '체험', 2, '김순정', '2026-10-10', '', False))
     trial_mid = mid((('KODION-46', tt),), sel_no=62, h=col_h(1000, 44), grouped=False).replace(
         '김순정</span><span style="margin-left:auto', '김순정</span><span style="color:#dc2626">~10-01 (만료)</span><span style="margin-left:auto', 1).replace(
@@ -289,7 +282,7 @@ def build():
               'nkey 대장 티켓은 이름 + <b>Owner 번호</b>(고객사명 끝 -오너)로 고객사 관리 고객사에 잇는다. 안 맞으면 왼쪽 맨 아래 <b>「고객사 미연결」</b>로 모으고 '
               '카드에 대장명을 보인다(hyssos 4 · inkwrx 1 · ICsolutions O311 1). 고객사 관리에 「이름-오너」로 등록하면 자동으로 이어진다 <code>PC-153</code> <code>PC-155</code>.',
               fr(head_('고객사 미연결', stats=(('발급 티켓', '6건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '0건', '#2563eb'),
-                                              ('무료 / 체험', '0 / 0건', '#166534'), ('정산 미등록', '6건', '#dc2626'))) + F +
+                                              ('무료 건수', '0건', '#166534'), ('체험 건수', '0건', '#92400e'), ('정산 미등록', '6건', '#dc2626'))) + F +
                  kws.grid(left('고객사 미연결', h=col_h(1000)),
                           mid((('고객사 미연결', T['고객사 미연결']),), sel_no=58, h=col_h(1000), grouped=False, count=6,
                               warn='대장의 고객사명 · Owner 와 맞는 고객사가 고객사 관리에 없는 티켓입니다. 고객사 관리에 「이름-오너」로 등록하면 그 고객사로 이어집니다.'),
@@ -297,10 +290,10 @@ def build():
               [('고객사 미연결', '클릭', '그 티켓들', '대장명 표시'), ('고객사 관리 등록', '—', '자동 연결', '<code>MEM-02</code>')]))
 
     B.append(('S7', '전체 고객사 — 처음 발급', '분기',
-              '<b>[전체 고객사 537]</b>로 바꾸면 고객사 관리의 모든 고객사가 나온다. 아직 N Key 가 없는 고객사를 고르면 가운데가 빈 안내이고 '
+              '<b>[전체 고객사 536]</b>로 바꾸면 고객사 관리의 모든 고객사가 나온다. 아직 N Key 가 없는 고객사를 고르면 가운데가 빈 안내이고 '
               '<b>[＋ N Key 발급]</b>으로 첫 발급을 한다.',
               fr(head_('에듀테크랩', stats=(('발급 티켓', '0건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '0건', '#2563eb'),
-                                           ('무료 / 체험', '0 / 0건', '#166534'), ('정산 미등록', '0건', '#9ca3af'))) + F +
+                                           ('무료 건수', '0건', '#166534'), ('체험 건수', '0건', '#92400e'), ('정산 미등록', '0건', '#9ca3af'))) + F +
                  kws.grid(left('에듀테크랩', view='all', search='에듀테크', rows=[('에듀테크랩', 0, True, 0, False)], count=1, h=col_h(900)),
                           mid((), h=col_h(900), count=0, empty='발급된 N Key 가 없습니다.<br>[＋ N Key 발급]으로 발급하세요.'),
                           kws.right_empty('발급 티켓을 선택하거나 <b>[＋ N Key 발급]</b>을 누르세요.')), 900),
@@ -309,14 +302,16 @@ def build():
     G1 = (('KODION-46', T['KODION-46']),)
     LK = left('KODION-46', h=col_h(1000))
     HK = head_('KODION-46', stats=(('발급 티켓', '2건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '0건', '#2563eb'),
-                                   ('무료 / 체험', '2 / 0건', '#166534'), ('정산 미등록', '0건', '#9ca3af')))
+                                   ('무료 건수', '2건', '#166534'), ('체험 건수', '0건', '#92400e'), ('정산 미등록', '0건', '#9ca3af')))
     B.append(('S8', '발급 상세 — 정산 정보 · 유료', '분기',
-              '오른쪽 <b>정산 정보</b> 탭. 과금 유형 4칸(미정 · 유료 · 무료 · 체험) 중 <b>유료</b>면 금액(원)이 필수다. 비고는 모든 유형에서 쓴다. '
-              '<b>[저장] 한 번이 두 탭 내용을 함께</b> 기록한다.',
+              '오른쪽 <b>정산 정보</b> 탭 — App Key · 서비스 티켓과 같은 정산 입력이다. <b>왼쪽에서 과금 유형</b>(미정 · 유료 · 무료 · 체험)을 고르고 <b>오른쪽에 금액</b>을 넣는다. '
+              '금액은 <b>원 · USD</b> 중 고르고, USD 면 <b>환율 기록</b>(1 USD = n원 · 선택 · 자동 아님)을 적어 둘 수 있다. 비고는 3줄 입력 <code>PC-202</code>. '
+              '정산은 이 탭의 <b>[정산 저장]</b>으로 따로 기록한다 <code>PC-201</code>.',
               fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(1000), grouped=False),
-                                   ticket_detail('bill', bill='유료', amount='3,500,000', note='2026 연간 계약')), 1000),
+                                   ticket_detail('bill', bill='유료', amount='2,500', note='2026 연간 계약 · 해외', currency='USD', fx='1,385')), 1000),
               [('과금 유형', '선택', '미정 · 유료 · 무료 · 체험', '유료→다른 유형: 금액 0 / 체험→다른 유형: 만료일 비움'),
-               ('금액 (원)', '입력', '유료일 때 필수', ''), ('[저장]', '클릭', 'S11', '')]))
+               ('금액 · 통화', '입력 · 원 / USD', '유료일 때 필수', '목록 · 배지는 1,200,000원 / $2,500 · 유료 합계는 원화(USD 는 환율 기록분만)'),
+               ('환율 기록', '입력 (선택)', 'USD 일 때', '1 USD = n원 · 자동 환산 아님 · ≈ 원화 표시'), ('[정산 저장]', '클릭', '정산 기록', '<b>정산 정보가 저장되었습니다.</b> · <code>LOG-01</code>')]))
 
     B.append(('S9', '정산 정보 — 체험 · 무료', '변형',
               '<b>체험</b>이면 체험 만료일(기본 = 발급일 + 1개월)을 받고, <b>무료</b>면 「청구하지 않는 티켓」 안내만 나온다.',
@@ -326,16 +321,17 @@ def build():
                ('무료', '선택', '안내만', '사유는 비고')]))
 
     B.append(('S10', '저장 검증 실패', '오류',
-              '검사 순서: ① 발급 내용이 비었나 → <b>발급 기본정보</b> 탭으로 ② 유료인데 금액 0 → <b>정산 정보</b> 탭으로. 그 자리에서 멈춘다.',
+              '정산 탭 [정산 저장] — 유료인데 금액 0 이면 멈춘다. 티켓 수정 [수정 저장] — 발급 내용이 비었으면 멈춘다(S21) <code>PC-201</code>.',
               fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(1000), grouped=False),
                                    ticket_detail('bill', bill='유료', amount='0', err='amt', note='')), 1000),
-              [('발급 내용 비움', '[저장]', '<b>차단</b> · 기본정보 탭', '<b>발급 내용을 입력하세요.</b>'),
-               ('유료 금액 0', '[저장]', '<b>차단</b> · 정산 탭', '<b>유료는 금액을 입력해야 합니다.</b>')]))
+              [('발급 내용 비움', '[수정 저장]', '<b>차단</b>', '<b>발급 내용을 입력하세요.</b>'),
+               ('유료 금액 0', '[정산 저장]', '<b>차단</b>', '<b>유료는 금액을 입력해야 합니다.</b>')]))
 
-    B.append(('S11', '저장 완료', '분기', '두 탭 내용이 함께 기록되고 이 화면에 머문다. 집계 · 카드의 정산 표시가 바로 바뀐다.',
+    B.append(('S11', '티켓 수정 저장 완료', '분기', '[수정 저장]이 끝나면 <b>보기</b>로 돌아가 고친 값을 보인다 <code>PC-201</code>. 정산 탭은 [정산 저장]으로 따로 기록되고 집계 · 카드의 정산 표시가 바로 바뀐다.',
               fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(1000), grouped=False),
-                                   ticket_detail(toast='발급 기본정보와 정산 정보가 저장되었습니다.')), 1000),
-              [('저장(자동)', '—', '<code>LOG-01</code>', '발급 수정 · {고객사} · 발급 {No}번 · N Key · {정산}')]))
+                                   ticket_detail(toast='티켓 수정 — 발급 36번')), 1000),
+              [('수정 저장(자동)', '—', '<code>LOG-01</code>', '티켓 수정 · {고객사} · 발급 {No}번 · N Key'),
+               ('정산 저장(자동)', '—', '<code>LOG-01</code>', '정산 등록 · {고객사} · 발급 {No}번 · N Key · {정산}')]))
 
     B.append(('S12', 'N Key 발급 — 범위 선택', '분기',
               '<b>[＋ N Key 발급]</b>을 누르면 오른쪽에 발급 폼이 열린다. 고객사는 왼쪽에서 고른 값(「전체」면 고른다). <b>발급 범위</b> = nkey 대장 이력(이 고객사로 이어진 티켓) '
@@ -381,10 +377,10 @@ def build():
               '발급 기록은 <b>지우지 않고 고친다</b> <code>PC-192</code>. Key 정보에서 <b>Section · Owner · Book · Page</b> 를 바꾸면 [저장] 때 '
               '① 이 고객사의 발급 범위(대장 이력 · SOBP 할당) 안인지 ② 다른 발급분과 겹치지 않는지(자기 자신 제외) 본다. 사용할 수 없는 구간이면 저장하지 않는다.',
               fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(1000), grouped=False),
-                                  ticket_detail(toast='이 고객사의 발급 범위(SOBP 할당) 밖의 코드 구간입니다. 할당된 Section · Owner · Book 안에서 고치세요.').replace('#047857', '#dc2626')), 1000),
-              [('범위 밖', '[저장]', '<b>차단</b>', '<b>이 고객사의 발급 범위(SOBP 할당) 밖의 코드 구간입니다. 할당된 Section · Owner · Book 안에서 고치세요.</b>'),
-               ('겹침', '[저장]', '<b>차단</b>', '<b>이미 {App Key / N Key / 서비스 티켓}로 발급된 SOBP 와 겹칩니다 — … 다른 Book · Page 를 고르세요.</b>'),
-               ('구간 그대로', '[저장]', '저장', '정산 · 발급 내용 등 다른 값만 바꾸면 검사하지 않는다')]))
+                                  ticket_detail(editing=True, toast='이 고객사의 발급 범위(SOBP 할당) 밖의 코드 구간입니다. 할당된 Section · Owner · Book 안에서 고치세요.').replace('#047857', '#dc2626')), 1000),
+              [('범위 밖', '[수정 저장]', '<b>차단</b>', '<b>이 고객사의 발급 범위(SOBP 할당) 밖의 코드 구간입니다. 할당된 Section · Owner · Book 안에서 고치세요.</b>'),
+               ('겹침', '[수정 저장]', '<b>차단</b>', '<b>이미 {App Key / N Key / 서비스 티켓}로 발급된 SOBP 와 겹칩니다 — … 다른 Book · Page 를 고르세요.</b>'),
+               ('구간 그대로', '[수정 저장]', '저장', '발급 내용 등 다른 값만 바꾸면 검사하지 않는다')]))
 
     B.append(('S17', 'N Key 불러오기 — 항목 표', '분기',
               '필터 바의 <b>[📂 N Key 불러오기]</b>로 내려받은 키 파일(.json)을 열어 <b>Key · Value</b> 표로 본다. <b>조회 전용</b>이고 원장에 없는 외부 파일도 연다. '
@@ -421,7 +417,7 @@ def build():
               '왼쪽 <b>고객사 검색</b>에 이름을 넣으면 가운데 발급 티켓 칸이 <b>검색한 고객사들의 발급 티켓</b>(고객사별 묶음)으로 바뀐다 — 머리는 「집계 대상 고객사 검색 「…」」 <code>PC-199</code>. '
               '하위 고객사를 검색하면 그 하위 고객사로 발급한 티켓과, 상위 고객사에서 <b>사용 고객사</b>로 그 하위 고객사에 발급한 티켓이 함께 나온다. 고객사를 누르면 그 고객사만 본다.',
               fr(head_('고객사 검색 「Inform」', stats=(('발급 티켓', '17건', '#111827'), ('유료 합계', '₩0', '#1d4ed8'), ('유료 건수', '16건', '#2563eb'),
-                                                  ('무료 / 체험', '0 / 0건', '#166534'), ('정산 미등록', '1건', '#dc2626'))) + F +
+                                                  ('무료 건수', '0건', '#166534'), ('체험 건수', '0건', '#92400e'), ('정산 미등록', '1건', '#dc2626'))) + F +
                  kws.grid(left(view='issued', search='Inform', rows=[('Inform DS-302', 16, False, 0, False), ('InformDS-231', 1, False, 0, False)], count=2, h=col_h(1000)),
                           mid((('Inform DS-302', T['Inform DS-302']),), sel_no=21, h=col_h(1000), count=17),
                           ticket_detail(no=21, co='InformDS', bill='미정', note='판매용 (미사용건)', at='2026-03-17 00:00', by='안진')), 1000),
@@ -429,8 +425,18 @@ def build():
                ('고객사', '클릭', 'S2', '그 고객사만'),
                ('검색어 지움', '—', 'S1', '')]))
 
+    # 티켓 수정 — 보기에서 [티켓 수정]으로 수정 상태 `PC-201`
+    B.append(('S21', '티켓 수정 — 수정 상태', '분기',
+              '오른쪽 발급 상세는 <b>보기</b>(읽기 전용)로 열린다. <b>[티켓 수정]</b>을 누르면 App Key 관리처럼 <b>수정 상태</b>로 바뀐다 — 제목 <b>「티켓 수정」</b>, '
+              '파란 테두리, <b>수정 전</b> 발급 내용, 탭 숨김(입력에 집중). 발급 내용과 Key 정보 값을 고치고 <b>[수정 저장]</b>, <b>[취소]</b>면 고친 값을 버리고 보기로 돌아간다 <code>PC-201</code>. '
+              '발급 기록은 지우지 않는다 <code>PC-192</code>.',
+              fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(1000), grouped=False), ticket_detail(editing=True)), 1000),
+              [('[티켓 수정]', '클릭', '수정 상태', '발급 기본정보 탭에서 · 정산 탭은 [정산 저장]'),
+               ('[수정 저장]', '클릭', 'S11', '코드 구간을 바꿨으면 사용할 수 있는 구간인지 검사(S16)'),
+               ('[취소]', '클릭', '보기', '고친 값 버림')]))
+
     intro = ('N Key 를 발급하고 정산하는 화면이다. 「<b>고객사 | 발급 티켓 | 발급 상세·정산</b>」 3단 한 화면이며 옛 <code>TKT-03</code> N Key 관리 · '
              '<code>TKT-04</code> N Key 발급 · <code>TKT-05</code> 발급 상세·수정 · <code>TKT-06</code> N Key 불러오기를 합쳤다 <code>PC-149</code> <code>PC-158</code>. '
-             '고객사는 <b>고객사 관리 고객사를 불러온다</b> <code>PC-153</code>. <b>정산 집계 5칸</b>은 고른 고객사 · 필터 기준이고, 필터는 전체에 걸고 고객사별로 묶어 본다 '
+             '고객사는 <b>고객사 관리 고객사를 불러온다</b> <code>PC-153</code>. <b>정산 집계 6칸</b>은 고른 고객사 · 필터 기준이고, 필터는 전체에 걸고 고객사별로 묶어 본다 '
              '<code>PC-150</code>. 화면 모양은 <code>TKT-01</code> App Key 관리와 같은 조각을 쓴다 <code>PC-154</code>.')
     return page(CODE, NAME, PRD, intro, B)

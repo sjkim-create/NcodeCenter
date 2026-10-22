@@ -37,6 +37,8 @@ COMPANY_ALIAS = {
     "tranwisdom": "Tranwisdom",
     "Copy of NHN EDU": "에듀프레소",          # 시트 제목이 복사본 이름 그대로라 본문의 회사명을 쓴다
 }
+# 제외 시트 — 자료 기록만 있고 실제 App Key 를 발급하지 않은 곳 `PC-205` (web/lib/ledgerExclude.ts 와 같게)
+EXCLUDE_SHEETS = {"영신사"}
 PT_OF = {"PDS2": "PDS2", "PDS3": "PDS3", "PDS4": "PDS4"}
 
 
@@ -150,6 +152,7 @@ def main():
 
     accounts = []
     for ws in wb.worksheets[1:]:
+        if ws.title in EXCLUDE_SHEETS: continue          # `PC-205`
         rows = [list(r) for r in ws.iter_rows(values_only=True)]
         rows = [r for r in rows if any(v is not None for v in r)]
         d = {"sheet": ws.title, "company": COMPANY_ALIAS.get(ws.title, ws.title), "companyId": 0,
@@ -211,7 +214,7 @@ def main():
         if co:
             d["companyId"] = co["id"]; d["company"] = co["name"]
         if not d["id"]:
-            d["id"] = ""                                 # 대장에 계정이 비어 있음(영신사)
+            d["id"] = ""                                 # 대장에 계정이 비어 있음
         accounts.append(d)
 
     # 고객사 시트에만 나오는 권한(현대차 커스텀 익스포트)도 정의에 넣는다 — 기본값 없음(둘 다 X)
