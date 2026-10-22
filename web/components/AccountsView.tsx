@@ -15,7 +15,7 @@ import { logActivity } from "@/lib/activityStore";
 import { addTicket, fmtMoney, hydrateTickets, setBilling, ticketById, updateTicket, useTickets } from "@/lib/ticketStore";
 import { BillingEditor, BillTag, LicenseEditor } from "./BillingEditor";
 import { sobpOverlapMsg } from "@/lib/rangeGuard";
-import { SobpRangePicker, type SobpRange } from "./TicketsView";
+import { SobpRangePicker, FormSec, type SobpRange } from "./TicketsView";
 import { SobpUsage } from "./SobpUsage";
 import { APPKEY_PERMS, normAppKeyPerms } from "@/lib/appKeyPerms";
 import { InfoTip } from "./KeyWorkspaceUI";
@@ -131,29 +131,6 @@ function useRanges(co?: Company): SobpRange[] {
   useTicketCustomers();
   const { projects } = useStore();
   return appKeyRangesOfCompany(co, projects);
-}
-
-// App Key 발급 — 계정 등록·상세에서 공용으로 쓴다.
-// App Key 는 CasterN 서비스에만 해당한다(SOBP 범위를 편집툴에 연동하는 키).
-// App Key 발급 범위 입력 — 할당 SOBP 안에서 **Book Start · Book Volume(권수)** 를 정한다 `PC-050`
-// 고정 값은 입력칸이 아니라 **한 줄 요약**으로 모아 보여 준다 `PC-071`
-//   (Code Type · 만료일은 고르는 값이라 위쪽 입력 줄에 있다)
-function FixedKeyFields({ range, unlimited }: { range?: SobpRange; unlimited: boolean }) {
-  const item = (k: string, v: string) => (
-    <span key={k} style={{ display: "inline-flex", alignItems: "baseline", gap: 5 }}>
-      <span style={{ color: "#9ca3af" }}>{k}</span>
-      <b style={{ color: "#374151", fontFamily: "ui-monospace,monospace" }}>{v}</b>
-    </span>
-  );
-  return (
-    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "baseline",
-      marginTop: 10, padding: "8px 11px", background: "#fafbfc", border: "1px solid #eef0f4", borderRadius: 9, fontSize: 11.5 }}>
-      <span style={{ color: "#6b7280", fontWeight: 700 }}>자동·고정</span>
-      {item("Section · Owner", range ? `S${range.section} / O${range.owner}` : "-")}
-      {item("Ticket Type", unlimited ? "Unlimited" : "Period")}
-      {item("Ticket Version", "1")}
-    </div>
-  );
 }
 
 function BookRangeFields({ range, bookStart, bookVol, pageStart, pageVol, onStart, onVol, onPStart, onPVol }: {
@@ -425,7 +402,8 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   const { companies } = useStore();
   const accCo = acc ? companyOfAccount(acc, companies) : undefined;   // 고객사 관리 고객사로 잇는다 `PC-153`
   const ranges = useRanges(accCo);
-  const formRanges = editRange ? [editRange.bound] : ranges;   // 수정 중이면 그 티켓의 테두리 하나
+  // 수정 중이면 그 티켓의 테두리 하나(옛 OID · PDS4 값도 그대로) / 새 발급은 PDS2 · PDS3 범위만 `PC-220`
+  const formRanges = editRange ? [editRange.bound] : ranges.filter((r) => ["PDS2", "PDS3"].includes(CT_OF[r.pt] ?? r.pt));
   const range = formRanges[sobpIdx];
   const keys = cast.appKeys.filter((k) => k.accountId === accountId);
   // App Key 는 **계정당 1개**이고 **사용처 전체에 공통**이다 `PC-050`
@@ -546,32 +524,48 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
     setToast({ ok: true, text: "App Key 발급 완료 — 계정과 연동되어 서비스 DB에 등록되었습니다." });
   };
 
-  // 발급·재발급 공용 — Code Type · 사용기간(시작~끝). 기간은 티켓별로 유지된다 `PC-117`
-  const periodFields = (
-    <div style={{ display: "grid", gridTemplateColumns: "0.9fr 1fr 1.4fr", gap: 10, marginTop: 10 }}>
-      <Field label="Code Type">
-        <select style={S.input} value={ctype} disabled={!range} onChange={(e) => setCtype(e.target.value as CodeKind)}>
-          {CODE_KINDS.map((k) => <option key={k.v} value={k.v}>{k.short}</option>)}
-        </select>
+  // 발급 · 수정 공용 — 2열 짝 묶음(N Key 발급과 같은 모양) `PC-223`
+  //   티켓 속성: Code Type · Section/Owner / Info(티켓 메모)   기간 · 버전: 사용기간 시작 · 끝 / Ticket Type · Ticket Version
+  //   기간은 티켓별로 유지된다 `PC-117`
+  const fixedSt: React.CSSProperties = { ...S.input, background: "#f7f8fa", color: "#6b7280" };
+  const attrFields = (
+    <FormSec title="티켓 속성" cols={4}>
+      <Field label="Code Type (발급 범위 따름)">
+        {/* 고른 범위의 할당 타입으로 고정 `PC-220` */}
+        <input style={fixedSt} value={range ? ctype : "-"} readOnly title="발급 범위의 코드 타입으로 정해집니다" />
       </Field>
+      <Field label="Section · Owner (자동)">
+        <input style={fixedSt} value={range ? `S${range.section} / O${range.owner}` : "-"} readOnly />
+      </Field>
+      {/* 티켓 Info — 티켓 메모(예: sample) `PC-206` */}
+      <div style={{ gridColumn: "span 2" }}><Field label="Info (티켓 메모)">
+        <input style={S.input} value={info} disabled={!range} onChange={(e) => setInfo(e.target.value)} placeholder="예) sample · 2026 교재용" />
+      </Field></div>
+    </FormSec>
+  );
+  // 입력 칸 너비 통일 — 모든 줄 4칸 격자 `PC-236`
+  const periodFields = (
+    <FormSec cols={4}>
       <Field label="Valid From Time (사용기간 시작)">
         <input type="date" style={S.input} value={since} disabled={!range} onChange={(e) => setSince(e.target.value)} />
       </Field>
-      <Field label="Valid Until Time (사용기간 끝)">
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited || !range} min={since || undefined} onChange={(e) => setUntil(e.target.value)} />
-          <label style={{ fontSize: 12.5, color: "#374151", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", cursor: "pointer" }}>
+      {/* 무제한 체크는 항목명(사용기간 끝) 옆 `PC-237` */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}><label style={{ fontSize: 11, color: "#6b7280" }}>Valid Until Time (사용기간 끝)</label>
+          <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11.5, color: "#374151", whiteSpace: "nowrap", cursor: "pointer" }}>
             <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> 무제한
           </label>
         </div>
-      </Field>
-      {/* 티켓 Info — 티켓 메모(예: sample) `PC-206` */}
-      <div style={{ gridColumn: "1 / -1" }}>
-        <Field label="Info (티켓 메모)">
-          <input style={S.input} value={info} disabled={!range} onChange={(e) => setInfo(e.target.value)} placeholder="예) sample · 2026 교재용" />
-        </Field>
+        <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited || !range} min={since || undefined} onChange={(e) => setUntil(e.target.value)} />
       </div>
-    </div>
+    </FormSec>
+  );
+  // 버전 — 코드 구간 아래 `PC-234`
+  const versionFields = (
+    <FormSec cols={4}>
+      <Field label="Ticket Type (자동)"><input style={fixedSt} value={unlimited || !until ? "Unlimited" : "Period"} readOnly /></Field>
+      <Field label="Ticket Version"><input style={fixedSt} value={1} readOnly /></Field>
+    </FormSec>
   );
 
   // 발급 완료 안내(신규·재발급 공용)
@@ -636,20 +630,23 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
               </div>
             );
           })()}
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>발급 범위 (Caster 대장 이력 · SOBP 할당) * <span style={{ color: "#9ca3af" }}>(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다 · 사용기간을 함께 지정합니다)</span></div>
-          <SobpRangePicker company ranges={formRanges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = formRanges[i]; if (r) setCtype(CT_OF[r.pt] ?? "PDS3"); }} />
+          <Field label="발급 범위 * (Caster 대장 이력 · SOBP 할당 — 고르면 Section · Owner · Book · Code Type 이 채워집니다)">
+          <SobpRangePicker company showType ranges={formRanges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = formRanges[i]; if (r) setCtype(CT_OF[r.pt] ?? "PDS3"); }} />
+          </Field>
           {/* 구간 사용 현황 — 수정 중이면 자기 자신은 빼고 본다 `PC-195` */}
           {range && <SobpUsage range={range} onPickBook={(b) => setBStart(b)} exclude={editRange ? `${acc.id}#${editRange.idx}` : undefined}
             cand={{ section: range.section, owner: range.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, pageStart: pStart, pageEnd: pStart + keyPVol - 1 }} />}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 12 }}>
+          {periodFields}   {/* 기간 · 버전을 티켓 속성 위로 `PC-230` */}
+          {/* 순서: 기간 → 코드 구간 → 버전 → 티켓 속성 `PC-223` `PC-234` */}
+          <FormSec cols={4}>
             <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
                               onStart={setBStart} onVol={setBVol} onPStart={setPStart} onPVol={setPVol} />
-          </div>
-          {periodFields}
-          <FixedKeyFields range={range} unlimited={unlimited || !until} />
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+          </FormSec>
+          {versionFields}
+          {attrFields}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 14, paddingTop: 12, borderTop: "1px solid #eef0f4" }}>
             {range && (
-              <span style={{ fontSize: 11.5, color: "#6b7280" }}>
+              <span style={{ fontSize: 11.5, color: "#6b7280", flex: 1, minWidth: 200 }}>
                 발급 범위 <b>{range.pt} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권 · <b>P{pStart}~{pStart + keyPVol - 1}</b> · 기간 {since || "즉시"}~{untilVal()}
               </span>
             )}

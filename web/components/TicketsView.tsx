@@ -7,6 +7,7 @@ import { S, Field, Modal, BLUE } from "./ui";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { makeZip } from "@/lib/zip";
+import { NKEY_TYPES, sectionsFor, parseNkey, secOk, profileOk, isKnownSection, downloadNkey, type NkeyProfile } from "@/lib/nkeyFile";   // 발급 정책 · .nkey `PC-219` `PC-221`
 import { codeKind, kindLabel, patternOf, patternTypeParam, CODE_KINDS, PAGE_CAP, BOOK_CAP, type CodeKind } from "@/lib/codeKind";
 import { codesOfCompany } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
@@ -17,7 +18,7 @@ import {
   WS_CARD, WS_HD, WS_GRID, WS_EMPTY, WS_HEAD_BTN, wsItem,
   WsTitle, WsStats, WsCoHead, WsCoToggle, WsCoItem, WsFillScroll, WsCoGroup, useSubsOf, nestCompanies, type CoView, type WsFold,
 } from "./KeyWorkspaceUI";   // App Key 관리와 같은 조각 `PC-154`
-import { useCaster } from "@/lib/accountStore";
+import { useCaster, CASTERN_PERMS, ALL_PERMS, type CasterPerm } from "@/lib/accountStore";
 import { useStore } from "@/lib/store";
 import {
   addTicket, allTickets, deleteTicket, hydrateTickets, setBilling, ticketById, updateTicket, useTickets,
@@ -126,7 +127,10 @@ function NKeyWorkspace() {
     if (!/\.nkey$/i.test(f.name)) { setLoadedKey({ name: f.name, rows: [], err: "N Key 티켓 파일(.nkey)이 아닙니다. N Key 발급으로 내려받은 .nkey 파일을 선택하세요." }); return; }
     const rd = new FileReader();
     rd.onload = () => {
-      try { setLoadedKey({ name: f.name, rows: toKV(JSON.parse(String(rd.result))) }); }
+      const text = String(rd.result);
+      const rows = parseNkey(text);   // .nkey = 「Key=Value」 줄 `PC-219`
+      if (rows) { setLoadedKey({ name: f.name, rows }); return; }
+      try { setLoadedKey({ name: f.name, rows: toKV(JSON.parse(text)) }); }   // 이전에 낸 .nkey(내용 JSON)
       catch { setLoadedKey({ name: f.name, rows: [], err: "N Key 티켓 파일(.nkey)이 아닙니다. N Key 발급으로 내려받은 .nkey 파일을 선택하세요." }); }
     };
     rd.readAsText(f);
@@ -487,6 +491,11 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
                 <span style={{ color: "#374151" }}>{t.summary}</span>
               </div>
             )}
+            {/* 수정 = 발급과 같은 폼(코드 구간 · 티켓 속성 · 기간 · 버전) `PC-226` */}
+            {editing ? (
+              <NKeyForm me={me} companyId={companyOfNTicket(t, companies)?.id ?? 0} setCompanyId={() => {}} embedded edit={t}
+                onCancel={cancelEdit} onSaved={() => { setLoaded(false); setEditing(false); setToast({ ok: true, text: `티켓 수정 — 발급 ${t.no}번` }); }} />
+            ) : (<>
             {/* 고객사·일시·발급인은 원장 기준값이라 고정 */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
               <Field label="고객사"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{t.company}</div></Field>
@@ -532,12 +541,8 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
                   </tbody>
                 </table>
               </div>
-              {editing && (
-                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6, lineHeight: 1.6 }}>
-                  이미 내려받은 키 파일은 바뀌지 않습니다. 여기 수정은 <b>발급 원장의 기록</b>을 바로잡는 용도입니다. 코드 구간을 바꾸면 사용할 수 있는 구간인지 검사합니다.
-                </div>
-              )}
             </div>
+            </>)}
           </div>
         ) : (
           // 정산 정보 — App Key · 서비스 티켓과 같은 공용 정산 입력 `PC-202`
@@ -553,17 +558,16 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
         )}
 
         {/* 하단 액션 — [목록]은 여기 있다. 저장은 두 탭 내용을 함께 기록한다. */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 18, paddingTop: 14, borderTop: "1px solid #eef0f4" }}>
+        <div style={{ display: editing ? "none" : "flex", alignItems: "center", gap: 8, marginTop: 18, paddingTop: 14, borderTop: "1px solid #eef0f4" }}>
           {/* 발급된 티켓은 지우지 않는다 — 정보만 고친다(코드 구간은 사용 가능한 구간일 때만) `PC-192` */}
           <span style={{ flex: 1 }} />
           {!embedded && !editing && <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>}
-          {editing ? (
+          {editing ? null : tab === "base" ? (
             <>
-              <button onClick={cancelEdit} style={S.ghost}>취소</button>
-              <button onClick={saveEdit} style={S.primary}>수정 저장</button>
+              {/* 발급 기록으로 .nkey 를 다시 받는다 — 발급 때와 같은 파일명 · 형식 `PC-221` */}
+              {t.kind === "N" && <button onClick={() => { const f = downloadNkey(t.params, makeZip); setToast({ ok: true, text: `키 다운로드 — ${f}` }); }} style={S.ghost}>키 다운로드</button>}
+              <button onClick={() => { setEditing(true); setToast(null); }} style={S.primary}>티켓 수정</button>
             </>
-          ) : tab === "base" ? (
-            <button onClick={() => { setEditing(true); setToast(null); }} style={S.primary}>티켓 수정</button>
           ) : null}
         </div>
         {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: toast.ok ? "#047857" : "#dc2626", textAlign: "right" }}>{toast.text}</div>}
@@ -577,15 +581,21 @@ const PATTERNS = ["OID", "PDS2", "PDS3", "Scode"] as const;
 type Pattern = (typeof PATTERNS)[number];
 // 범위의 pt(PDS3·PDS2·Scode·OID) → 코드 종류 `PC-064`
 const CT_OF: Record<string, CodeKind> = { PDS3: "PDS3", PDS2: "PDS2", Scode: "PDS4", OID: "OID" };
+// 수정 — Key 정보의 Code Type 값(Ncode_PDS3 · PDS3 · Scode …) → 코드 종류 / 코드 종류 → 범위 패턴 `PC-226`
+const CT_PARAM = (v: unknown): string => {
+  const x = String(v ?? "");
+  return /PDS3/.test(x) ? "PDS3" : /PDS2/.test(x) ? "PDS2" : /Scode|PDS4/.test(x) ? "PDS4" : /OID/.test(x) ? "OID" : "PDS3";
+};
+const PT_OF: Record<string, string> = { PDS3: "PDS3", PDS2: "PDS2", PDS4: "Scode", OID: "OID" };
 const yyyymmdd = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, ""); // KST
 
-// Caster lite 티켓을 붙여넣는 대상 폴더 (안내용)
-const CODE_TICKETS = "C:\\Users\\Documents\\NeoLab\\CodeTickets";
 
 // 고객사 = **티켓 고객사**(nkey(HLP) 대장 프로젝트명 + 티켓 화면 등록분) — 고객사 관리와 별개 `PC-123`
-function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onCancel }: {
+// edit — 발급된 티켓 수정: 같은 폼을 그 티켓 값으로 채워 고친다(App Key 처럼) `PC-226`
+function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onCancel, edit, onSaved }: {
   me: ReturnType<typeof currentUser>; companyId: number; setCompanyId: (n: number) => void;
   embedded?: boolean; onIssued?: (t: Ticket) => void; onCancel?: () => void;   // 3단 화면 오른쪽 칸 `PC-149`
+  edit?: Ticket; onSaved?: () => void;
 }) {
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [bookStart, setBookStart] = useState(0);   // Start Book (할당 범위 안에서 직접 입력)
@@ -598,6 +608,11 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
   const [toast, setToast] = useState("");
   const [cuIdx, setCuIdx] = useState(-1);           // 공통코드 회사의 '사용 고객사' 선택
   const [ctype, setCtype] = useState<CodeKind>("PDS3");   // Code Type — 직접 고른다 `PC-064`
+  // 프로필 · 코드 재사용 · HYBRID 전용 권한 `PC-218`
+  //   LEGACY = Caster Lite / HYBRID = CasterN — HYBRID 면 서비스 계정에서 CasterN 에 주는 권한 6가지를 고른다
+  const [profile, setProfile] = useState<"LEGACY" | "HYBRID">("LEGACY");
+  const [codeReuse, setCodeReuse] = useState(true);   // 기본 = 재사용 `PC-222`
+  const [hperms, setHperms] = useState<CasterPerm[]>([...ALL_PERMS]);
   useEffect(() => { hydrateTickets(); }, []);
   // 그 고객사의 계정 중 **아직 N Key 가 없는 계정**만 발급 대상이다 `PC-059`
 
@@ -605,7 +620,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
   const subsOf = useSubsOf(companies);   // 고객사 선택 — 상 · 하위 구별 `PC-197`
   // 고객사 = **고객사 관리 고객사** `PC-153`
   const company = companyId ? companies.find((c) => c.id === companyId) : undefined;
-  const issuedTime = yyyymmdd();
+  const [issuedTime, setIssuedTime] = useState(yyyymmdd());   // 발급일 — 오늘이 기본 · 고칠 수 있다(YYYYMMDD) `PC-232`
 
   useEffect(() => { hydrateMembers(); }, []);
   useCommonMembers();   // 사용자 등록분 변경 시 리렌더
@@ -617,6 +632,15 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
   // 고객사 선택 시 발급 범위 — **대장 이력의 S/O/B** (Section/Owner/BookStart/PatternType/PageVolume 자동) `PC-123`
   //   · 공통코드 회사면 공통코드를 범위로 제공 (Book/Page = 섹션 정원)
   const ranges = useMemo(() => {
+    if (edit) {   // 수정 — 그 티켓의 테두리 하나 `PC-226`
+      const sp0 = spanOfParams(edit.params);
+      const pt = (PT_OF[CT_PARAM(edit.params["Code Type"])] ?? "PDS3") as Pattern;
+      const all = company ? nKeyRangesOfCompany(company, projects, allTickets().filter((t) => t.kind === "N" && t.id !== edit.id), companies) : [];
+      const same = all.filter((r) => r.section === sp0.section && r.owner === sp0.owner);
+      const bs = Math.min(sp0.bookStart, ...same.map((r) => r.bookStart)), be = Math.max(sp0.bookEnd, ...same.map((r) => r.bookEnd));
+      const pcap = PAGE_CAP[pt]?.[sp0.section] ?? Math.max(512, sp0.pageEnd + 1);
+      return [{ pt, section: sp0.section, owner: sp0.owner, bookStart: bs, bookEnd: be, pageStart: 0, pageEnd: pcap - 1, bookCount: sp0.bookEnd - sp0.bookStart + 1 }];
+    }
     if (!company) return [];
     if (isCommon) {
       return commonCodes.map((c) => {
@@ -627,23 +651,37 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     }
     // N Key 발급 범위 = nkey 대장 이력(이 고객사로 이어진 티켓) + 고객사의 SOBP 할당 + (K) 할당 `PC-153`
     return nKeyRangesOfCompany(company, projects, allTickets().filter((t) => t.kind === "N"), companies);
-  }, [company, isCommon, commonCodes, projects, companies]);
+  }, [company, isCommon, commonCodes, projects, companies, edit])
+    // OID · PDS4 는 새로 발급할 수 없다 — 범위 목록에도 내지 않는다(수정 중인 옛 티켓은 그대로) `PC-219` `PC-220`
+    .filter((r) => !!edit || (NKEY_TYPES as string[]).includes(CT_OF[r.pt] ?? r.pt));
   const range = ranges[sobpIdx];
 
   // 공통코드 회사의 '사용 고객사' 후보 — 각 코드의 중앙 멤버십(히스토리+등록). 코드 라벨과 함께 한 목록으로.
   const cuCandidates = useMemo(() => {
     if (!isCommon) return [];
-    return commonCodes.flatMap((c) =>
+    return commonCodes.filter((c) => (NKEY_TYPES as string[]).includes(codeKind(c.k, c.s))).flatMap((c) =>   // OID · PDS4 제외 `PC-220`
       membersOf(c.k, c.s, c.o).map((m) => ({ cu: m.name, k: c.k, section: c.s, owner: c.o, label: `${m.name} · ${c.label}${m.seeded ? "" : " · 신규"}` })));
   }, [isCommon, commonCodes]);
   const selCu = cuCandidates[cuIdx];
 
   const onCompany = (id: number) => { setCompanyId(id); setSobpIdx(-1); setBooks(1); setPageStart(1); setBookStart(0); setCuIdx(-1); };
+  // 프로필 바꾸기 — 그 프로필로 지금 타입을 못 쓰면 쓸 수 있는 타입으로 `PC-221`
+  const [profTip, setProfTip] = useState(false);   // 프로필 고르면 사용 가능 Section 말풍선(5초) `PC-222`
+  useEffect(() => { if (!profTip) return; const id = setTimeout(() => setProfTip(false), 5000); return () => clearTimeout(id); }, [profTip, profile]);
+  const pickProfile = (p: NkeyProfile) => {
+    setProfile(p); setProfTip(true);
+    if (range && !secOk(p, ctype, range.section)) { const t = NKEY_TYPES.find((x) => secOk(p, x, range.section)); if (t) setCtype(t as CodeKind); }
+  };
   const onRange = (i: number) => {
     setSobpIdx(i); const r = ranges[i]; if (!r) return;
     setBookStart(r.bookStart);
     setBooks(r.bookCount);
-    setCtype(CT_OF[r.pt] ?? "PDS3");        // 범위의 종류를 기본값으로 `PC-064`
+    // 범위의 종류가 기본 — OID · PDS4 는 새로 발급하지 않는다 `PC-064` `PC-219`
+    //   Section 에 맞게 프로필 · 타입을 맞춘다(지금 프로필로 못 쓰면 다른 프로필로) `PC-221`
+    const at = CT_OF[r.pt] ?? "PDS3";
+    const prof: NkeyProfile = profileOk(profile, r.section) ? profile : profile === "LEGACY" ? "HYBRID" : "LEGACY";
+    const t = secOk(prof, at, r.section) ? at : (NKEY_TYPES.find((x) => secOk(prof, x, r.section)) ?? "PDS3");
+    setProfile(prof); setCtype(t as CodeKind);
     setPageVolume(PAGE_CAP[r.pt]?.[r.section] ?? pageVolume);
   };
   // 공통코드 회사: '사용 고객사' 선택 → 그 고객사가 쓰는 공통코드(타입·섹션·오너)를 자동으로 범위 지정
@@ -652,9 +690,42 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     const ri = ranges.findIndex((r) => r.owner === sc.owner && r.section === sc.section && (r.pt === "PDS3") === (sc.k === "N"));
     if (ri >= 0) onRange(ri);
   };
+  // 수정 — 티켓 값으로 폼을 한 번 채운다 `PC-226`
+  const origType = edit ? CT_PARAM(edit.params["Code Type"]) : "";
+  const [filled, setFilled] = useState(false);
+  useEffect(() => {
+    if (!edit || filled) return;
+    const p = edit.params, sp0 = spanOfParams(p);
+    setSobpIdx(0);
+    const it = String(p["Issued Time"] ?? "").replace(/\D/g, "");
+    setIssuedTime(/^\d{8}$/.test(it) ? it : edit.at.slice(0, 10).replace(/-/g, ""));   // 수정 — 그 티켓의 발급일 `PC-232`
+    setBookStart(sp0.bookStart); setBooks(sp0.bookEnd - sp0.bookStart + 1);
+    setPageStart(sp0.pageStart); setPageVolume(sp0.pageEnd - sp0.pageStart + 1);
+    const vu = String(p["Valid Until Time"] ?? "99999999").split(" ")[0];
+    setUntilUnlimited(/^9{6,}$/.test(vu)); setValidUntil(/^\d{8}$/.test(vu) && !/^9{8}$/.test(vu) ? vu.slice(2) : /^\d{6}$/.test(vu) ? vu : "");
+    setSeparate(/^Y/i.test(String(p["Separate Each Book"] ?? "")));
+    setCtype((origType || "PDS3") as CodeKind);
+    if (/^HYBRID/.test(String(p.Profile ?? ""))) setProfile("HYBRID");
+    if (p["Code Reuse"] !== undefined) setCodeReuse(/^Y/i.test(String(p["Code Reuse"])));
+    if (p["CasterN Permissions"] !== undefined) setHperms(String(p["CasterN Permissions"]).split(",").map((x) => x.trim()).filter((x) => x && x !== "-") as CasterPerm[]);
+    setFilled(true);
+  }, [edit, filled]);   // eslint-disable-line react-hooks/exhaustive-deps
   // 남은 권수 = 시작 Book 부터 할당 범위 끝까지
   const maxBooks = range ? Math.max(1, range.bookEnd - bookStart + 1) : 1;
   const bookEnd = bookStart + books - 1;
+  // 발급 정책 `PC-219` `PC-221`
+  //   ① 새로 발급하는 Code Type 은 PDS2 · PDS3 만(범위 목록에서 OID · PDS4 제외)
+  //   ② 고른 범위의 Section 에 맞는 프로필 · 타입만 켠다(예: S10 → HYBRID · PDS3). 표에 없는 Section 은 모두 켠다
+  //   ③ 할당 타입과 다른 타입을 고르면 ⚠ 경고 ④ Book 볼륨 2 이상이면 Separate Each Book 자동으로 켬
+  const allocType = range ? (CT_OF[range.pt] ?? range.pt) : "";
+  const allowedSecs = sectionsFor(profile, ctype);
+  const keepOld = !!edit && ctype === origType && !(NKEY_TYPES as string[]).includes(ctype);   // 옛 발급분 타입 유지 `PC-226`
+  const typeBad = !(NKEY_TYPES as string[]).includes(ctype) && !keepOld;
+  const secBad = !!range && !typeBad && !keepOld && !secOk(profile, ctype, range.section);
+  const typeMismatch = !!range && !typeBad && !edit && allocType !== ctype;
+  const policyErr = typeBad ? "OID · PDS4 는 새로 발급할 수 없습니다. PDS2 · PDS3 중에서 고르세요."
+    : secBad && range ? `S${range.section} 은 ${profile} + ${ctype} 에서 쓸 수 없습니다. 켜진 프로필 · 코드 타입을 고르세요.`
+    : "";
 
   // 발급 파라미터 — 화면 표시·키 생성·정보 확인이 같은 값을 쓴다
   const ticketParams = () => ({
@@ -671,6 +742,9 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     "Code Type": ctype,
     "Ticket Type": "Unlimited",
     "Separate Each Book": separate ? "Y (북코드별 개별 티켓)" : "N (1개 티켓 병합)",
+    Profile: profile === "HYBRID" ? "HYBRID (CasterN)" : "LEGACY (Caster Lite)",   // `PC-218`
+    "Code Reuse": codeReuse ? "Y (재사용)" : "N (재사용 안 함)",
+    ...(profile === "HYBRID" ? { "CasterN Permissions": hperms.length ? hperms.join(", ") : "-" } : {}),
     ...(isCommon ? { "Used Customer": selCu?.cu ?? "-" } : {}),   // 공통코드: 사용 고객사
   });
 
@@ -678,6 +752,8 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
   const sixToDate = (s2: string) => (/^\d{6}$/.test(s2) ? `20${s2.slice(0, 2)}-${s2.slice(2, 4)}-${s2.slice(4, 6)}` : "");
   const dateToSix = (d: string) => (d ? d.slice(2).replace(/-/g, "") : "");
   const validValue = untilUnlimited ? "99999999" : validUntil;
+
+  useEffect(() => { if (books >= 2) setSeparate(true); }, [books]);   // Book 볼륨 2 이상 → Separate Each Book 켬 `PC-221`
 
   const genKey = () => {
     if (!company) { setToast("고객사를 선택하세요."); return; }
@@ -687,49 +763,54 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     if (books < 1 || bookEnd > range.bookEnd) { setToast(`Book 볼륨은 1~${maxBooks}권이어야 합니다. (B${bookStart}~B${range.bookEnd})`); return; }
     if (pageVolume < 1) { setToast("Page 볼륨은 1 이상이어야 합니다."); return; }
     if (!untilUnlimited && !/^\d{6}$/.test(validUntil)) { setToast("Valid Until Time 은 6자리(YYMMDD)이거나 무제한이어야 합니다."); return; }
+    if (!/^\d{8}$/.test(issuedTime)) { setToast("Issued Time(발급일)을 선택하세요."); return; }   // `PC-232`
+    if (policyErr) { setToast(policyErr); return; }   // 발급 정책 `PC-219`
     // N Key · App Key · 서비스 티켓은 SOBP 가 겹칠 수 없다 `PC-174`
     const clash = sobpOverlapMsg({ section: range.section, owner: range.owner, bookStart, bookEnd, pageStart, pageEnd: pageStart + pageVolume - 1 });
     if (clash) { setToast(clash); return; }
-    const ticket = {
-      companyName: company.name, issuedTime, validUntilTime: validValue,
-      ...(selCu ? { usedCustomer: selCu.cu } : {}),   // 공통코드: 사용 고객사
-      section: range.section, owner: range.owner, ticketVersion: 1,
-      bookStart, bookVolume: books, pageStart, pageVolume,
-      patternType: patternTypeParam(patternOf(ctype)), ticketType: "Unlimited", separateEachBook: separate,
-    };
-    // 생성된 키는 폴더로 관리 → zip 하나로 다운로드 (폴더 안에 **.nkey** 티켓 파일들) `PC-213`
-    // 개별 파일명 = zip 파일명 그대로, B 숫자만 증가. (공통코드는 사용 고객사명 포함)
-    const cuTag = selCu ? `_${selCu.cu}` : "";
-    const base = `Ticket_${company.name}${cuTag}_S${range.section}O${range.owner}`;
-    const rangeTag = books === 1 ? `B${bookStart}` : `B${bookStart}-${bookEnd}`;
-    const folder = `${base}_${rangeTag}`;
-    const entries = separate
-      // Separate each book: StartBook 부터 Book 볼륨 수만큼 개별 파일(각 1권)
-      ? Array.from({ length: books }, (_, i) => {
-          const bs = bookStart + i;
-          return { name: `${folder}/${base}_B${bs}.nkey`, content: JSON.stringify({ ...ticket, bookStart: bs, bookVolume: 1 }, null, 2) };
-        })
-      : [{ name: `${folder}/${folder}.nkey`, content: JSON.stringify(ticket, null, 2) }];
-    const url = URL.createObjectURL(makeZip(entries));
-    const a = document.createElement("a");
-    a.href = url; a.download = `${folder}.zip`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    // .nkey(Key=Value · JSON 아님) 내려받기 — Separate + Book 2권 이상이면 .zip `PC-219`
+    //   파일명 Ticket_{고객사}[_{사용고객사}]_{S}s_{O}o_{B}b_{P}p_{Page 볼륨}.nkey `PC-221`
+    const params = ticketParams();
+    const fileName = downloadNkey(params, makeZip);
+    const asZip = fileName.endsWith(".zip");
 
-    const summary = `${selCu ? `[사용 고객사: ${selCu.cu}] ` : ""}${range.pt} S${range.section}/O${range.owner}/B${bookStart}~${bookEnd} · Book ${books}권 · P${pageStart}~${pageStart + pageVolume - 1} · ${separate ? "개별티켓 " + books + "장" : "병합 1장"} · 유효 ${untilUnlimited ? "무제한" : validValue}`;
+    const summary = `${selCu ? `[사용 고객사: ${selCu.cu}] ` : ""}${range.pt} S${range.section}/O${range.owner}/B${bookStart}~${bookEnd} · Book ${books}권 · P${pageStart}~${pageStart + pageVolume - 1} · ${separate ? "개별티켓 " + books + "장" : "병합 1장"} · 유효 ${untilUnlimited ? "무제한" : validValue} · ${profile === "HYBRID" ? `HYBRID(권한 ${hperms.length})` : "LEGACY"}${codeReuse ? " · 코드 재사용" : ""}`;
     const issued = addTicket({ kind: "N", companyId: company.id, company: company.name, coRef: company.id,
-                by: me?.name ?? "", summary, params: ticketParams() });
+                by: me?.name ?? "", summary, params });
     logActivity("ticket", `N Key · ${company.name} · ${summary}`, me?.name);
     if (onIssued) { onIssued(issued); return; }   // 3단 화면 — 발급한 티켓의 정산 정보 탭으로 `PC-149`
-    setToast(`N Key 발급됨 · 티켓 ${separate ? books + "개(개별 파일)" : "1장(병합)"} · B${bookStart}~${bookEnd} — zip(${folder}.zip)으로 다운로드됩니다.`);
+    setToast(`N Key 발급됨 · 티켓 ${asZip ? books + "개(개별 .nkey)" : "1장"} · B${bookStart}~${bookEnd} — ${fileName} 으로 다운로드됩니다.`);
+  };
+
+  // 수정 저장 — 발급 기록만 고친다(이미 내려받은 .nkey 는 그대로 · 다시 받으려면 [키 다운로드]) `PC-192` `PC-226`
+  //   고객사 · 발급일 · 폼에 없는 항목(대장 항목 등)은 그대로 둔다
+  const formKeys = new Set(Object.keys(ticketParams()));
+  const extraParams = edit ? Object.entries(edit.params).filter(([k]) => !formKeys.has(k) && k !== "Company Name" && k !== "Issued Time") : [];
+  const saveEdit = () => {
+    if (!edit || !range) return;
+    if (books < 1 || bookStart < range.bookStart || bookEnd > range.bookEnd) { setToast(`Book 은 B${range.bookStart}~B${range.bookEnd} 안이어야 합니다.`); return; }
+    if (pageVolume < 1) { setToast("Page 볼륨은 1 이상이어야 합니다."); return; }
+    if (!untilUnlimited && !/^\d{6}$/.test(validUntil)) { setToast("Valid Until Time 은 6자리(YYMMDD)이거나 무제한이어야 합니다."); return; }
+    if (policyErr) { setToast(policyErr); return; }
+    const clash = sobpOverlapMsg({ section: range.section, owner: range.owner, bookStart, bookEnd, pageStart, pageEnd: pageStart + pageVolume - 1 }, `N${edit.id}`);
+    if (clash) { setToast(clash); return; }
+    const params: Record<string, string | number> = { ...edit.params, ...ticketParams(),
+      "Company Name": edit.params["Company Name"] ?? edit.company };   // Issued Time 은 폼 값(고칠 수 있음) `PC-232`
+    if (params["Used Customer"] === "-" && edit.params["Used Customer"]) params["Used Customer"] = edit.params["Used Customer"];
+    if (profile !== "HYBRID") delete params["CasterN Permissions"];
+    const pt = PT_OF[ctype] ?? range.pt;
+    const summary = `${pt} S${range.section}/O${range.owner}/B${bookStart}~${bookEnd} · Book ${books}권 · P${pageStart}~${pageStart + pageVolume - 1} · ${separate ? "개별티켓 " + books + "장" : "병합 1장"} · 유효 ${untilUnlimited ? "무제한" : validValue} · ${profile === "HYBRID" ? `HYBRID(권한 ${hperms.length})` : "LEGACY"}${codeReuse ? " · 코드 재사용" : ""}`;
+    updateTicket(edit.id, { summary, params });
+    logActivity("ticket", `티켓 수정 · ${edit.company} · 발급 ${edit.no}번 · N Key`, me?.name);
+    onSaved?.();
   };
 
   const fixed: React.CSSProperties = { ...S.input, background: "#f3f4f6", color: "#6b7280" };
 
   return (
-    <div style={{ ...S.card, padding: 18 }}>
-      {/* 제목은 화면(브레드크럼)에 한 번만 두고, 여기서는 **고른 고객사**를 크게 보여 준다 `PC-068` */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+    <div style={edit ? undefined : { ...S.card, padding: 18 }}>
+      {/* 제목은 화면(브레드크럼)에 한 번만 두고, 여기서는 **고른 고객사**를 크게 보여 준다 `PC-068` · 수정 중이면 상세 머리가 대신 `PC-226` */}
+      <div style={{ display: edit ? "none" : "flex", alignItems: "baseline", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
         {embedded && <b style={{ fontSize: 15 }}>N Key 발급</b>}
         <div style={{ fontSize: embedded ? 13 : 20, fontWeight: embedded ? 400 : 800, color: company ? (embedded ? "#6b7280" : "#111827") : "#c7cdd6" }}>
           {company?.name ?? "고객사를 선택하세요"}
@@ -743,58 +824,80 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
         <span style={{ fontSize: 11.5, color: "#9ca3af" }}>SOBP 코드 사용 허가 (Caster lite 티켓)</span>
       </div>
 
-      {/* 회사이름 + 할당된 SOBP 범위 (나란히) */}
-      <div style={{ display: "grid", gridTemplateColumns: embedded ? "1fr" : "1fr 1.4fr", gap: 12, alignItems: "start" }}>
-        <div>
-          <Field label="고객사 *">
-            {embedded && companyId
-              ? <div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{company?.name}</div>
-              : (
-                <select style={S.input} value={companyId} onChange={(e) => onCompany(Number(e.target.value))}>
-                  <option value={0}>- 고객사 관리 고객사 선택 -</option>
-                  {/* 상 · 하위 고객사 구별 — 하위는 상위 밑에 들여 `PC-197` `PC-198` */}
-                  {nestCompanies([...companies].sort((a, b) => a.name.localeCompare(b.name, "ko")), companies, subsOf).flatMap(({ c, subs }) => [
-                    <option key={c.id} value={c.id}>{c.name}{subs.length ? ` · 하위 ${subs.length}` : ""}</option>,
-                    ...subs.map((x) => <option key={`${c.id}-${x.id}`} value={x.id}>{`  ${x.name}`}</option>),
-                  ])}
-                </select>
-              )}
-          </Field>
-        </div>
-        <div>
-          {isCommon ? (
-            <>
-              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>
-                사용 고객사 * <span style={{ color: "#a855f7", fontWeight: 700 }}>공통코드</span>
-                <span style={{ color: "#9ca3af" }}> (선택하면 코드가 자동으로 지정됩니다)</span>
-              </div>
-              <select style={S.input} value={cuIdx} onChange={(e) => onCu(+e.target.value)}>
-                <option value={-1}>- 사용 고객사 선택 ({cuCandidates.length}곳) -</option>
-                {cuCandidates.map((c, i) => <option key={`${c.k}${c.owner}:${c.cu}`} value={i}>{c.label}</option>)}
+      {/* 폼 정리 — 발급 범위를 맨 위에, 나머지는 2열로 짝지어 묶는다 `PC-222`
+            ① 고객사 · 발급 범위 ② 코드 구간(Book · Page) ③ 티켓 속성(프로필 · Code Type / 코드 재사용 · Separate) ④ 기간 · 버전 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <Field label="고객사 *">
+          {edit
+            ? <div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{edit.company}</div>
+            : embedded && companyId
+            ? <div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{company?.name}</div>
+            : (
+              <select style={S.input} value={companyId} onChange={(e) => onCompany(Number(e.target.value))}>
+                <option value={0}>- 고객사 관리 고객사 선택 -</option>
+                {/* 상 · 하위 고객사 구별 — 하위는 상위 밑에 들여 `PC-197` `PC-198` */}
+                {nestCompanies([...companies].sort((a, b) => a.name.localeCompare(b.name, "ko")), companies, subsOf).flatMap(({ c, subs }) => [
+                  <option key={c.id} value={c.id}>{c.name}{subs.length ? ` · 하위 ${subs.length}` : ""}</option>,
+                  ...subs.map((x) => <option key={`${c.id}-${x.id}`} value={x.id}>{`  ${x.name}`}</option>),
+                ])}
               </select>
-              {selCu && <div style={{ fontSize: 11.5, color: "#6b21a8", marginTop: 6 }}>발급 코드: <b>{kindLabel(codeKind(selCu.k, 3))} · S3 / O{selCu.owner}</b> · 사용 고객사 <b>{selCu.cu}</b></div>}
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 6 }}>발급 범위 (nkey 대장 이력 · SOBP 할당) * <span style={{ color: "#9ca3af" }}>(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다)</span></div>
-              <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={onRange} />
-            </>
-          )}
-        </div>
+            )}
+        </Field>
+        {isCommon && !edit ? (
+          <Field label="사용 고객사 * (공통코드 — 고르면 코드가 자동으로 지정됩니다)">
+            <select style={S.input} value={cuIdx} onChange={(e) => onCu(+e.target.value)}>
+              <option value={-1}>- 사용 고객사 선택 ({cuCandidates.length}곳) -</option>
+              {cuCandidates.map((c, i) => <option key={`${c.k}${c.owner}:${c.cu}`} value={i}>{c.label}</option>)}
+            </select>
+            {selCu && <div style={{ fontSize: 11.5, color: "#6b21a8", marginTop: 6 }}>발급 코드: <b>{kindLabel(codeKind(selCu.k, 3))} · S3 / O{selCu.owner}</b> · 사용 고객사 <b>{selCu.cu}</b></div>}
+          </Field>
+        ) : (
+          <Field label={edit ? "코드 범위 (같은 Section · Owner 의 할당 범위 안에서 고칩니다)" : "발급 범위 * (nkey 대장 이력 · SOBP 할당 — 고르면 Section · Owner · Book · Code Type 이 채워집니다)"}>
+            <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={onRange} />   {/* 코드 타입 표시 없음 `PC-224` */}
+          </Field>
+        )}
+        {/* 구간 사용 현황 — 상위 SOBP 를 나눠 쓰는 하위 고객사끼리도 보인다 `PC-195` */}
+        {range && <SobpUsage range={range} onPickBook={(b) => setBookStart(b)} exclude={edit ? `N${edit.id}` : undefined}
+          cand={{ section: range.section, owner: range.owner, bookStart, bookEnd, pageStart, pageEnd: pageStart + pageVolume - 1 }} />}
       </div>
 
-      {/* 구간 사용 현황 — 상위 SOBP 를 나눠 쓰는 하위 고객사끼리도 보인다 `PC-195` */}
-      {range && <SobpUsage range={range} onPickBook={(b) => setBookStart(b)}
-        cand={{ section: range.section, owner: range.owner, bookStart, bookEnd, pageStart, pageEnd: pageStart + pageVolume - 1 }} />}
 
-      {/* Book / Page 범위 — 한 행에 4개 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginTop: 12 }}>
+
+      {/* 순서: 발급일 · 기간 → 코드 구간 → 버전 → 티켓 속성 `PC-234` */}
+      {/* 입력 칸 너비 통일 — 모든 줄 4칸 격자(칸 하나 = 발급일 너비) `PC-236` */}
+      <FormSec cols={4}>
+        <Field label="Issued Time (발급일)">
+          {/* 오늘이 기본 · 달력으로 고칠 수 있다 `PC-232` */}
+          <input type="date" style={S.input} disabled={!company && !edit}
+            value={/^\d{8}$/.test(issuedTime) ? `${issuedTime.slice(0, 4)}-${issuedTime.slice(4, 6)}-${issuedTime.slice(6, 8)}` : ""}
+            onChange={(e) => e.target.value && setIssuedTime(e.target.value.replace(/-/g, ""))} />
+        </Field>
+        {/* 발급일과 같은 너비 · 무제한 체크는 항목명(사용기간 끝) 옆 `PC-236` `PC-237` */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}><label style={{ fontSize: 11, color: "#6b7280" }}>Valid Until Time (사용기간 끝)</label>
+            <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11.5, color: "#374151", whiteSpace: "nowrap", cursor: "pointer" }}>
+              <input type="checkbox" checked={untilUnlimited} onChange={(e) => setUntilUnlimited(e.target.checked)} /> 무제한
+            </label>
+          </div>
+          <input type="date" style={{ ...S.input, opacity: untilUnlimited ? 0.5 : 1 }} disabled={untilUnlimited}
+            value={sixToDate(validUntil)} onChange={(e) => setValidUntil(dateToSix(e.target.value))} title="달력에서 선택" />
+        </div>
+      </FormSec>
+
+      {/* 코드 구간 — 발급일 · 기간 아래 `PC-233` `PC-234` · — Book 짝 · Page 짝 */}
+      <FormSec cols={4}>
         <Field label={`Start Book ${range ? `· ${range.bookStart}~${range.bookEnd}` : "(시작 북코드)"}`}>
           <input type="number" min={range?.bookStart ?? 0} max={range?.bookEnd ?? undefined} style={S.input} value={bookStart}
             onChange={(e) => setBookStart(Math.max(0, +e.target.value))} disabled={!range} />
         </Field>
         <Field label={`Book 볼륨 (권) ${range ? `· 최대 ${maxBooks}` : ""}`}>
           <input type="number" min={1} max={maxBooks} style={S.input} value={books} onChange={(e) => setBooks(Math.max(1, +e.target.value))} disabled={!range} />
+          {/* Separate Each Book — Book 볼륨과 이어진 항목이라 그 바로 아래 체크로 `PC-228` · 2권 이상이면 자동으로 켜지고 끌 수 없다 `PC-221` */}
+          <label title={books >= 2 ? "Book 볼륨 2 이상은 자동으로 켜집니다" : "체크하면 북코드별 개별 티켓, 해제하면 1개 티켓으로 병합합니다"}
+            style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4, fontSize: 12, color: "#374151", whiteSpace: "nowrap", cursor: books >= 2 || !range ? "default" : "pointer" }}>
+            <input type="checkbox" checked={separate} disabled={books >= 2 || !range} onChange={(e) => setSeparate(e.target.checked)} />
+            Separate Each Book
+          </label>
         </Field>
         <Field label="Start Page">
           <select style={S.input} value={pageStart} onChange={(e) => setPageStart(+e.target.value)} disabled={!range}>
@@ -806,54 +909,121 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
           <input type="number" min={1} max={range ? (PAGE_CAP[range.pt]?.[range.section] ?? undefined) : undefined} style={S.input} value={pageVolume}
             onChange={(e) => { const cap = range ? (PAGE_CAP[range.pt]?.[range.section] ?? Infinity) : Infinity; setPageVolume(Math.max(1, Math.min(cap, +e.target.value))); }} disabled={!range} />
         </Field>
-      </div>
+      </FormSec>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginTop: 4 }}>
-        <Field label="Valid Until Time (사용기간 끝)" full>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input type="date" style={{ ...S.input, maxWidth: 190, opacity: untilUnlimited ? 0.5 : 1 }} disabled={untilUnlimited}
-              value={sixToDate(validUntil)} onChange={(e) => setValidUntil(dateToSix(e.target.value))} title="달력에서 선택" />
-            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, color: "#374151", whiteSpace: "nowrap", cursor: "pointer" }}>
-              <input type="checkbox" checked={untilUnlimited} onChange={(e) => setUntilUnlimited(e.target.checked)} /> 무제한
-            </label>
-          </div>
-        </Field>
-      </div>
-
-      {/* 자동/고정 항목 — Key 정보 순서와 같게 Code Type → Issued Time `PC-072` */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginTop: 4 }}>
-        <Field label="Code Type">
-          <select style={S.input} value={ctype} disabled={!range} onChange={(e) => setCtype(e.target.value as CodeKind)}>
-            {CODE_KINDS.map((k) => <option key={k.v} value={k.v}>{k.short}</option>)}
-          </select>
-        </Field>
-        <Field label="Issued Time (발급일 · 고정)"><input style={fixed} value={issuedTime} readOnly /></Field>
+      {/* 버전 — Ticket Version · Ticket Type · 코드 재사용(체크) `PC-229` `PC-234` */}
+      <FormSec cols={4}>
         <Field label="Ticket Version"><input style={fixed} value={1} readOnly /></Field>
-      </div>
+        <Field label="Ticket Type"><input style={fixed} value="Unlimited" readOnly /></Field>
+        {/* 코드 재사용 여부 — 체크(기본 체크 = 재사용) `PC-222` `PC-229` */}
+        <Field label="코드 재사용 여부">
+          <label style={{ ...S.input, display: "flex", alignItems: "center", gap: 6, cursor: company ? "pointer" : "default", color: "#374151" }}>
+            <input type="checkbox" checked={codeReuse} disabled={!company} onChange={(e) => setCodeReuse(e.target.checked)} /> 재사용
+          </label>
+        </Field>
+      </FormSec>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 12, paddingTop: 12, borderTop: "1px solid #eef0f4" }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#374151", cursor: "pointer" }}>
-          <input type="checkbox" checked={separate} onChange={(e) => setSeparate(e.target.checked)} />
-          <b>Separate Each Book</b> <span style={{ color: "#9ca3af" }}>(체크하면 북코드별 개별 티켓, 해제하면 1개 티켓으로 병합합니다)</span>
-        </label>
-        <span style={{ flex: 1 }} />
-        {embedded
-          ? <button onClick={onCancel} style={{ ...S.ghost, whiteSpace: "nowrap" }}>취소</button>
-          : <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>}
-        <button onClick={genKey} disabled={!range}
-          style={{ ...S.primary, whiteSpace: "nowrap", ...(!range ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>N Key 발급</button>
-      </div>
-      {range && (
-        <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
-          발급 예정: <b style={{ color: "#111827" }}>S{range.section}/O{range.owner}/B{bookStart}~{bookEnd}</b> · {separate ? `개별 티켓 ${books}장` : "병합 티켓 1장"} · P{pageStart}~{pageStart + pageVolume - 1}
-          {bookEnd > range.bookEnd && <span style={{ color: "#dc2626", fontWeight: 700 }}> · ⚠ 할당 범위(B{range.bookEnd}) 초과</span>}
+      {/* ④ 티켓 속성 — 프로필 · Code Type 짝 / 코드 재사용 · Separate Each Book 짝 `PC-218` `PC-221` */}
+      {(() => {
+        const seg = (on: boolean): React.CSSProperties => ({ flex: 1, border: 0, padding: "8px 10px", fontSize: 12.5, cursor: "pointer", whiteSpace: "nowrap", fontWeight: on ? 700 : 400, background: on ? "#eef6ff" : "#fff", color: on ? "#1d4ed8" : "#6b7280" });
+        const box: React.CSSProperties = { display: "flex", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" };
+        // 고른 범위의 Section 으로 못 쓰는 프로필은 꺼짐(회색) `PC-221`
+        const pOff = (p: NkeyProfile) => !!range && !profileOk(p, range.section);
+        const offSt = (off: boolean): React.CSSProperties => (off ? { background: "#f3f4f6", color: "#c0c4cc", cursor: "not-allowed", textDecoration: "line-through" } : {});
+        const offTip = range ? `S${range.section} 에서는 쓸 수 없는 프로필입니다` : undefined;
+        return (
+          <FormSec title="티켓 속성" cols={4}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, position: "relative", gridColumn: "span 2" }}>   {/* 프로필 = 2칸 `PC-236` */}
+              <label style={{ fontSize: 11, color: "#6b7280" }}>프로필 *</label>
+              <span style={box}>
+                <button type="button" disabled={!company || pOff("LEGACY")} title={pOff("LEGACY") ? offTip : undefined} onClick={() => pickProfile("LEGACY")} style={{ ...seg(profile === "LEGACY"), ...offSt(pOff("LEGACY")) }}>LEGACY <span style={{ fontWeight: 400 }}>(Caster Lite)</span></button>
+                <button type="button" disabled={!company || pOff("HYBRID")} title={pOff("HYBRID") ? offTip : undefined} onClick={() => pickProfile("HYBRID")} style={{ ...seg(profile === "HYBRID"), borderLeft: "1px solid #e5e7eb", ...offSt(pOff("HYBRID")) }}>HYBRID <span style={{ fontWeight: 400 }}>(CasterN)</span></button>
+              </span>
+              {/* 프로필을 고르면 그 프로필의 사용 가능 Section 을 말풍선으로(5초) — 본문에는 두지 않는다 `PC-222` */}
+              {profTip && (
+                <div role="status" onClick={() => setProfTip(false)}
+                  style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 60, width: 300, cursor: "pointer", background: "#1f2937", color: "#f9fafb", borderRadius: 10, padding: "10px 14px", fontSize: 12.5, lineHeight: 1.6, boxShadow: "0 12px 32px rgba(15,23,42,.25)" }}>
+                  <span style={{ position: "absolute", top: -5, left: 24, width: 10, height: 10, background: "#1f2937", transform: "rotate(45deg)" }} />
+                  <b>{profile}</b> 사용 가능 Section
+                  {NKEY_TYPES.map((t) => <div key={t} style={{ fontFamily: "ui-monospace,monospace" }}>{t} · S {sectionsFor(profile, t).join(", ")}</div>)}
+                  <div style={{ color: "#9ca3af", fontSize: 11.5, marginTop: 4 }}>
+                    {range && !isKnownSection(range.section) ? `S${range.section} 은 표에 없어 제한 없음` : "표에 없는 Section 은 제한 없음"}
+                  </div>
+                </div>
+              )}
+            </div>
+            <Field label="Code Type">
+              {/* 범위의 타입이 기본 · Section 에 맞는 타입만 켜짐(꺼진 타입은 회색) · PDS2 · PDS3 만 `PC-219` `PC-221` */}
+              <select style={S.input} value={ctype} disabled={!range} onChange={(e) => setCtype(e.target.value as CodeKind)}>
+                {keepOld && <option value={ctype}>{ctype} (옛 발급 · 유지)</option>}
+                {NKEY_TYPES.map((t) => {
+                  const ok = !range || secOk(profile, t, range.section);
+                  return <option key={t} value={t} disabled={!ok} style={ok ? undefined : { color: "#c0c4cc" }}>{t}{ok ? (t === allocType ? " (할당)" : "") : " — 이 Section 불가"}</option>;
+                })}
+              </select>
+            </Field>
+            {profile === "HYBRID" && (
+              <div style={{ gridColumn: "1 / -1", border: "1px solid #dbeafe", background: "#f8fbff", borderRadius: 10, padding: "10px 12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: "#6b7280" }}>
+                  <b style={{ color: "#1d4ed8" }}>HYBRID 전용 권한</b>
+                  <span>· 서비스 계정에서 CasterN 에 주는 권한 6가지 · {hperms.length}/{CASTERN_PERMS.length}</span>
+                  <span style={{ flex: 1 }} />
+                  <button type="button" onClick={() => setHperms(hperms.length === CASTERN_PERMS.length ? [] : [...ALL_PERMS])} style={{ ...S.linkBtn, fontSize: 12 }}>
+                    {hperms.length === CASTERN_PERMS.length ? "모두 해제" : "모두 선택"}
+                  </button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  {CASTERN_PERMS.map((pm) => {
+                    const on = hperms.includes(pm.v);
+                    return (
+                      <label key={pm.v} title={pm.desc} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, cursor: "pointer", padding: "5px 8px", borderRadius: 7,
+                        border: `1px solid ${on ? "#93c5fd" : "#e5e7eb"}`, background: on ? "#eef6ff" : "#fff", color: on ? "#1d4ed8" : "#6b7280" }}>
+                        <input type="checkbox" checked={on} onChange={() => setHperms(on ? hperms.filter((x) => x !== pm.v) : [...hperms, pm.v])} />
+                        {pm.label} <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, color: "#9ca3af" }}>({pm.v})</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </FormSec>
+        );
+      })()}
+
+
+      {/* 폼에 없는 항목(대장 항목 등) — 고치지 않고 그대로 둔다 `PC-226` */}
+      {edit && extraParams.length > 0 && (
+        <FormSec title="기타 항목 (그대로 둠)" cols={4}>
+          {extraParams.map(([k, v]) => <Field key={k} label={k}><input style={fixed} value={String(v)} readOnly /></Field>)}
+        </FormSec>
+      )}
+
+      {/* 발급 정책 — 막는 것(빨강) · 경고(주황) `PC-219` */}
+      {range && (policyErr || typeMismatch) && (
+        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+          {policyErr && <div style={{ fontSize: 12.5, color: "#b91c1c", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "7px 10px" }}>⛔ {policyErr}</div>}
+          {typeMismatch && <div style={{ fontSize: 12.5, color: "#92400e", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "7px 10px" }}>⚠ 할당된 코드 타입({allocType})과 다른 {ctype} 를 골랐습니다. 할당 타입을 확인하세요.</div>}
         </div>
       )}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 14, paddingTop: 12, borderTop: "1px solid #eef0f4" }}>
+        <div style={{ fontSize: 12, color: "#6b7280", flex: 1, minWidth: 200 }}>
+          {range ? (
+            <>
+              발급 예정: <b style={{ color: "#111827" }}>S{range.section}/O{range.owner}/B{bookStart}~{bookEnd}</b> · {separate ? `개별 티켓 ${books}장` : "병합 티켓 1장"} · P{pageStart}~{pageStart + pageVolume - 1} · <b style={{ color: "#111827" }}>{profile === "HYBRID" ? `HYBRID (권한 ${hperms.length})` : "LEGACY"}</b>{codeReuse ? " · 코드 재사용" : ""}
+              {bookEnd > range.bookEnd && <span style={{ color: "#dc2626", fontWeight: 700 }}> · ⚠ 할당 범위(B{range.bookEnd}) 초과</span>}
+            </>
+          ) : null}
+        </div>
+        {embedded || edit
+          ? <button onClick={onCancel} style={{ ...S.ghost, whiteSpace: "nowrap" }}>취소</button>
+          : <Link href="/tickets/nkey" style={{ ...S.ghost, textDecoration: "none" }}>목록</Link>}
+        <button onClick={edit ? saveEdit : genKey} disabled={!range || !!policyErr} title={policyErr || undefined}
+          style={{ ...S.primary, whiteSpace: "nowrap", ...(!range || policyErr ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>{edit ? "수정 저장" : "N Key 발급"}</button>
+      </div>
       {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: "#2563eb" }}>{toast}</div>}
 
-      <div style={{ marginTop: 12, background: "#fafbfc", border: "1px dashed #e5e7eb", borderRadius: 8, padding: "10px 12px", fontSize: 11.5, color: "#6b7280", lineHeight: 1.7 }}>
-        발급하면 티켓 파일(<b>.nkey</b>)이 <b>zip 파일(폴더 형태)</b>로 다운로드됩니다. 다운로드 폴더에서 zip의 압축을 풀어 그 폴더째 <b>nproj 폴더</b> 또는 <b>내 PC &gt; 문서 &gt; NeoLAB &gt; CodeTickets</b>(<code>{CODE_TICKETS}</code>)에 넣은 뒤 <b>Caster lite</b>에서 사용합니다.
-      </div>
+      {/* 다운로드 · 사용 안내 설명글은 두지 않는다 `PC-231` */}
     </div>
   );
 }
@@ -909,6 +1079,8 @@ function KeyInfoModal({ title, subtitle, source, all, err, onClose }: {
         <div style={{ fontSize: 12, color: "#6b7280" }}>
           Key Info <span style={{ color: "#9ca3af" }}>· {rows.length}개 항목 ({source})</span>
         </div>
+        {/* 불러온 정보는 고치지 않는다 — 창에서 보기만(저장 · 원장 반영 없음) `PC-217` */}
+        <span style={{ ...S.tag, background: "#f3f4f6", color: "#6b7280", fontWeight: 700 }} title="불러온 키 정보는 고칠 수 없고 저장되지 않습니다">보기 전용</span>
         <span style={{ flex: 1 }} />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="항목 검색" style={{ ...S.input, width: 150 }} />
       </div>
@@ -967,12 +1139,20 @@ function Chips({ r }: { r: SobpRange }) {
     </span>
   );
 }
-export function SobpRangePicker({ company, ranges, value, onSelect }: { company: boolean; ranges: SobpRange[]; value: number; onSelect: (i: number) => void }) {
+// showType — 범위마다 코드 타입 표시 / offReason — 고를 수 없는 범위면 사유(회색 · 클릭 안 됨) `PC-220`
+export function SobpRangePicker({ company, ranges, value, onSelect, showType = false, offReason }: {
+  company: boolean; ranges: SobpRange[]; value: number; onSelect: (i: number) => void; showType?: boolean; offReason?: (r: SobpRange) => string;
+}) {
   const [open, setOpen] = useState(false);
   const note = (t: string) => <div style={{ fontSize: 12, color: "#9ca3af", padding: "9px 12px", border: "1px solid #eef0f4", borderRadius: 10, background: "#fafbfc" }}>{t}</div>;
   if (!company) return note("고객사를 먼저 선택하세요.");
-  if (ranges.length === 0) return note("이 고객사의 발급 범위(대장 이력)가 없습니다.");
+  if (ranges.length === 0) return note(showType ? "이 고객사에 새로 발급할 수 있는 범위(PDS2 · PDS3)가 없습니다. OID · PDS4 는 새로 발급할 수 없습니다." : "이 고객사의 발급 범위(대장 이력)가 없습니다.");
   const sel = ranges[value];
+  const typeTag = (r: SobpRange) => {
+    if (!showType) return null;
+    const t = ({ PDS3: "PDS3", PDS2: "PDS2", Scode: "PDS4", OID: "OID" } as Record<string, string>)[r.pt] ?? r.pt;
+    return <span style={{ fontSize: 11, fontWeight: 700, color: t === "PDS2" ? "#b45309" : "#2563eb", background: t === "PDS2" ? "#fef3c7" : "#eef6ff", borderRadius: 6, padding: "2px 6px" }}>{t}</span>;
+  };
   // 하위 고객사가 받은 상위 고객사 SOBP — 어느 상위 것인지 보인다 `PC-199`
   const parentTag = (r: SobpRange) => {
     const p = (r as SobpRange & { parent?: string }).parent;
@@ -983,7 +1163,7 @@ export function SobpRangePicker({ company, ranges, value, onSelect }: { company:
       {/* 트리거(접힘) */}
       <button onClick={() => setOpen((o) => !o)}
         style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "8px 12px", border: "1px solid #e5e7eb", borderRadius: 10, background: "#fff", cursor: "pointer", minHeight: 40 }}>
-        {sel ? <><Chips r={sel} />{parentTag(sel)}</> : <span style={{ color: "#9ca3af", fontSize: 12.5 }}>- 범위 선택 -</span>}
+        {sel ? <>{typeTag(sel)}<Chips r={sel} />{parentTag(sel)}</> : <span style={{ color: "#9ca3af", fontSize: 12.5 }}>- 범위 선택 -</span>}
         <span style={{ marginLeft: "auto", color: "#9ca3af", fontSize: 12 }}>{open ? "▲" : "▼"}</span>
       </button>
       {/* 펼침 목록 */}
@@ -993,13 +1173,17 @@ export function SobpRangePicker({ company, ranges, value, onSelect }: { company:
           <div style={{ position: "absolute", zIndex: 20, top: "calc(100% + 4px)", left: 0, right: 0, border: "1px solid #e5e7eb", borderRadius: 10, background: "#fff", boxShadow: "0 12px 32px rgba(15,23,42,.14)", maxHeight: 260, overflowY: "auto" }}>
             {ranges.map((r, i) => {
               const on = i === value;
+              const off = offReason?.(r) ?? "";
               return (
-                <button key={i} onClick={() => { onSelect(i); setOpen(false); }}
-                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "9px 12px", border: 0, borderTop: i ? "1px solid #f1f3f6" : "none", background: on ? "#eef6ff" : "#fff", cursor: "pointer" }}>
+                <button key={i} disabled={!!off} title={off || undefined} onClick={() => { if (off) return; onSelect(i); setOpen(false); }}
+                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "9px 12px", border: 0, borderTop: i ? "1px solid #f1f3f6" : "none",
+                    background: off ? "#f9fafb" : on ? "#eef6ff" : "#fff", cursor: off ? "not-allowed" : "pointer", opacity: off ? 0.55 : 1 }}>
                   <span style={{ fontSize: 11, color: on ? "#2563eb" : "#9ca3af", width: 16, textAlign: "center", fontWeight: 700 }}>{i + 1}</span>
+                  {typeTag(r)}
                   <Chips r={r} />
                   {parentTag(r)}
-                  {on && <span style={{ marginLeft: "auto", fontSize: 11, color: "#2563eb", fontWeight: 700 }}>✓</span>}
+                  {off && <span style={{ marginLeft: "auto", fontSize: 11, color: "#b91c1c", whiteSpace: "nowrap" }}>⛔ {off}</span>}
+                  {on && !off && <span style={{ marginLeft: "auto", fontSize: 11, color: "#2563eb", fontWeight: 700 }}>✓</span>}
                 </button>
               );
             })}
@@ -1018,3 +1202,13 @@ function SB({ k, c, v }: { k: string; c: string; v: string | number }) {
   );
 }
 
+
+// 키 발급 폼 묶음 — 작은 제목 + 2열 짝 · N Key · App Key 티켓 발급 공용 `PC-222` `PC-223`
+export function FormSec({ title, cols = 2, children }: { title?: string; cols?: number; children: React.ReactNode }) {   // title 없으면 제목 줄 없이 `PC-235`   // cols — 코드 구간은 4칸 한 줄 `PC-227`
+  return (
+    <div style={{ marginTop: title ? 16 : 12 }}>
+      {title && <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #f1f3f6" }}>{title}</div>}
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: "10px 12px" }}>{children}</div>
+    </div>
+  );
+}

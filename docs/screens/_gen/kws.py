@@ -97,8 +97,14 @@ def usage_box(s, o, gaps, occ, ok=True):
     sc = ('<span style="display:inline-flex;align-items:center;gap:3px;border:1px solid #e5e7eb;border-radius:6px;padding:1px 5px 1px 1px;background:#fff;font-size:10.5px">'
           '<span style="background:%s;color:#fff;font-weight:700;font-size:9px;border-radius:4px;padding:1px 4px">%s</span><span style="' + MONO + '">%s</span></span>')
     g = ''.join('<span style="border:1px solid #bbf7d0;background:#f0fdf4;color:#166534;border-radius:7px;padding:2px 8px;font-size:11.5px;' + MONO + '">B%s</span>' % x for x in gaps)
-    rows = ''.join('<div style="display:flex;align-items:center;gap:6px;padding:3px 6px">%s<span style="color:#374151;min-width:90px">%s</span>%s%s</div>'
-                   % (tg(k, *kc[k]), who, sc % ('#8b5cf6', 'B', b), sc % ('#f59e0b', 'P', p)) for k, who, b, p in occ)
+    # occ 5번째 값 = 겹치는 티켓 이름(파일명) — 빨간 줄 + 누르면 그 티켓으로 `PC-225`
+    rows = ''.join('<div style="display:flex;align-items:center;gap:6px;padding:3px 6px;%s">%s<span style="color:#374151;min-width:90px">%s</span>%s%s%s</div>'
+                   % ('border-radius:7px;background:#fef2f2;border:1px solid #fecaca' if len(r) > 4 else '',
+                      tg(r[0], *kc[r[0]]), r[1], sc % ('#8b5cf6', 'B', r[2]), sc % ('#f59e0b', 'P', r[3]),
+                      ('<span style="margin-left:auto;font-size:11.5px;color:#b91c1c;text-decoration:underline;' + MONO + '">%s ↗</span>' % r[4]) if len(r) > 4 else '')
+                   for r in occ)
+    if not gaps:
+        g = '<span style="color:#b45309">비어 있는 Book 영역이 없습니다.</span>'   # `PC-225`
     st = tg('입력 구간 사용 가능', '#dcfce7', '#166534') if ok else tg('입력 구간 겹침', '#fef2f2', '#b91c1c')
     return ('<div style="margin-top:10px;border:1px solid #eef0f4;border-radius:10px;background:#fafbfc;padding:9px 12px;font-size:12px">'
             '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><b style="color:#374151">구간 사용 현황</b>'

@@ -160,18 +160,17 @@ def info_tab(new=False, co='Study123', id_val='', err='', keys2=False):
 
 def issue_form(sel=None, open_=False, new=False, ranges=RANGES):
     r = sel
-    fields = ('<div class="g4" style="margin-top:12px">' +
-              fld('Start Book (시작 북코드)', r[2].split('~')[0] if r else '', ph=not r) +
-              fld('Book 볼륨 (권)', '250' if r else '', ph=not r) +
-              fld('Start Page', '1 (기본)') + fld('Page 볼륨', '512') + '</div>'
-              '<div style="display:grid;grid-template-columns:.9fr 1fr 1.4fr;gap:10px;margin-top:10px">' +
-              fld('Code Type', 'PDS3') + fld('Valid From Time (사용기간 시작)', '연도-월-일', ph=True) +
-              fld('Valid Until Time (사용기간 끝)', '<span style="color:#9ca3af">연도-월-일</span>',
-                  extra='<span style="font-size:12.5px;white-space:nowrap">☑ 무제한</span>') + '</div>'
-              '<div style="margin-top:10px">' + fld('Info (티켓 메모)', 'sample' if r else '예) sample · 2026 교재용', ph=not r) + '</div>'
-              '<div style="display:flex;gap:16px;margin-top:10px;font-size:12px;color:#6b7280;background:#fafbfc;border-radius:8px;padding:8px 12px">'
-              '<span>자동·고정</span><span>Section · Owner <b style="color:#111827">%s</b></span><span>Ticket Type <b style="color:#111827">Unlimited</b></span>'
-              '<span>Ticket Version <b style="color:#111827">1</b></span></div>' % ('S%s / O%s' % (r[0], r[1]) if r else '-'))
+    # 2열 짝 묶음 — 코드 구간 · 티켓 속성 · 기간 · 버전(N Key 발급과 같은 모양) `PC-223`
+    sec = lambda t, body, g='g2': ('<div style="margin-top:%dpx">%s<div class="%s" style="gap:10px 12px">%s</div></div>'   # 제목 '' 이면 제목 줄 없음 `PC-235`
+                                   % (16 if t else 12, ('<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #f1f3f6">%s</div>' % t) if t else '', g, body))   # 코드 구간 = g4 한 줄 `PC-227`
+    fields = (sec('', fld('Valid From Time (사용기간 시작)', '연도-월-일', ph=True) +   # 모든 줄 4칸 격자 `PC-236`
+                  '<div class="fld"><span class="lbl">Valid Until Time (사용기간 끝) <span style="color:#374151;font-size:11.5px">☑ 무제한</span></span><div class="inp"><span style="color:#9ca3af">연도-월-일</span></div></div>', 'g4') +
+              sec('', fld('Start Book (시작 북코드)', r[2].split('~')[0] if r else '', ph=not r) + fld('Book 볼륨 (권)', '250' if r else '', ph=not r) +
+                  fld('Start Page', '1 (기본)') + fld('Page 볼륨', '512'), 'g4') +
+              sec('', fld('Ticket Type (자동)', 'Unlimited', ro=True) + fld('Ticket Version', '1', ro=True), 'g4') +   # `PC-234`
+              sec('티켓 속성', fld('Code Type (발급 범위 따름)', 'PDS3' if r else '-', ro=True) +
+                  fld('Section · Owner (자동)', 'S%s / O%s' % (r[0], r[1]) if r else '-', ro=True) +
+                  '<div style="grid-column:span 2">' + fld('Info (티켓 메모)', 'sample' if r else '예) sample · 2026 교재용', ph=not r) + '</div>', 'g4'))
     summ = ('<div style="font-size:11.5px;color:#6b7280;margin-top:6px">발급 범위 <b>PDS3 S3/O291/B0~249</b> · 250권 · <b>P1~512</b> · 기간 즉시~무제한</div>'
             if r else '')
     lab = ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">발급 범위 (Caster 대장 이력 · SOBP 할당)%s '

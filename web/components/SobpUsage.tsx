@@ -4,13 +4,29 @@
 // - App Key 관리 · N Key 관리 · 고객사 관리 ▸ 서비스 티켓의 발급(지정) 폼이 같은 조각을 쓴다.
 // - 발급분은 전체 고객사 기준(App Key · N Key · 서비스 티켓) — 상위 SOBP 를 나눠 쓰는 하위 고객사끼리도 보인다.
 // - 비어 있는 구간을 누르면 Start Book 을 그 자리로 옮긴다.
-import { occupiedSobp, spansOverlap, type SobpSpan } from "@/lib/rangeGuard";
+import { occupiedSobp, spansOverlap, type SobpSpan, type Occupied } from "@/lib/rangeGuard";
+import { ticketById } from "@/lib/ticketStore";
+import { nkeyFileNameOf } from "@/lib/nkeyFile";
 import { SobpChips } from "./sobp";
 import { S } from "./ui";
 
 const MAX = 1e9;
 const KIND_C: Record<string, [string, string]> = { "App Key": ["#f5f3ff", "#6d28d9"], "N Key": ["#eef6ff", "#1d4ed8"], "서비스 티켓": ["#ecfdf5", "#047857"] };
 const tag = (bg: string, fg: string): React.CSSProperties => ({ ...S.tag, background: bg, color: fg, fontWeight: 700, fontSize: 10.5 });
+// 겹치는 발급분 — 티켓 이름과 그 티켓으로 가는 주소 `PC-225`
+//   N Key = 내려받는 파일명(.nkey · .zip) → N Key 관리의 그 티켓 / App Key = 계정의 티켓 n → 그 계정 티켓 내역
+//   서비스 티켓은 따로 볼 화면이 없어 이름만
+function ticketLink(o: Occupied): { name: string; href?: string } {
+  if (o.kind === "N Key") {
+    const id = Number(o.ref.slice(1)), t = ticketById(id);
+    return { name: t ? nkeyFileNameOf(t.params) : `N Key 발급 ${id}`, href: `/tickets/nkey?t=${id}` };
+  }
+  if (o.kind === "App Key") {
+    const [acc, i] = o.ref.split("#");
+    return { name: `${acc} · 티켓 ${Number(i) + 1}`, href: `/tickets/account?acc=${encodeURIComponent(acc)}&tab=hist` };
+  }
+  return { name: `서비스 티켓 · ${o.who}` };
+}
 const span = (a: number, b: number, cap: number) => (b >= MAX || b > cap ? `${a}~${cap}` : a === b ? `${a}` : `${a}~${b}`);
 
 export function SobpUsage({ range, cand, exclude, onPickBook }: {
@@ -32,7 +48,7 @@ export function SobpUsage({ range, cand, exclude, onPickBook }: {
     if (cur > range.bookEnd) break;
   }
   if (cur <= range.bookEnd) gaps.push([cur, range.bookEnd]);
-  const hit = cand ? occ.find((o) => spansOverlap(o, cand)) : undefined;
+  const hits = cand ? occ.filter((o) => spansOverlap(o, cand)) : [];
   const pe = range.pageEnd ?? 511;
 
   return (
@@ -41,14 +57,14 @@ export function SobpUsage({ range, cand, exclude, onPickBook }: {
         <b style={{ color: "#374151" }}>구간 사용 현황</b>
         <span style={{ color: "#9ca3af" }}>S{range.section} / O{range.owner} · 발급 {occ.length}건 · 빈 Book 구간 {gaps.length}곳</span>
         <span style={{ flex: 1 }} />
-        {cand && (hit
-          ? <span style={tag("#fef2f2", "#b91c1c")}>입력 구간 겹침 — {hit.kind} · {hit.who}</span>
+        {cand && (hits.length
+          ? <span style={tag("#fef2f2", "#b91c1c")}>입력 구간 겹침{hits.length > 1 ? ` ${hits.length}건` : ""}</span>
           : <span style={tag("#dcfce7", "#166534")}>입력 구간 사용 가능</span>)}
       </div>
       {/* 비어 있는 Book 구간 — 누르면 Start Book 이동 */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: occ.length ? 8 : 0 }}>
         <span style={{ color: "#6b7280", minWidth: 64 }}>빈 구간</span>
-        {gaps.length === 0 && <span style={{ color: "#b45309" }}>비어 있는 Book 이 없습니다 — 같은 Book 이면 Page 를 나눠야 합니다.</span>}
+        {gaps.length === 0 && <span style={{ color: "#b45309" }}>비어 있는 Book 영역이 없습니다.</span>}   {/* `PC-225` */}
         {gaps.slice(0, 8).map(([a, b]) => (
           <button key={a} type="button" disabled={!onPickBook} onClick={() => onPickBook?.(a)} title={onPickBook ? `Start Book 을 ${a} 로` : undefined}
             style={{ border: "1px solid #bbf7d0", background: "#f0fdf4", color: "#166534", borderRadius: 7, padding: "2px 8px", fontSize: 11.5, cursor: onPickBook ? "pointer" : "default", fontFamily: "ui-monospace,monospace" }}>
@@ -68,6 +84,14 @@ export function SobpUsage({ range, cand, exclude, onPickBook }: {
                 <span style={tag(...(KIND_C[o.kind] ?? ["#f3f4f6", "#6b7280"]))}>{o.kind}</span>
                 <span style={{ color: "#374151", minWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }} title={o.who}>{o.who}</span>
                 <SobpChips b={span(o.bookStart, o.bookEnd, range.bookEnd)} p={span(o.pageStart, o.pageEnd, pe)} small />
+                {/* 겹치는 발급분 — 티켓 이름 · 누르면 그 티켓으로 `PC-225` */}
+                {on && (() => {
+                  const l = ticketLink(o);
+                  const st: React.CSSProperties = { marginLeft: "auto", fontSize: 11.5, fontFamily: "ui-monospace,monospace", color: "#b91c1c", wordBreak: "break-all" };
+                  return l.href
+                    ? <a href={l.href} title="이 티켓으로 이동" style={{ ...st, textDecoration: "underline" }}>{l.name} ↗</a>
+                    : <span style={st}>{l.name}</span>;
+                })()}
               </div>
             );
           })}

@@ -102,6 +102,7 @@ const PARAM_ORDER = [
   "Page Start", "Page Volume", "Page End",
   "Code Type", "Issued Time", "Valid From Time", "Valid Until Time", "Ticket Type", "Ticket Version",
   "Separate Each Book",
+  "Profile", "Code Reuse", "CasterN Permissions",   // N Key 프로필 · 코드 재사용 · HYBRID 권한 `PC-218`
 ];
 const orderParams = (p: Ticket["params"]): Ticket["params"] => {
   const out: Ticket["params"] = {};
