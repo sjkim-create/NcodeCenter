@@ -122,6 +122,8 @@ function NKeyWorkspace() {
   const [loadedKey, setLoadedKey] = useState<{ name: string; rows: KV[]; err?: string } | null>(null);
   const loadKeyFile = (f?: File) => {
     if (!f) return;
+    // .nkey 만 — 다른 확장자(json 등)는 열지 않는다 `PC-216`
+    if (!/\.nkey$/i.test(f.name)) { setLoadedKey({ name: f.name, rows: [], err: "N Key 티켓 파일(.nkey)이 아닙니다. N Key 발급으로 내려받은 .nkey 파일을 선택하세요." }); return; }
     const rd = new FileReader();
     rd.onload = () => {
       try { setLoadedKey({ name: f.name, rows: toKV(JSON.parse(String(rd.result))) }); }
@@ -239,8 +241,8 @@ function NKeyWorkspace() {
         {filtered && <span style={{ color: "#6b7280" }}>전체 <b style={{ color: "#111827" }}>{hitAll.length}건</b> · 고객사 <b style={{ color: "#111827" }}>{coList.length}곳</b></span>}
         <label style={{ ...S.smallBtn, whiteSpace: "nowrap" }} title="발급된 N Key 파일(.nkey)을 열어 내용을 봅니다(보기 전용). 목록에 없는 외부 키도 됩니다.">
           📂 N Key 불러오기
-          {/* .nkey(지금 발급 형식 `PC-213`) · 옛 .json 도 연다 */}
-          <input type="file" accept=".nkey,.json,application/json" style={{ display: "none" }}
+          {/* .nkey 만 연다 — 파일 선택 창도 .nkey 만 보인다 `PC-213` `PC-216` */}
+          <input type="file" accept=".nkey" style={{ display: "none" }}
             onChange={(e) => { loadKeyFile(e.target.files?.[0]); e.target.value = ""; }} />
         </label>
       </div>
