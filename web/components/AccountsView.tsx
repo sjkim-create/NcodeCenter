@@ -771,8 +771,6 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
                         </div>
                       </div>
                       <BillTag v={r} />
-                      {/* 발급된 티켓은 지우지 않고 고친다 `PC-192` — [티켓 발급] 폼에서 고친다 `PC-193` `PC-208` */}
-                      <button onClick={(e) => { e.stopPropagation(); startEdit(k, i); }} style={{ ...S.ghost, padding: "3px 9px", fontSize: 11 }}>수정</button>
                       <span style={{ fontSize: 10, color: "#9ca3af", paddingTop: 5, transform: isSel && openKey ? "rotate(90deg)" : "none", transition: "transform .15s" }}>▶</span>
                     </div>
                     {isSel && openKey && (() => {
@@ -790,6 +788,12 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
                       return (
                         <div style={{ padding: "10px 12px 12px", background: "#fbfdff", borderTop: "1px solid #e0ecff" }}>
                           <KeyCard title="Key 정보" empty="" params={params} />
+                          {/* [티켓 수정] — N Key · 서비스 티켓과 같은 자리: 상세(Key 정보) 아래 오른쪽 `PC-238`
+                              발급된 티켓은 지우지 않고 [티켓 발급] 폼에서 고친다 `PC-192` `PC-193` */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 18, paddingTop: 14, borderTop: "1px solid #eef0f4" }}>
+                            <span style={{ flex: 1 }} />
+                            <button onClick={() => startEdit(k, i)} style={S.primary}>티켓 수정</button>
+                          </div>
                         </div>
                       );
                     })()}

@@ -228,7 +228,7 @@ MENU = [
     ('grp', '정보', None, None),
     ('item', '코드 관리 정보', 'INF-01', 'ℹ️'),
     ('item', '브랜드 (CI)', None, '🎨'),
-    ('item', 'DB 구조', None, '🗄️'),
+    ('item', 'Ncode Center 동작 흐름', None, '🔀'),   # 옛 DB 구조 자리 `PC-239` · 이름 `PC-240`
 ]
 
 

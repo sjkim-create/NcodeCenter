@@ -16,7 +16,7 @@
 | `TKT` | 티켓 발급 | `LOG` | 활동 로그 |
 | `SOB` | SOBP 맵 | `INF` | 코드 관리 정보 |
 | `PRJ` | 프로젝트 | `BRD` | 브랜드(CI) |
-| `PUI` | PUI 코드 | `DBS` | DB 구조 |
+| `PUI` | PUI 코드 | `DBS` | Ncode Center 동작 흐름(옛 DB 구조 자리) |
 | `SVC` | 서비스 관리(예정) | | |
 | `CMN` | 공통(로그인·계정) | | |
 
@@ -52,7 +52,7 @@ NcodeCenter
 │   │   ├─ OID 관리대장             INF-04     ← index 전용 코드(좌표 관리 아님)
 │   │   └─ 알아야 할 사항           INF-01-4
 │   ├─ 브랜드 (CI)                  BRD-01   (/brand)
-│   └─ DB 구조                      DBS-01   (/db)
+│   └─ Ncode Center 동작 흐름       DBS-01   (/flow · 옛 /db 는 여기로)
 └─ [공통]
     ├─ 로그인                       CMN-01   (/login)
     └─ 개인정보 수정(헤더 모달)     CMN-02
@@ -92,7 +92,7 @@ NcodeCenter
 | INF-01-3 | └ 발급 구조 | 3 | `/info` (탭) | `NcodeInfoView` | 전 역할 | PDS2(Gcode)/PDS3(Ncode) 발급 구조 |
 | INF-01-4 | └ 알아야 할 사항 | 3 | `/info` (탭) | `NcodeGuideView` | 전 역할 | 운영 가이드·주의사항 |
 | **BRD-01** | 브랜드 (CI) | 2 | `/brand` | `BrandGuide` | 전 역할 | 로고·색상·타이포 등 브랜드 가이드 |
-| **DBS-01** | DB 구조 | 2 | `/db` | `DbSchema` | 전 역할 | 테이블·관계·도메인 계층 스키마 뷰 |
+| **DBS-01** | Ncode Center 동작 흐름 | 2 | `/flow` | `FlowDiagrams` | 전 역할 | `NcodeCenter-Flow.md` 다이어그램 6개 · SVG 저장 / 복사. 옛 「DB 구조」 화면은 삭제(`PC-239`) |
 | — | **공통** | 1 | — | — | — | 인증·계정 |
 | **CMN-01** | 로그인 | 2 | `/login` | `LoginView` | 전체 | 이메일·비밀번호 로그인(셸 미표시) |
 | **CMN-02** | 개인정보 수정 | 3 | (헤더 모달) | `AppShell` | 로그인 사용자 | 이름·비밀번호 변경 |

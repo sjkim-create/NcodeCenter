@@ -281,6 +281,9 @@ def main():
     data = [{'title': t, 'slug': slug(t), 'src': s} for t, s in blocks(md)]
     html = PAGE % {'cdn': MERMAID_CDN,
                    'data': json.dumps(data, ensure_ascii=False, indent=1)}
+    # 앱 「동작 흐름」 메뉴(/flow)도 같은 소스를 쓴다 `PC-239`
+    app = os.path.join(DOCS, '..', 'web', 'data', 'flow-diagrams.json')
+    io.open(app, 'w', encoding='utf-8', newline=chr(10)).write(json.dumps(data, ensure_ascii=False, indent=1) + chr(10))
     old = io.open(OUT, encoding='utf-8').read() if os.path.exists(OUT) else None
     if old == html:
         print('  NcodeCenter-Flow.html  변화 없음 (%d개)' % len(data))

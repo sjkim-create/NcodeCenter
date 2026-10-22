@@ -175,9 +175,6 @@ function TicketDetail({ t, onEdit, me }: { t: ServiceTicket; onEdit: () => void;
         <span style={tag(STATE_COLOR[st].bg, STATE_COLOR[st].fg)}>{st}</span>
         <SvcTag v={t.service} />
         {t.shared && <span style={tag("#f3e8ff", "#7e22ce")}>공유 코드</span>}
-        <span style={{ flex: 1 }} />
-        {/* 발급된 티켓은 지우지 않는다 — 정보만 고친다 `PC-192` */}
-        <button type="button" onClick={onEdit} style={S.smallBtn}>티켓 수정</button>
       </div>
       <div style={{ padding: 16 }}>
         <WsTabs items={DETAIL_TABS} tab={tab} onTab={setTab} badge={{ bill: (t.billing ?? "미정") === "미정" ? "미정" : undefined }} />
@@ -192,6 +189,11 @@ function TicketDetail({ t, onEdit, me }: { t: ServiceTicket; onEdit: () => void;
           ))}
         </div>
         <ExpiryNote />
+        {/* [티켓 수정] — N Key · App Key 와 같은 자리: 상세 아래 오른쪽 `PC-238` · 발급된 티켓은 지우지 않고 고친다 `PC-192` */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 18, paddingTop: 14, borderTop: "1px solid #eef0f4" }}>
+          <span style={{ flex: 1 }} />
+          <button type="button" onClick={onEdit} style={S.primary}>티켓 수정</button>
+        </div>
         </div>
         {/* 정산 탭 — N Key 와 같은 4종 `PC-176` `PC-179` */}
         <div style={{ display: tab === "bill" ? "block" : "none" }}>

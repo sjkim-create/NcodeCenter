@@ -91,7 +91,7 @@ export const MENU: MenuGroup[] = [
     items: [
       { label: "코드 관리 정보", path: "/info", icon: "ℹ️", ready: true },
       { label: "브랜드 (CI)", path: "/brand", icon: "🎨", ready: true },
-      { label: "DB 구조", path: "/db", icon: "🗄️", ready: true },
+      { label: "Ncode Center 동작 흐름", path: "/flow", icon: "🔀", ready: true },   // 옛 「DB 구조」 자리 `PC-239` · 이름 `PC-240`
     ],
   },
 ];

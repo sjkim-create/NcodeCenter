@@ -98,22 +98,23 @@ flowchart TD
     P["선행 조건<br/>고객사 등록 + SOBP 할당 완료"] --> Q{"필요한 키는"}
 
     Q -->|"오프라인 · 계정 불필요"| N1["TKT-02 N Key 관리<br/>/tickets/nkey · 고객사(고객사 관리) | 발급 티켓 | 상세·정산"]
-    N1 --> N2["[＋ N Key 발급]<br/>발급 범위 → Book·Page → Code Type · 사용 기한"]
-    N2 --> N3["[N Key 발급]<br/>티켓 zip 다운로드"]
+    N1 --> N2["[＋ N Key 발급]<br/>발급 범위 → 발급일 · 사용기간 → Book·Page<br/>→ 버전 · 코드 재사용 → 프로필 · Code Type"]
+    N2 --> NP{"발급 정책<br/>PDS2 · PDS3 만 · Section 별 프로필"}
+    NP --> N3["[N Key 발급]<br/>.nkey 다운로드<br/>(Book 2권 이상 = .zip)"]
     N3 --> N4["같은 화면 오른쪽<br/>정산 정보 탭 · Key 정보"]
+    N4 --> N5["[티켓 수정] 발급과 같은 폼<br/>[키 다운로드] .nkey 다시 받기"]
 
     Q -->|"온라인 · 계정 연동"| A1["TKT-01 App Key 관리 (계정 발급)<br/>/tickets/account · 고객사(고객사 관리) | App Key 계정 | 상세"]
-    A1 --> A2["[＋ 계정 추가]<br/>계정 정보 → App Key 범위(선택)"]
-    A2 --> A3{"App Key 범위를<br/>골랐나"}
-    A3 -- 골랐다 --> A4["계정 + App Key 발급"]
-    A3 -- 비웠다 --> A5["계정만 등록<br/>키는 나중에 상세에서"]
+    A1 --> A2["[＋ 계정 추가]<br/>계정 생성 = App Key 자동 생성<br/>(1계정 1키)"]
+    A2 --> A3["[티켓 발급] 탭<br/>발급 범위 → 사용기간 → Book·Page → 버전 · Info"]
+    A3 --> A4["계정 소속 티켓 발급<br/>(계정당 여러 개)"]
 
     N3 --> L["LOG-01 활동 로그 기록"]
     A4 --> L
     N4 --> B2["정산: 유료 · 무료 · 체험 · 미정"]
 
     classDef gate fill:#fff6e5,stroke:#c98a12,color:#3a2a00;
-    class Q,A3 gate;
+    class Q,NP gate;
 ```
 
 | 구분 | N Key | App Key |
@@ -121,7 +122,9 @@ flowchart TD
 | 성격 | 물리 키 — 오프라인 Caster lite | 계정 연동 키 — 온라인 · SDK |
 | 계정 | 필요 없다 | 계정이 있어야 발급된다 |
 | 관리 화면 | `TKT-02` N Key 관리 (3단 한 화면) | `TKT-01` App Key 관리 (3단 한 화면) |
-| 공통 | 이미 **할당된 범위 안에서만** 발급 · 기간(Valid Until)과 Book/Page 로 한도 지정 | |
+| 키 · 티켓 | 티켓 = .nkey 파일(Key=Value) — Book 2권 이상이면 Book 마다 .nkey 를 .zip 으로 `PC-219` `PC-221` | 계정 생성 때 App Key 자동(1계정 1키) · 티켓은 계정마다 여러 개 `PC-208` `PC-210` |
+| 발급 정책 | Code Type PDS2 · PDS3 만(OID · PDS4 불가) · Section 에 맞는 프로필(LEGACY / HYBRID)만 `PC-219` `PC-221` | Code Type 은 발급 범위 따름 · PDS2 · PDS3 범위만 `PC-220` |
+| 공통 | 이미 **할당된 범위 안에서만** 발급 · 다른 발급분과 SOBP 겹침 불가(겹치면 그 티켓 링크) `PC-174` `PC-225` · 수정은 발급과 같은 폼 `PC-226` | |
 
 ---
 
@@ -255,13 +258,14 @@ flowchart LR
     end
 
     DSH --> SOB1
-    DSH --> TKT3
+    DSH --> TKT2
     MEM2 -. 사용 서비스 casterN .-> PRJ2
     SOB2 --> PRJ1
-    SOB2 -. 선행 .-> TKT4
+    SOB2 -. 선행 .-> TKT1
     SOB2 -. 선행 .-> TKT2
     SOB2 --> LOG
-    TKT4 --> LOG
+    TKT1 --> LOG
+    TKT2 --> LOG
     PRJ1 -. [편집] 버튼 .-> PRJ2
 ```
 

@@ -109,7 +109,7 @@ NcodeCenter
     ├─ 코드 관리 정보                             INF-01   (/info)
     │   └─ OID 관리대장 (탭)                    INF-04   ← index 전용(좌표 관리 아님)
     ├─ 브랜드 (CI)                            (PRD 없음)
-    └─ DB 구조                                (PRD 없음)
+    └─ Ncode Center 동작 흐름                 (PRD 없음 · 옛 DB 구조 자리 `PC-239`)
 ```
 
 ### 서비스 ↔ 관리 메뉴 매핑
@@ -175,7 +175,7 @@ NcodeCenter
 
 - **web/** (Next.js 15 + React 19) — 로컬: `npm run dev` → http://localhost:3000
   - `/ownership` 소유권 맵(마스터+상세 병합, 예약/사용중, 제품·고객 필터) ✅
-  - `/db` DB 구조 뷰(테이블·관계·도메인계층) ✅
+  - `/flow` 동작 흐름(Flow.md 다이어그램 · SVG) ✅ — 옛 `/db` DB 구조 뷰는 삭제 `PC-239`
   - `lib/allocationEngine.ts` 자동 연속 할당 엔진(`pageContiguityRequired` 서비스별 연속성) ✅
 - **db/**: Postgres 마이그레이션(`migrations/0001_init.sql`: allocations usage_status·code_type·pen_type, grade_so 등)·시드·임포트(`import/`, XLSX→JSON).
 - **데이터 파이프라인**: `db/import/build_ownership_data.py` → `web/data/ownership-data.json`.
@@ -191,7 +191,7 @@ NcodeCenter
 NcodeCenter/
 ├── docs/
 │   ├── NcodeCenter-Structure.md          ★ 구조 단일(지도). 정의·도메인·역할·메뉴구조도·문서구조도·아키텍처·로드맵
-│   ├── NcodeCenter-DB.md                 DB 구조(테이블·관계). 앱 뷰 = /db
+│   ├── NcodeCenter-DB.md                 DB 구조(테이블·관계). 앱 화면 없음(`PC-239`)
 │   ├── NcodeCenter-Operations-Policy.md  운영 정책(개발 반영 기준). ★ 신규 화면 필수 참조
 │   ├── NcodeCenter-Flow.md               동작 흐름(mermaid). 전체 → 단계별(할당·발급·편집·NDP)
 │   ├── NcodeCenter-Flow.html             ↑ 의 보기·Figma 붙여넣기용 (생성물 — screens/_gen/mkflow.py)
@@ -215,7 +215,7 @@ NcodeCenter/
 | **구조(지도)** | `docs/NcodeCenter-Structure.md` | 시스템 전체 지도(이 문서) | 정의·도메인·메뉴 변화 시 여기 갱신 |
 | **화면 PRD** | `docs/prd/{화면code}_{화면명}.md` | 화면 1개 기능 명세(개요·Flow·정책·사용법·메시지·연결 화면) | IA에 화면코드 추가 → PRD 작성 → [prd/README](prd/README.md) 목록에 등록. **디자인·DB 스펙 제외** |
 | **메뉴 상세(구)** | `docs/menus/NN-name.md` | PRD 이전의 메뉴 스펙 | 신규 작성 금지 — PRD로 대체 |
-| **DB 구조** | `docs/NcodeCenter-DB.md` | 테이블·관계 | 변경 시 `db/migrations/*` + `web/lib/dbSchema.ts`(=/db 뷰) 동기화 |
+| **DB 구조** | `docs/NcodeCenter-DB.md` | 테이블·관계 | 변경 시 `db/migrations/*` 동기화(앱 /db 뷰는 `PC-239` 에서 삭제) |
 | **운영 정책** | `docs/NcodeCenter-Operations-Policy.md` | 발급·할당 원칙 | 정책 추가/변경 → 관련 메뉴 MD 체크리스트 반영 |
 | **동작 흐름** | `docs/NcodeCenter-Flow.md` | 화면·단계를 잇는 동작 흐름(mermaid) | 흐름/선행조건이 바뀌면 갱신 → **`python docs/screens/_gen/mkflow.py`** 로 HTML 재생성. 화면 목록은 IA, 규칙은 운영 정책이 정본 |
 | **연동 참조** | `docs/NcodeCenter-SOBP-Allocation.md` | 외부(NDP 등) 연동 흐름 참조 | 정책성 내용은 **운영 정책에 요약**하고 상세만 참조 문서에 |

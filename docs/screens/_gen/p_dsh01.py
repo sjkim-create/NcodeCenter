@@ -1,14 +1,19 @@
 # -*- coding: utf-8 -*-
 """DSH-01 대시보드 — 실제 화면 구조 그대로.
 
-분야별 4개 구역을 위에서 아래로 배치한다.
-  ① 코드(SOBP)  : 요약 3장 + 업체별 점유 Top 10  (Section별 소유 현황은 뺐다 `PC-102`)
-  ② 편집(CasterN): 요약 3장 + 편집 진행 상태 분포
-  ③ 정산         : 요약 3장
+분야별 4개 구역을 위에서 아래로 배치한다. 정산을 맨 위에 둔다 `PC-242`
+  ① 정산         : 편집 청구액 + N Key(발급 정산 · 미정산 추정) + App Key(발급 정산 · 미정산 추정) = 5장
+  ② 코드(SOBP)  : 요약 3장 + 업체별 점유 Top 10  (Section별 소유 현황은 뺐다 `PC-102`)
+  ③ 편집(CasterN): 요약 3장 + 편집 진행 상태 분포
+색은 NEO UI 테마(web/shared/config/light-theme.ts) 팔레트만 쓴다 `PC-242`
   ④ 운영         : 운영 알림 · 최근 활동
 조회 전용이며 사용자 입력이 없다.
 """
 from shell import page, frame
+
+# NEO UI 테마 팔레트 `PC-242` — light-theme.ts 와 같은 값
+P_PRI, P_PRI_BG, P_PRI_D, P_CYAN, P_CYAN_BG = '#5F8FF0', '#F0F5FE', '#3A66C8', '#3D96CE', '#F0F9FD'
+P_OK, P_WARN, P_ERR, P_INFO, P_DIM = '#6FB152', '#E09A2E', '#E05B50', '#3D96CE', '#9CA3AF'
 
 CODE, NAME = 'DSH-01', '대시보드'
 PRD = 'docs/prd/DSH-01_대시보드.md'
@@ -59,13 +64,18 @@ def shead(title, note, action):
             '<span style="font-size:12px;color:#5f8ff0">%s →</span></div>' % (title, note, action))
 
 
-def kpi(icon, label, value, sub, tone, extra=''):
+def kpi(icon, label, value, sub, tone, extra='', tag=''):
+    # tag — N Key · App Key 꼬리표 `PC-242`
+    if tag:
+        c_bg, c_fg = (P_PRI_BG, P_PRI_D) if tag == 'N Key' else (P_CYAN_BG, P_CYAN)
+        label = ('<span style="font-size:10.5px;font-weight:700;border-radius:5px;padding:1px 6px;margin-right:5px;background:%s;color:%s">%s</span>'
+                 % (c_bg, c_fg, tag)) + label
     return dcard(
         '<div style="display:flex;justify-content:space-between;align-items:flex-start">'
         '<div style="font-size:12px;color:#6b7280">%s</div>'
         '<span style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center;'
         'font-size:15px;background:%s18">%s</span></div>'
-        '<div style="font-size:24px;font-weight:800;margin-top:4px;color:%s;line-height:1.2">%s</div>'
+        '<div style="font-size:22px;font-weight:800;margin-top:4px;color:%s;line-height:1.2;white-space:nowrap">%s</div>'
         '<div style="font-size:11.5px;color:#9ca3af">%s</div>%s'
         % (label, tone, icon, tone, value, sub, extra))
 
@@ -95,6 +105,10 @@ def code_kpis(hot=True):
 # Section별 소유 현황 카드는 뺐다 `PC-102` — 같은 정보를 SOBP 맵(SOB-01)에서 본다
 
 
+# 업체별 점유 — 테마 색을 흰색과 40퍼센트 섞은 파스텔 10색(DashboardView TOP_PASTEL 과 같은 값) `PC-244`
+TOP_PASTEL = ['#9FBCF6', '#B0E1F7', '#BBDDAC', '#F7D196', '#F5B1AC', '#9DD2F0', '#93B0EC', '#A9D097', '#ECC282', '#EC9D96']
+
+
 def top10_card():
     rows = ''
     for i, (nm, owners) in enumerate(TOP10):
@@ -103,12 +117,12 @@ def top10_card():
                  '<div style="width:130px;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;'
                  'white-space:nowrap;flex:none">%s</div>'
                  '<div style="flex:1;height:14px;border-radius:5px;background:#f1f3f7;overflow:hidden">'
-                 '<div style="width:%.1f%%;height:100%%;background:hsl(%d 62%% 55%%)"></div></div>'
+                 '<div style="width:%.1f%%;height:100%%;background:%s"></div></div>'
                  '<div style="width:62px;text-align:right;font-size:12px;color:#6b7280;flex:none">'
                  'owner %d</div></div>'
-                 % (i + 1, nm, owners * 100.0 / MAX_ACC, (i * 42) % 360, owners))
+                 % (i + 1, nm, owners * 100.0 / MAX_ACC, TOP_PASTEL[i % 10], owners))
     return dcard(chead('업체별 점유 Top 10', '소유 owner 수') +
-                 '<div style="display:flex;flex-direction:column;gap:9px;margin-top:4px">%s</div>' % rows)
+                 '<div style="display:flex;flex-direction:column;gap:14px;margin-top:4px">%s</div>' % rows)   # 줄 간격 `PC-243`
 
 
 # ── ② 편집 (CasterN) ─────────────────────────────────────────────
@@ -150,22 +164,26 @@ def edit_dist(dist=(6893, 1240, 350), note=False):
 
 # ── ③ 정산 ───────────────────────────────────────────────────────
 def bill_kpis(est=True):
+    # 정산 5장 — 편집 + N Key 2 + App Key 2 `PC-242`
     if est:
-        v, sub, tone = '~₩11,800,000', '미정 3건 · 고객사 단가 2 / 평균 1', '#dc2626'
+        nv, nsub, ntone = '~₩11,800,000', '미정 3건 · 고객사 단가 2 / 평균 1', P_ERR
     else:
-        v, sub, tone = '—', '미정 3건 · 유료 이력 없어 추정 불가', '#9ca3af'
-    return kpi3([
-        kpi('💰', '편집 비용 청구액', '₩1,284,900,000', '정가 ₩1,402,000,000 · 할인 −₩117,100,000', '#14b8a6'),
-        kpi('❓', '미정산 금액 추정', v, sub, tone),
-        kpi('🧾', 'Key 발급 정산', '₩8,300,000', '유료 3 · 무료 1 · 체험 2 · 미정 3', '#1d4ed8'),
-    ])
+        nv, nsub, ntone = '—', '미정 3건 · 유료 이력 없어 추정 불가', P_DIM
+    cards = [
+        kpi('💰', '편집 비용 청구액', '₩1,284,900,000', '정가 ₩1,402,000,000 · 할인 −₩117,100,000', P_CYAN),
+        kpi('🧾', 'Key 발급 정산', '₩8,300,000', '유료 3 · 무료 1 · 체험 2 · 미정 3', P_PRI, tag='N Key'),
+        kpi('❓', '미정산 금액 추정', nv, nsub, ntone, tag='N Key'),
+        kpi('🧾', 'Key 발급 정산', '₩2,400,000', '유료 2 · 무료 0 · 체험 0 · 미정 1', P_PRI, tag='App Key'),
+        kpi('❓', '미정산 금액 추정', '~₩1,200,000', '미정 1건 · 고객사 단가 1 / 평균 0', P_ERR, tag='App Key'),
+    ]
+    return ('<div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:14px">%s</div>' % ''.join(cards))
 
 
 # ── ④ 운영 ───────────────────────────────────────────────────────
 def alert_row(n, label, note, danger=False):
     on = n > 0
-    fg = '#9ca3af' if not on else ('#b91c1c' if danger else '#92400e')
-    bg = '#f3f4f6' if not on else ('#fef2f2' if danger else '#fef3c7')
+    fg = P_DIM if not on else (P_ERR if danger else P_WARN)   # NEO UI 팔레트 `PC-242`
+    bg = '#F6F7F9' if not on else ('#FDF1F0' if danger else '#FDF7EC')
     return ('<div style="display:flex;align-items:center;gap:9px;padding:8px 0;'
             'border-top:1px solid #f5f6f8">'
             '<span style="min-width:34px;text-align:center;font-weight:800;font-size:14px;'
@@ -181,14 +199,16 @@ def alert_row(n, label, note, danger=False):
 
 def alert_card(zero=False, hot=True):
     if zero:
-        rows = (alert_row(0, '정산 미등록 티켓', '발급했지만 과금 유형이 미정') +
+        rows = (alert_row(0, '정산 미등록 티켓 · N Key', '발급했지만 과금 유형이 미정') +
+                alert_row(0, '정산 미등록 티켓 · App Key', '발급했지만 과금 유형이 미정') +
                 alert_row(0, '체험 기간 만료', '유료 전환 또는 회수 확인', True) +
                 alert_row(0, '체험 만료 임박 (7일 내)', '사전 안내 대상') +
                 alert_row(0, 'App Key 미연동 계정', '계정만 있고 발급 키 없음') +
                 alert_row(0, '사업 종료 고객사', '보유 코드 프로젝트 0건 — 회수 검토') +
                 alert_row(0, '정원 50% 이상 사용 Section', '여유 있음'))
     else:
-        rows = (alert_row(3, '정산 미등록 티켓', '추정 ₩11,800,000 — 과금 유형 미정') +
+        rows = (alert_row(3, '정산 미등록 티켓 · N Key', '추정 ₩11,800,000 — 과금 유형 미정') +
+                alert_row(1, '정산 미등록 티켓 · App Key', '추정 ₩1,200,000 — 과금 유형 미정') +
                 alert_row(1, '체험 기간 만료', '유료 전환 또는 회수 확인', True) +
                 alert_row(1, '체험 만료 임박 (7일 내)', '사전 안내 대상') +
                 alert_row(2, 'App Key 미연동 계정', '계정만 있고 발급 키 없음') +
@@ -220,11 +240,11 @@ def act_card(empty=False):
 
 
 def content(empty=False, hot=True, zero=False, est=True, dist=(6893, 1240, 350), note=False):
-    return (shead('코드 (SOBP)', '발급 여력과 점유 분포', 'SOBP 맵') +
+    return (shead('정산', '편집 청구액과 Key 발급 과금 — N Key · App Key 나눠서', 'N Key 관리') + bill_kpis(est) +   # 맨 위 `PC-242`
+            shead('코드 (SOBP)', '발급 여력과 점유 분포', 'SOBP 맵') +
             code_kpis(hot) + top10_card() +
             shead('편집 (CasterN)', '편집 프로젝트 규모와 진행 상태', '편집 프로젝트') +
             edit_kpis(dist[1], sum(dist)) + edit_dist(dist, note) +
-            shead('정산', '편집 청구액과 Key 발급 과금', 'N Key 관리') + bill_kpis(est) +
             shead('운영', '확인·처리가 필요한 항목', '전체 로그') +
             grid2(alert_card(zero, hot), act_card(empty)))
 
@@ -251,14 +271,14 @@ def build():
     boards.append((
         'S1', '기본 · 데이터 정상', '기본',
         '로그인 성공 직후 열리는 기본 진입 화면. 분야별 <b>4개 구역</b>을 위에서 아래로 배치한다 — '
-        '① 코드(SOBP) ② 편집(CasterN) ③ 정산 ④ 운영. 각 구역은 <b>요약 3장 + 상세 카드</b>로 '
+        '① 정산(맨 위 · N Key / App Key 나눠서 `PC-242`) ② 코드(SOBP) ③ 편집(CasterN) ④ 운영. 각 구역은 <b>요약 3장 + 상세 카드</b>로 '
         '이루어지고, 구역 제목 우측 링크로 해당 관리 화면에 들어간다. '
         '<b>조회 전용</b>이며 사용자 입력이 없어 검증 오류가 없다.',
         F(content()),
         [('① 코드 요약', '조회', '—', '코드 할당율 3.5% · 발급 owner 475 · 미발급 owner 13,093'),
          ('② 편집 요약', '조회', '—', 'CasterN 고객사 69 · 편집 완료 교재 1,240 · 전용 단가 고객사 7'),
-         ('③ 정산 요약', '조회', '—',
-          '편집 청구액 ₩1,284,900,000 · 미정산 추정 ~₩11,800,000 · Key 발급 정산 ₩8,300,000'),
+         ('① 정산 요약(맨 위)', '조회', '—',
+          '편집 청구액 · <b>N Key</b> 발급 정산 · 미정산 추정 · <b>App Key</b> 발급 정산 · 미정산 추정 — 5장 <code>PC-242</code>'),
          ('④ 운영 알림', '조회', '—', '처리 필요 항목만 건수로 표시 — 0건은 흐리게'),
          ('요약 카드', '클릭', '해당 관리 화면', '카드마다 이동 대상이 다르다 — PRD §6'),
          ('최근 활동 행', '조회', '—', '시각 · 활동 종류 · 내용 · 담당자 — <b>최근 8건</b>')]

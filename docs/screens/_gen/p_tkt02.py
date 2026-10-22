@@ -127,7 +127,7 @@ def ticket_detail(tab='base', no=36, co='KODION', bill='무료', amount='', tria
                  'background:#f0f7ff;font-size:12.5px"><b style="color:#1d4ed8">수정 전</b><span style="color:#374151">%s</span></div>' % SUM) if editing else '') + (
                 '<div class="g3">' + fld('고객사', co, ro=True) + fld('발급일시', at, ro=True, mono=True) + fld('발급인', by, ro=True) + '</div>'
                 '<div style="margin-top:12px">' + (fld('발급 내용 (목록 표기) *', '' if err == 'sum' else SUM, err=(err == 'sum')) if editing
-                                                     else fld('발급 내용 (목록 표기)', SUM, ro=True)) + '</div>'
+                                                     else fld('발급 내용 (목록 표기)', kws.sobp_chips('PDS3', '3', '46', '10~11', '0~511') + ' <span style="font-size:12.5px;color:#6b7280">Book 2권 · 기간 무제한</span>', ro=True)) + '</div>'   # SOBP 칩 `PC-241`
                 + ('<div class="inline-err">발급 내용을 입력하세요.</div>' if err == 'sum' else '') +
                 '<div style="margin-top:16px;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">Key 정보 '
                 '<span style="font-weight:400;color:#9ca3af">· 15개 항목%s</span></div>' % (' · 값만 수정합니다' if editing else '') +

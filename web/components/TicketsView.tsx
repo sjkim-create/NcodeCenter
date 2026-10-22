@@ -13,6 +13,7 @@ import { codesOfCompany } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { companyOfNTicket, nKeyRangesOfCompany } from "@/lib/keyCompany";
 import { sobpOverlapMsg, spanOfParams, spansOverlap } from "@/lib/rangeGuard";
+import { SobpChips } from "./sobp";
 import { SobpUsage } from "./SobpUsage";
 import {
   WS_CARD, WS_HD, WS_GRID, WS_EMPTY, WS_HEAD_BTN, wsItem,
@@ -506,7 +507,7 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
               <Field label={editing ? "발급 내용 (목록 표기) *" : "발급 내용 (목록 표기)"}>
                 {editing
                   ? <input style={S.input} value={summary} onChange={(e) => setSummary(e.target.value)} />
-                  : <div style={{ ...S.input, background: "#f7f8fa", color: "#374151" }}>{t.summary}</div>}
+                  : <SummaryChips t={t} />}
               </Field>
             </div>
 
@@ -1209,6 +1210,25 @@ export function FormSec({ title, cols = 2, children }: { title?: string; cols?: 
     <div style={{ marginTop: title ? 16 : 12 }}>
       {title && <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid #f1f3f6" }}>{title}</div>}
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: "10px 12px" }}>{children}</div>
+    </div>
+  );
+}
+
+// 발급 내용 — SOBP 는 다른 화면과 같은 칩(종류 · S · O · B · P), 나머지 항목은 글로 `PC-241`
+const CT_KIND: Record<string, string> = { PDS3: "N", PDS2: "G", PDS4: "N", OID: "O" };   // PDS4 는 Section 으로 가려진다
+function SummaryChips({ t }: { t: Ticket }) {
+  const sp = spanOfParams(t.params);
+  const ct = String(t.params["Code Type"] ?? "");
+  const kind = /PDS3/.test(ct) ? "PDS3" : /PDS2/.test(ct) ? "PDS2" : /Scode|PDS4/.test(ct) ? "PDS4" : /OID/.test(ct) ? "OID" : "";
+  const rng = (a: number, z: number) => (a === z ? `${a}` : `${a}~${z}`);
+  // 요약 글에서 SOBP · Page 조각은 칩으로 보이니 뺀다
+  const rest = t.summary.split(" · ").filter((x) => !/S\d+\/O\d+/.test(x) && !/^P\d+~\d+$/.test(x.trim()));
+  return (
+    <div style={{ ...S.input, background: "#f7f8fa", color: "#374151", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minHeight: 36 }}>
+      {sp.section >= 0
+        ? <SobpChips k={kind ? CT_KIND[kind] : undefined} s={sp.section} o={sp.owner} b={rng(sp.bookStart, sp.bookEnd)} p={rng(sp.pageStart, sp.pageEnd)} small />
+        : null}
+      {rest.length > 0 && <span style={{ fontSize: 12.5, color: "#6b7280" }}>{rest.join(" · ")}</span>}
     </div>
   );
 }

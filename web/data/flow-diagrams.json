@@ -1,0 +1,32 @@
+[
+ {
+  "title": "① 전체 흐름 — 요청에서 사용까지",
+  "slug": "01-전체-흐름",
+  "src": "flowchart TD\n    REQ[\"요청 발생<br/>고객사 · 편집팀 · 사내 서비스\"] --> S1\n\n    subgraph NC[\"NcodeCenter — 내부 직원 전용 (Admin / Staff)\"]\n        direction TB\n        S1[\"① 고객사 등록<br/>MEM-01 목록 · MEM-02 등록·수정<br/>사용 서비스 · 편집 단가 지정\"]\n        S2[\"② 코드 할당<br/>SOB-01 지도 → SOB-02 직접 코드 할당<br/>Section·Owner 를 한 고객사가 통째로 점유\"]\n        WHO{\"그 코드를 누가 다루나\"}\n        S3[\"③ 티켓 발급 — 고객사용<br/>N Key 물리키 · App Key 계정키<br/>기간 · 범위 제한\"]\n        S4[\"④ 사내 편집 운영<br/>PRJ-02 편집 프로젝트<br/>계정 · 키 없이 우리가 편집한다\"]\n        S5[\"⑤ 집계 · 감사<br/>DSH-01 대시보드 · LOG-01 활동 로그\"]\n\n        S1 --> S2 --> WHO\n        WHO -->|\"고객사가 직접 쓴다\"| S3\n        WHO -->|\"사내에서 우리가 편집한다\"| S4\n        S3 --> S5\n        S4 --> S5\n        S2 -. 할당 결과가 쌓인다 .-> PRJ[\"PRJ-01 코드 프로젝트<br/>모든 서비스의 코드를 조회만 한다<br/>등록 기능 없음\"]\n        S5 -. 잔여·이상을 보고 다시 할당 .-> S2\n    end\n\n    S3 --> USE[\"고객사가 서비스 이용<br/>casterN · 폼솔루션 · SDK 연동\"]\n    USE --> NDP[\"NDP Ncode 서버<br/>실시간 SOBP 발급 · 실제 집행\"]\n    NDP -. 원장 동기화 .-> S5\n\n    classDef step fill:#eef4ff,stroke:#4a6fb5,color:#123;\n    classDef ext fill:#f6f6f6,stroke:#999,color:#333;\n    classDef gate fill:#fff6e5,stroke:#c98a12,color:#3a2a00;\n    class S1,S2,S3,S4,S5 step;\n    class REQ,USE,NDP ext;\n    class WHO gate;"
+ },
+ {
+  "title": "② 코드 할당 — SOB-01 → SOB-02",
+  "slug": "02-코드-할당",
+  "src": "flowchart TD\n    A[\"SOB-01 SOBP 맵<br/>Section · Owner 선택\"] --> B[\"＋ 직접 코드 할당<br/>SOB-02 창 열기\"]\n    B --> C{\"고객사가<br/>MEM-01 에 있나\"}\n    C -- 없음 --> C1[\"MEM-02 고객사 등록\"] --> C\n    C -- 있음 --> D[\"고객사 선택<br/>기존 보유 코드 표시<br/>사용 서비스는 읽기 전용 표시\"]\n\n    D --> G1{\"무겹침 · P-05<br/>이미 다른 고객사의 S/O 인가\"}\n    G1 -- 겹침 --> X[\"🔒 할당 잠금<br/>안내 후 중단\"]\n    G1 -- 통과 --> G2{\"공유(커먼) 코드면<br/>고객사 관리에서 그 코드의<br/>사용 고객사로 체크됐나 · P-12\"}\n    G2 -- 아니오 --> X\n    G2 -- 예 --> G3{\"그 S/O 를 이미<br/>다른 코드 종류가 쓰고 있나 · OID 제외\"}\n    G3 -- 예 --> X\n    G3 -- 아니오 --> E[\"Book · Page 범위 입력 → [할당]\"]\n\n    E --> R1[\"SOB-01 지도 갱신\"]\n    E --> R2[\"PRJ-01 코드발급 프로젝트 생성\"]\n    E --> R3[\"LOG-01 활동 로그 기록\"]\n\n    classDef gate fill:#fff6e5,stroke:#c98a12,color:#3a2a00;\n    classDef stop fill:#ffecec,stroke:#c04a4a,color:#5a1010;\n    class G1,G2,G3,C gate;\n    class X stop;"
+ },
+ {
+  "title": "③ 티켓 발급 — N Key / App Key 두 갈래",
+  "slug": "03-티켓-발급",
+  "src": "flowchart TD\n    P[\"선행 조건<br/>고객사 등록 + SOBP 할당 완료\"] --> Q{\"필요한 키는\"}\n\n    Q -->|\"오프라인 · 계정 불필요\"| N1[\"TKT-02 N Key 관리<br/>/tickets/nkey · 고객사(고객사 관리) | 발급 티켓 | 상세·정산\"]\n    N1 --> N2[\"[＋ N Key 발급]<br/>발급 범위 → 발급일 · 사용기간 → Book·Page<br/>→ 버전 · 코드 재사용 → 프로필 · Code Type\"]\n    N2 --> NP{\"발급 정책<br/>PDS2 · PDS3 만 · Section 별 프로필\"}\n    NP --> N3[\"[N Key 발급]<br/>.nkey 다운로드<br/>(Book 2권 이상 = .zip)\"]\n    N3 --> N4[\"같은 화면 오른쪽<br/>정산 정보 탭 · Key 정보\"]\n    N4 --> N5[\"[티켓 수정] 발급과 같은 폼<br/>[키 다운로드] .nkey 다시 받기\"]\n\n    Q -->|\"온라인 · 계정 연동\"| A1[\"TKT-01 App Key 관리 (계정 발급)<br/>/tickets/account · 고객사(고객사 관리) | App Key 계정 | 상세\"]\n    A1 --> A2[\"[＋ 계정 추가]<br/>계정 생성 = App Key 자동 생성<br/>(1계정 1키)\"]\n    A2 --> A3[\"[티켓 발급] 탭<br/>발급 범위 → 사용기간 → Book·Page → 버전 · Info\"]\n    A3 --> A4[\"계정 소속 티켓 발급<br/>(계정당 여러 개)\"]\n\n    N3 --> L[\"LOG-01 활동 로그 기록\"]\n    A4 --> L\n    N4 --> B2[\"정산: 유료 · 무료 · 체험 · 미정\"]\n\n    classDef gate fill:#fff6e5,stroke:#c98a12,color:#3a2a00;\n    class Q,NP gate;"
+ },
+ {
+  "title": "④ CasterN 편집 프로젝트 — 편집량은 어디서 오나",
+  "slug": "04-CasterN-편집-프로젝트",
+  "src": "flowchart TD\n    LED[\"① 초기 장부 (원장)<br/>서비스 시작 때 엑셀 → DB 로 1회 이관한 과거 실적<br/>db/import/build_all_sources.py\"] --> P2\n    AUTO[\"② casterN 편집 작업<br/>작업한 심볼 수를 서비스가 자동 집계<br/>⬜ 목표 — 아직 미구현\"] -. 장부를 대체해 간다 .-> P2\n    M[\"MEM-02 고객사 관리<br/>사용 서비스 = casterN<br/>편집 단가 기본값 등록\"] -. 관리 대상 · 단가 기준 .-> P2\n    P2[\"PRJ-02 편집 프로젝트 목록\"]\n\n    P2 --> Q{\"이 고객사·교재가<br/>집계에 잡혔나\"}\n    Q -->|\"잡혔다\"| P3\n    Q -->|\"③ 못 잡았다 · 직접 넣는다\"| ADD[\"PRJ-05 편집 고객사 추가<br/>고객사 목록 = 사용 서비스가 casterN 인 곳만<br/>Owner = 그 고객사가 이미 할당받은 코드 중에서\"]\n    ADD --> P3[\"PRJ-03 편집 프로젝트 상세<br/>Book · 편집 가능 범위 · 할당된 Section·Owner\"]\n\n    P3 --> P4[\"PRJ-04 교재(책) 등록·수정<br/>심볼 수 입력·수정 · 교재별 단가 조정 · 할인\"]\n    P4 --> AGG[\"집계<br/>발급규모 = 페이지 · 편집원가 = 항목별 수량 × 단가\"]\n    AGG --> DSH[\"DSH-01 대시보드\"]\n    P4 -. 편집 표시 .-> SOB[\"SOB-01 지도 · OWNER [편집] 배지\"]\n\n    classDef gate fill:#fff6e5,stroke:#c98a12,color:#3a2a00;\n    classDef out fill:#eef7ee,stroke:#4a8f5a,color:#123;\n    classDef man fill:#fdf1f4,stroke:#b5567a,color:#3a0d1c;\n    classDef todo fill:#f4f4f6,stroke:#9aa0aa,color:#3a3a3a,stroke-dasharray:4 3;\n    class Q gate;\n    class AGG,DSH out;\n    class ADD man;\n    class AUTO todo;"
+ },
+ {
+  "title": "⑤ 실시간 발급 (NDP 연동) — Ncode 프린터",
+  "slug": "05-실시간-발급-NDP-연동",
+  "src": "sequenceDiagram\n    participant CL as 클라이언트 · Ncode 프린터\n    participant AU as 인증 서버\n    participant ND as NDP /ncode/issue\n    participant NC as NcodeCenter 원장\n\n    Note over NC: 사전 · 관리자가 SOB-02 로 코드 블록 확보\n    CL->>AU: 1. 로그인 · 토큰 요청\n    AU-->>CL: 2. Access Token\n\n    CL->>ND: 3. SOBP 발급 요청 · 문서 1건 = Book, Page 1..N\n\n    alt 정상 — 발급 성공\n        ND-->>CL: 4. SOBP 좌표\n        CL->>CL: 5. 배경 문서 등록\n        CL->>CL: 6. 인쇄\n        ND-->>NC: 7. 할당됨으로 원장 기록 · 동기화 방식 미정\n    else 실패 ① — 토큰 만료\n        ND-->>CL: 8. 401 토큰 무효 · 발급 진행 안 함\n        CL->>AU: 9. silent refresh 로 토큰 재발급\n        AU-->>CL: 10. 실패하면 재로그인 유도\n    else 실패 ② — 발급 · 등록 실패\n        ND-->>CL: 11. 인쇄 중단 · 재시도 또는 잔여 블록 확인\n    end"
+ },
+ {
+  "title": "⑥ 화면 이동 지도",
+  "slug": "06-화면-이동-지도",
+  "src": "flowchart LR\n    DSH[\"DSH-01 대시보드\"]\n\n    subgraph G1[\"코드\"]\n        SOB1[\"SOB-01 SOBP 맵\"] --> SOB2[\"SOB-02 직접 코드 할당\"]\n        PRJ1[\"PRJ-01 코드 프로젝트\"]\n    end\n\n    subgraph G2[\"티켓 발급\"]\n        TKT1[\"TKT-01 App Key 관리\"]\n        TKT2[\"TKT-02 N Key 관리\"]\n    end\n\n    subgraph G3[\"서비스 관리\"]\n        PRJ2[\"PRJ-02 편집 프로젝트\"] --> PRJ3[\"PRJ-03 편집 상세\"] --> PRJ4[\"PRJ-04 교재 등록·수정\"]\n        PRJ2 --> PRJ5[\"PRJ-05 편집 고객사 추가\"]\n        PUI[\"PRJ-06 PUI 코드\"]\n        FS[\"폼솔루션 서비스 관리 · 예정\"]\n    end\n\n    subgraph G4[\"멤버 관리\"]\n        MEM1[\"MEM-01 고객사 관리\"] --> MEM2[\"MEM-02 고객사 등록·수정\"]\n        LOG[\"LOG-01 활동 로그 · Admin\"]\n    end\n\n    subgraph G5[\"정보\"]\n        INF[\"INF-01 코드 관리 정보\"] --> INF4[\"INF-04 OID 관리대장\"]\n    end\n\n    DSH --> SOB1\n    DSH --> TKT2\n    MEM2 -. 사용 서비스 casterN .-> PRJ2\n    SOB2 --> PRJ1\n    SOB2 -. 선행 .-> TKT1\n    SOB2 -. 선행 .-> TKT2\n    SOB2 --> LOG\n    TKT1 --> LOG\n    TKT2 --> LOG\n    PRJ1 -. [편집] 버튼 .-> PRJ2"
+ }
+]

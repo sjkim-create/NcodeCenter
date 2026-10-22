@@ -202,7 +202,7 @@ def hist_tab(rows=HIST, sel_idx=0, open_=False, key='', co='Study123', mail=None
                '<div style="display:flex;align-items:center;gap:6px;margin-top:5px;font-size:11.5px;color:#6b7280">'
                '%s%s<span style="color:#d1d5db">·</span><span>%s</span><span style="color:#d1d5db">·</span>'
                '<span>Period <b style="font-family:ui-monospace,monospace;color:#374151">991231</b></span><span style="color:#d1d5db">·</span><span>즉시 ~ 무제한</span></div></div>'
-               '%s<span class="btn gho" style="padding:3px 9px;font-size:11px">수정</span>'
+               '%s'   # 줄의 [수정] 없음 — [티켓 수정]은 Key 정보 아래 오른쪽 `PC-238`
                '<span style="font-size:10px;color:#9ca3af;padding-top:5px;%s">▶</span></div>'
                % ('border-top:1px solid #f1f3f6;' if i else '', 'background:#f0f7ff' if on else 'background:#fff',
                   '#2563eb' if on else '#9ca3af', i + 1, TYPE.get(kd, kd), kws.sobp_chips(kd, s_, '%s~%s' % (o, o), b, p_),
@@ -210,7 +210,7 @@ def hist_tab(rows=HIST, sel_idx=0, open_=False, key='', co='Study123', mail=None
                   ('<span style="%s">%s</span>' % (MONO, at)) if at else '', tg('대장', '#f3f4f6', '#6b7280', False) if not at else '',
                   vol, bill, 'transform:rotate(90deg)' if (on and open_) else ''))
         if on and open_:
-            li += '<div style="padding:10px 12px 12px;background:#fbfdff;border-top:1px solid #e0ecff">' + key_info(i, co=co, mail=mail, row=rows[i]) + '</div>'
+            li += '<div style="padding:10px 12px 12px;background:#fbfdff;border-top:1px solid #e0ecff">' + key_info(i, co=co, mail=mail, row=rows[i]) + '<div style="display:flex;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid #eef0f4"><span class="btn pri">티켓 수정</span></div>' + '</div>'
     top = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;color:#6b7280">'
            '<b style="font-size:13.5px;color:#111827">발급 내역</b><span>티켓 <b style="color:#111827">%d</b>건</span>'
            '<span style="color:#dc2626">정산 미정 %d</span><span style="flex:1"></span>%s</div>'
@@ -438,7 +438,7 @@ def build():
               '제목이 <b>「티켓 수정」</b> 으로 바뀌고 <b>수정 전</b> 값이 보인다 — 아래에 별도 폼을 열지 않는다 <code>PC-193</code>. 입력에 집중하도록 <b>현재 App Key 줄 · 발급 내역 · Key 정보 · [계정 삭제] [저장]</b> 은 숨긴다 <code>PC-194</code>. 범위 목록은 그 티켓의 테두리(같은 S/O 의 할당 범위 ∪ 지금 쓰는 구간) 하나뿐이고, '
               '<b>다른 발급분과 겹치지 않으면</b>(자기 자신 제외) [수정 저장]. 원장 티켓의 Key 정보도 같은 값으로 고친다.',
               fr(H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)), ed), 1000),
-              [('[티켓 수정]', '클릭', '위 발급 폼 채움', '칸 제목 「티켓 수정」 · 파란 테두리 · 다른 영역 숨김 · 화면이 폼으로 올라간다'),
+              [('[티켓 수정]', '클릭(Key 정보 아래 오른쪽 <code>PC-238</code>)', '위 발급 폼 채움', '칸 제목 「티켓 수정」 · 파란 테두리 · 다른 영역 숨김 · 화면이 폼으로 올라간다'),
                ('[수정 저장]', '클릭', 'S9 Key 정보 갱신', '<b>티켓 수정 — {범위} · {기간}</b> · <code>LOG-01</code>'),
                ('겹침', '[수정 저장]', '<b>차단</b>', '<b>이미 {App Key / N Key / 서비스 티켓}로 발급된 SOBP 와 겹칩니다 — … 다른 Book · Page 를 고르세요.</b>'),
                ('[취소]', '클릭', '발급 폼 비움', '「App Key 발급」 · 발급 내역 · Key 정보가 다시 보인다')]))

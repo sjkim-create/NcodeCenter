@@ -538,10 +538,10 @@ def ticket_detail(tab='info'):
                     for r in rows)
     return ('<div style="' + CARD + '"><div style="padding:13px 16px;border-bottom:1px solid #eef0f4;display:flex;align-items:center;gap:8px">'
             '<b style="font-size:14px">서비스 티켓 No.2</b>%s%s<span style="flex:1"></span>'
-            '<span class="btn sm">티켓 수정</span></div><div style="padding:16px">%s%s</div></div>'
+            '</div><div style="padding:16px">%s%s</div></div>'   # [티켓 수정]은 티켓 정보 아래 오른쪽 `PC-238`
             % (tg('사용 중', *ST_C['사용 중']), tg('casterN', '#eef6ff', '#1d4ed8'), ticket_tabs(tab),
                ('<div style="font-size:12px;color:#6b7280;margin-bottom:10px">이 고객사의 서비스 계정은 아래 범위와 사용기간 안에서 서비스 사용이 승인됩니다.</div>'
-                '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px">%s</div>%s' % (cells, expiry_note()))
+                '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px">%s</div>%s' % (cells, expiry_note()) + '<div style="display:flex;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid #eef0f4"><span class="btn pri">티켓 수정</span></div>')
                if tab == 'info' else
                ('<div style="font-size:12px;color:#6b7280">이 서비스 티켓(No.2 · PDS3 S3/O17/B431~450/P0~511)의 정산을 등록합니다.</div>' + billing_box())))
 
@@ -747,7 +747,7 @@ def build():
                ('할당된 SOBP', '—', 'S · O · B 칩', 'SOBP 맵과 같은 칩 · 코드 종류(PDS2/PDS3) · 권 수는 보이지 않는다 · SOBP 할당 + <b>공유 코드 사용 고객사면 그 S/O</b>(공유 배지) <code>PC-181</code>'),
                ('티켓 카드', '클릭', '오른쪽 상세', 'No. · <b>사용 중 / 대기 / 만료</b> · 정산 배지 · S · O · B · P 칩 · 사용기간'),
                ('[＋ 티켓 지정]', '클릭', 'S24', ''),
-               ('[티켓 수정]', '클릭', 'S24 폼(수정 모드)', '티켓은 <b>지우지 않고 고친다</b> — 그 티켓 값으로 채운 지정 폼 · 머리 「서비스 티켓 수정 · No.{n}」 · 버튼 [수정 저장] · 겹침 검사에서 자기 자신 제외 <code>PC-192</code>'),
+               ('[티켓 수정]', '클릭(티켓 정보 아래 오른쪽 <code>PC-238</code>)', 'S24 폼(수정 모드)', '티켓은 <b>지우지 않고 고친다</b> — 그 티켓 값으로 채운 지정 폼 · 머리 「서비스 티켓 수정 · No.{n}」 · 버튼 [수정 저장] · 겹침 검사에서 자기 자신 제외 <code>PC-192</code>'),
                ('[정산] 탭', '클릭', 'S26', '상세 탭 = 티켓 정보 · 정산 <code>PC-179</code> · 카드에 정산 배지'),
                ('ⓘ 만료 후 동작', '클릭', '펼침', '숨김 안내 — S24'),
                ('등록 화면', '—', '<b>잠김</b>', '고객사를 먼저 등록해야 열린다 · <b>고객사를 먼저 등록하세요.</b>')]))
