@@ -32,6 +32,7 @@ export function CompaniesWorkspace({ companyId = 0, isNew = false, prefillEmail 
   const [coView, setCoView] = useState<CoView>("issued");   // issued = 진행중
   const [q, setQ] = useState("");
   const open = companies.filter((c) => !c.closed);
+  const closedCos = companies.filter((c) => c.closed).sort((a, b) => a.name.localeCompare(b.name, "ko"));   // 사업 종료 `PC-256`
   const svcN = (id: number) => cast.accounts.filter((a) => accountScope(a) === "service" && a.companyId === id).length;
 
   // 첫 선택 — 경로의 고객사 · 없으면 진행중 첫 고객사(가나다순)
@@ -40,7 +41,7 @@ export function CompaniesWorkspace({ companyId = 0, isNew = false, prefillEmail 
   useEffect(() => { if (!selId && !isNew && first) setSelId(first.id); }, [first, selId, isNew]);
   useEffect(() => {   // 사업 종료 고객사를 경로로 열면 [전체]에서 보이게
     const c = companies.find((x) => x.id === companyId);
-    if (c?.closed) setCoView("all");
+    if (c?.closed) setCoView("closed");
   }, [companyId, companies]);
   const [adding, setAdding] = useState(isNew);
 
@@ -55,7 +56,7 @@ export function CompaniesWorkspace({ companyId = 0, isNew = false, prefillEmail 
     window.history.replaceState(null, "", v === "table" ? "/companies?view=table" : selId ? `/companies/${selId}` : "/companies");
   };
 
-  const list = (coView === "issued" ? open : companies)
+  const list = (coView === "issued" ? open : coView === "closed" ? closedCos : companies)
     .filter((c) => (q ? c.name.toLowerCase().includes(q.toLowerCase()) : true))
     .sort((a, b) => a.name.localeCompare(b.name, "ko"));
   const coRow = (id: number, label: string, closed: boolean, sub = false, fold?: WsFold) =>
@@ -84,7 +85,12 @@ export function CompaniesWorkspace({ companyId = 0, isNew = false, prefillEmail 
       <WsStats items={[
         ["고객사", `${companies.length}곳`, "#111827"],
         ["진행중", `${open.length}곳`, "#047857"],
-        ["사업 종료", `${companies.length - open.length}곳`, "#9ca3af"],
+        // 사업 종료 — 마우스를 올리면 고객사 이름, 누르면 그 고객사만(3단 왼쪽) `PC-256`
+        ["사업 종료", `${closedCos.length}곳`, "#9ca3af", {
+          title: closedCos.length ? `사업 종료 고객사\n${closedCos.map((c) => `· ${c.name}${c.closedNote ? ` — ${c.closedNote}` : ""}`).join("\n")}\n(누르면 이 고객사만 봅니다)` : "사업 종료 고객사가 없습니다",
+          on: view === "ws" && coView === "closed",
+          onClick: () => { if (view !== "ws") toView("ws"); setCoView(coView === "closed" ? "issued" : "closed"); setQ(""); },
+        }],
         ["상위 고객사", `${holders}곳`, "#047857"],
         ["하위 고객사", `${members}곳`, "#7e22ce"],
         ["코드 프로젝트", `${projects.length}건`, "#2563eb"],
@@ -100,7 +106,7 @@ export function CompaniesWorkspace({ companyId = 0, isNew = false, prefillEmail 
             <WsCoHead count={list.length}
               right={<button type="button" onClick={startAdd} style={{ ...WS_HEAD_BTN, padding: "5px 10px", fontSize: 12 }}>＋ 고객사 등록</button>} />
             <div style={{ padding: 10 }}>
-              <WsCoToggle view={coView} onView={setCoView} issued={open.length} total={companies.length} issuedLabel="진행중" />
+              <WsCoToggle view={coView} onView={setCoView} issued={open.length} total={companies.length} issuedLabel="진행중" closed={closedCos.length} />
               <input style={{ width: "100%", padding: "8px 10px", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 13, marginBottom: 8, boxSizing: "border-box" }}
                 value={q} onChange={(e) => setQ(e.target.value)} placeholder="고객사 검색" />
               <WsFillScroll>

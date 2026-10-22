@@ -62,6 +62,7 @@ export function CompaniesTable() {
   const [toast, setToast] = useState("");
   const [q, setQ] = useState("");   // 업체 검색
   const [classFilter, setClassFilter] = useState<"" | "holder" | "member" | "solo">("");   // 구분 필터: 상위/하위/단독
+  const [closedOnly, setClosedOnly] = useState(false);   // 상태 필터 — 사업 종료만 `PC-256`
   // 정렬: 0 최근순(기본, createdAt desc) `PC-119` / 1 이름 오름 / -1 이름 내림
   const [sortDir, setSortDir] = useState<0 | 1 | -1>(0);
   useEffect(() => { hydrateMembers(); }, []);
@@ -72,12 +73,13 @@ export function CompaniesTable() {
   const classOf = (name: string): "holder" | "member" | "solo" => isHolderCo(name) ? "holder" : isMemberCo(name) ? "member" : "solo";
   const shown = companies
     .filter((c) => (q ? norm(`${c.name} ${c.manager} ${c.contact} ${c.bizNo} ${c.address}`).includes(norm(q)) : true))
-    .filter((c) => (classFilter ? classOf(c.name) === classFilter : true));
+    .filter((c) => (classFilter ? classOf(c.name) === classFilter : true))
+    .filter((c) => (closedOnly ? !!c.closed : true));
 
   // 페이지네이션 (편집 프로젝트 목록과 동일 · 기본 50건씩)
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
-  useEffect(() => { setPage(1); }, [q, classFilter, sortDir]);
+  useEffect(() => { setPage(1); }, [q, classFilter, closedOnly, sortDir]);
   // 정렬 — 최근순(등록시각 desc, 없으면 뒤로) 기본, 또는 이름 오름/내림 `PC-119`
   const allRows = shown
     .map((c) => ({ kind: "co" as const, c }))
@@ -167,7 +169,7 @@ export function CompaniesTable() {
         <Link href="/companies/new" style={{ ...S.primary, textDecoration: "none" }}>＋ 고객사 등록</Link>
       </div>
       <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        {(q || classFilter) && <span>{q ? "검색 " : ""}<b style={{ color: "#111827" }}>{allRows.length.toLocaleString()}</b>건 · </span>}
+        {(q || classFilter || closedOnly) && <span>{q ? "검색 " : ""}<b style={{ color: "#111827" }}>{allRows.length.toLocaleString()}</b>건 · </span>}
         <span>구분 필터:</span>
         {([
           ["", "전체", companies.length, "#374151", "#eef6ff"],
@@ -184,6 +186,18 @@ export function CompaniesTable() {
             </button>
           );
         })}
+        <span style={{ marginLeft: 8 }}>상태:</span>
+        {(() => {
+          const cl = companies.filter((c) => c.closed);
+          return (
+            <button onClick={() => setClosedOnly((v) => !v)}
+              title={cl.length ? `사업 종료 고객사\n${cl.map((c) => `· ${c.name}`).join("\n")}` : "사업 종료 고객사가 없습니다"}
+              style={{ fontSize: 11.5, fontWeight: 700, padding: "4px 10px", borderRadius: 999, cursor: "pointer",
+                border: `1px solid ${closedOnly ? "#6b7280" : "#e5e7eb"}`, background: closedOnly ? "#f3f4f6" : "#fff", color: closedOnly ? "#374151" : "#6b7280" }}>
+              사업 종료 <span style={{ fontWeight: 400 }}>{cl.length.toLocaleString()}</span>
+            </button>
+          );
+        })()}
       </div>
 
       {toast && <div style={S.toast}>{toast}</div>}

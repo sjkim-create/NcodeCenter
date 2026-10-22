@@ -100,15 +100,23 @@ export function WsTitle({ title, scope, note }: { title: string; scope?: React.R
 }
 
 /** 집계 카드 줄 */
-export function WsStats({ items }: { items: [string, string, string][] }) {
+// 넷째 값(선택) — title = 마우스를 올리면 보이는 설명, onClick = 누르면 그 조건으로 거르기, on = 거르는 중 `PC-256`
+export type WsStatOpt = { title?: string; onClick?: () => void; on?: boolean };
+export function WsStats({ items }: { items: ([string, string, string] | [string, string, string, WsStatOpt])[] }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: `repeat(${items.length}, 1fr)`, gap: 10, marginBottom: 12 }}>
-      {items.map(([l, v, c], i) => (
-        <div key={i} style={{ ...WS_CARD, padding: "10px 12px" }}>
-          <div style={{ fontSize: 11, color: "#6b7280" }}>{l}</div>
-          <div style={{ fontSize: 17, fontWeight: 700, color: c }}>{v}</div>
-        </div>
-      ))}
+      {items.map(([l, v, c, o], i) => {
+        const inner = (
+          <>
+            <div style={{ fontSize: 11, color: "#6b7280" }}>{l}{o?.onClick ? <span style={{ marginLeft: 4, color: "#9ca3af" }}>{o.on ? "· 거르는 중" : "›"}</span> : null}</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: c }}>{v}</div>
+          </>
+        );
+        return o?.onClick
+          ? <button key={i} type="button" title={o.title} onClick={o.onClick}
+              style={{ ...WS_CARD, padding: "10px 12px", textAlign: "left", cursor: "pointer", font: "inherit", borderColor: o.on ? "#93c5fd" : undefined, background: o.on ? "#f5f9ff" : WS_CARD.background }}>{inner}</button>
+          : <div key={i} title={o?.title} style={{ ...WS_CARD, padding: "10px 12px" }}>{inner}</div>;
+      })}
     </div>
   );
 }
@@ -127,13 +135,14 @@ export function WsCoHead({ count, right }: { count: React.ReactNode; right?: Rea
 }
 
 /** 발급 고객사 / 전체 고객사 전환 */
-export type CoView = "issued" | "all";
-export function WsCoToggle({ view, onView, issued, total, issuedLabel = "발급 고객사" }: { view: CoView; onView: (v: CoView) => void; issued: number; total: number; issuedLabel?: string }) {
-  // issuedLabel — 고객사 관리 3단은 「진행중」 `PC-204`
+export type CoView = "issued" | "all" | "closed";   // closed = 사업 종료(고객사 관리) `PC-256`
+export function WsCoToggle({ view, onView, issued, total, issuedLabel = "발급 고객사", closed }: { view: CoView; onView: (v: CoView) => void; issued: number; total: number; issuedLabel?: string; closed?: number }) {
+  // issuedLabel — 고객사 관리 3단은 「진행중」 `PC-204` · closed — 고객사 관리 3단의 「사업 종료」 칩 `PC-256`
   return (
-    <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+    <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
       <button type="button" onClick={() => onView("issued")} style={wsChip(view === "issued")}>{issuedLabel} {issued}</button>
       <button type="button" onClick={() => onView("all")} style={wsChip(view === "all")}>전체 고객사 {total}</button>
+      {closed != null && <button type="button" onClick={() => onView("closed")} style={wsChip(view === "closed")}>사업 종료 {closed}</button>}
     </div>
   );
 }

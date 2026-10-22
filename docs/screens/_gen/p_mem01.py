@@ -75,7 +75,9 @@ def tier_filter(active='', shown=None):
                   % (fg if on else '#e5e7eb', bg if on else '#fff', fg if on else '#6b7280',
                      label, '{:,}'.format(n)))
     return ('<div style="font-size:12px;color:#6b7280;margin-bottom:8px;display:flex;'
-            'align-items:center;gap:6px;flex-wrap:wrap">%s<span>구분 필터:</span>%s</div>'
+            'align-items:center;gap:6px;flex-wrap:wrap">%s<span>구분 필터:</span>%s'
+            '<span style="margin-left:8px">상태:</span><span title="사업 종료 고객사 · humedical-28" style="font-size:11.5px;font-weight:700;padding:4px 10px;'
+            'border-radius:999px;border:1px solid #e5e7eb;background:#fff;color:#6b7280">사업 종료 <span style="font-weight:400">1</span></span></div>'   # 상태 필터 `PC-256`
             % (pre, pills))
 
 
@@ -248,6 +250,7 @@ BASE = [
      '툴팁 <b>클릭하면 수정 화면으로 이동합니다</b> · 종료 업체는 <b>프로젝트 종료 고객사 (코드 발급 이력만)</b>'),
     ('업체명 옆 정렬 셀렉트', '선택', '목록 다시 정렬', '최신순(기본) / 오름차순 (가나다) / 내림차순 <code>PC-161</code>'),
     ('검색', '입력', '즉시 필터링', '<b>업체명·담당자·사업자번호</b> · ×로 해제'),
+    ('상태 [사업 종료] 칩', '클릭', '사업 종료만', '다시 누르면 해제 · 마우스를 올리면 사업 종료 고객사 이름 <code>PC-256</code>'),
     ('구분 필터 칩', '클릭', '해당 계층만',
      '전체 / 상위(초록) / 하위(보라) / 단독(회색) — 각 칩에 건수'),
     ('[＋ 고객사 등록]', '클릭', '<code>MEM-02</code> (등록 모드)', '기본 정보 → [등록] 또는 서비스 계정 [계정 추가] <code>PC-142</code>'),
