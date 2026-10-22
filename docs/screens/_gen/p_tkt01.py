@@ -80,7 +80,9 @@ def mid(co='Study123', cards=None, adding=False, off=False, h=670, warn=''):
 
 # 탭 — 발급 내역(첫 탭) · App Key 발급 · 정산 · 계정 정보 `PC-178` `PC-200`
 # 탭 — App Key 와 티켓은 다른 개념 `PC-208`: App Key · 권한 / 티켓 발급 · 티켓 내역 · 정산 / 계정 정보
-ACC_TABS = (('key', 'App Key', ''), ('perm', '권한', '12/20'), ('ticket', '티켓 발급', ''), ('hist', '티켓 내역', '2'), ('bill', '정산', '미정 1'), ('info', '계정 정보', ''))
+# App Key 는 계정을 만들 때 자동 생성(1계정 1키) — 탭 없이 [계정 정보]에 보인다 `PC-210`
+# 탭 순서 — 티켓 내역 · 티켓 발급 · 정산 · 계정 정보 · 권한 `PC-211`
+ACC_TABS = (('hist', '티켓 내역', '2'), ('ticket', '티켓 발급', ''), ('bill', '정산', '미정 1'), ('info', '계정 정보', ''), ('perm', '권한', '12/20'))
 # App Key 권한 20항목 — web/lib/appKeyPerms.ts 와 같은 순서 `PC-207` (값 = 스콜라스틱 대장 예)
 PERMS = (('Project', 'Project/New/Enabled', False, '새 프로젝트'), ('', 'Project/Review/Enabled', False, '프로젝트 리뷰 기능'),
          ('Edit', 'Edit/Symbol/Enabled', True, '심볼편집'), ('', 'Edit/Symbol/RectWithText/Create/Enabled', True, '사각형 생성 (PDF 배경 텍스트 함께 추출), 사전 편집용'),
@@ -107,7 +109,7 @@ def perm_tab():
                     seg % ((on_t, off) if v else (off, on_f)), d) for g, k, v, d in PERMS)
     n = sum(1 for p in PERMS if p[2])
     return ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;color:#6b7280">'
-            '<b style="font-size:13.5px;color:#111827">App Key 권한</b><span>true <b style="color:#166534">%d</b> / 20</span><span style="flex:1"></span>'
+            '<b style="font-size:13.5px;color:#111827">App Key 권한</b><span style="color:#9ca3af" title="Caster U 권한">ⓘ</span><span>true <b style="color:#166534">%d</b> / 20</span><span style="flex:1"></span>'
             '<span class="btn gho" style="padding:4px 10px;font-size:11.5px">모두 true</span><span class="btn gho" style="padding:4px 10px;font-size:11.5px">모두 false</span></div>'
             '<div style="border:1px solid #eef0f4;border-radius:10px;overflow:hidden"><table style="font-size:12.5px;width:100%%">'
             '<tr><th style="width:76px">분류</th><th>Permission</th><th style="width:110px;text-align:center">값</th><th>설명</th></tr>%s</table></div>'
@@ -117,25 +119,42 @@ def perm_tab():
 
 
 
-def info_tab(new=False, co='Study123', id_val='', err=''):
+KEY_OLD = '4f2a9c0e1b7d3a5f8e6c2b9d0a1f3'   # 이전 정책으로 생성된 두 번째 키(예)
+
+
+def key_rows(keys2=False):
+    """계정 정보의 App Key — 1계정 1키. 이전 정책으로 2개면 둘 다 `PC-210`"""
+    ks = [(KEY29, '2026-10-22')] + ([(KEY_OLD, '2024-03-02')] if keys2 else [])
+    rows = ''.join('<div style="display:flex;align-items:center;gap:8px;border:1px solid #e5e7eb;background:#f7f8fa;border-radius:8px;padding:7px 10px;margin-bottom:6px;font-size:12.5px">'
+                   '%s<b style="%s;color:#2563eb">%s</b><span class="btn sm">복사</span><span style="flex:1"></span><span style="color:#9ca3af;font-size:11.5px">생성 %s</span></div>'
+                   % (('<span style="font-size:11px;color:#9ca3af;font-weight:700">%d</span>' % (i + 1)) if keys2 else '', MONO, k, d)
+                   for i, (k, d) in enumerate(ks))
+    if keys2:
+        rows += '<div style="font-size:11.5px;color:#b45309">이전 정책으로 App Key 가 2개 생성된 계정입니다 — 앞으로는 1계정 1앱키이며 새 키는 만들지 않습니다.</div>'
+    return ('<div style="grid-column:1/-1"><div class="fld"><span class="lbl">%s</span>%s</div></div>'
+            % ('App Key (2개 · 이전 정책)' if keys2 else 'App Key', rows))
+
+
+def info_tab(new=False, co='Study123', id_val='', err='', keys2=False):
     gen = '<span class="btn sm">임의 생성</span>'
     if new:
         g = (fld('고객사 *', co, ro=True) + fld('NAME (담당자명)', '', ph=True) +
              fld('ID (이메일) *', id_val or 'user@company.com', ph=not id_val, err=bool(err)) +
              fld('PWD (비밀번호) *', '비밀번호 미요청 시 임의 생성', ph=True, extra=gen) +
              fld('PHONE (전화번호)', '010-0000-0000', ph=True) + fld('HOMEPAGE (홈페이지)', 'https://', ph=True) +   # PHONE `PC-209`
-             '<div style="grid-column:1/-1">' + fld('ADDR (주소)', '주소', ph=True) + '</div>')
-        head = kws.sec_head('계정 정보', '· App Key 계정')
+             '<div style="grid-column:1/-1">' + fld('ADDR (주소)', '주소', ph=True) + '</div>' +
+             '<div style="grid-column:1/-1">' + fld('App Key', '[계정 추가] 때 자동 생성 (영문 소문자 · 숫자 29자 · 1계정 1키)', ro=True) + '</div>')   # `PC-210`
+        head = kws.sec_head('계정 정보', '· 키 발급 계정 · [계정 추가] 때 App Key 자동 생성')
         note = ''
     else:
         g = (fld('고객사', co, ro=True) + fld('NAME (담당자명)', 'study123') +
              fld('ID (이메일)', STUDY[1], ro=True, mono=True) + fld('PWD (비밀번호)', '대장 참조', ph=True, extra=gen) +
              fld('PHONE (전화번호)', '02-0000-0000') + fld('HOMEPAGE (홈페이지)', 'https://', ph=True) +   # PHONE `PC-209`
-             '<div style="grid-column:1/-1">' + fld('ADDR (주소)', '', ph=True) + '</div>')
+             '<div style="grid-column:1/-1">' + fld('ADDR (주소)', '', ph=True) + '</div>' + key_rows(keys2))
         head = kws.sec_head('계정 정보', '· ID(email) · 고객사는 변경할 수 없습니다')
         note = ('<div style="font-size:11.5px;color:#6b7280;background:#fafbfc;border:1px dashed #e5e7eb;border-radius:8px;'
-                'padding:9px 12px;margin-top:12px">사용기간(시작·끝)은 계정 속성이 아니라 <b>코드 범위(=티켓)마다 유지되는 기간</b>입니다. '
-                '<b>[App Key 발급]</b> 탭에서 <b>코드 범위를 발급할 때</b> 함께 지정합니다.</div>')
+                'padding:9px 12px;margin-top:12px">사용기간(시작·끝)은 계정 속성이 아니라 <b>티켓마다 유지되는 기간</b>입니다. '
+                '<b>[티켓 발급]</b> 탭에서 <b>티켓을 발급할 때</b> 함께 지정합니다.</div>')
     return head + '<div class="g2">' + g + '</div>' + note
 
 
@@ -225,7 +244,8 @@ def bill_tab(sel_idx=0):
                  % ('#93c5fd' if i == sel_idx else '#eef0f4', '#f0f7ff' if i == sel_idx else '#fff',
                     '#2563eb' if i == sel_idx else '#d1d5db', '▸' if i == sel_idx else '·', MONO, t, b)
                  for i, (t, b) in enumerate(rows))
-    return (kws.sec_head('정산할 티켓', '· 티켓(코드 범위)마다 등록 · 미정 1건') + li +
+    # 연간 라이선스 비용 — 고객사마다 1건(App Key) · 티켓 정산 위 `PC-212`
+    return (kws.license_box('App Key', 'Study123', amount='3,000', usd=True, fx='1,385') + kws.sec_head('정산할 티켓', '· 티켓마다 등록 · 미정 1건') + li +
             (kws.billing_box() if sel_idx == 0 else kws.billing_box('미정', note='', last='—')))
 
 
@@ -251,11 +271,11 @@ def key_panel(nokey=False, issued=''):
     return out
 
 
-def detail(tab='hist', sel_idx=0, open_=False, picked=False, issued_key='', toast='', dirty=False, acc=None, rows=HIST, co='Study123', nokey=False):
+def detail(tab='hist', sel_idx=0, open_=False, picked=False, issued_key='', toast='', dirty=False, acc=None, rows=HIST, co='Study123', nokey=False, keys2=False):
     name, mail = acc or STUDY
     t = kws.tabs(tuple((v, lb, (str(len(rows)) if v == 'hist' else bd)) for v, lb, bd in ACC_TABS), tab)
     if tab == 'info':
-        body = info_tab()
+        body = info_tab(keys2=keys2) + (key_panel(False, issued_key)[key_panel(False, issued_key).index('<div style="margin-top:12px;background:#fffbeb'):] if issued_key else '')
     elif tab == 'bill':
         body = bill_tab(sel_idx)
     elif tab == 'hist':
@@ -267,7 +287,7 @@ def detail(tab='hist', sel_idx=0, open_=False, picked=False, issued_key='', toas
     else:   # 티켓 발급 — App Key 가 있는 계정에만 `PC-208`
         body = (kws.sec_head('티켓 발급', '· 계정 소속 · 발급된 티켓 2개') + (
             '<div style="border:1px dashed #e5e7eb;border-radius:10px;padding:28px 16px;font-size:12.5px;color:#9ca3af;text-align:center;line-height:1.8">'
-            'App Key 를 먼저 발급하세요. 티켓은 App Key 가 있는 계정에만 발급할 수 있습니다.<br><span class="lnk">App Key 탭으로</span></div>' if nokey else
+            'App Key 가 없는 계정입니다. 티켓은 App Key 가 있는 계정에만 발급할 수 있습니다.<br><span class="lnk">계정 정보에서 App Key 생성</span></div>' if nokey else
             issue_form(RANGES[0] if picked else None, open_) +
             '<div style="display:flex;justify-content:flex-end;margin-top:10px"><span class="btn pri"%s>티켓 발급</span></div>'
             % ('' if picked else ' style="opacity:.5"')))
@@ -279,7 +299,7 @@ def detail(tab='hist', sel_idx=0, open_=False, picked=False, issued_key='', toas
 
 
 def new_form(tab='info', co='Study123', id_val='', err='', picked=False, open_=False, ranges=RANGES):
-    t = kws.tabs((('info', '계정 정보', ''), ('key', 'App Key', '발급' if picked else '')), tab)
+    t = ''   # 계정 정보 한 화면 — App Key 는 [계정 추가] 때 자동 생성 `PC-210`
     # App Key 탭 = 「계정 추가와 함께 App Key 발급」 체크만 — 범위 없음, 티켓은 계정 상세 [티켓 발급]에서 `PC-208`
     body = info_tab(new=True, co=co, id_val=id_val, err=err) if tab == 'info' else (
         kws.sec_head('App Key', '· 계정당 1개') +
@@ -347,17 +367,18 @@ def build():
               '— 기존 계정 상세(수정 화면)와 구분한다 <code>PC-150</code>. 고객사는 왼쪽에서 고른 값으로 고정된다.',
               fr(H + kws.grid(left(h=col_h(1000)), mid(adding=True, cards=[acc_card(*STUDY)], h=col_h(1000)), new_form()), 1000),
               [('ID (이메일) · PWD (비밀번호)', '입력 (필수)', '—', '이메일 형식 · 전체에서 유일 · [임의 생성] 10자리'),
-               ('[App Key] 탭', '클릭', 'S5', '「계정 추가와 함께 App Key 발급」 체크'),
-               ('[계정 추가]', '클릭', '그 계정 상세(S1)', '체크했으면 App Key 동시 발급(범위 없음) · <code>LOG-01</code>'),
+               ('App Key', '—', '자동', '「[계정 추가] 때 자동 생성」 — 1계정 1키 <code>PC-210</code>'),
+               ('[계정 추가]', '클릭', 'S5', '계정 + App Key 1개(영문 소문자 · 숫자 29자) · <code>LOG-01</code>'),
                ('[취소]', '클릭', '첫 계정 상세', '저장 안 됨')]))
 
-    B.append(('S5', '계정 추가 — App Key 함께 발급', '분기',
-              '등록 폼의 <b>[App Key]</b> 탭. App Key 와 티켓은 다른 개념이라 여기서는 <b>「계정 추가와 함께 App Key 발급」 체크만</b> 한다(기본 체크) — '
-              '범위(SOBP)를 고르지 않는다. 티켓은 계정을 만든 뒤 <b>[티켓 발급]</b> 탭에서 발급한다 <code>PC-208</code>.',
-              fr(H + kws.grid(left(h=col_h(1000)), mid(adding=True, cards=[acc_card(*STUDY)], h=col_h(1000)),
-                              new_form('key', picked=True)), 1000),
-              [('함께 발급 체크', '클릭', '체크 / 해제', '해제하면 계정만 등록(App Key 는 나중에 [App Key] 탭에서)'),
-               ('[계정 추가]', '클릭', '그 계정 상세', '체크했으면 App Key(영문 소문자 · 숫자 29자) 발급 · <code>LOG-01</code>')]))
+    B.append(('S5', '계정 추가 완료 — App Key 자동 생성', '분기',
+              '<b>[계정 추가]</b>를 누르면 계정과 함께 <b>App Key 1개가 자동 생성</b>된다 — 1계정 1앱키라 따로 발급 · 목록이 없다 <code>PC-210</code>. '
+              '범위(SOBP)는 고르지 않으며 티켓은 계정을 만든 뒤 <b>[티켓 발급]</b> 탭에서 발급한다 <code>PC-208</code>. 키는 <b>[계정 정보]</b>의 App Key 줄에 보인다.',
+              fr(H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)),
+                              detail('info', issued_key=KEY29, toast='App Key 발급 완료 — 계정과 연동되어 서비스 DB에 등록되었습니다.')), 1000),
+              [('[계정 추가]', '클릭', '계정 + App Key', 'App Key 영문 소문자 · 숫자 29자 · <code>LOG-01</code>'),
+               ('[전체 복사]', '클릭', '클립보드', '<b>계정·키 정보가 복사되었습니다.</b>'),
+               ('App Key [복사]', '클릭', '클립보드', '<b>App Key 가 복사되었습니다.</b>')]))
 
     B.append(('S6', '계정 추가 — 검증 실패', '오류',
               '검사 순서: 고객사 → ID 형식 → 비밀번호 → ID 중복. 걸리면 버튼 아래 한 줄로 알리고 멈춘다.',
@@ -368,22 +389,20 @@ def build():
                ('PWD 없음', '[계정 추가]', '<b>차단</b>', '<b>비밀번호가 필요합니다. (요청 없으면 [임의 생성])</b>')]))
 
     B.append(('S7', '계정 상세 — 티켓 발급 탭', '기본',
-              '<b>App Key 와 티켓은 다른 개념</b>이다 <code>PC-208</code>. App Key 는 계정당 1개([App Key] 탭), <b>티켓은 계정 소속으로 여러 건</b> — '
+              '<b>App Key 와 티켓은 다른 개념</b>이다 <code>PC-208</code>. App Key 는 계정당 1개(계정을 만들 때 자동 생성 · [계정 정보]에 표시 <code>PC-210</code>), <b>티켓은 계정 소속으로 여러 건</b> — '
               '이 <b>[티켓 발급]</b> 탭에서 Type · Section · Owner · Book · Page · Info · Period 를 넣어 발급한다. 티켓은 <b>App Key 를 먼저 발급한 계정에만</b> 발급할 수 있다(S17). '
               '지금까지 발급한 티켓은 <b>[티켓 내역]</b>에서 본다. 발급된 키 · 티켓은 <b>지우지 않는다</b> <code>PC-192</code>.',
               fr(H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)), detail('ticket', picked=True)), 1000),
               [('[티켓 발급]', '클릭', '티켓 1건 + 원장 티켓', '<b>티켓 발급 — {범위} · {기간}</b> · <code>PC-119</code>'),
                ('발급 범위', '선택', '범위 목록', '하위 고객사면 상위 SOBP(S14) · 없으면 S10')]))
 
-    B.append(('S8', 'App Key 발급 완료', '분기',
-              '<b>[App Key]</b> 탭에서 키가 없는 계정의 <b>[App Key 발급]</b>을 누르면 <b>범위 없이 키만</b> 발급된다 <code>PC-208</code> — '
-              '<b>ID · PWD · App Key</b>(영문 소문자 · 숫자 29자 <code>PC-066</code> <code>PC-207</code>)가 나오고 [전체 복사]로 한 번에 복사한다. '
-              '이미 키가 있는 계정은 키 값 · [복사] · 발급일만 보이고 새 키는 발급하지 않는다(이전 키가 있으면 기록만).',
-              fr(H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)),
-                              detail('key', issued_key=KEY29, toast='App Key 발급 완료 — 계정과 연동되어 서비스 DB에 등록되었습니다.')), 1000),
-              [('[App Key 발급]', '클릭', '키 1개', '범위 선택 없음 · 티켓은 만들지 않는다 · <code>LOG-01</code>'),
-               ('[전체 복사]', '클릭', '클립보드', '<b>계정·키 정보가 복사되었습니다.</b>'),
-               ('키 있는 계정', '—', '키 값 · [복사]', '<b>App Key 가 복사되었습니다.</b> · 새 키 발급 없음')]))
+    B.append(('S8', '계정 정보 — 이전 정책으로 App Key 2개', '변형',
+              '정책은 <b>1계정 1앱키</b>다 <code>PC-210</code>. 이전 정책으로 한 계정에 키가 2개 생성된 경우에는 <b>[계정 정보]의 App Key 줄에 2개를 모두</b> 보이고 '
+              '「이전 정책으로 App Key 가 2개 생성된 계정입니다 — 앞으로는 1계정 1앱키」 를 붙인다. 새 키는 만들지 않는다. '
+              '(옛 대장 계정 중 키가 아예 없는 경우만 [App Key 생성] 버튼이 보인다.)',
+              fr(H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)), detail('info', keys2=True)), 1000),
+              [('App Key 줄', '—', '키마다 값 · [복사] · 생성일', '2개 이상이면 번호 · 「App Key (2개 · 이전 정책)」'),
+               ('키 없는 옛 계정', '—', '[App Key 생성]', '키 1개 생성 — 그 뒤로는 1계정 1키')]))
 
     B.append(('S9', '발급 내역 — 줄 펼침 → Key 정보', '분기',
               '티켓은 <b>App Key 가 아니라 계정에 소속</b>된다 — 계정당 App Key 는 1개, 티켓은 여러 개(SOBP 가 바뀌어도 키 대신 티켓을 더 발급) <code>PC-206</code>. '
@@ -436,9 +455,12 @@ def build():
 
     B.append(('S13', '정산 탭', '분기',
               'N Key 관리처럼 <b>정산은 별도 탭</b>이다 <code>PC-178</code>. 티켓(코드 범위)을 고르고 그 정산을 등록한다 — '
-              'N Key · 서비스 티켓과 같은 4종 <code>PC-177</code>. 탭 머리 배지는 정산 미등록(미정) 티켓 수.',
+              'N Key · 서비스 티켓과 같은 4종 <code>PC-177</code>. 탭 머리 배지는 정산 미등록(미정) 티켓 수. '
+              '맨 위에는 <b>연간 라이선스 비용</b> — 티켓이 아니라 <b>키 발급으로 생기는 비용</b>이라 <b>고객사마다 1건</b>(App Key)이고 금액(원 · USD) · 기간(기본 1년)만 둔다. '
+              '그 고객사의 모든 계정에서 같은 1건을 본다 <code>PC-212</code>.',
               fr(H + kws.grid(left(h=col_h(1100)), mid(h=col_h(1100)), detail('bill')), 1100),
-              [('[정산] 탭', '클릭', '정산할 티켓 + 정산 입력', '탭 배지 <b>미정 {n}</b> · 계정 추가 화면에는 없다'),
+              [('[정산] 탭', '클릭', '연간 라이선스 + 정산할 티켓 + 정산 입력', '탭 배지 <b>미정 {n}</b> · 계정 추가 화면에는 없다'),
+               ('연간 라이선스 [라이선스 저장]', '클릭', '고객사 1건 저장', '<b>라이선스 비용이 저장되었습니다.</b> · 기간 끝 &lt; 시작이면 <b>기간 끝이 시작보다 앞설 수 없습니다.</b> · 미등록이면 「미등록」'),
                ('티켓 줄', '클릭', '그 티켓의 정산', 'S/O/B/P · 사용기간 · 정산 배지'),
                ('과금 유형', '선택', '미정 · 유료 · 무료 · 체험', '유료 = 금액 필수 · 체험 = 만료일(기본 1개월 뒤)'),
                ('[정산 저장]', '클릭', '저장', '<b>정산 정보가 저장되었습니다.</b> · 금액 0 이면 <b>유료는 금액을 입력해야 합니다.</b> · 원장 티켓에도 같은 값 · <code>LOG-01</code>'),
@@ -472,7 +494,7 @@ def build():
     # 권한 탭 — App Key 가 가지는 Caster 권한 20항목 `PC-207`
     B.append(('S16', '권한 탭 — App Key 권한 true / false', '분기',
               '계정 상세의 <b>[권한]</b> 탭. 고객사 관리의 서비스 권한처럼, <b>App Key 가 가지는 Caster 권한 20항목</b>을 <b>true / false</b> 로 지정한다 <code>PC-207</code>. '
-              '표는 개발팀 대장(<code>Caster_계정_퍼미션_티켓.xlsx</code>)과 같은 「<b>분류 · Permission · 값 · 설명</b>」. <b>기본값은 모두 false</b>, 대장 계정은 대장의 값을 그대로 가져온다'
+              '제목 옆 <b>ⓘ</b> 를 누르면 「<b>Caster U 권한</b>입니다…」 설명이 말풍선으로 보인다(본문에는 두지 않음) <code>PC-214</code>. 표는 개발팀 대장(<code>Caster_계정_퍼미션_티켓.xlsx</code>)과 같은 「<b>분류 · Permission · 값 · 설명</b>」. <b>기본값은 모두 false</b>, 대장 계정은 대장의 값을 그대로 가져온다'
               '(예: 네오랩 17 · 스콜라스틱 12 · 맥컬리 6 · Tranwisdom 0 / 20). 탭 배지는 true 개수. 고객사 관리 서비스 계정의 CasterN 권한 6종과는 별개다.',
               fr(H + kws.grid(left(sel='스콜라스틱', h=col_h(1300)), mid('스콜라스틱', cards=[acc_card('', 'scholastic@sample.com', key=True, n=1, on=True)], h=col_h(1300)),
                               detail('perm')), 1300),
@@ -484,14 +506,14 @@ def build():
     # 티켓은 App Key 를 먼저 발급한 계정에만 `PC-208`
     B.append(('S17', '티켓 발급 — App Key 없는 계정', '빈 상태',
               '티켓은 계정 소속이지만 <b>App Key 를 먼저 발급한 계정에만</b> 발급한다 <code>PC-208</code>. 키가 없는 계정의 <b>[티켓 발급]</b> 탭은 입력 폼 대신 '
-              '<b>「App Key 를 먼저 발급하세요」</b> 안내와 [App Key 탭으로]만 보인다. [App Key] 탭에는 [App Key 발급] 버튼이 있다.',
+              '<b>안내</b>와 [계정 정보에서 App Key 생성]만 보인다. 지금은 계정을 만들 때 키가 자동 생성되므로 <b>키 없는 옛 대장 계정</b>에만 해당한다 <code>PC-210</code>.',
               fr(H + kws.grid(left(h=col_h(900)), mid(h=col_h(900)), detail('ticket', nokey=True)), 900),
-              [('[티켓 발급] 탭', '—', '<b>차단</b>', '<b>App Key 를 먼저 발급하세요. 티켓은 App Key 가 있는 계정에만 발급할 수 있습니다.</b>'),
-               ('[App Key 탭으로]', '클릭', 'S8', '[App Key 발급] — 범위 없이 키만')]))
+              [('[티켓 발급] 탭', '—', '<b>차단</b>', '<b>App Key 가 없는 계정입니다. 티켓은 App Key 가 있는 계정에만 발급할 수 있습니다.</b>'),
+               ('[계정 정보에서 App Key 생성]', '클릭', 'S8', '[App Key 생성] — 범위 없이 키만')]))
 
     intro = ('App Key 를 발급하는 화면이다. 「<b>고객사 | App Key 계정 | 계정 상세</b>」 3단 한 화면이며 옛 <code>TKT-01</code> 계정 발급(목록)과 '
              '옛 <code>TKT-02</code> 계정 등록·수정을 합쳤다 <code>PC-146</code> <code>PC-158</code>. 고객사는 <b>고객사 관리 고객사를 불러온다</b>(여기서 등록하지 않음) '
              '<code>PC-153</code>. 계정은 <b>App Key 계정</b> — 계정과 App Key 가 매칭되는 개념으로, 고객사 관리의 <b>서비스 계정</b>(서비스 권한)과 별개다. '
              '화면 모양은 <code>TKT-02</code> N Key 관리와 같은 조각을 쓴다 <code>PC-154</code>. <b>App Key 와 티켓은 다른 개념</b> — 계정 상세의 탭이 '
-             '[App Key] · [권한] / [티켓 발급] · [티켓 내역] · [정산] / [계정 정보] 로 나뉜다 <code>PC-208</code>.')
+             '[티켓 내역] · [티켓 발급] · [정산] · [계정 정보] · [권한] 순서다 <code>PC-208</code> <code>PC-211</code>. App Key 는 계정을 만들 때 자동 생성되고(1계정 1키) [계정 정보]에 보인다 <code>PC-210</code>.')
     return page(CODE, NAME, PRD, intro, B)

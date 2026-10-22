@@ -69,6 +69,28 @@ def billing_box(sel='유료', amount='1,200,000', note='2026 연간 계약 포�
             '· 고객사 · 티켓마다 다르게 등록할 수 있습니다</span></div>%s</div>' % body)
 
 
+def license_box(kind='App Key', co='Study123', amount='1,200,000', saved=True, since='2026-10-22', until='2027-10-21', usd=False, fx=''):
+    """연간 라이선스 비용 — 고객사마다 1건(App Key · N Key 따로) · 금액 · 기간 (web/components/BillingEditor.tsx LicenseEditor) `PC-212`"""
+    state = tg(('$%s / 년' if usd else '%s원 / 년') % amount, '#dcfce7', '#166534') if saved else tg('미등록', '#fef2f2', '#dc2626')
+    on, off = 'background:#eef6ff;color:#1d4ed8;font-weight:700', 'color:#6b7280'
+    seg = ('<div style="display:inline-flex;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">'
+           '<span style="padding:7px 12px;font-size:12.5px;%s">원</span>'
+           '<span style="padding:7px 12px;font-size:12.5px;%s">USD</span></div>' % ((off, on) if usd else (on, off)))
+    return ('<div style="margin-bottom:14px;border:1px solid #e9d5ff;background:#fcfaff;border-radius:10px;padding:12px 14px">'
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><b style="font-size:13px">연간 라이선스 비용</b>%s'
+            '<span style="font-size:11.5px;color:#9ca3af">· 고객사 %s · 고객사마다 1건 · 티켓이 아니라 키 발급으로 생기는 비용</span><span style="flex:1"></span>%s</div>'
+            '<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px;align-items:end">'
+            '<div class="fld"><span class="lbl">연간 금액</span><div style="display:flex;gap:6px">%s<div class="inp" style="flex:1;text-align:right">%s</div></div></div>'
+            '<div class="fld"><span class="lbl">기간 시작</span><div class="inp">%s</div></div>'
+            '<div class="fld"><span class="lbl">기간 끝 (기본 1년)</span><div class="inp">%s</div></div></div>'
+            '%s<div style="display:flex;justify-content:flex-end;margin-top:10px"><span class="btn pri">라이선스 저장</span></div></div>'
+            % (tg(kind, '#f3e8ff', '#7e22ce'), co, state, seg, amount if saved else '0', since, until,
+               # USD 면 환율 기록(선택 · 자동 아님) `PC-215`
+               ('<div style="margin-top:10px;font-size:12px;color:#6b7280">환율 기록 <span style="color:#9ca3af">(선택 · 자동 아님)</span>'
+                '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;max-width:420px">1 USD = <div class="inp%s" style="flex:1;text-align:right">%s</div> 원%s</div></div>'
+                % ('' if fx else ' ph', fx or '예) 1,385', (' <span style="font-size:11.5px">≈ %s원 / 년</span>' % '{:,}'.format(round(float(amount.replace(',', '')) * float(fx.replace(',', ''))))) if fx else '')) if usd else ''))
+
+
 def usage_box(s, o, gaps, occ, ok=True):
     """구간 사용 현황 (web/components/SobpUsage.tsx) `PC-195` — gaps: ['0~165', …] · occ: [(종류, 고객사, B, P), …]"""
     kc = {'App Key': ('#f5f3ff', '#6d28d9'), 'N Key': ('#eef6ff', '#1d4ed8'), '서비스 티켓': ('#ecfdf5', '#047857')}

@@ -26,7 +26,7 @@ import {
   ticketState, STATE_COLOR, serviceTicketText, setServiceBilling, TICKET_SERVICES, ticketServiceOf, type ServiceTicket, type TicketService,
 } from "@/lib/serviceTicketStore";
 import { companyServices, type Company } from "@/lib/customerData";
-import { WS_CARD as card, WS_HD as hd, WS_EMPTY, WS_HEAD_BTN, wsTag as tag, wsItem, WsTabs } from "./KeyWorkspaceUI";   // 키 화면과 같은 조각 `PC-154`
+import { WS_CARD as card, WS_HD as hd, WS_EMPTY, WS_HEAD_BTN, wsTag as tag, wsItem, WsTabs, InfoTip } from "./KeyWorkspaceUI";   // 키 화면과 같은 조각 `PC-154`
 
 const PAGE_DEFAULT = 512;   // Page 볼륨 기본값 — App Key · N Key 발급과 같은 값
 type Right = { kind: "t"; id: number } | { kind: "add" } | { kind: "edit"; id: number } | { kind: "none" };
@@ -63,8 +63,6 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
   const ranges = useMemo(() => serviceRangesOfCompany(company, projects, codesOfMember(company.name)), [company, projects]);   // eslint-disable-line react-hooks/exhaustive-deps
   const first = (): Right => (mine[0] ? { kind: "t", id: mine[0].id } : { kind: "none" });
   const [right, setRight] = useState<Right>({ kind: "none" });
-  const [help, setHelp] = useState(false);   // ⓘ 설명 — 본문이 아니라 **토스트**로 띄운다 `PC-181` `PC-182`
-  useEffect(() => { if (!help) return; const id = setTimeout(() => setHelp(false), 5000); return () => clearTimeout(id); }, [help]);
   // 티켓은 브라우저 저장분이라 서버 렌더에는 없다 — 마운트 뒤에 그리고 첫 티켓을 고른다(하이드레이션 불일치 방지)
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); setRight(first()); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -79,20 +77,9 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
           <b style={{ fontSize: 14 }}>서비스 티켓</b>
           <span style={{ fontSize: 11.5, color: "#9ca3af" }}>{mine.length}건</span>
           {/* 설명은 숨김 — ⓘ 를 누르면 **바로 아래**에 토스트로 잠깐 보인다(본문에 넣지 않는다) `PC-182` `PC-184` */}
-          <span style={{ position: "relative", display: "inline-flex" }}>
-            <button type="button" onClick={() => setHelp((v) => !v)} title="서비스 티켓이란?"
-              style={{ border: 0, background: help ? "#eef6ff" : "transparent", color: help ? "#2563eb" : "#9ca3af", borderRadius: 999, width: 20, height: 20, cursor: "pointer", fontSize: 12, padding: 0 }}>ⓘ</button>
-            {help && (
-              <div role="status" onClick={() => setHelp(false)}
-                style={{ position: "absolute", top: "calc(100% + 8px)", left: -10, zIndex: 60, width: 300, cursor: "pointer",
-                  background: "#1f2937", color: "#f9fafb", borderRadius: 10, padding: "10px 14px", fontSize: 12.5, lineHeight: 1.6, fontWeight: 400,
-                  boxShadow: "0 12px 32px rgba(15,23,42,.25)" }}>
-                {/* 말풍선 꼬리 — ⓘ 를 가리킨다 */}
-                <span style={{ position: "absolute", top: -5, left: 16, width: 10, height: 10, background: "#1f2937", transform: "rotate(45deg)" }} />
-                사용자에게 발급하는 키가 아닙니다. 이 고객사의 <b>서비스 계정 {accountCount}명</b>이 서비스를 쓸 때 티켓의 범위와 기간으로 승인합니다.
-              </div>
-            )}
-          </span>
+          <InfoTip title="서비스 티켓이란?">
+            사용자에게 발급하는 키가 아닙니다. 이 고객사의 <b>서비스 계정 {accountCount}명</b>이 서비스를 쓸 때 티켓의 범위와 기간으로 승인합니다.
+          </InfoTip>
           <span style={{ flex: 1 }} />
           <button type="button" onClick={() => setRight({ kind: "add" })} style={WS_HEAD_BTN}>＋ 티켓 지정</button>
         </div>

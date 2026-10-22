@@ -13,11 +13,12 @@ import { useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { addTicket, fmtMoney, hydrateTickets, setBilling, ticketById, updateTicket, useTickets } from "@/lib/ticketStore";
-import { BillingEditor, BillTag } from "./BillingEditor";
+import { BillingEditor, BillTag, LicenseEditor } from "./BillingEditor";
 import { sobpOverlapMsg } from "@/lib/rangeGuard";
 import { SobpRangePicker, type SobpRange } from "./TicketsView";
 import { SobpUsage } from "./SobpUsage";
 import { APPKEY_PERMS, normAppKeyPerms } from "@/lib/appKeyPerms";
+import { InfoTip } from "./KeyWorkspaceUI";
 import { SobpChips } from "./sobp";
 import { useTicketCustomers } from "@/lib/ticketCustomerStore";
 import { appKeyRangesOfCompany, companyOfAccount } from "@/lib/keyCompany";
@@ -72,18 +73,18 @@ function KeyCard({ title, params, empty, href }: {
 // 발급 내역 — 지금까지 발급한 티켓을 **첫 탭의 표**로 본다(발급 폼과 분리) `PC-200`
 // App Key 와 티켓은 다른 개념 — 탭을 나눈다 `PC-208`
 //   App Key(계정당 1개 · 권한) / 티켓(계정 소속 · 여러 개 · App Key 를 먼저 발급한 계정에만)
-export type AccTab = "hist" | "info" | "key" | "perm" | "ticket" | "bill";
+//   App Key 는 계정을 만들 때 **자동 생성**(1계정 1키)이라 따로 탭 · 목록을 두지 않고 [계정 정보]에 보인다 `PC-210`
+export type AccTab = "hist" | "info" | "perm" | "ticket" | "bill";
 const ACC_TABS: { v: AccTab; label: string }[] = [
   { v: "info", label: "계정 정보" },
-  { v: "key", label: "App Key" },
 ];
+// 탭 순서 — 티켓 내역 · 티켓 발급 · 정산 · 계정 정보 · 권한 `PC-211`
 const ACC_TABS_DETAIL: { v: AccTab; label: string }[] = [
-  { v: "key", label: "App Key" },
-  { v: "perm", label: "권한" },          // App Key 권한 20항목 `PC-207`
-  { v: "ticket", label: "티켓 발급" },
   { v: "hist", label: "티켓 내역" },
+  { v: "ticket", label: "티켓 발급" },
   { v: "bill", label: "정산" },
   { v: "info", label: "계정 정보" },
+  { v: "perm", label: "권한" },          // App Key 권한 20항목 `PC-207`
 ];
 function AccTabs({ tab, onTab, badge, items = ACC_TABS }: { tab: AccTab; onTab: (v: AccTab) => void; badge?: Partial<Record<AccTab, string>>; items?: { v: AccTab; label: string }[] }) {
   return (
@@ -216,6 +217,10 @@ function KeyPermsEditor({ value, onSave }: { value?: Record<string, boolean>; on
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10, fontSize: 12, color: "#6b7280" }}>
         <b style={{ fontSize: 13.5, color: "#111827" }}>App Key 권한</b>
+        {/* 숨김 설명 — Caster U 권한 `PC-214` */}
+        <InfoTip title="App Key 권한이란?">
+          <b>Caster U 권한</b>입니다. 이 App Key 로 Caster U 를 쓸 때 켜고 끄는 기능 20항목이며, 값이 <b>true</b> 인 기능만 쓸 수 있습니다. 기본값은 모두 false 입니다.
+        </InfoTip>
         <span>true <b style={{ color: "#166534" }}>{nOn}</b> / {APPKEY_PERMS.length}</span>
         <span style={{ flex: 1 }} />
         <button type="button" onClick={() => setAll(true)} style={{ ...S.ghost, padding: "4px 10px", fontSize: 11.5 }}>모두 true</button>
@@ -276,7 +281,6 @@ export function AccountNewView({ embedded = false, fixedCompanyId = 0, onDone, o
   const [phone, setPhone] = useState("");   // PHONE (전화번호) `PC-209`
   const [homepage, setHomepage] = useState("");
   const [tab, setTab] = useState<AccTab>("info");        // 화면 탭 `PC-062`
-  const [withKey, setWithKey] = useState(true);          // 계정 추가와 함께 App Key 발급 `PC-208`
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
 
   // 고객사 = **고객사 관리 고객사** `PC-153` — 계정은 이 화면의 App Key 계정(서비스 계정과 별개)
@@ -303,24 +307,10 @@ export function AccountNewView({ embedded = false, fixedCompanyId = 0, onDone, o
     const r = caster.addAccount(acc);
     if (!r.ok) { setToast({ ok: false, text: r.msg }); return; }
     logActivity("ticket", `계정 등록 · ${company.name} · ${acc.id}`, me?.name);
-    if (withKey) issueAppKey(acc, me?.name);   // App Key 만 — 티켓은 계정 상세 [티켓 발급]에서 `PC-208`
+    issueAppKey(acc, me?.name);   // 계정을 만들면 App Key 자동 생성 — 1계정 1키 `PC-210`. 티켓은 계정 상세 [티켓 발급]에서
     if (onDone) { onDone(acc.id); return; }  // 3단 화면 — 오른쪽 칸에서 바로 그 계정 상세로 `PC-146`
     router.push("/tickets/account");        // 목록에 노출
   };
-
-  // App Key — **계정당 1개 · 범위 없이 키만** `PC-050` `PC-208`. 티켓은 계정을 만든 뒤 [티켓 발급]에서
-  const appKeyBlock = (
-    <div>
-      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#374151", cursor: "pointer" }}>
-        <input type="checkbox" checked={withKey} onChange={(e) => setWithKey(e.target.checked)} />
-        계정 추가와 함께 <b>App Key 발급</b>
-      </label>
-      <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 8, lineHeight: 1.7 }}>
-        App Key 는 계정당 1개이며 범위(SOBP) 없이 키만 발급합니다. 티켓(Type · Section · Owner · Book · Page · Info · Period)은
-        계정을 추가한 뒤 <b>[티켓 발급]</b> 탭에서 발급합니다 — App Key 가 있는 계정에만 발급할 수 있습니다.
-      </div>
-    </div>
-  );
 
   return (
     <div style={embedded ? undefined : { padding: "18px 20px", maxWidth: 900 }}>
@@ -333,12 +323,10 @@ export function AccountNewView({ embedded = false, fixedCompanyId = 0, onDone, o
           </div>
         </div>
 
-        {/* 탭 2개 — 계정 정보 · App Key 발급 `PC-131` */}
-        <AccTabs tab={tab} onTab={setTab} badge={{ key: withKey ? "발급" : undefined }} />
 
         {/* 계정 정보 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "info" ? "block" : "none" }}>
-        <SecHead t="계정 정보" d="· 키 발급 계정" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급" />
+        <SecHead t="계정 정보" d="· 키 발급 계정 · [계정 추가] 때 App Key 자동 생성" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 — 계정을 만들면 자동으로 생성됩니다(PC-210)" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="고객사 *">
             {embedded && fixedCompanyId
@@ -361,15 +349,13 @@ export function AccountNewView({ embedded = false, fixedCompanyId = 0, onDone, o
           <Field label="PHONE (전화번호)"><input style={S.input} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" /></Field>
           <Field label="HOMEPAGE (홈페이지)"><input style={S.input} value={homepage} onChange={(e) => setHomepage(e.target.value)} placeholder="https://" /></Field>
           <Field label="ADDR (주소)" full><input style={S.input} value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="주소" /></Field>
+          <Field label="App Key" full>
+            <div style={{ ...S.input, background: "#f7f8fa", color: "#9ca3af" }}>[계정 추가] 때 자동 생성 (영문 소문자 · 숫자 29자 · 1계정 1키)</div>
+          </Field>
         </div>
 
         </div>
 
-        {/* App Key */}
-        <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
-          <SecHead t="App Key" d="· 계정당 1개" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급" />
-          {appKeyBlock}
-        </div>
 
 
         {/* 이동·저장 버튼은 화면 아래에 모은다 `PC-064` */}
@@ -409,8 +395,9 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   const hasKey = cast.appKeys.some((k) => k.accountId === accountId);
   const hasTicket = accountTickets(cast.accounts.find((a) => a.id === accountId)).length > 0;
   // 첫 탭 — 티켓이 있으면 티켓 내역, 키만 있으면 티켓 발급, 키가 없으면 App Key `PC-208`
-  const tab0: AccTab = (["key", "bill", "info", "hist", "perm", "ticket"] as string[]).includes(tabQ) ? tabQ
-    : hasTicket ? "hist" : hasKey ? "ticket" : "key";
+  // ?tab=key(옛 링크)는 계정 정보로 — App Key 는 계정 정보에 있다 `PC-210`
+  const tab0: AccTab = (["bill", "info", "hist", "perm", "ticket"] as string[]).includes(tabQ) ? tabQ
+    : (tabQ as string) === "key" ? "info" : hasTicket ? "hist" : hasKey ? "ticket" : "info";
   const [tab, setTab] = useState<AccTab>(tab0);                // 화면 탭 `PC-062`
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [bStart, setBStart] = useState<number | null>(null);   // App Key Book Start `PC-050`
@@ -436,7 +423,8 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   }, [acc, loaded]);
 
   const { companies } = useStore();
-  const ranges = useRanges(acc ? companyOfAccount(acc, companies) : undefined);   // 고객사 관리 고객사로 잇는다 `PC-153`
+  const accCo = acc ? companyOfAccount(acc, companies) : undefined;   // 고객사 관리 고객사로 잇는다 `PC-153`
+  const ranges = useRanges(accCo);
   const formRanges = editRange ? [editRange.bound] : ranges;   // 수정 중이면 그 티켓의 테두리 하나
   const range = formRanges[sobpIdx];
   const keys = cast.appKeys.filter((k) => k.accountId === accountId);
@@ -552,7 +540,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   };
   // App Key 발급 — 범위 없이 키만 · 계정당 1개 `PC-208`
   const addKey = () => {
-    if (myKey) { setToast({ ok: false, text: "App Key 는 계정당 1개입니다." }); return; }
+    if (myKey) { setToast({ ok: false, text: "App Key 는 1계정 1키입니다." }); return; }
     const key = issueAppKey(acc, me?.name);
     setIssued(key);
     setToast({ ok: true, text: "App Key 발급 완료 — 계정과 연동되어 서비스 DB에 등록되었습니다." });
@@ -601,38 +589,32 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
     </div>
   );
 
-  // App Key 탭 — 키 값 · 발급 · 이전 키 기록. 티켓과 다른 개념 `PC-208`
+  // App Key — [계정 정보] 안. 1계정 1키 `PC-210` — 이전 정책으로 2개 이상 발급된 계정은 모두 보인다
+  const keyCopy = (k: string) => { try { navigator.clipboard.writeText(k); setToast({ ok: true, text: "App Key 가 복사되었습니다." }); } catch { /* */ } };
   const keyBlock = (
     <>
-      {myKey ? (
-        <div style={{ border: "1px solid #eef0f4", background: "#fafbfc", borderRadius: 10, padding: "12px 14px", fontSize: 12.5 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ color: "#6b7280" }}>App Key</span>
-            {myKey.key
-              ? <code style={{ fontFamily: "ui-monospace,monospace", color: "#2563eb", fontSize: 13.5, wordBreak: "break-all" }}>{myKey.key}</code>
-              : <span style={{ ...S.tag, background: "#fef3c7", color: "#92400e", fontWeight: 700 }} title="대장에 App Key 값이 적혀 있지 않습니다">키 미기재</span>}
-            {myKey.key && <button onClick={() => { try { navigator.clipboard.writeText(myKey.key); setToast({ ok: true, text: "App Key 가 복사되었습니다." }); } catch { /* */ } }} style={S.smallBtn}>복사</button>}
-            <span style={{ flex: 1 }} />
-            <span style={{ color: "#9ca3af", fontSize: 11.5 }}>발급 {/^\d{4}-/.test(myKey.createdAt) ? myKey.createdAt.slice(0, 10) : "대장"}</span>
-          </div>
-          <div style={{ color: "#6b7280", fontSize: 11.5, marginTop: 8 }}>
-            계정당 1개 — 새 App Key 는 발급하지 않습니다. SOBP 가 바뀌면 <b>[티켓 발급]</b>에서 티켓을 더 발급하세요.
-          </div>
-          {/* 이전에 발급된 App Key — 기록만 보인다 `PC-206` */}
-          {keys.length > 1 && (
-            <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 8, paddingTop: 8, borderTop: "1px solid #eef0f4" }}>
-              이전 App Key 기록 {keys.length - 1}개 —{" "}
-              {keys.slice(1).map((x) => <code key={x.id} style={{ fontFamily: "ui-monospace,monospace", marginRight: 8 }}>{x.key || "미기재"}</code>)}
+      {keys.length ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {keys.map((k, i) => (
+            <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", border: "1px solid #e5e7eb", background: "#f7f8fa", borderRadius: 8, padding: "7px 10px", fontSize: 12.5 }}>
+              {keys.length > 1 && <span style={{ fontSize: 11, color: "#9ca3af", fontWeight: 700 }}>{i + 1}</span>}
+              {k.key
+                ? <code style={{ fontFamily: "ui-monospace,monospace", color: "#2563eb", fontSize: 13, wordBreak: "break-all" }}>{k.key}</code>
+                : <span style={{ ...S.tag, background: "#fef3c7", color: "#92400e", fontWeight: 700 }} title="대장에 App Key 값이 적혀 있지 않습니다">키 미기재</span>}
+              {k.key && <button onClick={() => keyCopy(k.key)} style={S.smallBtn}>복사</button>}
+              <span style={{ flex: 1 }} />
+              <span style={{ color: "#9ca3af", fontSize: 11.5 }}>생성 {/^\d{4}-/.test(k.createdAt) ? k.createdAt.slice(0, 10) : "대장"}</span>
             </div>
+          ))}
+          {keys.length > 1 && (
+            <div style={{ fontSize: 11.5, color: "#b45309" }}>이전 정책으로 App Key 가 {keys.length}개 생성된 계정입니다 — 앞으로는 1계정 1앱키이며 새 키는 만들지 않습니다.</div>
           )}
         </div>
       ) : (
-        <div style={{ border: "1px dashed #e5e7eb", borderRadius: 10, padding: "18px 16px", fontSize: 12.5, color: "#6b7280", display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ flex: 1, lineHeight: 1.7 }}>
-            이 계정에는 App Key 가 없습니다. App Key 는 <b>계정당 1개</b>이며 범위(SOBP) 없이 키만 발급합니다.<br />
-            티켓은 App Key 를 발급한 뒤 <b>[티켓 발급]</b> 탭에서 발급합니다.
-          </div>
-          <button onClick={addKey} style={S.primary}>App Key 발급</button>
+        // 옛 대장 계정 중 키가 없는 경우만 — 지금은 계정을 만들면 자동 생성된다
+        <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1px dashed #e5e7eb", borderRadius: 8, padding: "7px 10px", fontSize: 12.5, color: "#6b7280" }}>
+          <span style={{ flex: 1 }}>App Key 가 없는 계정입니다(옛 대장 계정).</span>
+          <button onClick={addKey} style={{ ...S.primary, padding: "5px 12px", fontSize: 12 }}>App Key 생성</button>
         </div>
       )}
       {issuedCard}
@@ -684,8 +666,8 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
     </>
   ) : (
     <div style={{ border: "1px dashed #e5e7eb", borderRadius: 10, padding: "28px 16px", fontSize: 12.5, color: "#9ca3af", textAlign: "center", lineHeight: 1.8 }}>
-      App Key 를 먼저 발급하세요. 티켓은 App Key 가 있는 계정에만 발급할 수 있습니다.<br />
-      <button onClick={() => setTab("key")} style={{ ...S.linkBtn, fontSize: 12.5 }}>App Key 탭으로</button>
+      App Key 가 없는 계정입니다. 티켓은 App Key 가 있는 계정에만 발급할 수 있습니다.<br />
+      <button onClick={() => setTab("info")} style={{ ...S.linkBtn, fontSize: 12.5 }}>계정 정보에서 App Key 생성</button>
     </div>
   );
 
@@ -720,6 +702,8 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
           <Field label="PHONE (전화번호)"><input style={S.input} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" /></Field>
           <Field label="HOMEPAGE (홈페이지)"><input style={S.input} value={homepage} onChange={(e) => setHomepage(e.target.value)} placeholder="https://" /></Field>
           <Field label="ADDR (주소)" full><input style={S.input} value={addr} onChange={(e) => setAddr(e.target.value)} /></Field>
+          {/* App Key — 1계정 1키 · 계정을 만들 때 자동 생성 `PC-210` */}
+          <Field label={keys.length > 1 ? `App Key (${keys.length}개 · 이전 정책)` : "App Key"} full>{keyBlock}</Field>
         </div>
         {/* 사용기간은 계정이 아니라 **코드 범위(=티켓)별 기간**이다 `PC-118` → [App Key 발급] 탭에서 범위 발급 시 설정 */}
         <div style={{ marginTop: 10, fontSize: 11.5, color: "#6b7280", background: "#fafbfc", border: "1px solid #eef0f4", borderRadius: 9, padding: "8px 11px" }}>
@@ -731,11 +715,6 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
 
         </div>
 
-        {/* App Key — 계정당 1개 · 키 값 · 이전 키 기록 `PC-208` */}
-        <div style={{ ...SEC, marginTop: 0, display: tab === "key" ? "block" : "none" }}>
-          <SecHead t="App Key" d={`· 계정당 1개 · 발급된 키 ${keys.length}개`} tip="App Key 와 티켓은 다른 개념입니다 — App Key 는 계정당 1개, 티켓은 계정에 여러 개(PC-206 · PC-208)" />
-          {keyBlock}
-        </div>
 
         {/* 티켓 발급 — 수정 중이면 제목 「티켓 수정」 · 파란 테두리 `PC-194` */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "ticket" ? "block" : "none", ...(editRange ? { borderColor: "#93c5fd", background: "#fbfdff" } : {}) }}>
@@ -756,7 +735,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
           {rangeItems.length === 0 ? (
             <div style={{ fontSize: 12.5, color: "#9ca3af", padding: "28px 0", textAlign: "center", border: "1px dashed #e5e7eb", borderRadius: 10, lineHeight: 1.8 }}>
               발급한 티켓이 없습니다.<br />
-              <button onClick={() => setTab(myKey ? "ticket" : "key")} style={{ ...S.linkBtn, fontSize: 12.5 }}>{myKey ? "티켓 발급으로" : "App Key 발급으로"}</button>
+              <button onClick={() => setTab(myKey ? "ticket" : "info")} style={{ ...S.linkBtn, fontSize: 12.5 }}>{myKey ? "티켓 발급으로" : "계정 정보에서 App Key 생성"}</button>
             </div>
           ) : (
             <div style={{ border: "1px solid #eef0f4", borderRadius: 10, overflow: "hidden" }}>
@@ -832,7 +811,9 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
 
         {/* 정산 탭 — 티켓(코드 범위)을 고르고 그 정산을 등록한다. N Key 관리의 정산 탭과 같은 결 `PC-177` `PC-178` */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "bill" ? "block" : "none" }}>
-          <SecHead t="정산할 티켓" d={`· 티켓(코드 범위)마다 등록 · 미정 ${nTodo}건`} />
+          {/* 연간 라이선스 비용 — 고객사마다 1건(App Key) · 키 발급으로 생기는 비용 `PC-212` */}
+          {accCo && <LicenseEditor key={accCo.id} kind="APP" companyId={accCo.id} company={accCo.name} by={me?.name ?? ""} />}
+          <SecHead t="정산할 티켓" d={`· 티켓마다 등록 · 미정 ${nTodo}건`} />
           {rangeItems.length === 0 ? (
             <div style={{ fontSize: 12, color: "#9ca3af", padding: "6px 0" }}>발급된 티켓이 없습니다. [티켓 발급] 탭에서 먼저 발급하세요.</div>
           ) : (

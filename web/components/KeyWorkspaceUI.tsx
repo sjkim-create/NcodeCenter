@@ -185,3 +185,25 @@ export function WsTabs<T extends string>({ items, tab, onTab, badge }: { items: 
     </div>
   );
 }
+
+/** ⓘ 숨김 설명 — 누르면 **바로 아래**에 말풍선(5초 뒤 사라짐). 본문에 설명을 늘어놓지 않는다 `PC-182` `PC-184` `PC-214` */
+export function InfoTip({ title, width = 300, children }: { title?: string; width?: number; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => { if (!open) return; const id = setTimeout(() => setOpen(false), 5000); return () => clearTimeout(id); }, [open]);
+  return (
+    <span style={{ position: "relative", display: "inline-flex" }}>
+      <button type="button" onClick={() => setOpen((v) => !v)} title={title}
+        style={{ border: 0, background: open ? "#eef6ff" : "transparent", color: open ? "#2563eb" : "#9ca3af", borderRadius: 999, width: 20, height: 20, cursor: "pointer", fontSize: 12, padding: 0 }}>ⓘ</button>
+      {open && (
+        <div role="status" onClick={() => setOpen(false)}
+          style={{ position: "absolute", top: "calc(100% + 8px)", left: -10, zIndex: 60, width, cursor: "pointer",
+            background: "#1f2937", color: "#f9fafb", borderRadius: 10, padding: "10px 14px", fontSize: 12.5, lineHeight: 1.6, fontWeight: 400,
+            boxShadow: "0 12px 32px rgba(15,23,42,.25)" }}>
+          {/* 말풍선 꼬리 — ⓘ 를 가리킨다 */}
+          <span style={{ position: "absolute", top: -5, left: 16, width: 10, height: 10, background: "#1f2937", transform: "rotate(45deg)" }} />
+          {children}
+        </div>
+      )}
+    </span>
+  );
+}

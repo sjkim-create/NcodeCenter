@@ -23,7 +23,7 @@ import {
   addTicket, allTickets, deleteTicket, hydrateTickets, setBilling, ticketById, updateTicket, useTickets,
   BILLINGS, BILLINGS_FILTER, BILL_COLOR, daysLeft, plusMonth, fmtMoney, krwOf, type Billing, type Ticket,
 } from "@/lib/ticketStore";
-import { BillingEditor } from "./BillingEditor";   // 정산 입력 — App Key · 서비스 티켓과 같은 조각 `PC-202`
+import { BillingEditor, LicenseEditor } from "./BillingEditor";   // 정산 입력 — App Key · 서비스 티켓과 같은 조각 `PC-202`
 
 type Tab = "nkey" | "list";
 
@@ -125,7 +125,7 @@ function NKeyWorkspace() {
     const rd = new FileReader();
     rd.onload = () => {
       try { setLoadedKey({ name: f.name, rows: toKV(JSON.parse(String(rd.result))) }); }
-      catch { setLoadedKey({ name: f.name, rows: [], err: "JSON 형식의 티켓 파일이 아닙니다. Key 생성으로 내려받은 .json 파일을 선택하세요." }); }
+      catch { setLoadedKey({ name: f.name, rows: [], err: "N Key 티켓 파일(.nkey)이 아닙니다. N Key 발급으로 내려받은 .nkey 파일을 선택하세요." }); }
     };
     rd.readAsText(f);
   };
@@ -237,9 +237,10 @@ function NKeyWorkspace() {
         {filtered && <button onClick={() => { setFBill(""); setFSrc(""); setQ(""); }} style={S.linkBtn}>필터 해제</button>}
         <span style={{ flex: 1 }} />
         {filtered && <span style={{ color: "#6b7280" }}>전체 <b style={{ color: "#111827" }}>{hitAll.length}건</b> · 고객사 <b style={{ color: "#111827" }}>{coList.length}곳</b></span>}
-        <label style={{ ...S.smallBtn, whiteSpace: "nowrap" }} title="발급된 키 파일(.json)을 열어 내용을 확인합니다. 목록에 없는 외부 키도 됩니다.">
+        <label style={{ ...S.smallBtn, whiteSpace: "nowrap" }} title="발급된 N Key 파일(.nkey)을 열어 내용을 봅니다(보기 전용). 목록에 없는 외부 키도 됩니다.">
           📂 N Key 불러오기
-          <input type="file" accept=".json,application/json" style={{ display: "none" }}
+          {/* .nkey(지금 발급 형식 `PC-213`) · 옛 .json 도 연다 */}
+          <input type="file" accept=".nkey,.json,application/json" style={{ display: "none" }}
             onChange={(e) => { loadKeyFile(e.target.files?.[0]); e.target.value = ""; }} />
         </label>
       </div>
@@ -538,10 +539,15 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
           </div>
         ) : (
           // 정산 정보 — App Key · 서비스 티켓과 같은 공용 정산 입력 `PC-202`
+          <>
+          {/* 연간 라이선스 비용 — 고객사마다 1건(N Key) · 키 발급으로 생기는 비용 `PC-212` */}
+          {(() => { const co = companyOfNTicket(t, companies); return co ? <LicenseEditor key={co.id} kind="N" companyId={co.id} company={co.name} by={me?.name ?? ""} /> : null; })()}
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>이 티켓의 정산</div>
           <BillingEditor key={t.id} bare v={t} baseDate={t.at.slice(0, 10)} onSave={(p) => {
             setBilling(t.id, { ...p, by: me?.name ?? "" });
             logActivity("ticket", `정산 등록 · ${t.company} · 발급 ${t.no}번 · ${kindLabel2} · ${p.billing}${p.billing === "유료" ? ` ${fmtMoney(p)}` : ""}`, me?.name);
           }} />
+          </>
         )}
 
         {/* 하단 액션 — [목록]은 여기 있다. 저장은 두 탭 내용을 함께 기록한다. */}
@@ -689,7 +695,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
       bookStart, bookVolume: books, pageStart, pageVolume,
       patternType: patternTypeParam(patternOf(ctype)), ticketType: "Unlimited", separateEachBook: separate,
     };
-    // 생성된 키는 폴더로 관리 → zip 하나로 다운로드 (폴더 안에 티켓 파일들).
+    // 생성된 키는 폴더로 관리 → zip 하나로 다운로드 (폴더 안에 **.nkey** 티켓 파일들) `PC-213`
     // 개별 파일명 = zip 파일명 그대로, B 숫자만 증가. (공통코드는 사용 고객사명 포함)
     const cuTag = selCu ? `_${selCu.cu}` : "";
     const base = `Ticket_${company.name}${cuTag}_S${range.section}O${range.owner}`;
@@ -699,9 +705,9 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
       // Separate each book: StartBook 부터 Book 볼륨 수만큼 개별 파일(각 1권)
       ? Array.from({ length: books }, (_, i) => {
           const bs = bookStart + i;
-          return { name: `${folder}/${base}_B${bs}.json`, content: JSON.stringify({ ...ticket, bookStart: bs, bookVolume: 1 }, null, 2) };
+          return { name: `${folder}/${base}_B${bs}.nkey`, content: JSON.stringify({ ...ticket, bookStart: bs, bookVolume: 1 }, null, 2) };
         })
-      : [{ name: `${folder}/${folder}.json`, content: JSON.stringify(ticket, null, 2) }];
+      : [{ name: `${folder}/${folder}.nkey`, content: JSON.stringify(ticket, null, 2) }];
     const url = URL.createObjectURL(makeZip(entries));
     const a = document.createElement("a");
     a.href = url; a.download = `${folder}.zip`;
@@ -844,7 +850,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
       {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: "#2563eb" }}>{toast}</div>}
 
       <div style={{ marginTop: 12, background: "#fafbfc", border: "1px dashed #e5e7eb", borderRadius: 8, padding: "10px 12px", fontSize: 11.5, color: "#6b7280", lineHeight: 1.7 }}>
-        발급하면 티켓이 <b>zip 파일(폴더 형태)</b>로 다운로드됩니다. 다운로드 폴더에서 zip의 압축을 풀어 그 폴더째 <b>nproj 폴더</b> 또는 <b>내 PC &gt; 문서 &gt; NeoLAB &gt; CodeTickets</b>(<code>{CODE_TICKETS}</code>)에 넣은 뒤 <b>Caster lite</b>에서 사용합니다.
+        발급하면 티켓 파일(<b>.nkey</b>)이 <b>zip 파일(폴더 형태)</b>로 다운로드됩니다. 다운로드 폴더에서 zip의 압축을 풀어 그 폴더째 <b>nproj 폴더</b> 또는 <b>내 PC &gt; 문서 &gt; NeoLAB &gt; CodeTickets</b>(<code>{CODE_TICKETS}</code>)에 넣은 뒤 <b>Caster lite</b>에서 사용합니다.
       </div>
     </div>
   );

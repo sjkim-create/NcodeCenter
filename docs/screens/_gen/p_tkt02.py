@@ -138,7 +138,10 @@ def ticket_detail(tab='base', no=36, co='KODION', bill='무료', amount='', tria
             body = '<div style="border:1px solid #93c5fd;background:#fbfdff;border-radius:10px;padding:14px 16px">%s</div>' % body
     else:
         # 정산 정보 — App Key · 서비스 티켓과 같은 공용 정산 입력 `PC-202`
-        body = kws.billing_box(bill, amount, note, '2026-10-20 10:20 · 김순정' if note else '—', currency=currency, fx=fx, trial=trial, bare=True, err=err)
+        # 연간 라이선스 비용(고객사마다 1건 · N Key) + 이 티켓의 정산 `PC-212`
+        body = (kws.license_box('N Key', co + ('-46' if co == 'KODION' else ''), saved=(bill == '유료')) +
+                '<div style="font-size:13px;font-weight:700;margin-bottom:10px">이 티켓의 정산</div>' +
+                kws.billing_box(bill, amount, note, '2026-10-20 10:20 · 김순정' if note else '—', currency=currency, fx=fx, trial=trial, bare=True, err=err))
     # 보기 [티켓 수정] / 수정 [취소] [수정 저장] / 정산 탭 [정산 저장] — 발급 기록 삭제 없음 `PC-192` `PC-201`
     foot = kws.footer('', '<span class="btn gho">취소</span><span class="btn pri">수정 저장</span>' if editing else
                       ('<span class="btn pri">티켓 수정</span>' if tab == 'base' else ''))   # 정산 탭 저장은 정산 입력 안 [정산 저장]
@@ -191,14 +194,14 @@ def keyinfo_modal(err=False, q=''):
     rows = KODION_PARAMS[:13]
     if q:
         rows = tuple(r for r in rows if q.lower() in r[0].lower())
-    tbl = ('<div class="toast err" style="margin:0 0 10px">⚠ JSON 형식의 티켓 파일이 아닙니다. Key 생성으로 내려받은 .json 파일을 선택하세요.</div>'
+    tbl = ('<div class="toast err" style="margin:0 0 10px">⚠ N Key 티켓 파일(.nkey)이 아닙니다. N Key 발급으로 내려받은 .nkey 파일을 선택하세요.</div>'
            '<div class="empty" style="padding:20px">표시할 항목이 없습니다.</div>') if err else kws.kv_table(rows)
     return ('<div class="ovl"><div class="mdl w"><div class="mh"><div class="mt">N Key 불러오기 '
             '<span style="font-size:12px;color:#6b7280;font-weight:400">%s</span></div><div class="mx">✕</div></div>'
             '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><span style="font-size:12px;color:#6b7280">%s</span>'
             '<span style="flex:1"></span><div class="inp%s" style="width:220px">%s</div><span class="btn sm">표 복사</span></div>%s'
             '<div class="mf"><div class="btn gho">닫기</div></div></div></div>'
-            % ('broken.json' if err else 'Ticket_KODION_S3O46_B10-11.json',
+            % ('broken.txt' if err else 'Ticket_KODION-46_S3O46_B10-11.nkey',
                '0개 항목 (불러온 파일)' if err else '%d개 항목 (불러온 파일)' % len(rows),
                '' if q else ' ph', q or '항목 검색', tbl))
 
@@ -231,7 +234,7 @@ def build():
                ('고객사 묶음 머리', '클릭', '그 고객사만 보기', ''),
                ('티켓 카드', '클릭', '오른쪽 발급 상세', 'No · S/O/B · 정산 · 대장 · 권수 · 발급인 · 금액 · 발급일'),
                ('[＋ N Key 발급]', '클릭', 'S12', '고른 고객사로 시작'),
-               ('[📂 N Key 불러오기]', '클릭', 'S17', '.json 파일 선택')]))
+               ('[📂 N Key 불러오기]', '클릭', 'S17', '.nkey 파일 선택(옛 .json 도 열림) <code>PC-213</code>')]))
 
     B.append(('S2', '고객사 선택 — 집계가 그 고객사 기준', '분기',
               '고객사를 고르면 <b>집계 6칸이 그 고객사 기준</b>으로 다시 계산되고(머리에 「집계 대상 {고객사}」), 가운데는 그 고객사 티켓만 최근순으로 보인다.',
@@ -306,6 +309,7 @@ def build():
     B.append(('S8', '발급 상세 — 정산 정보 · 유료', '분기',
               '오른쪽 <b>정산 정보</b> 탭 — App Key · 서비스 티켓과 같은 정산 입력이다. <b>왼쪽에서 과금 유형</b>(미정 · 유료 · 무료 · 체험)을 고르고 <b>오른쪽에 금액</b>을 넣는다. '
               '금액은 <b>원 · USD</b> 중 고르고, USD 면 <b>환율 기록</b>(1 USD = n원 · 선택 · 자동 아님)을 적어 둘 수 있다. 비고는 3줄 입력 <code>PC-202</code>. '
+              '맨 위 <b>연간 라이선스 비용</b>은 티켓이 아니라 <b>키 발급으로 생기는 비용</b> — <b>고객사마다 1건</b>(N Key) · 금액 · 기간만이고, 그 고객사의 모든 티켓에서 같은 1건을 본다 <code>PC-212</code>. '
               '정산은 이 탭의 <b>[정산 저장]</b>으로 따로 기록한다 <code>PC-201</code>.',
               fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(1000), grouped=False),
                                    ticket_detail('bill', bill='유료', amount='2,500', note='2026 연간 계약 · 해외', currency='USD', fx='1,385')), 1000),
@@ -370,7 +374,7 @@ def build():
               fr(HK + F + kws.grid(LK, mid(G2, sel_no=64, h=col_h(1000), grouped=False),
                                    ticket_detail('bill', no=64, co='KODION-46', bill='미정', note='', at='2026-10-15 14:02', by='김순정')
                                    .replace(tg('대장', '#f3f4f6', '#9ca3af'), '')), 1000),
-              [('zip', '다운로드', 'Ticket_{고객사}[_{사용고객사}]_S{S}O{O}_B{시작}[-{끝}].zip', 'Separate Each Book = Book 하나당 파일 1개'),
+              [('zip', '다운로드', 'Ticket_{고객사}[_{사용고객사}]_S{S}O{O}_B{시작}[-{끝}].zip', '안의 티켓 파일 = <b>.nkey</b> <code>PC-213</code> · Separate Each Book = Book 하나당 .nkey 1개'),
                ('발급(자동)', '—', '목록 · 집계 · <code>LOG-01</code>', '티켓 발급 · 신규발급')]))
 
     B.append(('S16', '코드 구간 수정 — 사용할 수 없는 구간', '오류',
@@ -383,7 +387,7 @@ def build():
                ('구간 그대로', '[수정 저장]', '저장', '발급 내용 등 다른 값만 바꾸면 검사하지 않는다')]))
 
     B.append(('S17', 'N Key 불러오기 — 항목 표', '분기',
-              '필터 바의 <b>[📂 N Key 불러오기]</b>로 내려받은 키 파일(.json)을 열어 <b>Key · Value</b> 표로 본다. <b>조회 전용</b>이고 원장에 없는 외부 파일도 연다. '
+              '필터 바의 <b>[📂 N Key 불러오기]</b>로 N Key 발급 때 내려받은 <b>.nkey</b> 파일을 열어 <b>Key · Value</b> 표로 <b>보기</b>만 한다 <code>PC-213</code>. <b>조회 전용</b>이고 원장에 없는 외부 파일도 연다. '
               '검색은 항목명과 값을 함께 찾고 [표 복사]는 보이는 항목만 복사한다.',
               fr(H + F + kws.grid(left(h=col_h(1000)), mid(ALL_GROUPS, sel_no=36, h=col_h(1000), count=61), ticket_detail()), 1000,
                  overlay=keyinfo_modal()),
@@ -393,7 +397,7 @@ def build():
     B.append(('S18', 'N Key 불러오기 — 형식 오류', '오류', 'JSON 티켓 파일이 아니면 오류 안내와 빈 표가 나온다. 창은 닫히지 않아 바로 다른 파일을 고를 수 있다.',
               fr(H + F + kws.grid(left(h=col_h(1000)), mid(ALL_GROUPS, sel_no=36, h=col_h(1000), count=61), ticket_detail()), 1000,
                  overlay=keyinfo_modal(err=True)),
-              [('형식 오류', '—', '안내 + 빈 표', '<b>⚠ JSON 형식의 티켓 파일이 아닙니다. Key 생성으로 내려받은 .json 파일을 선택하세요.</b>')]))
+              [('형식 오류', '—', '안내 + 빈 표', '<b>⚠ N Key 티켓 파일(.nkey)이 아닙니다. N Key 발급으로 내려받은 .nkey 파일을 선택하세요.</b>')]))
 
     # 하위 고객사 — 상위 묶음 안 · 전체 목록에서 바로 골라 발급(모든 상위 SOBP) `PC-197` `PC-198` `PC-199`
     NLC = (('0', '27', '0~16383', '0~4095', '네오노트-0-27'), ('3', '27', '0~8191', '0~511', '네오노트-3-27'),
