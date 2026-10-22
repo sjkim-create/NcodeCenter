@@ -17,16 +17,17 @@ export type ActivityType =
 
 export type Activity = { id: number; type: ActivityType; actor: string; detail: string; at: string }; // at = ISO datetime
 
-// 색은 NEO UI 테마 팔레트(light-theme.ts) `PC-242` `PC-248`
+// 색 — 8종이 한눈에 구분되도록 색상(hue)을 고루 벌린다 `PC-253`
+//   (NEO UI 팔레트는 파랑 · 하늘 계열이 많아 8종을 가르기 어렵다 — 활동 종류 색만 예외)
 export const TYPE_META: Record<ActivityType, { label: string; color: string }> = {
-  company: { label: "고객사", color: "#5F8FF0" },
-  alloc: { label: "코드 할당", color: "#3A66C8" },
-  edit: { label: "편집", color: "#3D96CE" },
-  appkey: { label: "App Key", color: "#7BCDF1" },
-  nkey: { label: "N Key", color: "#6FB152" },
-  svcTicket: { label: "서비스 티켓", color: "#8EC674" },
-  billing: { label: "정산", color: "#E09A2E" },
-  access: { label: "접속", color: "#9CA3AF" },
+  company: { label: "고객사", color: "#3B82F6" },     // 파랑
+  alloc: { label: "코드 할당", color: "#8B5CF6" },    // 보라
+  edit: { label: "편집", color: "#14B8A6" },          // 청록
+  appkey: { label: "App Key", color: "#F59E0B" },     // 노랑(호박)
+  nkey: { label: "N Key", color: "#EC4899" },         // 분홍
+  svcTicket: { label: "서비스 티켓", color: "#22C55E" }, // 초록
+  billing: { label: "정산", color: "#DC2626" },       // 빨강
+  access: { label: "접속", color: "#9CA3AF" },        // 회색
 };
 
 // 옛 종류 → 새 종류 — 남아 있는 기록(7일)을 옮긴다 `PC-248`

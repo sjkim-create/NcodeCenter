@@ -6,11 +6,11 @@ CODE, NAME = 'LOG-01', '활동 로그'
 PRD = 'docs/prd/LOG-01_활동 로그.md'
 
 # lib/activityStore.ts TYPE_META (선언 순서 그대로)
-# 활동 종류 8종 — 지금 메뉴 기준 `PC-248` (색 = NEO UI 팔레트)
-TYPES = (('고객사', '#5F8FF0', 18), ('코드 할당', '#3A66C8', 26),
-         ('편집', '#3D96CE', 61), ('App Key', '#7BCDF1', 12),
-         ('N Key', '#6FB152', 14), ('서비스 티켓', '#8EC674', 5),
-         ('정산', '#E09A2E', 9), ('접속', '#9CA3AF', 120))
+# 활동 종류 8종 — 지금 메뉴 기준 `PC-248` · 색은 한눈에 구분되는 8색 `PC-253`
+TYPES = (('고객사', '#3B82F6', 18), ('코드 할당', '#8B5CF6', 26),
+         ('편집', '#14B8A6', 61), ('App Key', '#F59E0B', 12),
+         ('N Key', '#EC4899', 14), ('서비스 티켓', '#22C55E', 5),
+         ('정산', '#DC2626', 9), ('접속', '#9CA3AF', 120))
 
 COLOR = dict((t[0], t[1]) for t in TYPES)
 
@@ -100,8 +100,7 @@ def filters(actor='직원 전체', kind='전체', data=None, view='week'):
     seg = lambda on: 'padding:5px 12px;font-size:12.5px;%s' % ('background:#eef6ff;color:#1d4ed8;font-weight:700' if on else 'color:#6b7280')
     tog = ('<span style="display:inline-flex;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden"><span style="%s">주</span>'
            '<span style="border-left:1px solid #e5e7eb;%s">월</span></span>' % (seg(view == 'week'), seg(view == 'month')))
-    week = (tog + navbtn('&#8249;') + '<span style="font-size:13px;font-weight:700;color:#111827;min-width:190px;text-align:center">'
-            + ('2026. 10.18 (일) ~ 10.24 (토)' if view == 'week' else '2026년 10월') + '</span>' + navbtn('&#8250;')
+    week = (tog + navbtn('&#8249;') + navbtn('&#8250;')   # 보는 기간 글자는 달력 위 `PC-255`
             + '<span style="font-size:12px;padding:5px 11px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;color:#6b7280">'
             + ('이번 주' if view == 'week' else '이번 달') + '</span>'
             + '<span style="margin-left:8px">' + sel(actor, 130) + '</span>')
@@ -112,11 +111,12 @@ def filters(actor='직원 전체', kind='전체', data=None, view='week'):
         chip('<span style="display:inline-block;width:8px;height:8px;border-radius:50%%;'
              'background:%s;margin-right:5px"></span>%s %d' % (c, nm, cnt(nm)), kind == nm)
         for nm, c, n in TYPES)
-    return filter_row('기간 · 직원', week) + filter_row('활동 종류', kc)
+    return filter_row('활동 종류', kc) + filter_row('기간 · 직원', week)   # 기간 줄은 활동 종류 아래 `PC-255`
 
 
 def week_cal(data, sel_day='22', today='22'):
-    cells = ''
+    """주 보기 — 날짜를 행으로 7줄 `PC-254`: 요일 · 날짜 | 건수 | 색 막대 + 종류 · 건수(한 줄)"""
+    rows = ''
     for i, d in enumerate(WEEK_DAYS):
         items = data.get(d, [])
         future = int(d) > int(today)
@@ -124,22 +124,22 @@ def week_cal(data, sel_day='22', today='22'):
         kinds = [(nm, c, sum(1 for x in items if x[1] == nm)) for nm, c, _ in TYPES]
         kinds = [k for k in kinds if k[2]]
         bar = ''.join('<div style="width:%.1f%%;background:%s"></div>' % (n * 100.0 / len(items), c) for nm, c, n in kinds) if items else ''
-        dots = ''.join('<div style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:#4b5563;white-space:nowrap">'
-                       '<span style="width:7px;height:7px;border-radius:50%%;background:%s;flex:none"></span>%s'
-                       '<b style="margin-left:auto">%d</b></div>' % (c, nm, n) for nm, c, n in kinds)
-        num = ('<span style="font-size:18px;font-weight:800;color:#fff;background:#5f8ff0;border-radius:7px;padding:0 6px">%s</span>' % int(d)
-               if d == today else '<span style="font-size:18px;font-weight:800;color:#111827">%s</span>' % int(d))
-        cells += ('<div style="display:flex;flex-direction:column;gap:6px;min-height:200px;padding:8px 7px;border-radius:10px;'
-                  'border:1.5px solid %s;background:%s;opacity:%s">'
-                  '<div style="display:flex;align-items:baseline;gap:4px"><span style="font-size:11px;color:%s">%s</span>%s</div>'
-                  '<div style="font-size:11.5px;color:%s;font-weight:600">%s</div>%s<div style="display:flex;flex-direction:column;gap:3px">%s</div></div>'
-                  % ('#5f8ff0' if on else '#eef0f4', '#f0f5fe' if on else ('#fafbfc' if future else '#fff'), '0.55' if future else '1',
-                     '#e05b50' if i == 0 else ('#3d96ce' if i == 6 else '#9ca3af'), WEEK_NAMES[i], num,
-                     '#374151' if items else '#c0c6d0', ('%d건' % len(items)) if items else '—',
-                     ('<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;background:#f1f3f7">%s</div>' % bar) if items else '',
-                     dots))
+        tags = ''.join('<span style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:#4b5563;white-space:nowrap">'
+                       '<span style="width:8px;height:8px;border-radius:50%%;background:%s"></span>%s %d</span>' % (c, nm, n) for nm, c, n in kinds)
+        date = ('<span style="font-size:14px;color:#fff;background:#5f8ff0;border-radius:7px;padding:0 6px">10.%s</span>' % d
+                if d == today else '<span style="font-size:14px;color:#111827">10.%s</span>' % d)
+        rows += ('<div style="display:grid;grid-template-columns:64px 44px 1fr;align-items:center;gap:10px;min-height:52px;padding:8px 12px;border-radius:10px;'
+                 'border:1.5px solid %s;background:%s;opacity:%s">'
+                 '<span><span style="font-size:12px;color:%s;margin-right:6px">%s</span>%s</span>'
+                 '<span style="font-size:12px;color:%s">%s</span>'
+                 '<span style="display:flex;flex-wrap:wrap;gap:4px 12px">%s%s</span></div>'   # 색 막대 없이 점과 내용만 `PC-255`
+                 % ('#5f8ff0' if on else '#eef0f4', '#f0f5fe' if on else ('#fafbfc' if future else '#fff'), '0.55' if future else '1',
+                    '#e05b50' if i == 0 else ('#3d96ce' if i == 6 else '#9ca3af'), WEEK_NAMES[i], date,
+                    '#374151' if items else '#c0c6d0', ('%d건' % len(items)) if items else '—',
+                    '', tags))
     return ('<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px">'
-            '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px">%s</div></div>' % cells)
+            '<div style="font-size:15px;font-weight:700;color:#111827;padding:2px 4px 10px">2026. 10.18 (일) ~ 10.24 (토)</div>'   # 보는 기간 — 달력 위 `PC-255`
+            '<div style="display:flex;flex-direction:column;gap:6px">%s</div></div>' % rows)
 
 
 def month_cal(data, sel_day='22', today='22'):
@@ -155,16 +155,17 @@ def month_cal(data, sel_day='22', today='22'):
         kinds = [(nm, c, sum(1 for x in items if x[1] == nm)) for nm, c, _ in TYPES]
         kinds = [k for k in kinds if k[2]]
         bar = ''.join('<div style="width:%.1f%%;background:%s"></div>' % (n * 100.0 / len(items), c) for nm, c, n in kinds) if items else ''
-        dots = ''.join('<span style="width:8px;height:8px;border-radius:50%%;background:%s"></span>' % c for nm, c, n in kinds)
-        num = ('<span style="font-size:13.5px;font-weight:800;color:#fff;background:#5f8ff0;border-radius:7px;padding:0 6px">%d</span>' % d
-               if (mo == '10' and key == today) else '<span style="font-size:13.5px;font-weight:800;color:#111827">%d</span>' % d)
-        cells += ('<div style="display:flex;flex-direction:column;gap:4px;min-height:84px;padding:6px;border-radius:10px;border:1.5px solid %s;background:%s;opacity:%s">'
+        dots = ''.join('<span style="width:9px;height:9px;border-radius:50%%;background:%s"></span>' % c for nm, c, n in kinds)
+        num = ('<span style="font-size:13.5px;color:#fff;background:#5f8ff0;border-radius:7px;padding:0 6px">%d</span>' % d   # 보통 굵기 `PC-254`
+               if (mo == '10' and key == today) else '<span style="font-size:13.5px;color:#111827">%d</span>' % d)
+        cells += ('<div style="display:flex;flex-direction:column;gap:4px;min-height:110px;padding:6px;border-radius:10px;border:1.5px solid %s;background:%s;opacity:%s">'
                   '<div style="display:flex;align-items:baseline">%s%s</div>%s<div style="display:flex;flex-wrap:wrap;gap:3px">%s</div></div>'
                   % ('#5f8ff0' if on else '#eef0f4', '#f0f5fe' if on else ('#fafbfc' if (outside or future) else '#fff'),
                      '0.45' if outside else ('0.55' if future else '1'), num,
                      ('<span style="margin-left:auto;font-size:10.5px;font-weight:600;color:#374151">%d</span>' % len(items)) if items else '',
                      ('<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;background:#f1f3f7">%s</div>' % bar) if items else '', dots))
     return ('<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px">'
+            '<div style="font-size:15px;font-weight:700;color:#111827;padding:2px 4px 10px">2026년 10월</div>'   # 보는 기간 — 달력 위 `PC-255`
             '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:6px">%s</div>'
             '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px">%s</div></div>' % (head, cells))
 
@@ -216,7 +217,7 @@ def build():
     boards.append((
         'S1', '기본 · 주 달력 + 오늘 상세', '기본',
         '<b>ADMIN 전용</b> — 좌측 메뉴 [활동 로그] 또는 <code>DSH-01</code>의 [전체 로그]로 진입. '
-        '<b>주 달력</b>(일~토 7칸)에 그날 활동 건수와 <b>활동 종류별 색</b>(색 막대 = 그날 비율 · 색 점 = 종류별 건수)이 보이고, '
+        '<b>주 보기</b>는 날짜를 <b>행으로 7줄</b>(요일 · 날짜 | 건수 | 색 막대 + 종류 · 건수) 보이고 <code>PC-254</code>, '
         '날짜를 누르면 <b>오른쪽에 그날 활동</b>이 시간순으로 나온다 <code>PC-251</code>. 처음엔 <b>이번 주 · 오늘</b>. '
         '기록은 <b>한 달</b> 보관 <code>PC-252</code> — [&#8249;] [&#8250;]로 지난 주를 넘겨 본다. [월]을 누르면 달 단위(S6).',
         frame('LOG-01', '활동 로그', content(), height=820),
@@ -225,7 +226,7 @@ def build():
          ('[이번 주]', '클릭', '이번 주 · 오늘', ''),
          ('직원 셀렉트', '선택', '해당 직원만', '달력 · 상세 · 종류 칩 건수가 함께 바뀐다'),
          ('활동 종류 칩', '클릭', 'S2 (필터 적용)', '색 점 + 라벨 + <b>이 주 기준 건수</b> · 8종 · 토글'),
-         ('날짜 칸', '클릭', '오른쪽 상세', '고른 날은 파란 테두리 · 오늘은 날짜에 파란 배경 · 앞날은 흐리게(고를 수 없음)'),
+         ('날짜 행', '클릭', '오른쪽 상세', '고른 날은 파란 테두리 · 오늘은 날짜에 파란 배경 · 앞날은 흐리게(고를 수 없음) · 날짜 글씨는 보통 굵기 <code>PC-254</code>'),
          ('색 막대 · 색 점', '표시', '—', '그날 활동 종류별 비율과 건수 — 색은 활동 종류 색(NEO UI 팔레트)'),
          ('상세 행', '표시', '—', '시각 44 · 종류 84 · 내용(2줄) / 직원 — 열 너비 고정 <code>PC-073</code>'),
          ('[전체 삭제]', '클릭', 'S4 확인창', '빨간 테두리 버튼 · 되돌릴 수 없음')]))

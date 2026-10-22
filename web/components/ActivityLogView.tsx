@@ -89,28 +89,6 @@ export default function ActivityLogView() {
         </button>
       </div>
 
-      {/* 기간 — [주] [월] 보기 · 앞뒤 이동 · [이번 주]/[이번 달] `PC-252` */}
-      <FilterRow label="기간 · 직원">
-        <span style={{ display: "inline-flex", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
-          {(["week", "month"] as const).map((v, i) => (
-            <button key={v} type="button" onClick={() => switchView(v)}
-              style={{ border: 0, borderLeft: i ? "1px solid #e5e7eb" : 0, padding: "5px 12px", fontSize: 12.5, cursor: "pointer",
-                fontWeight: view === v ? 700 : 400, background: view === v ? "#eef6ff" : "#fff", color: view === v ? "#1d4ed8" : "#6b7280" }}>{v === "week" ? "주" : "월"}</button>
-          ))}
-        </span>
-        <button onClick={() => go(-1)} style={navBtn} title={view === "week" ? "지난 주" : "지난 달"}>‹</button>
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#111827", minWidth: 190, textAlign: "center" }}>
-          {view === "week" ? `${week.slice(0, 4)}. ${md(week)} (일) ~ ${md(weekEnd)} (토)` : `${month.slice(0, 4)}년 ${+month.slice(5, 7)}월`}
-        </span>
-        <button onClick={() => go(1)} style={navBtn} title={view === "week" ? "다음 주" : "다음 달"}>›</button>
-        <button onClick={toNow}
-          style={{ fontSize: 12, padding: "5px 11px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#6b7280", cursor: "pointer" }}>{view === "week" ? "이번 주" : "이번 달"}</button>
-        <select value={actor} onChange={(e) => setActor(e.target.value)} style={{ ...sel, minWidth: 130, marginLeft: 8 }} title="직원">
-          <option value="__ALL__">직원 전체</option>
-          {actors.map((n) => <option key={n} value={n}>{n}</option>)}
-        </select>
-      </FilterRow>
-
       {/* 활동 종류 — 건수는 보는 기간(주 · 달) · 직원 기준 */}
       <FilterRow label="활동 종류">
         <Chip active={type === "__ALL__"} onClick={() => setType("__ALL__")}>전체 {inWeek.length}</Chip>
@@ -122,57 +100,100 @@ export default function ActivityLogView() {
         ))}
       </FilterRow>
 
+      {/* 기간 — 활동 종류 아래 `PC-255` · [주] [월] 보기 · 앞뒤 이동 · [이번 주]/[이번 달] `PC-252` (보는 기간 글자는 달력 위) */}
+      <FilterRow label="기간 · 직원">
+        <span style={{ display: "inline-flex", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
+          {(["week", "month"] as const).map((v, i) => (
+            <button key={v} type="button" onClick={() => switchView(v)}
+              style={{ border: 0, borderLeft: i ? "1px solid #e5e7eb" : 0, padding: "5px 12px", fontSize: 12.5, cursor: "pointer",
+                fontWeight: view === v ? 700 : 400, background: view === v ? "#eef6ff" : "#fff", color: view === v ? "#1d4ed8" : "#6b7280" }}>{v === "week" ? "주" : "월"}</button>
+          ))}
+        </span>
+        <button onClick={() => go(-1)} style={navBtn} title={view === "week" ? "지난 주" : "지난 달"}>‹</button>
+        <button onClick={() => go(1)} style={navBtn} title={view === "week" ? "다음 주" : "다음 달"}>›</button>
+        <button onClick={toNow}
+          style={{ fontSize: 12, padding: "5px 11px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#6b7280", cursor: "pointer" }}>{view === "week" ? "이번 주" : "이번 달"}</button>
+        <select value={actor} onChange={(e) => setActor(e.target.value)} style={{ ...sel, minWidth: 130, marginLeft: 8 }} title="직원">
+          <option value="__ALL__">직원 전체</option>
+          {actors.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </FilterRow>
+
+
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 1fr)", gap: 16, marginTop: 14, alignItems: "start" }}>
-        {/* ① 주 / 월 달력 */}
+        {/* ① 주 / 월 달력 — 맨 위에 보는 기간(주 범위 · 연월) `PC-255` */}
         <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 10 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", padding: "2px 4px 10px" }}>
+            {view === "week" ? `${week.slice(0, 4)}. ${md(week)} (일) ~ ${md(weekEnd)} (토)` : `${month.slice(0, 4)}년 ${+month.slice(5, 7)}월`}
+          </div>
           {view === "month" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6, marginBottom: 6 }}>
               {WEEK.map((w, i) => <div key={w} style={{ textAlign: "center", fontSize: 11, color: i === 0 ? "#e05b50" : i === 6 ? "#3d96ce" : "#9ca3af" }}>{w}</div>)}
             </div>
           )}
+          {view === "week" ? (
+            // 주 보기 — 날짜를 **행으로** 7줄 `PC-254`: 요일 · 날짜 | 건수 | 색 점 + 종류 · 건수(색 막대 없음 `PC-255`)
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {days7.map((d, i) => {
+                const items = byDay.get(d) ?? [];
+                const on = d === day, isToday = d === today, future = d > today;
+                const counts = TYPES.map((t) => [t, items.filter((a) => a.type === t).length] as const).filter(([, n]) => n > 0);
+                return (
+                  <button key={d} type="button" onClick={() => setDay(d)} disabled={future}
+                    style={{ display: "grid", gridTemplateColumns: "64px 44px minmax(0, 1fr)", alignItems: "center", gap: 10, minHeight: 52, padding: "8px 12px", borderRadius: 10, textAlign: "left", cursor: future ? "default" : "pointer",
+                      border: `1.5px solid ${on ? "#5f8ff0" : "#eef0f4"}`, background: on ? "#f0f5fe" : future ? "#fafbfc" : "#fff", opacity: future ? 0.55 : 1 }}>
+                    <span style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                      <span style={{ fontSize: 12, color: i === 0 ? "#e05b50" : i === 6 ? "#3d96ce" : "#9ca3af" }}>{WEEK[i]}</span>
+                      <span style={{ fontSize: 14, color: isToday ? "#fff" : "#111827", background: isToday ? "#5f8ff0" : "transparent", borderRadius: 7, padding: isToday ? "0 6px" : 0 }}>{md(d)}</span>
+                    </span>
+                    <span style={{ fontSize: 12, color: items.length ? "#374151" : "#c0c6d0" }}>{items.length ? `${items.length}건` : "—"}</span>
+                    <span style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                      {/* 주 보기는 색 막대 없이 점과 내용만 `PC-255` */}
+                      {/* 종류 · 건수 — 한 줄로 */}
+                      <span style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px" }}>
+                        {counts.map(([t, n]) => (
+                          <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "#4b5563", whiteSpace: "nowrap" }}>
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: TYPE_META[t].color, flex: "none" }} />
+                            {TYPE_META[t].label} {n}
+                          </span>
+                        ))}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6 }}>
-            {cells.map((d, i) => {
+            {cells.map((d) => {
               const items = byDay.get(d) ?? [];
               const on = d === day, isToday = d === today, future = d > today;
-              const outside = view === "month" && (d < month || d > monthEnd);   // 그 달 밖 날
-              const compact = view === "month";
+              const outside = d < month || d > monthEnd;   // 그 달 밖 날
               const counts = TYPES.map((t) => [t, items.filter((a) => a.type === t).length] as const).filter(([, n]) => n > 0);
               return (
                 <button key={d} type="button" onClick={() => setDay(d)} disabled={future}
-                  style={{ display: "flex", flexDirection: "column", gap: compact ? 4 : 6, minHeight: compact ? 92 : 210, padding: compact ? "6px 6px" : "8px 7px", borderRadius: 10, textAlign: "left", cursor: future ? "default" : "pointer",
+                  style={{ display: "flex", flexDirection: "column", gap: 4, minHeight: 118,   /* 월 칸 — 점 8개(4개씩 2줄)까지 들어가게 `PC-253` */ padding: "6px 6px", borderRadius: 10, textAlign: "left", cursor: future ? "default" : "pointer",
                     border: `1.5px solid ${on ? "#5f8ff0" : "#eef0f4"}`, background: on ? "#f0f5fe" : future || outside ? "#fafbfc" : "#fff", opacity: future ? 0.55 : outside ? 0.45 : 1 }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-                    {!compact && <span style={{ fontSize: 11, color: i === 0 ? "#e05b50" : i === 6 ? "#3d96ce" : "#9ca3af" }}>{WEEK[i]}</span>}
-                    <span style={{ fontSize: compact ? 13.5 : 18, fontWeight: 800, color: isToday ? "#fff" : "#111827", background: isToday ? "#5f8ff0" : "transparent", borderRadius: 7, padding: isToday ? "0 6px" : 0 }}>{+d.slice(8, 10)}</span>
-                    {compact && items.length > 0 && <span style={{ marginLeft: "auto", fontSize: 10.5, color: "#374151", fontWeight: 600 }}>{items.length}</span>}
+                    {/* 날짜는 보통 굵기 `PC-254` */}
+                    <span style={{ fontSize: 13.5, color: isToday ? "#fff" : "#111827", background: isToday ? "#5f8ff0" : "transparent", borderRadius: 7, padding: isToday ? "0 6px" : 0 }}>{+d.slice(8, 10)}</span>
+                    {items.length > 0 && <span style={{ marginLeft: "auto", fontSize: 10.5, color: "#374151" }}>{items.length}</span>}
                   </div>
-                  {!compact && <div style={{ fontSize: 11.5, color: items.length ? "#374151" : "#c0c6d0", fontWeight: 600 }}>{items.length ? `${items.length}건` : "—"}</div>}
                   {/* 종류별 색 막대 — 그날 비율 */}
                   {items.length > 0 && (
                     <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", background: "#f1f3f7" }}>
                       {counts.map(([t, n]) => <div key={t} title={`${TYPE_META[t].label} ${n}건`} style={{ width: `${(n / items.length) * 100}%`, background: TYPE_META[t].color }} />)}
                     </div>
                   )}
-                  {/* 종류별 색 점 · 건수 — 월 보기는 점만(칸이 좁다) */}
-                  {compact ? (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                      {counts.map(([t, n]) => <span key={t} title={`${TYPE_META[t].label} ${n}건`} style={{ width: 8, height: 8, borderRadius: "50%", background: TYPE_META[t].color }} />)}
-                    </div>
-                  ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                    {counts.map(([t, n]) => (
-                      <span key={t} title={TYPE_META[t].label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: "#4b5563", whiteSpace: "nowrap", overflow: "hidden" }}>
-                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: TYPE_META[t].color, flex: "none" }} />
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{TYPE_META[t].label}</span>
-                        <b style={{ marginLeft: "auto" }}>{n}</b>
-                      </span>
-                    ))}
+                  {/* 종류별 색 점 — 칸이 좁아 점만(마우스를 올리면 종류 · 건수) */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 9px)", gap: 4, marginTop: 2 }}>
+                    {counts.map(([t, n]) => <span key={t} title={`${TYPE_META[t].label} ${n}건`} style={{ width: 9, height: 9, borderRadius: "50%", background: TYPE_META[t].color }} />)}
                   </div>
-                  )}
                 </button>
               );
             })}
           </div>
+          )}
         </div>
 
         {/* ② 고른 날의 상세 */}
