@@ -149,7 +149,7 @@ def item_table(name='웅진씽크빅-17', idxby='book', rng='431~464', cnt=35, m
 
 def content(sel='웅진씽크빅-17', fidx='전체', q='', rows=None, n=8, **kw):
     # Ncode 정보(INF-01) 4번째 탭 안에서 열린다
-    return ('<div style="min-width:0">' + tabs(3) + banner() + kpis() + bar(fidx, q, n)
+    return ('<div style="min-width:0">' + tabs(4)   # 티켓 정보 탭이 앞에 들어와 OID 는 5번째 `PC-246` + banner() + kpis() + bar(fidx, q, n)
             + '<div style="display:grid;grid-template-columns:300px 1fr;gap:12px;'
               'align-items:start">' + company_col(sel, rows) + '<div style="min-width:0">'
             + item_table(**kw) + '</div></div></div>')

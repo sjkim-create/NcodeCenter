@@ -6,7 +6,7 @@ CODE, NAME = 'INF-01', '코드 관리 정보'
 PRD = 'docs/prd/INF-01_코드 관리 정보.md'
 
 # 펜 모델은 교재 편집이 쓰는 **참조 목록**이라 여기서 공용 관리한다 `PC-101`
-TABS = ('Code Info', '확장 언어 슬롯', '발급 구조', 'OID 관리대장', '펜 모델', '알아야 할 사항')
+TABS = ('Code Info', '확장 언어 슬롯', '발급 구조', '티켓 정보', 'OID 관리대장', '펜 모델', '알아야 할 사항')   # 티켓 정보 `PC-246`
 KEYS = ('owner', 'bookcode', 'page', 'length')
 KEYS4 = ('owner', 'bookcode', 'page', 'xy')   # PDS4(S-code)는 length 대신 xy `PC-042`
 
@@ -232,6 +232,46 @@ def issue_struct():
                     '<b>X·Y 좌표</b>로 지정됩니다. 겹침 없이 발급하는 것이 최우선.</p>' % sobp)))
 
 
+def ticket_info():
+    """티켓 정보 — App Key · N Key · 서비스 티켓 용도 비교 `PC-245` `PC-246` (web/components/TicketInfoView.tsx)"""
+    rows = (('쓰는 곳 · 쓰는 사람', '<b>Ncode SDK</b> 고객사 · <b>Caster U</b> 고객', '<b>Caster Lite</b>(오프라인) · CasterN 오프라인(HYBRID)', '<b>casterN · 폼솔루션</b> 온라인 서비스 고객사'),
+            ('형태', '계정 + App Key + 계정 소속 티켓', '.nkey 파일(Book 2권 이상이면 .zip)', '키 아님 — 고객사 계정과 매칭하는 승인 기준'),
+            ('계정', '<b>필요</b>(계정 생성 = App Key 자동)', '필요 없음', '고객사 서비스 계정과 매칭'),
+            ('권한 · 설정', '[권한] 탭 Caster U 권한 20항목', '프로필 LEGACY / HYBRID(CasterN 권한 6개)', '서비스 casterN / 폼솔루션'),
+            ('기간', '티켓마다 사용기간', 'Issued Time · Valid Until Time', '티켓마다 사용기간'),
+            ('정산', '티켓 4종 + 연간 라이선스', '티켓 4종 + 연간 라이선스', '티켓 4종'),
+            ('발급 · 지정 화면', 'App Key 관리', 'N Key 관리', '고객사 관리 ▸ 서비스 티켓'))
+    th = 'text-align:center;padding:9px 12px;background:#eef0f4;color:#374151;font-weight:700;font-size:12px'
+    td = 'padding:9px 12px;border-top:1px solid #f1f3f6;vertical-align:top;font-size:12.5px'
+    tbl = ('<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden"><table style="width:100%%;border-collapse:collapse">'
+           '<tr><th style="%s;width:130px">구분</th><th style="%s">App Key</th><th style="%s">N Key</th><th style="%s">서비스 티켓</th></tr>%s</table></div>'
+           % (th, th, th, th, ''.join('<tr><td style="%s;font-weight:700">%s</td><td style="%s">%s</td><td style="%s">%s</td><td style="%s">%s</td></tr>'
+                                      % (td, k, td, a, td, n, td, v) for k, a, n, v in rows)))
+    # App Key · 계정 · 티켓 관계 `PC-247`
+    box = lambda bg, fg, t, d: ('<div style="background:%s;color:%s;border-radius:9px;padding:9px 12px;min-width:150px"><b>%s</b><br><span style="font-size:12px">%s</span></div>' % (bg, fg, t, d))
+    relc = ('<div style="margin-top:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;font-size:12.5px;line-height:1.8">'
+            '<b style="font-size:14px">App Key — 고객사 · 계정 · App Key · 티켓 관계</b>'
+            '<div style="display:flex;gap:10px;align-items:center;margin-top:10px">' + box('#f3f4f6', '#374151', '고객사', '계정 여러 개') + '→' +
+            box('#f5f3ff', '#6d28d9', '계정', '고객사 안에 여러 개') + '→<div style="display:flex;flex-direction:column;gap:8px">' +
+            box('#eef6ff', '#1d4ed8', 'App Key 1개', '계정 생성 때 자동 · 계정당 1개') + box('#ecfdf5', '#047857', '티켓 여러 개', '계정에 붙는다') + '</div></div>'
+            '<ul style="margin:10px 0 0;padding-left:18px"><li>App Key 는 고객사의 <b>계정마다 1개</b></li>'
+            '<li>티켓은 App Key 가 아니라 <b>계정에 매칭</b> — 한 계정에 여러 개 발급</li>'
+            '<li>SOBP 가 바뀌면 App Key 는 그대로, 티켓만 더 발급</li></ul></div>')
+    pick = ('<div style="margin-top:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;font-size:12.5px;line-height:1.9">'
+            '<b style="font-size:14px">어떤 티켓을 주나</b><ul style="margin:6px 0 0;padding-left:18px">'
+            '<li>Ncode SDK → <b>App Key</b></li><li>Caster U → 계정 + Caster U 권한을 켠 <b>App Key</b></li>'
+            '<li>Caster Lite → <b>N Key</b>(LEGACY)</li><li>CasterN 오프라인 → <b>N Key</b>(HYBRID)</li>'
+            '<li>casterN · 폼솔루션 온라인 → <b>서비스 티켓</b></li></ul></div>')
+    sec = ('<div style="margin-top:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;font-size:12.5px">'
+           '<b style="font-size:14px">N Key — 프로필 · 코드 타입별 쓸 수 있는 Section</b>'
+           '<div style="margin-top:8px;font-family:ui-monospace,monospace;line-height:1.9">LEGACY · PDS2 S 0·1·2·3·14 / PDS3 S 0·3·14<br>'
+           'HYBRID · PDS2 S 0·3·14 / PDS3 S 0·3·5·10·11·14·15</div></div>')
+    common = ('<div style="margin-top:16px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:14px 16px;font-size:12.5px;color:#1e3a8a;line-height:1.9">'
+              '<b>세 티켓 공통</b> — 할당된 SOBP 안에서만 · 세 티켓끼리 SOBP 겹침 불가 · 지우지 않고 [티켓 수정] · 사용기간은 티켓에만</div>')
+    return ('<p style="margin:0 0 12px;color:#6b7280;font-size:13px">고객사가 코드를 직접 쓸 때 주는 티켓은 세 가지입니다. '
+            '<b>사내 편집에는 티켓이 필요 없습니다.</b></p>' + tbl + relc + pick + sec + common)
+
+
 def must_know():
     ul = 'margin:0;padding-left:18px;font-size:12.5px;color:#374151;line-height:1.9'
     return ('<div style="max-width:1000px">'
@@ -275,9 +315,9 @@ def must_know():
 
 
 def content(tab=0, flt='all', body=None):
-    #   tab 3 = OID 관리대장(INF-04 에서 그린다) · tab 4 = 펜 모델 · tab 5 = 알아야 할 사항
+    #   tab 3 = 티켓 정보 `PC-246` · tab 4 = OID 관리대장(INF-04 에서 그린다) · tab 5 = 펜 모델 · tab 6 = 알아야 할 사항
     if body is None:
-        body = {0: range_table, 1: lambda: lang_slots(flt), 2: issue_struct, 5: must_know}[tab]()
+        body = {0: range_table, 1: lambda: lang_slots(flt), 2: issue_struct, 3: ticket_info, 6: must_know}[tab]()
     return tabs(tab) + body
 
 
@@ -395,7 +435,7 @@ def build():
         '<b>기본</b>(코드에서 관리 · 16종)과 <b>추가한 모델</b>을 나눠 보여 주며, '
         '<b>추가분만 지울 수 있다</b>. '
         '⚠ 서버 저장소가 없어 추가분은 <b>브라우저 단위</b>다 — 팀 전체 반영은 기본 목록에 넣어 배포한다.',
-        frame('INF-01', '코드 관리 정보', content(4, body=pen_body()), height=620),
+        frame('INF-01', '코드 관리 정보', content(5, body=pen_body()), height=620),
         [('새 펜 모델명 + [＋ 추가]', '입력·클릭', '목록에 추가',
           'Enter 로도 추가된다 · 이미 있으면 <b>이미 있는 모델입니다.</b>'),
          ('추가한 모델의 ✕', '클릭', '확인창 → 삭제',
@@ -406,10 +446,20 @@ def build():
           '거기서 추가해도 이 목록에 들어온다 <code>PC-100</code>')]))
 
     boards.append((
+        'S7', '티켓 정보', '기본',
+        '<b>App Key · N Key · 서비스 티켓</b>이 각각 무엇에 쓰이는지 비교한다 <code>PC-245</code> <code>PC-246</code> — '
+        '쓰는 곳 · 형태 · 계정 · 권한 · 기간 · 정산 · 발급 화면, 「어떤 티켓을 주나」, N Key 프로필별 Section 표(발급 화면과 같은 값), 세 티켓 공통 규칙. '
+        '읽기 전용이다.',
+        frame('INF-01', '코드 관리 정보', content(3), height=1250),
+        [('App Key 관계 카드', '조회', '—', '고객사 → 계정(여러 개) → <b>App Key 1개</b>(자동) + <b>티켓 여러 개</b>(계정 소속) <code>PC-247</code>'),
+         ('발급 · 지정 화면 링크', '클릭', '<code>TKT-01</code> · <code>TKT-02</code> · <code>MEM-02</code>', 'App Key 관리 · N Key 관리 · 고객사 관리'),
+         ('N Key Section 표', '조회', '—', '발급 화면이 쓰는 값 그대로 — LEGACY / HYBRID × PDS2 / PDS3 <code>PC-219</code>')]))
+
+    boards.append((
         'S6', '알아야 할 사항', '기본',
         'PRD §4.4 — 코드 발급·편집 운영에서 <b>반드시 알아야 할 기준</b>을 번호 붙은 섹션으로 정리한다. '
         '단가의 정본은 <code>P-16</code>이며 고객사별 단가는 <code>MEM-02</code>에서 지정한다.',
-        frame('INF-01', '코드 관리 정보', content(5), height=900),
+        frame('INF-01', '코드 관리 정보', content(6), height=900),
         [('① 편집 비용 산출', '조회', '—', '소리펜·필기펜 모두 <b>페이지 수 + 심볼 갯수</b> · <b>심볼 갯수 = 작업량</b>'),
          ('② 산출물·저장 위치', '조회', '—',
           'mp3·ncp2 = <b>디바이스</b>(파랑) / nproj·PDF·JPG·썸네일 = <b>서버 등록</b>(초록)'),
@@ -419,8 +469,8 @@ def build():
          ('단가 지정하러 가기', '이동', '<code>MEM-01</code> → <code>MEM-02</code>', ''),
          ('SOBP 실시간 발급', '—', '<b>미구현</b>', '⚠ §7 — 이 메뉴의 탭으로 넣을지 협의')]))
 
-    intro = ('코드 발급·편집 업무에 필요한 <b>참조 정보</b>를 <b>밑줄 탭 6개</b>로 제공한다 — '
-             'Code Info(Section별 발급 범위 — PDS2·PDS3·PDS4) · 확장 언어 슬롯 · 발급 구조 · '
+    intro = ('코드 발급·편집 업무에 필요한 <b>참조 정보</b>를 <b>밑줄 탭 7개</b>로 제공한다 — '
+             'Code Info(Section별 발급 범위 — PDS2·PDS3·PDS4) · 확장 언어 슬롯 · 발급 구조 · <b>티켓 정보</b> `PC-246` · '
              'OID 관리대장 · <b>펜 모델</b> · 알아야 할 사항. '
              '대부분 <b>참조 전용</b>이고 <b>[펜 모델] 탭만 목록을 고칠 수 있다</b> <code>PC-101</code> — '
              '교재(책) 등록·수정이 쓰는 참조 목록을 여기서 공용으로 관리한다. '

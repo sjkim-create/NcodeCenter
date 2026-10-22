@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import TicketInfoView from "./TicketInfoView";
 import { S } from "./ui";
 import NcodeInfoView from "./NcodeInfoView";
 import NcodeGuideView from "./NcodeGuideView";
@@ -28,7 +29,8 @@ const KEYS4 = ["owner", "bookcode", "page", "xy"] as const;
 
 // OID 관리대장은 별도 메뉴가 아니라 이 화면의 탭으로 둔다 (PC-034)
 // 펜 모델은 교재 편집이 쓰는 **참조 목록**이라 정보 화면에서 공용 관리한다 `PC-101`
-const TABS = ["Code Info", "확장 언어 슬롯", "발급 구조", "OID 관리대장", "펜 모델", "알아야 할 사항"];
+// 티켓 정보 — App Key · N Key · 서비스 티켓 용도 `PC-246`
+const TABS = ["Code Info", "확장 언어 슬롯", "발급 구조", "티켓 정보", "OID 관리대장", "펜 모델", "알아야 할 사항"];
 
 export default function InfoView() {
   const [tab, setTab] = useState(0);
@@ -43,9 +45,10 @@ export default function InfoView() {
       {tab === 0 && <RangeTable />}
       {tab === 1 && <LangSlotView embedded />}
       {tab === 2 && <NcodeInfoView embedded />}
-      {tab === 3 && <OidView embedded />}
-      {tab === 4 && <PenModelsView embedded />}
-      {tab === 5 && <NcodeGuideView embedded />}
+      {tab === 3 && <TicketInfoView />}
+      {tab === 4 && <OidView embedded />}
+      {tab === 5 && <PenModelsView embedded />}
+      {tab === 6 && <NcodeGuideView embedded />}
     </div>
   );
 }
