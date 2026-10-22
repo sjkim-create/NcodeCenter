@@ -6,63 +6,62 @@ import { useAuth, currentUser } from "@/lib/authStore";
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 const ymd = (iso: string) => iso.slice(0, 10);
-const ym = (iso: string) => iso.slice(0, 7);
 const hm = (iso: string) => iso.slice(11, 16);
+
+// 활동 로그 — **주 / 월 달력** + 오른쪽 상세 `PC-251` `PC-252`
+//   왼쪽: [주] = 한 주(일~토) 7칸 / [월] = 그 달 달력(앞뒤 주 포함 6줄). 칸마다 건수와 **활동 종류별 색**(색 막대 + 색 점)
+//   오른쪽: 고른 날의 활동을 시간순으로(시각 · 종류 · 내용 · 직원)
+//   기록은 한 달 보관 — ‹ › 로 지난 주 · 지난 달을 넘겨 본다. 처음엔 이번 주 · 오늘
+const DAY_MS = 86400000;
+const kstToday = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+const addDays = (d: string, n: number) => new Date(Date.parse(d + "T00:00:00Z") + n * DAY_MS).toISOString().slice(0, 10);
+const weekStartOf = (d: string) => addDays(d, -new Date(d + "T00:00:00Z").getUTCDay());   // 그 주 일요일
+const md = (d: string) => `${+d.slice(5, 7)}.${+d.slice(8, 10)}`;
+const monthStartOf = (d: string) => d.slice(0, 8) + "01";
+const addMonths = (d: string, n: number) => {   // 그 달 1일 기준
+  const y = +d.slice(0, 4), m = +d.slice(5, 7) - 1 + n;
+  return new Date(Date.UTC(y + Math.floor(m / 12), ((m % 12) + 12) % 12, 1)).toISOString().slice(0, 10);
+};
 
 export default function ActivityLogView() {
   const me = currentUser(useAuth());
   const all = useActivities();
   // ⚠ 훅은 조건부 return 앞에서 모두 선언 (로그인 전/후 훅 개수 불일치 크래시 방지)
+  const today = kstToday();
   const [type, setType] = useState<ActivityType | "__ALL__">("__ALL__");
   const [actor, setActor] = useState<string>("__ALL__");
-  const [day, setDay] = useState<string>("__ALL__");      // YYYY-MM-DD · 하루씩 본다 `PC-071`
-  // 기본은 **이번 달**만 본다 — 양이 많아 전체를 한 번에 펼치지 않는다 `PC-069`
-  const thisMonth = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);   // KST
-  const [year, setYear] = useState<string>(thisMonth.slice(0, 4));
-  const [mm, setMm] = useState<string>(thisMonth.slice(5, 7));   // "01"~"12" · "__ALL__" = 그 해 전체
-  const month = year === "__ALL__" ? "__ALL__" : mm === "__ALL__" ? `${year}-` : `${year}-${mm}`;
+  const [view, setView] = useState<"week" | "month">("week");     // 주 / 월 보기 `PC-252`
+  const [week, setWeek] = useState<string>(weekStartOf(today));   // 주 보기 — 그 주 일요일
+  const [month, setMonth] = useState<string>(monthStartOf(today)); // 월 보기 — 그 달 1일
+  const [day, setDay] = useState<string>(today);                  // 오른쪽 상세에 보는 날
 
   const actors = useMemo(() => [...new Set(all.map((a) => a.actor))].sort(), [all]);
-  const years = useMemo(() => [...new Set(all.map((a) => a.at.slice(0, 4)))].sort().reverse(), [all]);
-
-  // 기간·직원·종류까지 거른 결과 — 일자 목록은 여기서 뽑는다 `PC-071`
-  const inRange = useMemo(
-    () => all
-      .filter((a) => type === "__ALL__" || a.type === type)
-      .filter((a) => actor === "__ALL__" || a.actor === actor)
-      .filter((a) => month === "__ALL__" || (month.endsWith("-") ? a.at.startsWith(month) : ym(a.at) === month))
-      .sort((a, b) => (a.at < b.at ? 1 : -1)),
-    [all, type, actor, month]
-  );
-  // 활동이 있는 날짜만 최신순 — 없는 날은 고를 수 없다
-  const days = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const a of inRange) m.set(ymd(a.at), (m.get(ymd(a.at)) ?? 0) + 1);
-    return [...m.entries()].sort((x, y) => (x[0] < y[0] ? 1 : -1));
-  }, [inRange]);
-  // 고른 날짜가 목록에 없으면 가장 최근 날짜를 본다
-  const curDay = day !== "__ALL__" && days.some(([d]) => d === day) ? day : "__ALL__";
-  const dayIdx = days.findIndex(([d]) => d === curDay);
-  const filtered = useMemo(
-    () => (curDay === "__ALL__" ? inRange : inRange.filter((a) => ymd(a.at) === curDay)),
-    [inRange, curDay]
-  );
-
-  // 월 → 일자 → 활동 그룹
-  const grouped = useMemo(() => {
-    const byMonth = new Map<string, Map<string, Activity[]>>();
-    for (const a of filtered) {
-      const m = ym(a.at), d = ymd(a.at);
-      if (!byMonth.has(m)) byMonth.set(m, new Map());
-      const days = byMonth.get(m)!;
-      if (!days.has(d)) days.set(d, []);
-      days.get(d)!.push(a);
-    }
-    return byMonth;
-  }, [filtered]);
-
-  const typeCount = (t: ActivityType) => all.filter((a) => a.type === t && (actor === "__ALL__" || a.actor === actor) && (month === "__ALL__" || (month.endsWith("-") ? a.at.startsWith(month) : ym(a.at) === month))).length;
-  const monthLabel = (m: string) => `${m.slice(0, 4)}년 ${+m.slice(5, 7)}월`;
+  const days7 = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(week, i)), [week]);
+  const weekEnd = days7[6];
+  // 월 보기 칸 — 그 달 1일이 든 주 일요일부터 6주(42칸)
+  const monthEnd = addDays(addMonths(month, 1), -1);
+  const cells = useMemo(() => view === "week" ? days7 : Array.from({ length: 42 }, (_, i) => addDays(weekStartOf(month), i)), [view, days7, month]);
+  // 보는 기간 — 주 = 그 주, 월 = 그 달
+  const from = view === "week" ? week : month, to = view === "week" ? weekEnd : monthEnd;
+  // 기간 · 직원으로 거른 것(종류 칩 건수용) → 종류까지 거른 것(달력 · 상세용)
+  const inWeek = useMemo(() => all.filter((a) => ymd(a.at) >= from && ymd(a.at) <= to)
+    .filter((a) => actor === "__ALL__" || a.actor === actor), [all, from, to, actor]);
+  const shown = useMemo(() => inWeek.filter((a) => type === "__ALL__" || a.type === type), [inWeek, type]);
+  const byDay = useMemo(() => {
+    const m = new Map<string, Activity[]>();
+    for (const a of shown) { const d = ymd(a.at); if (!m.has(d)) m.set(d, []); m.get(d)!.push(a); }
+    for (const l of m.values()) l.sort((x, y) => (x.at < y.at ? 1 : -1));
+    return m;
+  }, [shown]);
+  const typeCount = (t: ActivityType) => inWeek.filter((a) => a.type === t).length;
+  const goWeek = (n: number) => { const w = addDays(week, n * 7); setWeek(w); setDay(w <= today && today <= addDays(w, 6) ? today : w); };
+  const goMonth = (n: number) => { const m = addMonths(month, n); setMonth(m); setDay(monthStartOf(today) === m ? today : m); };
+  const go = (n: number) => (view === "week" ? goWeek(n) : goMonth(n));
+  const toNow = () => { setWeek(weekStartOf(today)); setMonth(monthStartOf(today)); setDay(today); };
+  // 보기를 바꾸면 고른 날이 든 주 / 달로
+  const switchView = (v: "week" | "month") => { setView(v); setWeek(weekStartOf(day)); setMonth(monthStartOf(day)); };
+  const dayItems = byDay.get(day) ?? [];
+  const TYPES = Object.keys(TYPE_META) as ActivityType[];
 
   // 활동 로그는 ADMIN 전용 (예: sj.kim) — 모든 훅 선언 이후에 분기
   if (me?.role !== "ADMIN") {
@@ -78,10 +77,10 @@ export default function ActivityLogView() {
   }
 
   return (
-    <div style={{ padding: "20px 22px", maxWidth: 1000 }}>
+    <div style={{ padding: "20px 22px", maxWidth: 1280 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 14px" }}>
         <p style={{ color: "#6b7280", fontSize: 13, margin: 0, flex: 1 }}>
-          내부 직원 활동을 <b>월별 · 일자별</b>로 확인. 기본은 <b>이번 달</b>이며 연도·월·직원으로 고른다. · 전체 {all.length.toLocaleString()}건
+          내부 직원 활동을 <b>주 · 월 달력</b>으로 보고, 날짜를 누르면 오른쪽에 그날 활동이 나온다. 기록은 <b>한 달</b> 보관 · 전체 {all.length.toLocaleString()}건
         </p>
         <button
           onClick={() => { if (confirm("활동 로그를 전부 삭제하고 새로 기록하시겠습니까? (되돌릴 수 없습니다)")) activityStore.clear(); }}
@@ -90,48 +89,32 @@ export default function ActivityLogView() {
         </button>
       </div>
 
-      {/* 기간·직원은 **셀렉트** — 데이터가 많아 목록에서 고르는 편이 낫다 `PC-069` */}
+      {/* 기간 — [주] [월] 보기 · 앞뒤 이동 · [이번 주]/[이번 달] `PC-252` */}
       <FilterRow label="기간 · 직원">
-        <select value={year} onChange={(e) => setYear(e.target.value)} style={sel} title="연도">
-          <option value="__ALL__">전체 연도</option>
-          {years.map((y) => <option key={y} value={y}>{y}년</option>)}
-          {!years.includes(thisMonth.slice(0, 4)) && <option value={thisMonth.slice(0, 4)}>{thisMonth.slice(0, 4)}년</option>}
-        </select>
-        <select value={mm} onChange={(e) => setMm(e.target.value)} disabled={year === "__ALL__"} style={{ ...sel, ...(year === "__ALL__" ? { background: "#f3f4f6", color: "#9ca3af" } : {}) }} title="월">
-          <option value="__ALL__">전체 월</option>
-          {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map((m) => (
-            <option key={m} value={m}>{+m}월</option>
+        <span style={{ display: "inline-flex", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
+          {(["week", "month"] as const).map((v, i) => (
+            <button key={v} type="button" onClick={() => switchView(v)}
+              style={{ border: 0, borderLeft: i ? "1px solid #e5e7eb" : 0, padding: "5px 12px", fontSize: 12.5, cursor: "pointer",
+                fontWeight: view === v ? 700 : 400, background: view === v ? "#eef6ff" : "#fff", color: view === v ? "#1d4ed8" : "#6b7280" }}>{v === "week" ? "주" : "월"}</button>
           ))}
-        </select>
-        <select value={actor} onChange={(e) => setActor(e.target.value)} style={{ ...sel, minWidth: 130 }} title="직원">
+        </span>
+        <button onClick={() => go(-1)} style={navBtn} title={view === "week" ? "지난 주" : "지난 달"}>‹</button>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#111827", minWidth: 190, textAlign: "center" }}>
+          {view === "week" ? `${week.slice(0, 4)}. ${md(week)} (일) ~ ${md(weekEnd)} (토)` : `${month.slice(0, 4)}년 ${+month.slice(5, 7)}월`}
+        </span>
+        <button onClick={() => go(1)} style={navBtn} title={view === "week" ? "다음 주" : "다음 달"}>›</button>
+        <button onClick={toNow}
+          style={{ fontSize: 12, padding: "5px 11px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#6b7280", cursor: "pointer" }}>{view === "week" ? "이번 주" : "이번 달"}</button>
+        <select value={actor} onChange={(e) => setActor(e.target.value)} style={{ ...sel, minWidth: 130, marginLeft: 8 }} title="직원">
           <option value="__ALL__">직원 전체</option>
           {actors.map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
-        <button onClick={() => { setYear(thisMonth.slice(0, 4)); setMm(thisMonth.slice(5, 7)); setActor("__ALL__"); setType("__ALL__"); setDay("__ALL__"); }}
-          style={{ fontSize: 12, padding: "5px 11px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#6b7280", cursor: "pointer" }}>
-          이번 달
-        </button>
       </FilterRow>
 
-      {/* 일자 — 하루씩 넘겨 본다. 활동이 있는 날짜만 나온다 `PC-071` */}
-      <FilterRow label="일자">
-        <button onClick={() => { const n = days[dayIdx + 1]; if (n) setDay(n[0]); }} disabled={curDay === "__ALL__" || dayIdx >= days.length - 1}
-          style={{ ...navBtn, ...(curDay === "__ALL__" || dayIdx >= days.length - 1 ? navOff : {}) }} title="이전 날">‹</button>
-        <select value={curDay} onChange={(e) => setDay(e.target.value)} style={{ ...sel, minWidth: 168 }} title="일자">
-          <option value="__ALL__">이 기간 전체 ({inRange.length.toLocaleString()}건 · {days.length}일)</option>
-          {days.map(([d, n]) => <option key={d} value={d}>{d} ({WEEK[new Date(d).getDay()]}) · {n}건</option>)}
-        </select>
-        <button onClick={() => { const p2 = days[dayIdx - 1]; if (p2) setDay(p2[0]); }} disabled={curDay === "__ALL__" || dayIdx <= 0}
-          style={{ ...navBtn, ...(curDay === "__ALL__" || dayIdx <= 0 ? navOff : {}) }} title="다음 날">›</button>
-        {curDay === "__ALL__" && days.length > 0 && (
-          <button onClick={() => setDay(days[0][0])} style={{ ...navBtn, width: "auto", padding: "5px 11px" }}>하루씩 보기</button>
-        )}
-      </FilterRow>
-
-      {/* 활동 종류 필터 */}
+      {/* 활동 종류 — 건수는 보는 기간(주 · 달) · 직원 기준 */}
       <FilterRow label="활동 종류">
-        <Chip active={type === "__ALL__"} onClick={() => setType("__ALL__")}>전체</Chip>
-        {(Object.keys(TYPE_META) as ActivityType[]).map((t) => (
+        <Chip active={type === "__ALL__"} onClick={() => setType("__ALL__")}>전체 {inWeek.length}</Chip>
+        {TYPES.map((t) => (
           <Chip key={t} active={type === t} onClick={() => setType(type === t ? "__ALL__" : t)}>
             <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: TYPE_META[t].color, marginRight: 5 }} />
             {TYPE_META[t].label} {typeCount(t)}
@@ -139,57 +122,83 @@ export default function ActivityLogView() {
         ))}
       </FilterRow>
 
-      <div style={{ fontSize: 12, color: "#9ca3af", margin: "16px 0 10px" }}>조건에 맞는 활동 <b style={{ color: "#374151" }}>{filtered.length.toLocaleString()}</b>건</div>
-
-      {filtered.length === 0 ? (
-        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 40, textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
-          해당 조건의 활동이 없습니다. <div style={{ fontSize: 11.5, marginTop: 6 }}>고객사 수정·코드 할당·프로젝트 등록·티켓 발급·교재 추가/작업·로그인 시 자동 기록됩니다.</div>
-        </div>
-      ) : (
-        [...grouped.entries()].map(([m, days]) => {
-          const mCount = [...days.values()].reduce((s, d) => s + d.length, 0);
-          return (
-            <div key={m} style={{ marginBottom: 20 }}>
-              {/* 월 헤더 */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, color: "#111827" }}>{monthLabel(m)}</div>
-                <span style={{ fontSize: 11.5, color: "#9ca3af" }}>{mCount}건</span>
-                <div style={{ flex: 1, height: 1, background: "#eef0f4" }} />
-              </div>
-
-              {[...days.entries()].map(([d, items]) => {
-                const dt = new Date(d + "T00:00:00");
-                return (
-                  <div key={d} style={{ display: "grid", gridTemplateColumns: "92px 1fr", gap: 14, marginBottom: 12 }}>
-                    {/* 일자 */}
-                    <div style={{ textAlign: "right", paddingTop: 6 }}>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: "#374151", lineHeight: 1 }}>{+d.slice(8, 10)}</div>
-                      <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{d.slice(0, 7)} · {WEEK[dt.getDay()]}요일</div>
-                      <div style={{ fontSize: 10.5, color: "#c0c6d0", marginTop: 2 }}>{items.length}건</div>
-                    </div>
-                    {/* 활동 카드 */}
-                    <div style={{ background: "#fff", border: "1px solid #eef0f4", borderRadius: 12, padding: "6px 4px" }}>
-                      {items.map((a, i) => {
-                        const meta = TYPE_META[a.type];
-                        return (
-                          // 시간 · 종류 · 내용 · 사용자 — **열 너비를 고정**해 목록이 흐트러지지 않게 한다 `PC-073`
-                          //   내용은 2줄까지 접고(그 이상은 …), 줄간은 넉넉히(1.7) 둔다.
-                          <div key={a.id} style={{ display: "grid", gridTemplateColumns: "44px 92px 1fr 108px", alignItems: "start", gap: 10, padding: "9px 12px", borderTop: i ? "1px solid #f4f6f9" : "none" }}>
-                            <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11.5, color: "#9ca3af", paddingTop: 3 }}>{hm(a.at)}</span>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: meta.color, borderRadius: 6, padding: "3px 0", marginTop: 1, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={meta.label}>{meta.label}</span>
-                            <span style={{ fontSize: 13, color: "#111827", lineHeight: 1.7, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" }} title={a.detail}>{a.detail}</span>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "#6b7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingTop: 2 }} title={a.actor}><span style={avatar}>{a.actor[0]}</span>{a.actor}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 1fr)", gap: 16, marginTop: 14, alignItems: "start" }}>
+        {/* ① 주 / 월 달력 */}
+        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 10 }}>
+          {view === "month" && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6, marginBottom: 6 }}>
+              {WEEK.map((w, i) => <div key={w} style={{ textAlign: "center", fontSize: 11, color: i === 0 ? "#e05b50" : i === 6 ? "#3d96ce" : "#9ca3af" }}>{w}</div>)}
             </div>
-          );
-        })
-      )}
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6 }}>
+            {cells.map((d, i) => {
+              const items = byDay.get(d) ?? [];
+              const on = d === day, isToday = d === today, future = d > today;
+              const outside = view === "month" && (d < month || d > monthEnd);   // 그 달 밖 날
+              const compact = view === "month";
+              const counts = TYPES.map((t) => [t, items.filter((a) => a.type === t).length] as const).filter(([, n]) => n > 0);
+              return (
+                <button key={d} type="button" onClick={() => setDay(d)} disabled={future}
+                  style={{ display: "flex", flexDirection: "column", gap: compact ? 4 : 6, minHeight: compact ? 92 : 210, padding: compact ? "6px 6px" : "8px 7px", borderRadius: 10, textAlign: "left", cursor: future ? "default" : "pointer",
+                    border: `1.5px solid ${on ? "#5f8ff0" : "#eef0f4"}`, background: on ? "#f0f5fe" : future || outside ? "#fafbfc" : "#fff", opacity: future ? 0.55 : outside ? 0.45 : 1 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                    {!compact && <span style={{ fontSize: 11, color: i === 0 ? "#e05b50" : i === 6 ? "#3d96ce" : "#9ca3af" }}>{WEEK[i]}</span>}
+                    <span style={{ fontSize: compact ? 13.5 : 18, fontWeight: 800, color: isToday ? "#fff" : "#111827", background: isToday ? "#5f8ff0" : "transparent", borderRadius: 7, padding: isToday ? "0 6px" : 0 }}>{+d.slice(8, 10)}</span>
+                    {compact && items.length > 0 && <span style={{ marginLeft: "auto", fontSize: 10.5, color: "#374151", fontWeight: 600 }}>{items.length}</span>}
+                  </div>
+                  {!compact && <div style={{ fontSize: 11.5, color: items.length ? "#374151" : "#c0c6d0", fontWeight: 600 }}>{items.length ? `${items.length}건` : "—"}</div>}
+                  {/* 종류별 색 막대 — 그날 비율 */}
+                  {items.length > 0 && (
+                    <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", background: "#f1f3f7" }}>
+                      {counts.map(([t, n]) => <div key={t} title={`${TYPE_META[t].label} ${n}건`} style={{ width: `${(n / items.length) * 100}%`, background: TYPE_META[t].color }} />)}
+                    </div>
+                  )}
+                  {/* 종류별 색 점 · 건수 — 월 보기는 점만(칸이 좁다) */}
+                  {compact ? (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                      {counts.map(([t, n]) => <span key={t} title={`${TYPE_META[t].label} ${n}건`} style={{ width: 8, height: 8, borderRadius: "50%", background: TYPE_META[t].color }} />)}
+                    </div>
+                  ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    {counts.map(([t, n]) => (
+                      <span key={t} title={TYPE_META[t].label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: "#4b5563", whiteSpace: "nowrap", overflow: "hidden" }}>
+                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: TYPE_META[t].color, flex: "none" }} />
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{TYPE_META[t].label}</span>
+                        <b style={{ marginLeft: "auto" }}>{n}</b>
+                      </span>
+                    ))}
+                  </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ② 고른 날의 상세 */}
+        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "12px 4px 6px", minHeight: 230 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "0 12px 8px", borderBottom: "1px solid #eef0f4" }}>
+            <b style={{ fontSize: 15, color: "#111827" }}>{+day.slice(5, 7)}월 {+day.slice(8, 10)}일 ({WEEK[new Date(day + "T00:00:00Z").getUTCDay()]})</b>
+            <span style={{ fontSize: 12, color: "#9ca3af" }}>{dayItems.length}건{type !== "__ALL__" ? ` · ${TYPE_META[type].label}` : ""}{actor !== "__ALL__" ? ` · ${actor}` : ""}</span>
+          </div>
+          {dayItems.length === 0 ? (
+            <div style={{ padding: "40px 12px", textAlign: "center", color: "#9ca3af", fontSize: 12.5 }}>이 날 활동이 없습니다.</div>
+          ) : dayItems.map((a, i) => {
+            const meta = TYPE_META[a.type];
+            return (
+              // 시각 · 종류 · 내용 / 직원 — 열 너비 고정 `PC-073`
+              <div key={a.id} style={{ display: "grid", gridTemplateColumns: "44px 84px 1fr", alignItems: "start", gap: 10, padding: "9px 12px", borderTop: i ? "1px solid #f4f6f9" : "none" }}>
+                <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11.5, color: "#9ca3af", paddingTop: 3 }}>{hm(a.at)}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: meta.color, borderRadius: 6, padding: "3px 0", marginTop: 1, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={meta.label}>{meta.label}</span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ fontSize: 13, color: "#111827", lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" }} title={a.detail}>{a.detail}</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "#6b7280", marginTop: 2 }}><span style={avatar}>{a.actor[0]}</span>{a.actor}</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

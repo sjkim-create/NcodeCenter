@@ -449,7 +449,7 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
       if (clash) { setToast({ ok: false, text: clash }); return; }
     }
     updateTicket(t.id, { summary: summary.trim(), params });
-    logActivity("ticket", `티켓 수정 · ${t.company} · 발급 ${t.no}번 · ${kindLabel2}`, me?.name);
+    logActivity("nkey", `티켓 수정 · ${t.company} · 발급 ${t.no}번 · ${kindLabel2}`, me?.name);
     setEditing(false);
     setToast({ ok: true, text: `티켓 수정 — 발급 ${t.no}번` });
   };
@@ -553,7 +553,7 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>이 티켓의 정산</div>
           <BillingEditor key={t.id} bare v={t} baseDate={t.at.slice(0, 10)} onSave={(p) => {
             setBilling(t.id, { ...p, by: me?.name ?? "" });
-            logActivity("ticket", `정산 등록 · ${t.company} · 발급 ${t.no}번 · ${kindLabel2} · ${p.billing}${p.billing === "유료" ? ` ${fmtMoney(p)}` : ""}`, me?.name);
+            logActivity("billing", `정산 등록 · ${t.company} · 발급 ${t.no}번 · ${kindLabel2} · ${p.billing}${p.billing === "유료" ? ` ${fmtMoney(p)}` : ""}`, me?.name);
           }} />
           </>
         )}
@@ -566,7 +566,7 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
           {editing ? null : tab === "base" ? (
             <>
               {/* 발급 기록으로 .nkey 를 다시 받는다 — 발급 때와 같은 파일명 · 형식 `PC-221` */}
-              {t.kind === "N" && <button onClick={() => { const f = downloadNkey(t.params, makeZip); setToast({ ok: true, text: `키 다운로드 — ${f}` }); }} style={S.ghost}>키 다운로드</button>}
+              {t.kind === "N" && <button onClick={() => { const f = downloadNkey(t.params, makeZip); logActivity("nkey", `키 다운로드 · ${t.company} · 발급 ${t.no}번 · ${f}`, me?.name); setToast({ ok: true, text: `키 다운로드 — ${f}` }); }} style={S.ghost}>키 다운로드</button>}
               <button onClick={() => { setEditing(true); setToast(null); }} style={S.primary}>티켓 수정</button>
             </>
           ) : null}
@@ -778,7 +778,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     const summary = `${selCu ? `[사용 고객사: ${selCu.cu}] ` : ""}${range.pt} S${range.section}/O${range.owner}/B${bookStart}~${bookEnd} · Book ${books}권 · P${pageStart}~${pageStart + pageVolume - 1} · ${separate ? "개별티켓 " + books + "장" : "병합 1장"} · 유효 ${untilUnlimited ? "무제한" : validValue} · ${profile === "HYBRID" ? `HYBRID(권한 ${hperms.length})` : "LEGACY"}${codeReuse ? " · 코드 재사용" : ""}`;
     const issued = addTicket({ kind: "N", companyId: company.id, company: company.name, coRef: company.id,
                 by: me?.name ?? "", summary, params });
-    logActivity("ticket", `N Key · ${company.name} · ${summary}`, me?.name);
+    logActivity("nkey", `N Key · ${company.name} · ${summary}`, me?.name);
     if (onIssued) { onIssued(issued); return; }   // 3단 화면 — 발급한 티켓의 정산 정보 탭으로 `PC-149`
     setToast(`N Key 발급됨 · 티켓 ${asZip ? books + "개(개별 .nkey)" : "1장"} · B${bookStart}~${bookEnd} — ${fileName} 으로 다운로드됩니다.`);
   };
@@ -802,7 +802,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     const pt = PT_OF[ctype] ?? range.pt;
     const summary = `${pt} S${range.section}/O${range.owner}/B${bookStart}~${bookEnd} · Book ${books}권 · P${pageStart}~${pageStart + pageVolume - 1} · ${separate ? "개별티켓 " + books + "장" : "병합 1장"} · 유효 ${untilUnlimited ? "무제한" : validValue} · ${profile === "HYBRID" ? `HYBRID(권한 ${hperms.length})` : "LEGACY"}${codeReuse ? " · 코드 재사용" : ""}`;
     updateTicket(edit.id, { summary, params });
-    logActivity("ticket", `티켓 수정 · ${edit.company} · 발급 ${edit.no}번 · N Key`, me?.name);
+    logActivity("nkey", `티켓 수정 · ${edit.company} · 발급 ${edit.no}번 · N Key`, me?.name);
     onSaved?.();
   };
 

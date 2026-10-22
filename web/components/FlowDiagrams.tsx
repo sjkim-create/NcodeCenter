@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import diagrams from "@/data/flow-diagrams.json";
 import { S } from "./ui";
+import { exportFigmaSvg } from "@/lib/svgExport";
 
 type Diagram = { title: string; slug: string; src: string };
 const DATA = diagrams as Diagram[];
@@ -67,8 +68,14 @@ export default function FlowDiagrams() {
 
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 2000); return () => clearTimeout(id); }, [toast]);
 
+  // 저장 · 복사는 Figma 용으로 — 색 · 화살촉을 속성으로 박고 <style> 을 지운 SVG `PC-249`
+  //   (mermaid 원본 그대로 붙이면 Figma 에서 도형이 검게 나온다)
+  const figmaSvg = (d: Diagram) => {
+    const live = document.querySelector(`#${CSS.escape(d.slug)} .flow-fig svg`) as SVGSVGElement | null;
+    return live ? exportFigmaSvg(live, d.slug, d.title) : "";
+  };
   const save = (d: Diagram) => {
-    const svg = svgs[d.slug]; if (!svg?.startsWith("<svg")) return;
+    const svg = figmaSvg(d); if (!svg) return;
     const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
     const a = document.createElement("a");
     a.href = url; a.download = `${d.slug}.svg`;
@@ -76,7 +83,7 @@ export default function FlowDiagrams() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const copy = async (d: Diagram) => {
-    const svg = svgs[d.slug]; if (!svg?.startsWith("<svg")) return;
+    const svg = figmaSvg(d); if (!svg) return;
     try { await navigator.clipboard.writeText(svg); setToast("SVG 를 복사했습니다 — Figma 에 붙여 넣을 수 있습니다."); }
     catch { setToast("복사하지 못했습니다. [SVG 저장]을 쓰세요."); }
   };

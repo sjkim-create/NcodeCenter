@@ -1,5 +1,7 @@
 "use client";
 
+import { logActivity } from "@/lib/activityStore";
+
 // 정산 입력 공용 조각 — App Key 티켓 · N Key 티켓 · 서비스 티켓이 같은 모양을 쓴다 `PC-176` `PC-177` `PC-202`
 //   과금 유형은 4종: 미정 · 유료(금액) · 무료 · 체험(1개월).
 //   왼쪽에서 과금 유형을 고르고 오른쪽에 금액(원 · 달러)을 넣는다. 달러면 환율을 적어 둘 수 있다(자동 아님). 비고는 3줄.
@@ -141,6 +143,7 @@ export function LicenseEditor({ kind, companyId, company, by }: { kind: LicenseK
     if (!since || !until) { setMsg({ ok: false, text: "라이선스 기간을 입력하세요." }); return; }
     if (until < since) { setMsg({ ok: false, text: "기간 끝이 시작보다 앞설 수 없습니다." }); return; }
     saveLicense({ kind, companyId, company, amount, currency, fxRate: currency === "USD" && lfxNum > 0 ? lfxNum : undefined, since, until, by });
+    logActivity("billing", `연간 라이선스 · ${company} · ${kind === "N" ? "N Key" : "App Key"} · ${currency === "USD" ? `$${amount.toLocaleString()}` : `${amount.toLocaleString()}원`} · ${since}~${until}`, by);   // `PC-248`
     setMsg({ ok: true, text: "라이선스 비용이 저장되었습니다." });
   };
   const seg = (on: boolean): React.CSSProperties => ({ border: 0, padding: "0 12px", fontSize: 12.5, cursor: "pointer", fontWeight: on ? 700 : 400,

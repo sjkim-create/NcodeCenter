@@ -92,7 +92,7 @@ export const auth = {
       commit({ ...state, users: [nu, ...state.users], currentEmail: nu.email });
     }
     setActivityActor(s.name || s.email);
-    if (!wasLoggedIn) logActivity("login", `회사 계정 접속 · ${s.email}`, s.name || s.email);
+    if (!wasLoggedIn) logActivity("access", `로그인 · 회사 계정 접속 · ${s.email}`, s.name || s.email);
   },
 
   login(email: string, password: string): { ok: boolean; msg: string } {
@@ -110,7 +110,7 @@ export const auth = {
     setActivityActor(u.name);
     setDemoCookie(true);   // 데모 세션 → 미들웨어(SSO 게이트) 통과 `PC-116`
     try { localStorage.setItem("ncc-last-email", u.email); } catch { /* */ }   // 재로그인 시 계정 기억
-    logActivity("login", `일반 접속 · ${u.email}`, u.name);
+    logActivity("access", `로그인 · 일반 접속 · ${u.email}`, u.name);
     return { ok: true, msg: `${u.name}(${u.role})으로 로그인` };
   },
   // 프로토타입 데모 로그인 — Google/비밀번호 없이 즉시 입장(관리자 우선) `PC-116`.
@@ -122,12 +122,12 @@ export const auth = {
     commit({ ...state, currentEmail: u.email });
     setActivityActor(u.name);
     setDemoCookie(true);
-    logActivity("login", `프로토타입 데모 접속 · ${u.email}`, u.name);
+    logActivity("access", `로그인 · 프로토타입 데모 접속 · ${u.email}`, u.name);
     return { ok: true, msg: `${u.name}(${u.role})으로 데모 로그인` };
   },
   logout() {
     const u = state.currentEmail ? state.users.find((x) => x.email === state.currentEmail) : null;
-    if (u) logActivity("logout", `로그아웃 · ${u.email}`, u.name);
+    if (u) logActivity("access", `로그아웃 · ${u.email}`, u.name);
     setActivityActor("");
     setDemoCookie(false);   // 데모 세션 쿠키 제거
     commit({ ...state, currentEmail: null });

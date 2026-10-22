@@ -200,7 +200,7 @@ function TicketDetail({ t, onEdit, me }: { t: ServiceTicket; onEdit: () => void;
           <div style={{ fontSize: 12, color: "#6b7280" }}>이 서비스 티켓(No.{t.no} · {serviceTicketText(t)})의 정산을 등록합니다.</div>
           <BillingEditor key={t.id} v={t} baseDate={t.at.slice(0, 10)} onSave={(p) => {
             setServiceBilling(t.id, { ...p, by: me });
-            logActivity("ticket", `서비스 티켓 정산 · ${t.company} · No.${t.no} · ${p.billing}${p.billing === "유료" ? ` ${fmtMoney(p)}` : ""}`, me);
+            logActivity("billing", `서비스 티켓 정산 · ${t.company} · No.${t.no} · ${p.billing}${p.billing === "유료" ? ` ${fmtMoney(p)}` : ""}`, me);
           }} />
         </div>
       </div>
@@ -263,14 +263,14 @@ function IssueForm({ edit, coId, coName, coSvcs, ranges, mine, me, onDone, onCan
       updateServiceTicket(edit.id, { pt: ctype, section: r.section, owner: r.owner,
         bookStart: cand.bookStart, bookVol: bVol, bookEnd: cand.bookEnd, pageStart: pStart, pageVol: pVol, pageEnd: cand.pageEnd,
         since, until, shared: r.shared, service: svc });
-      logActivity("ticket", `서비스 티켓 수정 · ${coName} · No.${edit.no} · ${ticketServiceOf(svc)?.label} · ${ctype} S${r.section}/O${r.owner}/B${cand.bookStart}~${cand.bookEnd}/P${pStart}~${cand.pageEnd} · 기간 ${since}~${until}`, me);
+      logActivity("svcTicket", `서비스 티켓 수정 · ${coName} · No.${edit.no} · ${ticketServiceOf(svc)?.label} · ${ctype} S${r.section}/O${r.owner}/B${cand.bookStart}~${cand.bookEnd}/P${pStart}~${cand.pageEnd} · 기간 ${since}~${until}`, me);
       onDone(edit.id);
       return;
     }
     const t = addServiceTicket({ companyId: coId, company: coName, pt: ctype, section: r.section, owner: r.owner,
       bookStart: cand.bookStart, bookVol: bVol, bookEnd: cand.bookEnd, pageStart: pStart, pageVol: pVol, pageEnd: cand.pageEnd,
       since, until, shared: r.shared, service: svc, by: me });
-    logActivity("ticket", `서비스 티켓 지정 · ${coName} · No.${t.no} · ${ticketServiceOf(svc)?.label} · ${serviceTicketText(t)} · 기간 ${since}~${until}`, me);
+    logActivity("svcTicket", `서비스 티켓 지정 · ${coName} · No.${t.no} · ${ticketServiceOf(svc)?.label} · ${serviceTicketText(t)} · 기간 ${since}~${until}`, me);
     onDone(t.id);
   };
 

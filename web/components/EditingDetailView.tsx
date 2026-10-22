@@ -492,14 +492,16 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     commit(next);
     // 공유(커먼) 코드면 SOBP 맵에 사용 고객사·상태(편집)를 반영 (편집 프로젝트 등록 = 편집 관리 → ea=1)
     if (isSharedRow(r) && (r.cu ?? "").trim()) setBookOverride(r.k, r.s, r.o, r.b, { cu: r.cu!.trim(), ea: 1 });
-    if (editing.idx === -1) logActivity("bookAdd", `${cust?.customer ?? owner} · S${editing.row.s}/O${editing.row.o}/B${editing.row.b} · ${editing.row.t || "교재"}`, me?.name);
-    else logActivity("bookEdit", `${cust?.customer ?? owner} · S${editing.row.s}/O${editing.row.o}/B${editing.row.b} · ${editing.row.t || "교재"}`, me?.name);
+    if (editing.idx === -1) logActivity("edit", `교재 추가 · ${cust?.customer ?? owner} · S${editing.row.s}/O${editing.row.o}/B${editing.row.b} · ${editing.row.t || "교재"}`, me?.name);
+    else logActivity("edit", `교재 작업 · ${cust?.customer ?? owner} · S${editing.row.s}/O${editing.row.o}/B${editing.row.b} · ${editing.row.t || "교재"}`, me?.name);
     setEditing(null);
     router.push(listHref);        // 저장 후 교재 목록으로
   };
   const delRow = (idx: number) => {
     if (!confirm("이 책(교재) 편집 행을 삭제할까요?")) return;
+    const gone = rows[idx];
     commit(rows.filter((_, i) => i !== idx));
+    if (gone) logActivity("edit", `교재 삭제 · ${cust?.customer ?? owner} · S${gone.s}/O${gone.o}/B${gone.b} · ${gone.t || "교재"}`, me?.name);   // `PC-248`
     setEditing(null);
     if (bookMode) router.push(listHref);
   };

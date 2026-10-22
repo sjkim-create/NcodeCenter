@@ -7,6 +7,7 @@ import { codeKind, CODE_KINDS, kindMeta, type CodeKind } from "@/lib/codeKind";
 import { store, useStore } from "@/lib/store";
 import EditingDetailView from "./EditingDetailView";
 import { EditCustomer, loadCustomCustomers, saveCustomCustomers } from "@/lib/editingCustomers";
+import { logActivity } from "@/lib/activityStore";
 import { clearOverridesOfCustomer } from "@/lib/editOverrides";
 import { EDIT_CUSTOMERS, EDIT_SUMMARY } from "@/lib/editingData";
 import { rateOf, settle, BASE_RATE, won } from "@/lib/pricing";
@@ -130,6 +131,7 @@ export default function EditingProjectsView() {
       const nc = { customer: co.name, owner, codeKinds: [addForm.kind] };
       const next = [nc, ...custom];
       setCustom(next); saveCustomCustomers(next); setSel(uidOf(nc));
+      logActivity("edit", `편집 고객사 추가 · ${co.name} · O${owner}`);   // `PC-248`
     }
     setAddForm(null);
   };
@@ -146,6 +148,7 @@ export default function EditingProjectsView() {
     if (!confirm("이 고객사를 편집 프로젝트에서 삭제할까요?\n추가한 교재와 SOBP 맵의 편집 표시도 함께 지워집니다.")) return;
     const next = custom.filter((x) => x.owner !== c.owner || x.customer !== c.customer);
     setCustom(next); saveCustomCustomers(next);
+    logActivity("edit", `편집 고객사 삭제 · ${c.customer} · O${c.owner}`);   // `PC-248`
     // ② 교재 캐시 — 현재 키(v12·고객사명)와 옛 키(v11·owner)를 함께 정리
     try {
       localStorage.removeItem(`ncc-edit12-${c.customer}`);

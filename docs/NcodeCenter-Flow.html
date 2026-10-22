@@ -193,6 +193,12 @@ function exportSvg(i){
      루트 id 가 그대로면 Figma 레이어 이름이 'm0' 이 되므로 뜻이 있는 이름으로 바꾼다 */
   el.querySelectorAll('style').forEach(s => s.remove());
   el.setAttribute('id', d.slug);
+  /* 배경은 흰색 — 투명으로 두지 않는다 `PC-250` */
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  bg.setAttribute('x', box ? box.x : 0); bg.setAttribute('y', box ? box.y : 0);
+  bg.setAttribute('width', box && box.width ? box.width : '100%'); bg.setAttribute('height', box && box.height ? box.height : '100%');
+  bg.setAttribute('fill', '#ffffff'); bg.setAttribute('stroke', 'none');
+  el.insertBefore(bg, el.firstChild);
   const t = document.createElementNS('http://www.w3.org/2000/svg', 'title');
   t.textContent = d.title;
   el.insertBefore(t, el.firstChild);

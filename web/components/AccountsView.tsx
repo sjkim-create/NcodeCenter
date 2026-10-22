@@ -174,7 +174,7 @@ function issueAppKey(acc: CasterAccount, by?: string) {
     pt: "", section: 0, owner: 0, bookStart: 0, bookEnd: 0, bookVol: 0, pageStart: 0, pageEnd: 0, until: "무제한",
     ranges: [] });                                       // 티켓은 키가 아니라 계정에 `PC-206`
   if (!rec) return "";                                   // 이미 발급된 계정 — 계정당 App Key 1개
-  logActivity("ticket", `App Key 발급 · ${acc.company} · ${acc.id} · ${key}`, by);
+  logActivity("appkey", `App Key 발급 · ${acc.company} · ${acc.id} · ${key}`, by);
   return key;
 }
 
@@ -283,7 +283,7 @@ export function AccountNewView({ embedded = false, fixedCompanyId = 0, onDone, o
     };
     const r = caster.addAccount(acc);
     if (!r.ok) { setToast({ ok: false, text: r.msg }); return; }
-    logActivity("ticket", `계정 등록 · ${company.name} · ${acc.id}`, me?.name);
+    logActivity("appkey", `계정 등록 · ${company.name} · ${acc.id}`, me?.name);
     issueAppKey(acc, me?.name);   // 계정을 만들면 App Key 자동 생성 — 1계정 1키 `PC-210`. 티켓은 계정 상세 [티켓 발급]에서
     if (onDone) { onDone(acc.id); return; }  // 3단 화면 — 오른쪽 칸에서 바로 그 계정 상세로 `PC-146`
     router.push("/tickets/account");        // 목록에 노출
@@ -436,7 +436,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
       name: name.trim(), pwd: pwd.trim(), addr: addr.trim(), phone: phone.trim(), homepage: homepage.trim(),
     });
     if (!r.ok) { setToast({ ok: false, text: r.msg }); return; }
-    logActivity("ticket", `계정 수정 · ${acc.company} · ${acc.id}`, me?.name);
+    logActivity("appkey", `계정 수정 · ${acc.company} · ${acc.id}`, me?.name);
     setToast({ ok: true, text: "계정 정보가 저장되었습니다." });
   };
 
@@ -471,7 +471,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
         "Ticket Type": untilStr === "무제한" ? "Unlimited" : "Period",
       } });
     caster.addAccountTicket(acc.id, { ...r, ticketId: t.id });   // 티켓 = 계정 소속 `PC-206`
-    logActivity("ticket", `티켓 발급 · ${acc?.company} · ${acc?.id} · ${rangeText(r)} · 기간 ${since || "즉시"}~${untilStr}`, me?.name);
+    logActivity("appkey", `티켓 발급 · ${acc?.company} · ${acc?.id} · ${rangeText(r)} · 기간 ${since || "즉시"}~${untilStr}`, me?.name);
     resetIssueForm();
     setToast({ ok: true, text: `티켓 발급 — ${rangeText(r)} · ${since || "즉시"}~${untilStr}` });
   };
@@ -512,7 +512,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
         "Valid From Time": since ? since.replace(/-/g, "") : "즉시",
         "Valid Until Time": untilStr === "무제한" ? "99999999 (무제한)" : untilStr.replace(/-/g, ""),
         "Ticket Type": untilStr === "무제한" ? "Unlimited" : "Period" } });
-    logActivity("ticket", `티켓 수정 · ${acc.company} · ${acc.id} · ${rangeText(nr)} · 기간 ${since || "즉시"}~${untilStr}`, me?.name);
+    logActivity("appkey", `티켓 수정 · ${acc.company} · ${acc.id} · ${rangeText(nr)} · 기간 ${since || "즉시"}~${untilStr}`, me?.name);
     setEditRange(null); resetIssueForm();
     setToast({ ok: true, text: `티켓 수정 — ${rangeText(nr)} · ${since || "즉시"}~${untilStr}` });
   };
@@ -807,7 +807,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
         {/* 권한 탭 — App Key 가 가지는 Caster 권한 20항목 true / false `PC-207` */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "perm" ? "block" : "none" }}>
           <KeyPermsEditor key={acc.id} value={acc.keyPerms}
-            onSave={(v) => { caster.setKeyPerms(acc.id, v); logActivity("ticket", `App Key 권한 · ${acc.company} · ${acc.id} · true ${Object.values(v).filter(Boolean).length}/${APPKEY_PERMS.length}`, me?.name); }} />
+            onSave={(v) => { caster.setKeyPerms(acc.id, v); logActivity("appkey", `App Key 권한 · ${acc.company} · ${acc.id} · true ${Object.values(v).filter(Boolean).length}/${APPKEY_PERMS.length}`, me?.name); }} />
         </div>
 
         {/* 정산 탭 — 티켓(코드 범위)을 고르고 그 정산을 등록한다. N Key 관리의 정산 탭과 같은 결 `PC-177` `PC-178` */}
@@ -841,7 +841,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
               onSave={(p) => {
                 caster.setTicketBilling(acc.id, selected.i, { ...p, billedBy: me?.name ?? "" });   // 티켓마다 정산 `PC-206`
                 if (selected.r.ticketId) setBilling(selected.r.ticketId, { ...p, by: me?.name ?? "" });   // 원장 티켓에도 같은 값
-                logActivity("ticket", `App Key 정산 · ${acc.company} · ${acc.id} · ${rangeText(selected.r)} · ${p.billing}${p.billing === "유료" ? ` ${fmtMoney(p)}` : ""}`, me?.name);
+                logActivity("billing", `App Key 정산 · ${acc.company} · ${acc.id} · ${rangeText(selected.r)} · ${p.billing}${p.billing === "유료" ? ` ${fmtMoney(p)}` : ""}`, me?.name);
               }} />
           )}
         </div>
