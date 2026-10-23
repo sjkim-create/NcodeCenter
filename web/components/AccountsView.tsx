@@ -30,7 +30,7 @@ import {
   type CasterAccount,
 } from "@/lib/accountStore";
 
-const PAGE_DEFAULT = 512;   // Page 볼륨 기본값 — N Key 발급과 같은 값 `PC-059`
+const PAGE_DEFAULT = 512;   // Page Size 기본값 — N Key 발급과 같은 값 `PC-059`
 // 범위의 pt → 코드 종류 `PC-064`
 const CT_OF: Record<string, CodeKind> = { PDS3: "PDS3", PDS2: "PDS2", Scode: "PDS4", OID: "OID" };
 
@@ -149,7 +149,7 @@ function BookRangeFields({ range, bookStart, bookVol, pageStart, pageVol, onStar
         <input type="number" style={S.input} value={bookStart} min={min} max={max} disabled={!range}
           onChange={(e) => onStart(Math.max(min, Math.min(max, +e.target.value || 0)))} />
       </Field>
-      <Field label={`Book 볼륨 (권) ${range ? `· 최대 ${maxVol}` : ""}`}>
+      <Field label={`Book Size (권) ${range ? `· 최대 ${maxVol}` : ""}`}>
         <input type="number" style={S.input} value={bookVol} min={1} max={maxVol} disabled={!range}
           onChange={(e) => onVol(Math.max(1, Math.min(maxVol, +e.target.value || 1)))} />
       </Field>
@@ -158,7 +158,7 @@ function BookRangeFields({ range, bookStart, bookVol, pageStart, pageVol, onStar
           <option value={0}>0</option><option value={1}>1 (기본)</option><option value={2}>2</option>
         </select>
       </Field>
-      <Field label="Page 볼륨">
+      <Field label="Page Size">
         <input type="number" style={S.input} value={pageVol} min={1} disabled={!range}
           onChange={(e) => onPVol(Math.max(1, +e.target.value || 1))} />
       </Field>
@@ -448,7 +448,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   const keyVol = Math.max(1, Math.min(bVol ?? (range?.bookCount ?? 1), range ? range.bookEnd - keyBS + 1 : 1));
   const keyPVol = Math.max(1, pVol ?? PAGE_DEFAULT);
   const untilVal = () => (unlimited ? "무제한" : (until || "무제한"));
-  // 티켓 이름 제안 — .nkey 파일명 규칙과 같게 {고객사}_{S}s_{O}o_{Book 볼륨}b_{Page 볼륨}p_{발급일} `PC-261` `PC-263`
+  // 티켓 이름 제안 — .nkey 파일명 규칙과 같게 {고객사}_{S}s_{O}o_{Book Size}b_{Page Size}p_{발급일} `PC-261` `PC-263`
   //   새 발급 = 오늘(발급일) · 수정 = 그 티켓의 발급일
   const todayYmd = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, "");
   const editT = editRange ? tickets[editRange.idx] : undefined;
@@ -551,7 +551,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
         <input style={{ ...S.input, fontFamily: "ui-monospace,monospace" }} value={autoName ? suggestName : tname} disabled={!range}
           onChange={(e) => { setAutoName(false); setTname(e.target.value); }}
           onBlur={() => { if (!tname.trim() || autoName) setAutoName(!!suggestName); }}   // 입력 없이 벗어나면 제안 이름을 진하게 `PC-262`
-          placeholder={suggestName || "{고객사}_{S}s_{O}o_{Book 볼륨}b_{Page 볼륨}p_{발급일}"} />
+          placeholder={suggestName || "{고객사}_{S}s_{O}o_{Book Size}b_{Page Size}p_{발급일}"} />
       </Field></div>
       <Field label="Code Type (발급 범위 따름)">
         {/* 고른 범위의 할당 타입으로 고정 `PC-220` */}

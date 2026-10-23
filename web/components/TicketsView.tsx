@@ -594,7 +594,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
 }) {
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [bookStart, setBookStart] = useState(0);   // Start Book (할당 범위 안에서 직접 입력)
-  const [books, setBooks] = useState(1);           // Book 볼륨(권)
+  const [books, setBooks] = useState(1);           // Book Size(권)
   const [pageStart, setPageStart] = useState(1);   // 0 / 1(기본) / 2
   const [pageVolume, setPageVolume] = useState(512);
   const [untilUnlimited, setUntilUnlimited] = useState(true); // 무제한(기본)
@@ -714,19 +714,19 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
   // 발급 정책 `PC-219` `PC-221`
   //   ① 새로 발급하는 Code Type 은 PDS2 · PDS3 만(범위 목록에서 OID · PDS4 제외)
   //   ② 고른 범위의 Section 에 맞는 프로필 · 타입만 켠다(예: S10 → HYBRID · PDS3). 표에 없는 Section 은 모두 켠다
-  //   ③ 할당 타입과 다른 타입을 고르면 ⚠ 경고 ④ Book 볼륨 2 이상이면 Separate Each Book 자동으로 켬
+  //   ③ 할당 타입과 다른 타입을 고르면 ⚠ 경고 ④ Book Size 2 이상이면 Separate Each Book 자동으로 켬
   const allocType = range ? (CT_OF[range.pt] ?? range.pt) : "";
   const allowedSecs = sectionsFor(profile, ctype);
   const keepOld = !!edit && ctype === origType && !(NKEY_TYPES as string[]).includes(ctype);   // 옛 발급분 타입 유지 `PC-226`
   const typeBad = !(NKEY_TYPES as string[]).includes(ctype) && !keepOld;
   const secBad = !!range && !typeBad && !keepOld && !secOk(profile, ctype, range.section);
   const typeMismatch = !!range && !typeBad && !edit && allocType !== ctype;
-  // HYBRID 는 Page 볼륨이 8의 배수여야 한다 `PC-260`
+  // HYBRID 는 Page Size가 8의 배수여야 한다 `PC-260`
   const page8Bad = profile === "HYBRID" && pageVolume % 8 !== 0;
   const page8Lo = Math.max(8, Math.floor(pageVolume / 8) * 8), page8Hi = Math.ceil(pageVolume / 8) * 8;
   const policyErr = typeBad ? "OID · PDS4 는 새로 발급할 수 없습니다. PDS2 · PDS3 중에서 고르세요."
     : secBad && range ? `S${range.section} 은 ${profile} + ${ctype} 에서 쓸 수 없습니다. 켜진 프로필 · 코드 타입을 고르세요.`
-    : page8Bad ? `HYBRID 프로필은 Page 볼륨을 8의 배수로 설정해야 합니다. (지금 ${pageVolume} → ${page8Lo === page8Hi ? page8Hi : `${page8Lo} 또는 ${page8Hi}`})`
+    : page8Bad ? `HYBRID 프로필은 Page Size를 8의 배수로 설정해야 합니다. (지금 ${pageVolume} → ${page8Lo === page8Hi ? page8Hi : `${page8Lo} 또는 ${page8Hi}`})`
     : "";
 
   // 발급 파라미터 — 화면 표시·키 생성·정보 확인이 같은 값을 쓴다
@@ -753,15 +753,15 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
   const dateToSix = (d: string) => (d ? d.slice(2).replace(/-/g, "") : "");
   const validValue = untilUnlimited ? "99999999" : validUntil;
 
-  useEffect(() => { if (books >= 2) setSeparate(true); }, [books]);   // Book 볼륨 2 이상 → Separate Each Book 켬 `PC-221`
+  useEffect(() => { if (books >= 2) setSeparate(true); }, [books]);   // Book Size 2 이상 → Separate Each Book 켬 `PC-221`
 
   const genKey = () => {
     if (!company) { setToast("고객사를 선택하세요."); return; }
     if (isCommon && !selCu) { setToast("공통코드 회사입니다. 사용 고객사를 선택하세요."); return; }
     if (!range) { setToast("발급 범위를 선택하세요."); return; }
     if (bookStart < range.bookStart || bookStart > range.bookEnd) { setToast(`Start Book은 ${range.bookStart}~${range.bookEnd} 범위여야 합니다.`); return; }
-    if (books < 1 || bookEnd > range.bookEnd) { setToast(`Book 볼륨은 1~${maxBooks}권이어야 합니다. (B${bookStart}~B${range.bookEnd})`); return; }
-    if (pageVolume < 1) { setToast("Page 볼륨은 1 이상이어야 합니다."); return; }
+    if (books < 1 || bookEnd > range.bookEnd) { setToast(`Book Size는 1~${maxBooks}권이어야 합니다. (B${bookStart}~B${range.bookEnd})`); return; }
+    if (pageVolume < 1) { setToast("Page Size는 1 이상이어야 합니다."); return; }
     if (!untilUnlimited && !/^\d{6}$/.test(validUntil)) { setToast("Valid Until Time 은 6자리(YYMMDD)이거나 무제한이어야 합니다."); return; }
     if (!/^\d{8}$/.test(issuedTime)) { setToast("Issued Time(발급일)을 선택하세요."); return; }   // `PC-232`
     if (policyErr) { setToast(policyErr); return; }   // 발급 정책 `PC-219`
@@ -769,7 +769,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     const clash = sobpOverlapMsg({ section: range.section, owner: range.owner, bookStart, bookEnd, pageStart, pageEnd: pageStart + pageVolume - 1 });
     if (clash) { setToast(clash); return; }
     // .nkey(Key=Value · JSON 아님) 내려받기 — Separate + Book 2권 이상이면 .zip `PC-219`
-    //   파일명 Ticket_{고객사}[_{사용고객사}]_{S}s_{O}o_{Book 볼륨}b_{Page 볼륨}p.nkey `PC-221` `PC-263`
+    //   파일명 Ticket_{고객사}[_{사용고객사}]_{S}s_{O}o_{Book Size}b_{Page Size}p.nkey `PC-221` `PC-263`
     const params = ticketParams();
     const fileName = downloadNkey(params, makeZip);
     const asZip = fileName.endsWith(".zip");
@@ -791,7 +791,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
   const saveEdit = () => {
     if (!edit || !range) return;
     if (books < 1 || bookStart < range.bookStart || bookEnd > range.bookEnd) { setToast(`Book 은 B${range.bookStart}~B${range.bookEnd} 안이어야 합니다.`); return; }
-    if (pageVolume < 1) { setToast("Page 볼륨은 1 이상이어야 합니다."); return; }
+    if (pageVolume < 1) { setToast("Page Size는 1 이상이어야 합니다."); return; }
     if (!untilUnlimited && !/^\d{6}$/.test(validUntil)) { setToast("Valid Until Time 은 6자리(YYMMDD)이거나 무제한이어야 합니다."); return; }
     if (policyErr) { setToast(policyErr); return; }
     const clash = sobpOverlapMsg({ section: range.section, owner: range.owner, bookStart, bookEnd, pageStart, pageEnd: pageStart + pageVolume - 1 }, `N${edit.id}`);
@@ -866,7 +866,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
 
 
 
-      {/* 순서: 티켓 속성 → 발급일 · 기간 → 코드 구간 — 프로필이 Page 볼륨(HYBRID = 8의 배수)을 정하므로 먼저 고른다 `PC-260` */}
+      {/* 순서: 티켓 속성 → 발급일 · 기간 → 코드 구간 — 프로필이 Page Size(HYBRID = 8의 배수)을 정하므로 먼저 고른다 `PC-260` */}
       {/* ① 티켓 속성 — 프로필 (Ticket Version) · Code Type · 코드 재사용 (Ticket Type) `PC-218` `PC-221` `PC-257` `PC-258` */}
       {(() => {
         const seg = (on: boolean): React.CSSProperties => ({ flex: 1, border: 0, padding: "8px 10px", fontSize: 12.5, cursor: "pointer", whiteSpace: "nowrap", fontWeight: on ? 700 : 400, background: on ? "#eef6ff" : "#fff", color: on ? "#1d4ed8" : "#6b7280" });
@@ -894,7 +894,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
                   <div style={{ color: "#9ca3af", fontSize: 11.5, marginTop: 4 }}>
                     {range && !isKnownSection(range.section) ? `S${range.section} 은 표에 없어 제한 없음` : "표에 없는 Section 은 제한 없음"}
                   </div>
-                  {profile === "HYBRID" && <div style={{ color: "#fde68a", fontSize: 11.5, marginTop: 2 }}>Page 볼륨은 8의 배수</div>}
+                  {profile === "HYBRID" && <div style={{ color: "#fde68a", fontSize: 11.5, marginTop: 2 }}>Page Size는 8의 배수</div>}
                 </div>
               )}
             </div>
@@ -969,10 +969,10 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
           <input type="number" min={range?.bookStart ?? 0} max={range?.bookEnd ?? undefined} style={S.input} value={bookStart}
             onChange={(e) => setBookStart(Math.max(0, +e.target.value))} disabled={!range} />
         </Field>
-        <Field label={`Book 볼륨 (권) ${range ? `· 최대 ${maxBooks}` : ""}`}>
+        <Field label={`Book Size (권) ${range ? `· 최대 ${maxBooks}` : ""}`}>
           <input type="number" min={1} max={maxBooks} style={S.input} value={books} onChange={(e) => setBooks(Math.max(1, +e.target.value))} disabled={!range} />
-          {/* Separate Each Book — Book 볼륨과 이어진 항목이라 그 바로 아래 체크로 `PC-228` · 2권 이상이면 자동으로 켜지고 끌 수 없다 `PC-221` */}
-          <label title={books >= 2 ? "Book 볼륨 2 이상은 자동으로 켜집니다" : "체크하면 북코드별 개별 티켓, 해제하면 1개 티켓으로 병합합니다"}
+          {/* Separate Each Book — Book Size와 이어진 항목이라 그 바로 아래 체크로 `PC-228` · 2권 이상이면 자동으로 켜지고 끌 수 없다 `PC-221` */}
+          <label title={books >= 2 ? "Book Size 2 이상은 자동으로 켜집니다" : "체크하면 북코드별 개별 티켓, 해제하면 1개 티켓으로 병합합니다"}
             style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4, fontSize: 12, color: "#374151", whiteSpace: "nowrap", cursor: books >= 2 || !range ? "default" : "pointer" }}>
             <input type="checkbox" checked={separate} disabled={books >= 2 || !range} onChange={(e) => setSeparate(e.target.checked)} />
             Separate Each Book
@@ -984,7 +984,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
           </select>
         </Field>
         {/* 페이지 정원은 **회사에 할당된 SOB(코드 종류·Section)** 를 따른다 `PC-051` · HYBRID 면 8의 배수만 `PC-260` */}
-        <Field label={`Page 볼륨 ${range ? `· 최대 ${(PAGE_CAP[range.pt]?.[range.section] ?? 0).toLocaleString()}` : ""}${profile === "HYBRID" ? " · 8의 배수" : ""}`}>
+        <Field label={`Page Size ${range ? `· 최대 ${(PAGE_CAP[range.pt]?.[range.section] ?? 0).toLocaleString()}` : ""}${profile === "HYBRID" ? " · 8의 배수" : ""}`}>
           <input type="number" min={profile === "HYBRID" ? 8 : 1} step={profile === "HYBRID" ? 8 : 1} max={range ? (PAGE_CAP[range.pt]?.[range.section] ?? undefined) : undefined}
             style={{ ...S.input, ...(page8Bad && range ? { border: "1px solid #f87171", background: "#fef2f2" } : {}) }} value={pageVolume}
             onChange={(e) => { const cap = range ? (PAGE_CAP[range.pt]?.[range.section] ?? Infinity) : Infinity; setPageVolume(Math.max(1, Math.min(cap, +e.target.value))); }} disabled={!range} />

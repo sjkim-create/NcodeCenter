@@ -187,8 +187,8 @@ def nkey_form(co='KODION-46', picked=False, open_=False, common=False, sep=False
                       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">%s</div></div>'
                       % ''.join('<div style="font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid #93c5fd;background:#eef6ff;color:#1d4ed8">☑ %s '
                                 '<span style="%s;font-size:11px;color:#9ca3af">(%s)</span></div>' % (l, MONO, k) for l, k in perms))
-    sep = sep or picked   # Book 볼륨 2 이상 → 자동으로 켬 `PC-221`
-    # 순서: 티켓 속성 → 발급일 · 기간 → 코드 구간 — 프로필이 Page 볼륨(HYBRID = 8의 배수)을 정하므로 먼저 `PC-260`
+    sep = sep or picked   # Book Size 2 이상 → 자동으로 켬 `PC-221`
+    # 순서: 티켓 속성 → 발급일 · 기간 → 코드 구간 — 프로필이 Page Size(HYBRID = 8의 배수)을 정하므로 먼저 `PC-260`
     #   프로필 = Ticket Version(1 · 2) · 코드 재사용 = Ticket Type(Unlimited · Single) · 버전 줄 없앰 `PC-257` `PC-258`
     grid1 = (sec('티켓 속성',
                  '<div class="fld" style="grid-column:span 2"><span class="lbl">프로필 (Ticket Version) *</span>' + box % (sg(not hybrid), '1 · LEGACY (Caster Lite)', sg(hybrid), '2 · HYBRID (CasterN)') + '</div>' +
@@ -197,10 +197,10 @@ def nkey_form(co='KODION-46', picked=False, open_=False, common=False, sep=False
                  perms_html, 'g4') +
              sec('', fld('Issued Time (발급일)', '2026-10-15') +   # 모든 줄 4칸 격자 · 무제한은 아래 체크 `PC-236`
                  '<div class="fld"><span class="lbl">Valid Until Time (사용기간 끝) <span style="color:#374151;font-size:11.5px">☑ 무제한</span></span><div class="inp"><span style="color:#9ca3af">연도-월-일</span></div></div>', 'g4') +
-             sec('', fld('Start Book (시작 북코드)', bs, ph=not bs) + fld('Book 볼륨 (권)', bv, ph=not bv, err=over)[:-6] + '<div style="margin-top:4px;font-size:12px;color:#374151;white-space:nowrap">%s Separate Each Book</div></div>' % ('☑' if sep else '☐') +   # Book 볼륨 아래 체크 `PC-228`
+             sec('', fld('Start Book (시작 북코드)', bs, ph=not bs) + fld('Book Size (권)', bv, ph=not bv, err=over)[:-6] + '<div style="margin-top:4px;font-size:12px;color:#374151;white-space:nowrap">%s Separate Each Book</div></div>' % ('☑' if sep else '☐') +   # Book Size 아래 체크 `PC-228`
                  fld('Start Page', '1 (기본)') +
-                 (fld('Page 볼륨 · 8의 배수', '500', err=True)[:-6] + '<div style="margin-top:4px;font-size:11.5px;color:#b91c1c">8의 배수만 — 496 또는 504</div></div>' if page8
-                  else fld('Page 볼륨' + (' · 8의 배수' if hybrid else ''), '512')), 'g4'))   # HYBRID 8의 배수 `PC-260`
+                 (fld('Page Size · 8의 배수', '500', err=True)[:-6] + '<div style="margin-top:4px;font-size:11.5px;color:#b91c1c">8의 배수만 — 496 또는 504</div></div>' if page8
+                  else fld('Page Size' + (' · 8의 배수' if hybrid else ''), '512')), 'g4'))   # HYBRID 8의 배수 `PC-260`
     prof = ''
     # 발급 정책 — 막음(빨강) · 경고(주황) `PC-219`
     if policy:
@@ -380,20 +380,20 @@ def build():
 
     B.append(('S12', 'N Key 발급 — 범위 선택', '분기',
               '<b>[＋ N Key 발급]</b>을 누르면 오른쪽에 발급 폼이 열린다. 고객사는 왼쪽에서 고른 값(「전체」면 고른다). <b>발급 범위</b> = nkey 대장 이력(이 고객사로 이어진 티켓) '
-              '+ 고객사의 <b>SOBP 할당</b> <code>PC-153</code>. 고르면 Start Book · Book 볼륨 · Page 볼륨 · Code Type 이 채워지고 <b>발급 예정</b> 줄이 나온다.',
+              '+ 고객사의 <b>SOBP 할당</b> <code>PC-153</code>. 고르면 Start Book · Book Size · Page Size · Code Type 이 채워지고 <b>발급 예정</b> 줄이 나온다.',
               fr(HK + F + kws.grid(LK, mid(G1, h=col_h(1300), grouped=False), nkey_form(picked=True, open_=True, hybrid=True)), 1300),
               [('발급 범위', '선택', 'S·O·B·P 칩', '없으면 <b>이 고객사에 할당된 SOBP 범위가 없습니다.</b> → <code>SOB-02</code>'),
                ('Valid Until Time', '무제한 / 날짜', '기본 무제한', ''),
                ('프로필 (Ticket Version)', '선택 (필수)', '1 · LEGACY (Caster Lite) / 2 · HYBRID (CasterN)', '기본 LEGACY · 폼 맨 위(티켓 속성 → 발급일 · 기간 → 코드 구간) · Key 정보 · .nkey 의 Ticket Version 1 / 2 <code>PC-257</code> <code>PC-260</code>'),
                ('코드 재사용 (Ticket Type)', '체크', '☑ 재사용 = Unlimited / ☐ 재사용 안 함 = Single', '기본 재사용 · Key 정보 · .nkey 의 Ticket Type · <b>N Key 에만 있다</b>(App Key · 서비스 티켓 없음) <code>PC-258</code> <code>PC-259</code>'),
-               ('Page 볼륨', '숫자', 'HYBRID 면 <b>8의 배수</b>만', '8의 배수가 아니면 칸이 빨갛고 발급이 막힌다(S22) <code>PC-260</code>'),
+               ('Page Size', '숫자', 'HYBRID 면 <b>8의 배수</b>만', '8의 배수가 아니면 칸이 빨갛고 발급이 막힌다(S22) <code>PC-260</code>'),
                ('HYBRID 전용 권한', '체크 (6개)', 'HYBRID 일 때만', '서비스 계정 CasterN 권한 6가지 · 기본 모두 선택 · Key 정보 CasterN Permissions'),
                ('발급 범위 목록', '표시', 'S · O · B · P 칩(코드 타입 표시 없음 <code>PC-224</code>)', 'OID · PDS4 범위는 안 나온다 <code>PC-220</code>'),
                ('Code Type', '선택', '범위 타입이 기본 「(할당)」', 'Section 에서 못 쓰는 타입은 꺼짐 · 할당과 다르면 ⚠ 경고 <code>PC-221</code>'),
                ('프로필', '선택', 'Section 에 맞는 것만 켜짐', '예: S10 → HYBRID 만 · PDS3 만 / 표에 없는 Section 은 모두 켜짐 <code>PC-221</code>'),
                ('사용 가능 Section', '자동 표시', '프로필 × 코드 타입', 'LEGACY+PDS2 0·1·2·3·14 / LEGACY+PDS3 0·3·14 / HYBRID+PDS2 0·3·14 / HYBRID+PDS3 0·3·5·10·11·14·15 <code>PC-219</code>'),
-               ('Separate Each Book', '체크', '북코드별 개별 티켓', '해제 = 1개 티켓 병합 · <b>Book 볼륨 2 이상이면 자동으로 켜짐(잠금)</b> <code>PC-221</code>'),
-               ('[N Key 발급]', '클릭', 'S15', '.nkey 1개 / Separate + Book 볼륨 2 이상이면 .zip'), ('[취소]', '클릭', '이전 상세', '')]))
+               ('Separate Each Book', '체크', '북코드별 개별 티켓', '해제 = 1개 티켓 병합 · <b>Book Size 2 이상이면 자동으로 켜짐(잠금)</b> <code>PC-221</code>'),
+               ('[N Key 발급]', '클릭', 'S15', '.nkey 1개 / Separate + Book Size 2 이상이면 .zip'), ('[취소]', '클릭', '이전 상세', '')]))
 
     B.append(('S13', 'N Key 발급 — 공통코드 고객사', '변형',
               '공통코드를 가진 고객사는 범위 목록 대신 <b>사용 고객사</b>를 고른다 — 그 고객사가 쓰는 코드로 범위가 자동 지정되고, 사용 고객사명이 티켓과 파일명에 들어간다. '
@@ -407,30 +407,30 @@ def build():
     B.append(('S14', 'N Key 발급 — 범위 초과 · 검증 실패', '오류',
               'Book 끝이 할당 범위를 넘으면 발급 예정 줄에 <b>⚠ 할당 범위(B{끝}) 초과</b>가 붙고, [N Key 발급] 때 검증에 걸린다. 검사는 순서대로 하고 하나라도 걸리면 멈춘다.',
               fr(HK + F + kws.grid(LK, mid(G1, h=col_h(1150), grouped=False),
-                                   nkey_form(picked=True, over=True, err='Book 볼륨은 1~4권이어야 합니다. (B8~B11)',
+                                   nkey_form(picked=True, over=True, err='Book Size는 1~4권이어야 합니다. (B8~B11)',
                                              warn='할당된 코드 타입(PDS3)과 다른 PDS2 를 골랐습니다. 할당 타입을 확인하세요.')), 1150),
               [('① 고객사', '미선택', '<b>차단</b>', '<b>고객사를 선택하세요.</b>'),
                ('② 공통코드 사용 고객사', '미선택', '<b>차단</b>', '<b>공통코드 회사입니다. 사용 고객사를 선택하세요.</b>'),
                ('③ 발급 범위', '미선택', '<b>차단</b>', '<b>발급 범위를 선택하세요.</b>'),
                ('④ Start Book', '범위 밖', '<b>차단</b>', '<b>Start Book은 {시작}~{끝} 범위여야 합니다.</b>'),
-               ('⑤ Book 볼륨', '초과', '<b>차단</b>', '<b>Book 볼륨은 1~{최대}권이어야 합니다. (B{시작}~B{끝})</b>'),
-               ('⑥ Page 볼륨', '0', '<b>차단</b>', '<b>Page 볼륨은 1 이상이어야 합니다.</b>'),
+               ('⑤ Book Size', '초과', '<b>차단</b>', '<b>Book Size는 1~{최대}권이어야 합니다. (B{시작}~B{끝})</b>'),
+               ('⑥ Page Size', '0', '<b>차단</b>', '<b>Page Size는 1 이상이어야 합니다.</b>'),
                ('⑦ Valid Until Time', '형식', '<b>차단</b>', '<b>Valid Until Time 은 6자리(YYMMDD)이거나 무제한이어야 합니다.</b>'),
                ('구간 사용 현황', '입력 구간이 겹침', '「입력 구간 겹침(n건)」 · 겹치는 줄 빨강', '겹치는 발급분에 <b>티켓 이름</b>(N Key = 파일명 · App Key = 계정 · 티켓 n) — 누르면 그 티켓으로 이동. 빈 Book 이 없으면 <b>비어 있는 Book 영역이 없습니다.</b> <code>PC-225</code>'),
                ('⑦-1 Code Type', 'OID · PDS4', '<b>차단</b> · 버튼 꺼짐', '<b>OID · PDS4 는 새로 발급할 수 없습니다. PDS2 · PDS3 중에서 고르세요.</b> <code>PC-219</code>'),
-               ('⑦-3 Page 볼륨', 'HYBRID 인데 8의 배수 아님', '<b>차단</b> · 버튼 꺼짐', '<b>HYBRID 프로필은 Page 볼륨을 8의 배수로 설정해야 합니다. (지금 {n} → {아래} 또는 {위})</b> <code>PC-260</code>'),
+               ('⑦-3 Page Size', 'HYBRID 인데 8의 배수 아님', '<b>차단</b> · 버튼 꺼짐', '<b>HYBRID 프로필은 Page Size를 8의 배수로 설정해야 합니다. (지금 {n} → {아래} 또는 {위})</b> <code>PC-260</code>'),
                ('⑦-2 Section', '프로필 · 타입에 없음', '<b>차단</b> · 버튼 꺼짐', '<b>S{n} 은 {프로필} + {타입} 에서 쓸 수 없습니다. 켜진 프로필 · 코드 타입을 고르세요.</b> <code>PC-221</code>'),
                ('경고', '할당 타입과 다른 Code Type', '발급은 됨', '<b>⚠ 할당된 코드 타입({할당})과 다른 {타입} 를 골랐습니다. 할당 타입을 확인하세요.</b> <code>PC-221</code>')]))
 
     G2 = (('KODION-46', ((64, 'S3/O46/B8', '미정', 4, '김순정', '2026-10-15', '', False),) + T['KODION-46']),)
     B.append(('S15', 'N Key 발급 완료 → 정산 정보', '분기',
-              '[N Key 발급]을 누르면 티켓 파일 <b>.nkey</b>(Key=Value 텍스트 · JSON 아님)가 내려받아지고(Separate Each Book + Book 볼륨 2 이상이면 Book 마다 .nkey 를 묶은 <b>.zip</b>) <code>PC-219</code>, 가운데 맨 위에 새 티켓이 생기며 오른쪽은 <b>그 티켓의 정산 정보 탭</b>으로 바로 이어진다 '
+              '[N Key 발급]을 누르면 티켓 파일 <b>.nkey</b>(Key=Value 텍스트 · JSON 아님)가 내려받아지고(Separate Each Book + Book Size 2 이상이면 Book 마다 .nkey 를 묶은 <b>.zip</b>) <code>PC-219</code>, 가운데 맨 위에 새 티켓이 생기며 오른쪽은 <b>그 티켓의 정산 정보 탭</b>으로 바로 이어진다 '
               '— 발급 직후 정산을 등록한다 <code>PC-149</code>.',
               fr(HK + F + kws.grid(LK, mid(G2, sel_no=64, h=col_h(1000), grouped=False),
                                    ticket_detail('bill', no=64, co='KODION-46', bill='미정', note='', at='2026-10-15 14:02', by='김순정')
                                    .replace(tg('대장', '#f3f4f6', '#9ca3af'), '')), 1000),
-              [('.nkey', '다운로드', 'Ticket_{고객사}[_{사용고객사}]_{S}s_{O}o_{Book 볼륨}b_{Page 볼륨}p.nkey', '「Key=Value」 줄 · JSON 아님 <code>PC-219</code> · 파일명 B · P = 볼륨 · zip 안 파일은 끝에 _B{북코드} <code>PC-221</code> <code>PC-263</code>'),
-               ('.zip', '다운로드', 'Separate Each Book 켜짐 + Book 볼륨 2 이상', '…_{시작}-{끝}b_….zip 안에 Book 하나당 …_{n}b_….nkey'),
+              [('.nkey', '다운로드', 'Ticket_{고객사}[_{사용고객사}]_{S}s_{O}o_{Book Size}b_{Page Size}p.nkey', '「Key=Value」 줄 · JSON 아님 <code>PC-219</code> · 파일명 B · P = 볼륨 · zip 안 파일은 끝에 _B{북코드} <code>PC-221</code> <code>PC-263</code>'),
+               ('.zip', '다운로드', 'Separate Each Book 켜짐 + Book Size 2 이상', '…_{시작}-{끝}b_….zip 안에 Book 하나당 …_{n}b_….nkey'),
                ('발급(자동)', '—', '목록 · 집계 · <code>LOG-01</code>', '티켓 발급 · 신규발급')]))
 
     B.append(('S16', '코드 구간 수정 — 사용할 수 없는 구간', '오류',
@@ -493,7 +493,7 @@ def build():
               '발급 기록은 지우지 않는다 <code>PC-192</code>.',
               fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(1000), grouped=False), ticket_detail(editing=True)), 1000),
               [('[티켓 수정]', '클릭', '수정 상태', '발급 기본정보 탭에서 · 정산 탭은 [정산 저장]'),
-               ('[키 다운로드]', '클릭', '.nkey(또는 .zip) 다시 받기', '발급 때와 같은 형식 · 파일명 Ticket_{고객사}_{S}s_{O}o_{Book 볼륨}b_{Page 볼륨}p.nkey <code>PC-221</code> <code>PC-263</code>'),
+               ('[키 다운로드]', '클릭', '.nkey(또는 .zip) 다시 받기', '발급 때와 같은 형식 · 파일명 Ticket_{고객사}_{S}s_{O}o_{Book Size}b_{Page Size}p.nkey <code>PC-221</code> <code>PC-263</code>'),
                ('[수정 저장]', '클릭', 'S11', '코드 구간을 바꿨으면 사용할 수 있는 구간인지 검사(S16)'),
                ('[취소]', '클릭', '보기', '고친 값 버림')]))
 
@@ -508,15 +508,15 @@ def build():
                ('[라이선스 저장]', '클릭', '고객사 1건 저장', '<b>라이선스 비용이 저장되었습니다.</b> · <code>LOG-01</code> 정산'),
                ('탭이 안 보일 때', '—', '—', '「전체」를 골랐거나 그 고객사 자신의 N Key 발급분이 없음')]))
 
-    # HYBRID — Page 볼륨 8의 배수 `PC-260`
-    P8 = 'HYBRID 프로필은 Page 볼륨을 8의 배수로 설정해야 합니다. (지금 500 → 496 또는 504)'
-    B.append(('S22', 'N Key 발급 — HYBRID Page 볼륨 8의 배수 아님', '오류',
-              '프로필이 <b>HYBRID</b>(Ticket Version 2)면 <b>Page 볼륨은 8의 배수</b>만 쓸 수 있다. 8의 배수가 아니면 Page 볼륨 칸이 빨갛게 되고 가까운 8의 배수를 보이며, '
-              '발급 정책 줄에 ⛔ 와 함께 <b>[N Key 발급]</b>이 꺼진다(티켓 수정의 [수정 저장]도 같다). 프로필이 Page 볼륨을 정하므로 <b>티켓 속성을 발급일 위</b>에 둔다 <code>PC-260</code>.',
+    # HYBRID — Page Size 8의 배수 `PC-260`
+    P8 = 'HYBRID 프로필은 Page Size를 8의 배수로 설정해야 합니다. (지금 500 → 496 또는 504)'
+    B.append(('S22', 'N Key 발급 — HYBRID Page Size 8의 배수 아님', '오류',
+              '프로필이 <b>HYBRID</b>(Ticket Version 2)면 <b>Page Size는 8의 배수</b>만 쓸 수 있다. 8의 배수가 아니면 Page Size 칸이 빨갛게 되고 가까운 8의 배수를 보이며, '
+              '발급 정책 줄에 ⛔ 와 함께 <b>[N Key 발급]</b>이 꺼진다(티켓 수정의 [수정 저장]도 같다). 프로필이 Page Size를 정하므로 <b>티켓 속성을 발급일 위</b>에 둔다 <code>PC-260</code>.',
               fr(HK + F + kws.grid(LK, mid(G1, h=col_h(1300), grouped=False), nkey_form(picked=True, hybrid=True, page8=True, policy=P8)), 1300),
-              [('Page 볼륨', 'HYBRID · 8의 배수 아님', '<b>차단</b> · 칸 빨강 · 버튼 꺼짐', '<b>%s</b>' % P8),
+              [('Page Size', 'HYBRID · 8의 배수 아님', '<b>차단</b> · 칸 빨강 · 버튼 꺼짐', '<b>%s</b>' % P8),
                ('프로필', 'LEGACY 로 바꿈', '제한 없음', 'LEGACY 는 8의 배수 제한이 없다'),
-               ('Page 볼륨', '8의 배수로 고침', 'S12', '⛔ 줄이 사라지고 [N Key 발급]이 켜진다')]))
+               ('Page Size', '8의 배수로 고침', 'S12', '⛔ 줄이 사라지고 [N Key 발급]이 켜진다')]))
 
     intro = ('N Key 를 발급하고 정산하는 화면이다. 「<b>고객사 | 발급 티켓 | 발급 상세·정산</b>」 3단 한 화면이며 옛 <code>TKT-03</code> N Key 관리 · '
              '<code>TKT-04</code> N Key 발급 · <code>TKT-05</code> 발급 상세·수정 · <code>TKT-06</code> N Key 불러오기를 합쳤다 <code>PC-149</code> <code>PC-158</code>. '

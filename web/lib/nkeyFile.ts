@@ -4,11 +4,11 @@
 //   - 새로 발급하는 Code Type 은 PDS2 · PDS3 만(OID · PDS4 는 생성 불가 — 옛 발급분의 값은 그대로 보인다)
 //   - 프로필 · 코드 타입마다 쓸 수 있는 Section 이 정해져 있다(NKEY_SECTIONS)
 //   - 프로필 = Ticket Version(1 LEGACY · 2 HYBRID) · 코드 재사용 = Ticket Type(Unlimited · Single) — 코드 재사용은 N Key 에만 `PC-257`~`PC-259`
-//   - HYBRID 는 Page 볼륨이 8의 배수여야 한다 `PC-260`
-//   - Book 볼륨이 2 이상인데 Book 의 전체 페이지가 아니라 일부 페이지만 발급하려면 Separate Each Book 이 켜져 있어야 한다
+//   - HYBRID 는 Page Size가 8의 배수여야 한다 `PC-260`
+//   - Book Size가 2 이상인데 Book 의 전체 페이지가 아니라 일부 페이지만 발급하려면 Separate Each Book 이 켜져 있어야 한다
 //
 // .nkey 파일 — JSON 이 아니라 한 줄에 「Key=Value」 인 텍스트(앞의 # 줄은 설명).
-//   Separate Each Book 이 켜져 있고 Book 볼륨이 2 이상이면 Book 마다 .nkey 를 만들어 .zip 하나로 받는다. 그 밖에는 .nkey 1개.
+//   Separate Each Book 이 켜져 있고 Book Size가 2 이상이면 Book 마다 .nkey 를 만들어 .zip 하나로 받는다. 그 밖에는 .nkey 1개.
 export type NkeyProfile = "LEGACY" | "HYBRID";
 export type NkeyType = "PDS2" | "PDS3";
 
@@ -52,9 +52,9 @@ export const secOk = (p: NkeyProfile, t: string, s: number) =>
 /** 이 Section 에서 프로필이 쓸 수 있는가(어느 타입이든) */
 export const profileOk = (p: NkeyProfile, s: number) => NKEY_TYPES.some((t) => secOk(p, t, s));
 
-// ── 파일명 `PC-221` `PC-263` — Ticket_{고객사}[_{사용고객사}]_{S}s_{O}o_{Book 볼륨}b_{Page 볼륨}p.nkey
-//   B · P 자리는 Start Book · Start Page 가 아니라 **볼륨(권수 · 쪽수)** · 끝의 Page 볼륨은 P 자리와 겹쳐 없앴다
-//   zip 안 개별 파일은 Book 볼륨 1 이라 이름이 같아지므로 끝에 _B{북코드} 를 붙여 구분한다
+// ── 파일명 `PC-221` `PC-263` — Ticket_{고객사}[_{사용고객사}]_{S}s_{O}o_{Book Size}b_{Page Size}p.nkey
+//   B · P 자리는 Start Book · Start Page 가 아니라 **볼륨(권수 · 쪽수)** · 끝의 Page Size는 P 자리와 겹쳐 없앴다
+//   zip 안 개별 파일은 Book Size 1 이라 이름이 같아지므로 끝에 _B{북코드} 를 붙여 구분한다
 export function nkeyName(o: { co: string; cu?: string; section: number | string; owner: number | string; bookVolume: number | string; pageVolume: number | string; bookNo?: number }, ext: "nkey" | "zip" = "nkey") {
   const safe = (x: string) => x.replace(/[\/:*?"<>|]/g, "_");
   return `Ticket_${safe(o.co)}${o.cu ? `_${safe(o.cu)}` : ""}_${o.section}s_${o.owner}o_${o.bookVolume}b_${o.pageVolume}p${o.bookNo != null ? `_B${o.bookNo}` : ""}.${ext}`;
@@ -94,7 +94,7 @@ export function nkeyFileNameOf(p: Params): string {
     bookVolume: books, pageVolume: f.pageVolume as number };
   return nkeyName(base, !!f.separateEachBook && books >= 2 ? "zip" : "nkey");
 }
-/** Key 정보로 .nkey 를 내려받는다 — Separate Each Book + Book 볼륨 2 이상이면 Book 마다 .nkey 를 .zip 하나로. 내려받은 파일명을 돌려준다 */
+/** Key 정보로 .nkey 를 내려받는다 — Separate Each Book + Book Size 2 이상이면 Book 마다 .nkey 를 .zip 하나로. 내려받은 파일명을 돌려준다 */
 export function downloadNkey(p: Params, makeZip: (e: { name: string; content: string }[]) => Blob): string {
   const f = nkeyFieldsOf(p);
   const bs = f.bookStart as number, books = Math.max(1, f.bookVolume as number);

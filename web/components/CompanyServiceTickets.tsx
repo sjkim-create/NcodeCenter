@@ -5,7 +5,7 @@
 //   내부에서 **고객사 계정(서비스 계정)들과 매칭해 서비스 사용을 승인하는 기준**이다.
 //   그래서 [티켓 발급] 메뉴가 아니라 **고객사 관리(MEM-02)의 섹션**에서 지정한다 `PC-173`.
 // - 고객사가 SOBP 맵에서 할당받은 범위(공유 코드 사용 고객사면 그 S/O 포함) 안에서
-//   Start Book · Book 볼륨 · Start Page · Page 볼륨 · 사용기간 시작 · 끝 을 정해 지정한다.
+//   Start Book · Book Size · Start Page · Page Size · 사용기간 시작 · 끝 을 정해 지정한다.
 // - 한 고객사 안에서 App Key · N Key · 서비스 티켓의 범위는 겹치지 않는다. 공유 코드 Book 은 고객사끼리도 겹치지 않는다.
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -28,7 +28,7 @@ import {
 import { companyServices, type Company } from "@/lib/customerData";
 import { WS_CARD as card, WS_HD as hd, WS_EMPTY, WS_HEAD_BTN, wsTag as tag, wsItem, WsTabs, InfoTip } from "./KeyWorkspaceUI";   // 키 화면과 같은 조각 `PC-154`
 
-const PAGE_DEFAULT = 512;   // Page 볼륨 기본값 — App Key · N Key 발급과 같은 값
+const PAGE_DEFAULT = 512;   // Page Size 기본값 — App Key · N Key 발급과 같은 값
 type Right = { kind: "t"; id: number } | { kind: "add" } | { kind: "edit"; id: number } | { kind: "none" };
 
 /** 만료 후 동작 — 숨김 안내(눌러야 펼쳐진다) `PC-171` ④ */
@@ -318,7 +318,7 @@ function IssueForm({ edit, coId, coName, coSvcs, ranges, mine, me, onDone, onCan
             <input type="number" style={S.input} value={bStart} disabled={!r} min={r?.bookStart} max={r?.bookEnd}
               onChange={(e) => r && setBStart(Math.max(r.bookStart, Math.min(r.bookEnd, +e.target.value || 0)))} />
           </Field>
-          <Field label={`Book 볼륨 (권) ${r ? `· 최대 ${maxVol}` : ""}`}>
+          <Field label={`Book Size (권) ${r ? `· 최대 ${maxVol}` : ""}`}>
             <input type="number" style={S.input} value={Math.min(bVol, maxVol)} disabled={!r} min={1} max={maxVol}
               onChange={(e) => setBVol(Math.max(1, Math.min(maxVol, +e.target.value || 1)))} />
           </Field>
@@ -326,7 +326,7 @@ function IssueForm({ edit, coId, coName, coSvcs, ranges, mine, me, onDone, onCan
             <input type="number" style={S.input} value={pStart} disabled={!r} min={r?.pageStart} max={r?.pageEnd}
               onChange={(e) => r && setPStart(Math.max(r.pageStart, Math.min(r.pageEnd, +e.target.value || 0)))} />
           </Field>
-          <Field label={`Page 볼륨 ${r ? `· 최대 ${maxPVol}` : ""}`}>
+          <Field label={`Page Size ${r ? `· 최대 ${maxPVol}` : ""}`}>
             <input type="number" style={S.input} value={Math.min(pVol, maxPVol)} disabled={!r} min={1} max={maxPVol}
               onChange={(e) => setPVol(Math.max(1, Math.min(maxPVol, +e.target.value || 1)))} />
           </Field>

@@ -24,7 +24,7 @@ const ROWS: Row[] = [
     svc: "고객사의 서비스 계정과 매칭(주인 = 고객사, 소속 사용자 전원이 공유)" },
   { k: "권한 · 설정",
     app: <>[권한] 탭의 <b>Caster U 권한 20항목</b>(true / false) — 설정해 발급하면 그 계정으로 Caster U 를 쓴다</>,
-    n: <>프로필 (Ticket Version) <b>1 LEGACY</b>(Caster Lite) / <b>2 HYBRID</b>(CasterN 오프라인 · CasterN 권한 6개 · Page 볼륨 8의 배수) · 코드 재사용 (Ticket Type) Unlimited / Single — <b>코드 재사용은 N Key 에만</b></>,
+    n: <>프로필 (Ticket Version) <b>1 LEGACY</b>(Caster Lite) / <b>2 HYBRID</b>(CasterN 오프라인 · CasterN 권한 6개 · Page Size 8의 배수) · 코드 재사용 (Ticket Type) Unlimited / Single — <b>코드 재사용은 N Key 에만</b></>,
     svc: "서비스 구분 casterN / 폼솔루션 — 티켓 하나에 서비스 하나" },
   { k: "기간",
     app: "티켓마다 사용기간(시작 ~ 끝 / 무제한)",

@@ -57,14 +57,14 @@ export default function NcodeGuideView({ embedded }: { embedded?: boolean } = {}
           <li>N Key 의 <b>Ticket Version</b> 은 <b>프로필</b>입니다 — 발급 화면 항목명 <b>프로필 (Ticket Version)</b>.</li>
           <li>N Key 의 <b>Ticket Type</b> 은 <b>코드 재사용 여부</b>입니다 — 발급 화면 항목명 <b>코드 재사용 (Ticket Type)</b>.</li>
           <li><b>코드 재사용은 N Key 에서만</b> 씁니다. App Key 티켓 · 서비스 티켓에는 없습니다.</li>
-          <li><b>HYBRID</b> 프로필은 <b>Page 볼륨이 8의 배수</b>여야 발급됩니다.</li>
+          <li><b>HYBRID</b> 프로필은 <b>Page Size가 8의 배수</b>여야 발급됩니다.</li>
         </ul>
         <table style={{ ...S.table, marginTop: 10 }}>
           <thead><tr>{["항목", "값", "뜻"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
           <tbody>
             <tr><td style={{ ...td, fontWeight: 700 }} rowSpan={2}>Ticket Version (프로필)</td>
               <td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>1</td><td style={td}>LEGACY — Caster Lite</td></tr>
-            <tr><td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>2</td><td style={td}>HYBRID — CasterN 오프라인 · Page 볼륨 8의 배수</td></tr>
+            <tr><td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>2</td><td style={td}>HYBRID — CasterN 오프라인 · Page Size 8의 배수</td></tr>
             <tr><td style={{ ...td, fontWeight: 700 }} rowSpan={2}>Ticket Type (코드 재사용)</td>
               <td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>Unlimited</td><td style={td}>재사용 (기본)</td></tr>
             <tr><td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>Single</td><td style={td}>재사용 안 함</td></tr>

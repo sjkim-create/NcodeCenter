@@ -180,12 +180,12 @@ def issue_form(sel=None, open_=False, new=False, ranges=RANGES):
                                    % (16 if t else 12, ('<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #f1f3f6">%s</div>' % t) if t else '', g, body))   # 코드 구간 = g4 한 줄 `PC-227`
     fields = (sec('', fld('Valid From Time (사용기간 시작)', '2026-10-23') +   # 모든 줄 4칸 격자 `PC-236`
                   '<div class="fld"><span class="lbl">Valid Until Time (기한) <span style="color:#374151;font-size:11.5px">☑ 무제한</span></span><div class="inp"><span style="color:#9ca3af">연도-월-일</span></div></div>', 'g4') +
-              sec('', fld('Start Book (시작 북코드)', r[2].split('~')[0] if r else '', ph=not r) + fld('Book 볼륨 (권)', '250' if r else '', ph=not r) +
-                  fld('Start Page', '1 (기본)') + fld('Page 볼륨', '512'), 'g4') +
+              sec('', fld('Start Book (시작 북코드)', r[2].split('~')[0] if r else '', ph=not r) + fld('Book Size (권)', '250' if r else '', ph=not r) +
+                  fld('Start Page', '1 (기본)') + fld('Page Size', '512'), 'g4') +
               # Ticket Version · Ticket Type 없음 — App Key 티켓에는 두지 않는다 `PC-259` `PC-272`
               # 티켓 이름 — .nkey 파일명 규칙으로 만든 제안 이름을 placeholder 로 `PC-261`
               sec('티켓 속성', '<div style="grid-column:1/-1">' + fld('Ticket Name (티켓 이름)',
-                      ('Study123_%ss_%so_250b_512p_20261023' % (r[0], r[1])) if r else '{고객사}_{S}s_{O}o_{Book 볼륨}b_{Page 볼륨}p_{발급일}', ph=True, mono=True) + '</div>' +
+                      ('Study123_%ss_%so_250b_512p_20261023' % (r[0], r[1])) if r else '{고객사}_{S}s_{O}o_{Book Size}b_{Page Size}p_{발급일}', ph=True, mono=True) + '</div>' +
                   fld('Code Type (발급 범위 따름)', 'PDS3' if r else '-', ro=True) +
                   fld('Owner Size', '1' if r else '-', ro=True) +
                   '<div style="grid-column:span 2">' + fld('Info (티켓 메모)', 'sample' if r else '예) sample · 2026 교재용', ph=not r) + '</div>', 'g4'))

@@ -158,7 +158,7 @@ TKT-02:S19 하위 고객사 — 상위 묶음 · 바로 선택해 발급
 TKT-02:S20 고객사 검색 → 발급 티켓
 TKT-02:S21 티켓 수정 — 수정 상태
 TKT-02:S22 연간 라이선스 — 오른쪽 슬라이드 패널
-TKT-02:S22 N Key 발급 — HYBRID Page 볼륨 8의 배수 아님
+TKT-02:S22 N Key 발급 — HYBRID Page Size 8의 배수 아님
 ```
 
 ## SOB-01 · SOBP 맵 (19)

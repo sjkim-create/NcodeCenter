@@ -291,6 +291,6 @@ PRD §4.4 — 코드 발급·편집 운영에서 **반드시 알아야 할 기�
 |---|---|---|---|
 | ① 편집 비용 산출 | 조회 | — | 소리펜·필기펜 모두 **페이지 수 + 심볼 갯수** · **심볼 갯수 = 작업량** |
 | ② 산출물·저장 위치 | 조회 | — | mp3·ncp2 = **디바이스**(파랑) / nproj·PDF·JPG·썸네일 = **서버 등록**(초록) |
-| ⑤ Ticket Version · Ticket Type | 조회 | — | N Key — Ticket Version = **프로필**(1 LEGACY · 2 HYBRID) · Ticket Type = **코드 재사용**(Unlimited · Single, N Key 에만) · HYBRID 는 Page 볼륨 8의 배수 `PC-257`~`PC-260` |
+| ⑤ Ticket Version · Ticket Type | 조회 | — | N Key — Ticket Version = **프로필**(1 LEGACY · 2 HYBRID) · Ticket Type = **코드 재사용**(Unlimited · Single, N Key 에만) · HYBRID 는 Page Size 8의 배수 `PC-257`~`PC-260` |
 | 단가 지정하러 가기 | 이동 | `MEM-01` → `MEM-02` | — |
 | SOBP 실시간 발급 | — | **미구현** | ⚠ §7 — 이 메뉴의 탭으로 넣을지 협의 |

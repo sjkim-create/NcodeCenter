@@ -577,8 +577,8 @@ def ticket_form(err='', open_=False, start='451'):
             '%s%s'
             '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:22px"><span class="btn gho">취소</span>'
             '<span class="btn pri">티켓 지정</span></div></div></div>'
-            % (CO, pick, f('Start Book · 431~464', start), f('Book 볼륨 (권) · 최대 14', '5'), f('Start Page · 0~511', '0'),
-               f('Page 볼륨 · 최대 512', '512'), f('Valid From Time (사용기간 시작) *', '2026-10-20'),
+            % (CO, pick, f('Start Book · 431~464', start), f('Book Size (권) · 최대 14', '5'), f('Start Page · 0~511', '0'),
+               f('Page Size · 최대 512', '512'), f('Valid From Time (사용기간 시작) *', '2026-10-20'),
                f('Valid Until Time (사용기간 끝) *', '2027-10-19'), expiry_note(open_), e))
 
 
@@ -752,14 +752,14 @@ def build():
                ('ⓘ 만료 후 동작', '클릭', '펼침', '숨김 안내 — S24'),
                ('등록 화면', '—', '<b>잠김</b>', '고객사를 먼저 등록해야 열린다 · <b>고객사를 먼저 등록하세요.</b>')]))
     B.append(('S24', '서비스 티켓 — 지정 폼 · 만료 후 동작 펼침', '분기',
-              '할당된 SOBP 에서 고르고 <b>Start Book · Book 볼륨 · Start Page · Page 볼륨 · 사용기간 시작 · 끝</b>을 정한다(모두 필수). '
+              '할당된 SOBP 에서 고르고 <b>Start Book · Book Size · Start Page · Page Size · 사용기간 시작 · 끝</b>을 정한다(모두 필수). '
               'Start Book 기본값은 <b>범위 안에서 아직 티켓이 없는 첫 Book</b>. 「ⓘ 만료 후 동작」 은 눌러야 펼쳐지는 숨김 안내다 <code>PC-171</code> ④.',
               frame('MEM-01', FR, layout(H, nav('ticket'), acc_section(ticket_list(adding=True), ticket_form(open_=True))), height=1150),
               [('서비스', '선택 (필수)', 'casterN / 폼솔루션', '이 티켓으로 승인하는 서비스 · 고객사가 쓰는 서비스가 하나면 그것으로 시작 <code>PC-186</code>'),
                ('Code Type', '선택 (필수)', 'PDS3 / PDS2', '서비스 옆에 나란히(세로선으로 구분) · 범위를 고르면 그 범위의 종류로 맞추고, 직접 고르면 그대로 둔다 <code>PC-188</code>'),
                ('지정 범위', '선택', 'Section · Owner 자동', '할당 SOBP · <b>하위 고객사면 상위 SOBP 영역</b>(공유) <code>PC-195</code>'),
                ('구간 사용 현황', '자동', '범위 아래', '이미 발급된 구간(App Key · N Key · 서비스 티켓 · 고객사) · <b>빈 Book 구간</b>(누르면 Start Book 이동) · 입력 구간 사용 가능 / 겹침 <code>PC-195</code>'),
-               ('Book · Page', '입력', '범위 안으로 제한', 'Page 볼륨 기본 512'),
+               ('Book · Page', '입력', '범위 안으로 제한', 'Page Size 기본 512'),
                ('사용기간', '입력 (필수)', '—', '무제한 없음 · 기간은 키 관리에서만 정한다(SOBP 할당에는 기간 없음) <code>PC-175</code>'),
                ('[티켓 지정]', '클릭', 'S23 상세', '<b>필수 항목이 하나라도 비면 비활성</b> · 툴팁 <b>입력하지 않은 항목: {항목들}</b> <code>PC-189</code> · 겹침 검사 통과 시 · <code>LOG-01</code> 티켓 발급 활동'),
                ('[취소]', '클릭', 'S23', '')]))
