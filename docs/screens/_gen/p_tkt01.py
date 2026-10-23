@@ -261,7 +261,7 @@ def bill_tab(sel_idx=0):
                  % ('#93c5fd' if i == sel_idx else '#eef0f4', '#f0f7ff' if i == sel_idx else '#fff',
                     '#2563eb' if i == sel_idx else '#d1d5db', '▸' if i == sel_idx else '·', MONO, t, b)
                  for i, (t, b) in enumerate(rows))
-    # 연간 라이선스는 오른쪽 칸 맨 위 탭으로 옮겼다 `PC-257`
+    # 연간 라이선스는 오른쪽 칸 맨 위 탭으로 옮겼다 `PC-270`
     return (kws.sec_head('정산할 티켓', '· 티켓마다 등록 · 미정 1건') + li +
             (kws.billing_box() if sel_idx == 0 else kws.billing_box('미정', note='', last='—')))
 
@@ -310,7 +310,7 @@ def detail(tab='hist', sel_idx=0, open_=False, picked=False, issued_key='', toas
             % ('' if picked else ' style="opacity:.5"')))
     foot = kws.footer('<span class="btn gho" style="color:#dc2626;border-color:#fecaca;opacity:.4" title="발급된 App Key 티켓이 있는 계정은 삭제할 수 없습니다">계정 삭제</span>',
                       '<span class="btn pri">저장</span>') if tab == 'info' else ''
-    # 맨 위 연간 라이선스 탭 — 이 고객사에 App Key 계정이 있을 때 · lic = 'open' 이면 패널이 펼쳐진 모습 `PC-257`
+    # 맨 위 연간 라이선스 탭 — 이 고객사에 App Key 계정이 있을 때 · lic = 'open' 이면 패널이 펼쳐진 모습 `PC-270`
     return (kws.license_slide('App Key', co, open_=(lic == 'open')) +
             '<div style="%s;padding:18px"><div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">'
             '<b style="font-size:15px">%s</b><span style="%s;font-size:12px;color:#6b7280">%s</span></div>%s%s%s%s</div>'
@@ -475,7 +475,7 @@ def build():
     B.append(('S13', '정산 탭', '분기',
               'N Key 관리처럼 <b>정산은 별도 탭</b>이다 <code>PC-178</code>. 티켓(코드 범위)을 고르고 그 정산을 등록한다 — '
               'N Key · 서비스 티켓과 같은 4종 <code>PC-177</code>. 탭 머리 배지는 정산 미등록(미정) 티켓 수. '
-              '연간 라이선스는 이 탭이 아니라 <b>오른쪽 칸 맨 위 탭</b>에서 다룬다(S18) <code>PC-257</code>.',
+              '연간 라이선스는 이 탭이 아니라 <b>오른쪽 칸 맨 위 탭</b>에서 다룬다(S18) <code>PC-270</code>.',
               fr(H + kws.grid(left(h=col_h(1100)), mid(h=col_h(1100)), detail('bill')), 1100),
               [('[정산] 탭', '클릭', '정산할 티켓 + 정산 입력', '탭 배지 <b>미정 {n}</b> · 계정 추가 화면에는 없다'),
                ('티켓 줄', '클릭', '그 티켓의 정산', 'S/O/B/P · 사용기간 · 정산 배지'),
@@ -530,7 +530,7 @@ def build():
 
     B.append(('S18', '연간 라이선스 — 오른쪽 슬라이드 패널', '분기',
               '연간 라이선스는 <b>티켓이 아니라 키 발급으로 생기는 비용</b>이라 <b>고객사마다 1건</b>(App Key)이다 <code>PC-212</code>. '
-              '오른쪽 칸 맨 위의 <b>작은 탭</b>(상태 한 줄 — 미등록 / 금액 · 기간 끝 / 만료 임박 · 만료)을 누르면 <b>발급 상세 위로 오른쪽에서 패널</b>이 밀려 나온다 <code>PC-257</code>. '
+              '오른쪽 칸 맨 위의 <b>작은 탭</b>(상태 한 줄 — 미등록 / 금액 · 기간 끝 / 만료 임박 · 만료)을 누르면 <b>발급 상세 위로 오른쪽에서 패널</b>이 밀려 나온다 <code>PC-270</code>. '
               '탭은 고른 고객사에 <b>App Key 계정이 있을 때만</b> 보이고, 라이선스는 <b>그 고객사</b>(하위 고객사면 하위 고객사)에 붙는다 — 상위 고객사로 모으지 않는다. '
               '계정 [정산] 탭에는 더 두지 않는다.',
               fr(H + kws.grid(left(h=col_h(900)), mid(h=col_h(900)), detail('hist', lic='open')), 900),

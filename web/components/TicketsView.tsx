@@ -336,7 +336,7 @@ function NKeyWorkspace() {
           </WsFillScroll>
         </div>
 
-        {/* ③ 발급 상세 · 정산 / N Key 발급 / 고객사 등록 — 맨 위에 연간 라이선스 탭 `PC-257`
+        {/* ③ 발급 상세 · 정산 / N Key 발급 / 고객사 등록 — 맨 위에 연간 라이선스 탭 `PC-270`
               그 고객사 자신의 발급분이 있을 때만(하위 고객사면 하위 고객사에 · 상위로 모으지 않는다) */}
         <div style={{ minWidth: 0 }}>
           {coCompany && tickets.some((t) => ownKey(t) === co) && <LicenseSlide kind="N" company={coCompany} by={me?.name ?? ""} />}
@@ -543,7 +543,7 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
         ) : (
           // 정산 정보 — App Key · 서비스 티켓과 같은 공용 정산 입력 `PC-202`
           <>
-          {/* 연간 라이선스는 오른쪽 칸 맨 위 탭으로 옮겼다 `PC-257` */}
+          {/* 연간 라이선스는 오른쪽 칸 맨 위 탭으로 옮겼다 `PC-270` */}
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>이 티켓의 정산</div>
           <BillingEditor key={t.id} bare v={t} baseDate={t.at.slice(0, 10)} onSave={(p) => {
             setBilling(t.id, { ...p, by: me?.name ?? "" });

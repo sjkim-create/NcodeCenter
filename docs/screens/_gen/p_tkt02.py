@@ -141,14 +141,14 @@ def ticket_detail(tab='base', no=36, co='KODION', bill='무료', amount='', tria
     else:
         # 정산 정보 — App Key · 서비스 티켓과 같은 공용 정산 입력 `PC-202`
         # 연간 라이선스 비용(고객사마다 1건 · N Key) + 이 티켓의 정산 `PC-212`
-        body = (   # 연간 라이선스는 오른쪽 칸 맨 위 탭으로 옮겼다 `PC-257`
+        body = (   # 연간 라이선스는 오른쪽 칸 맨 위 탭으로 옮겼다 `PC-270`
                 '<div style="font-size:13px;font-weight:700;margin-bottom:10px">이 티켓의 정산</div>' +
                 kws.billing_box(bill, amount, note, '2026-10-20 10:20 · 김순정' if note else '—', currency=currency, fx=fx, trial=trial, bare=True, err=err))
     # 보기 [티켓 수정] / 수정 [취소] [수정 저장] / 정산 탭 [정산 저장] — 발급 기록 삭제 없음 `PC-192` `PC-201`
     foot = '' if editing else kws.footer('', '' if editing else
                       ('<span class="btn gho">키 다운로드</span><span class="btn pri">티켓 수정</span>' if tab == 'base' else ''))   # 정산 탭 저장은 정산 입력 안 [정산 저장]
     msg = kws.toast_line(toast) if toast else ''
-    # 맨 위 연간 라이선스 탭 — 그 고객사 자신의 N Key 발급분이 있을 때 `PC-257`
+    # 맨 위 연간 라이선스 탭 — 그 고객사 자신의 N Key 발급분이 있을 때 `PC-270`
     return (kws.license_slide('N Key', co + ('-46' if co == 'KODION' else ''), open_=(lic == 'open')) +
             '<div style="%s;padding:18px">%s%s%s%s%s</div>' % (kws.CARD, head, t, body, foot, msg))
 
@@ -499,7 +499,7 @@ def build():
 
     B.append(('S22', '연간 라이선스 — 오른쪽 슬라이드 패널', '분기',
               '연간 라이선스는 <b>티켓이 아니라 키 발급으로 생기는 비용</b>이라 <b>고객사마다 1건</b>(N Key)이다 <code>PC-212</code>. '
-              '오른쪽 칸 맨 위의 <b>작은 탭</b>을 누르면 <b>발급 상세 위로 오른쪽에서 패널</b>이 밀려 나온다 <code>PC-257</code>. '
+              '오른쪽 칸 맨 위의 <b>작은 탭</b>을 누르면 <b>발급 상세 위로 오른쪽에서 패널</b>이 밀려 나온다 <code>PC-270</code>. '
               '탭은 고른 고객사 <b>자신의 N Key 발급분이 있을 때만</b> 보이고(「전체」면 없음), 라이선스는 <b>그 고객사</b>(하위 고객사면 하위 고객사)에 붙는다 — 상위 고객사로 모으지 않는다. '
               '발급 상세 [정산 정보] 탭에는 더 두지 않는다.',
               fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(900), grouped=False), ticket_detail(lic='open')), 900),

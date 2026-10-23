@@ -92,7 +92,7 @@ def license_box(kind='App Key', co='Study123', amount='1,200,000', saved=True, s
 
 
 def license_slide(kind='App Key', co='Study123', open_=False, saved=False, amount='3,000,000', until='2027-10-22'):
-    """연간 라이선스 — 오른쪽 칸 맨 위 작은 탭 + 누르면 발급 상세 위로 오른쪽 슬라이드 패널 `PC-257`
+    """연간 라이선스 — 오른쪽 칸 맨 위 작은 탭 + 누르면 발급 상세 위로 오른쪽 슬라이드 패널 `PC-270`
     (web/components/BillingEditor.tsx LicenseSlide) — 키를 발급받은 그 고객사(하위면 하위)에 붙는다"""
     st = tg('%s원 / 년 · ~%s' % (amount, until), '#f0fdf4', '#166534', bold=False) if saved else tg('미등록', '#fef2f2', '#dc2626', bold=False)
     pill = ('<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 6px;font-size:12px;border-radius:9px;'

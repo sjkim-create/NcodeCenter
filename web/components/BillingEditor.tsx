@@ -130,7 +130,7 @@ export function BillingEditor({ v, baseDate, onSave, bare = false }: { v: BillIn
 /** 연간 라이선스 비용 — 고객사마다 1건(App Key · N Key 따로) · 금액 · 기간만 `PC-212`
  *  티켓이 아니라 키 발급으로 생기는 비용이라 티켓 정산 위에 따로 둔다. 그 고객사의 모든 계정 · 티켓에서 같은 1건을 본다 */
 export function LicenseEditor({ kind, companyId, company, by, compact = false }: { kind: LicenseKind; companyId: number; company: string; by: string; compact?: boolean }) {
-  // compact — 오른쪽 슬라이드 패널 안(좁은 칸) — 머리 · 겉 테두리 없이 한 줄씩 `PC-257`
+  // compact — 오른쪽 슬라이드 패널 안(좁은 칸) — 머리 · 겉 테두리 없이 한 줄씩 `PC-270`
   useLicenses();
   const cur = licenseOf(kind, companyId);
   const [amount, setAmount] = useState(cur?.amount ?? 0);
@@ -198,7 +198,7 @@ export function LicenseEditor({ kind, companyId, company, by, compact = false }:
   );
 }
 
-/** 연간 라이선스 — 키 관리 3단의 **작은 탭 + 오른쪽 슬라이드 패널** `PC-257`
+/** 연간 라이선스 — 키 관리 3단의 **작은 탭 + 오른쪽 슬라이드 패널** `PC-270`
  *  · 라이선스는 키를 발급받은 **그 고객사**(하위 고객사면 하위 고객사)에 붙는다 — 상위 고객사로 모으지 않는다
  *  · 오른쪽 칸 맨 위에 작은 탭(상태 한 줄) → 누르면 발급 상세 위로 오른쪽에서 패널이 밀려 나온다 · 다시 누르거나 ✕ 로 접는다
  *  · 고객사를 바꾸면 접힌다 */
@@ -219,7 +219,7 @@ export function LicenseSlide({ kind, company, by }: { kind: LicenseKind; company
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
         title={`${company.name} · ${LICENSE_LABEL[kind]} 연간 라이선스 — 고객사마다 1건 · 키 발급으로 생기는 비용`}
         style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%", padding: "5px 10px 5px 6px", fontSize: 12, cursor: "pointer",
-          // 펼친 패널 머리와 같은 바탕 · 패널과 같은 테두리 · 진회색 글씨 `PC-258` `PC-268`
+          // 펼친 패널 머리와 같은 바탕 · 패널과 같은 테두리 · 진회색 글씨 `PC-271` `PC-268`
           border: "1px solid #F7B008", borderRadius: 9 /* 다른 버튼과 같은 모서리 `PC-268` */, background: open ? "#fdeec4" : "#fff8e6", color: "#374151", boxShadow: open ? "none" : "0 1px 3px rgba(247,176,8,.3)" }}>
         {/* 화살표를 앞에 — 패널이 열리는 쪽(왼쪽)을 가리킨다 `PC-268` */}
         <span style={{ width: 14, textAlign: "center", fontWeight: 700 }}>{open ? "›" : "‹"}</span>

@@ -845,7 +845,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
         {/* 정산 탭 — 티켓(코드 범위)을 고르고 그 정산을 등록한다. N Key 관리의 정산 탭과 같은 결 `PC-177` `PC-178` */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "bill" ? "block" : "none" }}>
           {/* 연간 라이선스 비용 — 고객사마다 1건(App Key) · 키 발급으로 생기는 비용 `PC-212` */}
-          {/* 연간 라이선스는 App Key 관리 오른쪽 칸 맨 위 탭으로 옮겼다 `PC-257` */}
+          {/* 연간 라이선스는 App Key 관리 오른쪽 칸 맨 위 탭으로 옮겼다 `PC-270` */}
           <SecHead t="정산할 티켓" d={`· 티켓마다 등록 · 미정 ${nTodo}건`} />
           {rangeItems.length === 0 ? (
             <div style={{ fontSize: 12, color: "#9ca3af", padding: "6px 0" }}>발급된 티켓이 없습니다. [티켓 발급] 탭에서 먼저 발급하세요.</div>

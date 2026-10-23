@@ -31,7 +31,7 @@ export function AppKeyWorkspace() {
   const sp = useSearchParams();
   const cast = useCaster();
   const { companies } = useStore();
-  const me = currentUser(useAuth());   // 라이선스 저장인 `PC-257`
+  const me = currentUser(useAuth());   // 라이선스 저장인 `PC-270`
   const keyAccounts = cast.accounts.filter((a) => accountScope(a) === "key");
 
   // 계정 → 고객사 관리 고객사 id (없으면 미연결)
@@ -249,7 +249,7 @@ export function AppKeyWorkspace() {
           </WsFillScroll>
         </div>
 
-        {/* ③ 상세 / 계정 추가 — 맨 위에 연간 라이선스 탭(이 고객사에 App Key 계정이 있을 때) `PC-257` */}
+        {/* ③ 상세 / 계정 추가 — 맨 위에 연간 라이선스 탭(이 고객사에 App Key 계정이 있을 때) `PC-270` */}
         <div style={{ minWidth: 0 }}>
           {co && accsAll.length > 0 && <LicenseSlide kind="APP" company={co} by={me?.name ?? ""} />}
           {right.kind === "acc" && (
