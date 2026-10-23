@@ -319,7 +319,7 @@ export function AccountNewView({ embedded = false, fixedCompanyId = 0, onDone, o
           <Field label="ID (이메일) *"><input style={S.input} value={id} onChange={(e) => setId(e.target.value)} placeholder="user@company.com" /></Field>
           <Field label="PWD (비밀번호) *">
             <div style={{ display: "flex", gap: 6 }}>
-              <input style={S.input} value={pwd} onChange={(e) => setPwd(e.target.value)} placeholder="비밀번호 미요청 시 임의 생성" />
+              <input style={S.input} value={pwd} onChange={(e) => setPwd(e.target.value)} placeholder="비밀번호 미요청 시 임의 생성" title="계정을 만든 뒤에는 바꿀 수 없습니다" />
               <button onClick={() => setPwd(genPwdStr())} style={{ ...S.smallBtn, whiteSpace: "nowrap" }} title="비밀번호를 요청하지 않는 고객사(SDK)는 담당자가 임의 지정">임의 생성</button>
             </div>
           </Field>
@@ -360,7 +360,6 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   const acc = cast.accounts.find((a) => a.id === accountId);
 
   const [name, setName] = useState("");
-  const [pwd, setPwd] = useState("");
   const [addr, setAddr] = useState("");
   const [phone, setPhone] = useState("");   // PHONE (전화번호) `PC-209`
   const [homepage, setHomepage] = useState("");
@@ -399,7 +398,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   // 계정 값 주입 (최초 1회 — 편집 중 스토어 변경에 덮이지 않도록)
   useEffect(() => {
     if (!acc || loaded) return;
-    setName(acc.name); setPwd(acc.pwd); setAddr(acc.addr); setPhone(acc.phone ?? ""); setHomepage(acc.homepage);
+    setName(acc.name); setAddr(acc.addr); setPhone(acc.phone ?? ""); setHomepage(acc.homepage);
     setLoaded(true);
   }, [acc, loaded]);
 
@@ -433,11 +432,9 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   }
 
   const save = () => {
-    // 대장 계정은 비밀번호를 저장하지 않았으므로 비워 둘 수 있다 `PC-103`
-    if (!pwd.trim() && !acc.seeded) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
-
+    // PWD 는 계정을 만들 때만 정한다 — 이후 수정 불가라 저장하지 않는다 `PC-274`
     const r = caster.updateAccount(acc.id, {
-      name: name.trim(), pwd: pwd.trim(), addr: addr.trim(), phone: phone.trim(), homepage: homepage.trim(),
+      name: name.trim(), addr: addr.trim(), phone: phone.trim(), homepage: homepage.trim(),
     });
     if (!r.ok) { setToast({ ok: false, text: r.msg }); return; }
     logActivity("appkey", `계정 수정 · ${acc.company} · ${acc.id}`, me?.name);
@@ -591,10 +588,10 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
       <div style={{ fontSize: 12, color: "#92400e", fontWeight: 700, marginBottom: 6 }}>발급 완료 — App Key (서비스 DB 등록됨)</div>
       <div style={{ fontSize: 12.5, color: "#111827", lineHeight: 1.9 }}>
         <div>계정 ID: <code style={{ fontFamily: "ui-monospace,monospace" }}>{acc.id}</code></div>
-        <div>PWD: <code style={{ fontFamily: "ui-monospace,monospace" }}>{pwd}</code></div>
+        <div>PWD: <code style={{ fontFamily: "ui-monospace,monospace" }}>{acc.pwd || "없음"}</code></div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           App Key: <code style={{ flex: 1, fontFamily: "ui-monospace,monospace", wordBreak: "break-all" }}>{issued}</code>
-          <button onClick={() => { try { navigator.clipboard.writeText(`ID: ${acc.id}\nPWD: ${pwd}\nAppKey: ${issued}`); setToast({ ok: true, text: "계정·키 정보가 복사되었습니다." }); } catch { /* */ } }} style={S.smallBtn}>전체 복사</button>
+          <button onClick={() => { try { navigator.clipboard.writeText(`ID: ${acc.id}\nPWD: ${acc.pwd || "없음"}\nAppKey: ${issued}`); setToast({ ok: true, text: "계정·키 정보가 복사되었습니다." }); } catch { /* */ } }} style={S.smallBtn}>전체 복사</button>
         </div>
       </div>
     </div>
@@ -701,17 +698,16 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
 
         {/* 계정 정보 */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "info" ? "block" : "none" }}>
-        <SecHead t="계정 정보" d="· ID(email) · 고객사는 변경할 수 없습니다" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급" />
+        <SecHead t="계정 정보" d="· ID(email) · PWD · 고객사는 변경할 수 없습니다" tip="고객사 별 계정 개수 제한 없음 · App Key 는 계정당 1개 발급" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="고객사"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{acc.company}</div></Field>
           <Field label="NAME (담당자명)"><input style={S.input} value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <Field label="ID (이메일)"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280", fontFamily: "ui-monospace,monospace" }}>{acc.id}</div></Field>
-          <Field label={acc.seeded ? "PWD (비밀번호)" : "PWD (비밀번호) *"}>
-            <div style={{ display: "flex", gap: 6 }}>
-              {/* 대장 계정 — 비밀번호는 저장소에 두지 않았다 `PC-103` */}
-              <input style={S.input} value={pwd} onChange={(e) => setPwd(e.target.value)} placeholder={acc.seeded ? "대장 참조 (저장소에 두지 않음)" : ""} />
-              <button onClick={() => setPwd(genPwdStr())} style={{ ...S.smallBtn, whiteSpace: "nowrap" }}>임의 생성</button>
-            </div>
+          {/* PWD — 계정을 만들 때만 정하고 화면에서는 수정 불가 `PC-274`
+              대장에 비밀번호가 없으면 DB 에도 비워 둔다 · 고객사가 변경을 요청하면 그때 DB 에서 직접 수정 */}
+          <Field label="PWD (비밀번호)">
+            <div style={{ ...S.input, background: "#f7f8fa", color: acc.pwd ? "#6b7280" : "#9ca3af", fontFamily: acc.pwd ? "ui-monospace,monospace" : undefined }}
+              title={acc.pwd ? "비밀번호는 계정을 만들 때만 정합니다 · 변경 요청은 DB 에서 직접 수정" : "비밀번호 없음 — 대장에 없어 DB 에도 두지 않았습니다 · 변경 요청은 DB 에서 직접 수정"}>{acc.pwd || "없음"}</div>
           </Field>
           <Field label="PHONE (전화번호)"><input style={S.input} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" /></Field>
           <Field label="HOMEPAGE (홈페이지)"><input style={S.input} value={homepage} onChange={(e) => setHomepage(e.target.value)} placeholder="https://" /></Field>

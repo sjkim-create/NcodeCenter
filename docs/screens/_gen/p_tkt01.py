@@ -163,7 +163,8 @@ def info_tab(new=False, co='Study123', id_val='', err='', keys2=False):
         note = ''
     else:
         g = (fld('고객사', co, ro=True) + fld('NAME (담당자명)', 'study123') +
-             fld('ID (이메일)', STUDY[1], ro=True, mono=True) + fld('PWD (비밀번호)', '대장 참조', ph=True, extra=gen) +
+             fld('ID (이메일)', STUDY[1], ro=True, mono=True) + fld('PWD (비밀번호)', '없음', ro=True) +   # PWD 는 생성 때만 · 이후 수정 불가 `PC-274`
+            
              fld('PHONE (전화번호)', '02-0000-0000') + fld('HOMEPAGE (홈페이지)', 'https://', ph=True) +   # PHONE `PC-209`
              '<div style="grid-column:1/-1">' + fld('ADDR (주소)', '', ph=True) + '</div>' + key_rows(keys2))
         head = kws.sec_head('계정 정보', '· ID(email) · 고객사는 변경할 수 없습니다')
