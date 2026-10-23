@@ -182,7 +182,7 @@ def issue_form(sel=None, open_=False, new=False, ranges=RANGES):
                   '<div class="fld"><span class="lbl">Valid Until Time (기한) <span style="color:#374151;font-size:11.5px">☑ 무제한</span></span><div class="inp"><span style="color:#9ca3af">연도-월-일</span></div></div>', 'g4') +
               sec('', fld('Start Book (시작 북코드)', r[2].split('~')[0] if r else '', ph=not r) + fld('Book 볼륨 (권)', '250' if r else '', ph=not r) +
                   fld('Start Page', '1 (기본)') + fld('Page 볼륨', '512'), 'g4') +
-              sec('', fld('Ticket Version', '1', ro=True), 'g4') +   # `PC-234` · Ticket Type(= 코드 재사용)은 N Key 에만 `PC-259`
+              # Ticket Version · Ticket Type 없음 — App Key 티켓에는 두지 않는다 `PC-259` `PC-272`
               # 티켓 이름 — .nkey 파일명 규칙으로 만든 제안 이름을 placeholder 로 `PC-261`
               sec('티켓 속성', '<div style="grid-column:1/-1">' + fld('Ticket Name (티켓 이름)',
                       ('Study123_%ss_%so_250b_512p_20261023' % (r[0], r[1])) if r else '{고객사}_{S}s_{O}o_{Book 볼륨}b_{Page 볼륨}p_{발급일}', ph=True, mono=True) + '</div>' +
@@ -241,12 +241,14 @@ def key_info(sel_idx=0, co='Study123', mail=None, row=None):
     kd, s_, o, b, p_ = r[:5]
     b0, b1 = (b.split('~') + [b])[:2]
     pv = p_.split('~')
-    # Key 정보 = 발급 폼과 같은 항목명 · 같은 내용(폼 순서) · Period 대신 Valid Until Time `PC-265`
-    rows = (('Section', s_), ('Owner', o), ('Valid From Time', '2026-07-01' if sel_idx == 0 else '-'), ('Valid Until Time', '무제한'),
-            ('Start Book', b0), ('Book 볼륨', r[5].replace('권', '')), ('Start Page', pv[0]), ('Page 볼륨', int(pv[-1]) - int(pv[0]) + 1 if pv[-1].isdigit() and pv[0].isdigit() else '-'),
-            ('Ticket Version', '1'), ('Ticket Name', '-'), ('Code Type', kd), ('Owner Size', '1'),
-            ('Info', 'sample' if sel_idx == 0 else '-'),
-            ('Company Name', co), ('Account Id', mail or STUDY[1]), ('App Key', '미기재'))
+    # Key 정보 — App Key 관리 대장(Caster 계정 · 퍼미션 · 티켓)과 같은 순서 `PC-272`
+    #   계정(고객사 · 계정 · App Key) → 티켓(Code Type · Section · Owner · Book · Page) → 사용기간 → 메모 · Ticket Version 없음
+    np_ = int(pv[-1]) - int(pv[0]) + 1 if pv[-1].isdigit() and pv[0].isdigit() else None
+    rows = (('Company Name', co), ('Account Id', mail or STUDY[1]), ('App Key', '미기재'),
+            ('Ticket Name', '-'), ('Code Type', kd), ('Section', s_), ('Owner', o), ('Owner Size', '1'),
+            ('Book', '%s (%s)' % (b, r[5])), ('Page', '%s (%s쪽)' % (p_, np_) if np_ else p_),
+            ('Valid From Time', '2026-07-01' if sel_idx == 0 else '-'), ('Valid Until Time', '무제한'),
+            ('Info', 'sample' if sel_idx == 0 else '-'))
     return ('<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">Key 정보 '
             '<span style="font-weight:400;color:#9ca3af">· %s S%s/O%s/B%s/P%s</span></div>' % (kd, s_, o, b, p_) + kws.kv_table(rows))
 

@@ -480,7 +480,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
         "Issued Time": new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, ""),
         "Valid From Time": since ? since.replace(/-/g, "") : "즉시",
         "Valid Until Time": untilStr === "무제한" ? "99999999 (무제한)" : untilStr.replace(/-/g, ""),
-        Section: r.section, Owner: r.owner, "Owner Size": 1, "Ticket Version": 1,
+        Section: r.section, Owner: r.owner, "Owner Size": 1,   // App Key 는 Ticket Version 없음 `PC-272`
         "Book Start": r.bookStart ?? 0, "Book Volume": r.bookVol ?? 0, "Book End": r.bookEnd ?? 0,
         "Page Start": r.pageStart ?? 0, "Page Volume": r.pageVol ?? 0, "Page End": r.pageEnd ?? 0,
         "Code Type": ctype, Info: info.trim() || "-",   // Ticket Type(= 코드 재사용)은 N Key 에만 `PC-259`
@@ -541,7 +541,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   };
 
   // 발급 · 수정 공용 — 2열 짝 묶음(N Key 발급과 같은 모양) `PC-223`
-  //   티켓 속성: Code Type · Section/Owner / Info(티켓 메모)   기간 · 버전: 사용기간 시작 · 끝 / Ticket Version — Ticket Type(= 코드 재사용)은 N Key 에만 `PC-259`
+  //   티켓 속성: Code Type · Section/Owner / Info(티켓 메모)   기간: 사용기간 시작 · 끝 — Ticket Type(= 코드 재사용)은 N Key 에만 `PC-259` · Ticket Version 은 App Key 에 없다 `PC-272`
   //   기간은 티켓별로 유지된다 `PC-117`
   const fixedSt: React.CSSProperties = { ...S.input, background: "#f7f8fa", color: "#6b7280" };
   const attrFields = (
@@ -582,12 +582,6 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
         </div>
         <input type="date" style={{ ...S.input, opacity: unlimited ? 0.5 : 1 }} value={until} disabled={unlimited || !range} min={since || undefined} onChange={(e) => setUntil(e.target.value)} />
       </div>
-    </FormSec>
-  );
-  // 버전 — 코드 구간 아래 `PC-234`
-  const versionFields = (
-    <FormSec cols={4}>
-      <Field label="Ticket Version"><input style={fixedSt} value={1} readOnly /></Field>
     </FormSec>
   );
 
@@ -665,7 +659,6 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
             <BookRangeFields range={range} bookStart={keyBS} bookVol={keyVol} pageStart={pStart} pageVol={keyPVol}
                               onStart={setBStart} onVol={setBVol} onPStart={setPStart} onPVol={setPVol} />
           </FormSec>
-          {versionFields}
           {attrFields}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 14, paddingTop: 12, borderTop: "1px solid #eef0f4" }}>
             {range && (
@@ -802,20 +795,21 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
                       <span style={{ fontSize: 10, color: "#9ca3af", paddingTop: 5, transform: isSel && openKey ? "rotate(90deg)" : "none", transition: "transform .15s" }}>▶</span>
                     </div>
                     {isSel && openKey && (() => {
-                      // Key 정보 = 발급 폼과 같은 항목명 · 같은 내용(폼 순서) `PC-265`
-                      //   Period 는 따로 두지 않고 Valid Until Time(기한)으로 · 비어 있는 기한은 무제한
+                      // Key 정보 — App Key 관리 대장(Caster 계정 · 퍼미션 · 티켓)과 같은 순서 `PC-272`
+                      //   계정(고객사 · 계정 · App Key) → 티켓(Code Type · Section · Owner · Book · Page) → 사용기간 → 메모
+                      //   Ticket Version 은 App Key 에 없다 · Period 는 Valid Until Time(기한)으로 · 비어 있는 기한은 무제한
                       const from0 = p.since || (at ?? "");
+                      const nB = rangeBooks(r), nP = r.pageVol ?? (ps != null && pe != null ? pe - ps + 1 : null);
                       const params = {
+                        "Company Name": acc.company, "Account Id": acc.id, "App Key": k?.key || "미기재",
+                        "Ticket Name": r.name || "-", "Code Type": ct,
                         Section: r.section, Owner: own,
+                        "Owner Size": r.ownerEnd != null && r.ownerEnd > r.owner ? r.ownerEnd - r.owner + 1 : 1,
+                        Book: `${span(bs, be)}${nB != null ? ` (${nB.toLocaleString()}권)` : ""}`,
+                        Page: `${span(ps, pe)}${nP != null ? ` (${nP.toLocaleString()}쪽)` : ""}`,
                         "Valid From Time": from0 || "-",
                         "Valid Until Time": !p.until || p.until === "무제한" ? "무제한" : p.until,
-                        "Start Book": bs ?? "-", "Book 볼륨": rangeBooks(r) ?? "-",
-                        "Start Page": ps ?? "-", "Page 볼륨": r.pageVol ?? (ps != null && pe != null ? pe - ps + 1 : "-"),
-                        "Ticket Version": 1,
-                        "Ticket Name": r.name || "-", "Code Type": ct,
-                        "Owner Size": r.ownerEnd != null && r.ownerEnd > r.owner ? r.ownerEnd - r.owner + 1 : 1,
                         Info: ticketInfo(r) || "-",
-                        "Company Name": acc.company, "Account Id": acc.id, "App Key": k?.key || "미기재",
                       } as Record<string, string | number>;
                       return (
                         <div style={{ padding: "10px 12px 12px", background: "#fbfdff", borderTop: "1px solid #e0ecff" }}>
