@@ -3,6 +3,8 @@
 // 발급 정책
 //   - 새로 발급하는 Code Type 은 PDS2 · PDS3 만(OID · PDS4 는 생성 불가 — 옛 발급분의 값은 그대로 보인다)
 //   - 프로필 · 코드 타입마다 쓸 수 있는 Section 이 정해져 있다(NKEY_SECTIONS)
+//   - 프로필 = Ticket Version(1 LEGACY · 2 HYBRID) · 코드 재사용 = Ticket Type(Unlimited · Single) — 코드 재사용은 N Key 에만 `PC-257`~`PC-259`
+//   - HYBRID 는 Page 볼륨이 8의 배수여야 한다 `PC-260`
 //   - Book 볼륨이 2 이상인데 Book 의 전체 페이지가 아니라 일부 페이지만 발급하려면 Separate Each Book 이 켜져 있어야 한다
 //
 // .nkey 파일 — JSON 이 아니라 한 줄에 「Key=Value」 인 텍스트(앞의 # 줄은 설명).
@@ -50,11 +52,12 @@ export const secOk = (p: NkeyProfile, t: string, s: number) =>
 /** 이 Section 에서 프로필이 쓸 수 있는가(어느 타입이든) */
 export const profileOk = (p: NkeyProfile, s: number) => NKEY_TYPES.some((t) => secOk(p, t, s));
 
-// ── 파일명 `PC-221` — Ticket_{고객사}[_{사용고객사}]_{S}s_{O}o_{B}b_{P}p_{Page 볼륨}.nkey
-//   Book 이 여러 권이면 B 자리에 {시작}-{끝} (zip 이름) · zip 안 개별 파일은 Book 하나씩
-export function nkeyName(o: { co: string; cu?: string; section: number | string; owner: number | string; book: number | string; pageStart: number | string; pageVolume: number | string }, ext: "nkey" | "zip" = "nkey") {
+// ── 파일명 `PC-221` `PC-263` — Ticket_{고객사}[_{사용고객사}]_{S}s_{O}o_{Book 볼륨}b_{Page 볼륨}p.nkey
+//   B · P 자리는 Start Book · Start Page 가 아니라 **볼륨(권수 · 쪽수)** · 끝의 Page 볼륨은 P 자리와 겹쳐 없앴다
+//   zip 안 개별 파일은 Book 볼륨 1 이라 이름이 같아지므로 끝에 _B{북코드} 를 붙여 구분한다
+export function nkeyName(o: { co: string; cu?: string; section: number | string; owner: number | string; bookVolume: number | string; pageVolume: number | string; bookNo?: number }, ext: "nkey" | "zip" = "nkey") {
   const safe = (x: string) => x.replace(/[\/:*?"<>|]/g, "_");
-  return `Ticket_${safe(o.co)}${o.cu ? `_${safe(o.cu)}` : ""}_${o.section}s_${o.owner}o_${o.book}b_${o.pageStart}p_${o.pageVolume}.${ext}`;
+  return `Ticket_${safe(o.co)}${o.cu ? `_${safe(o.cu)}` : ""}_${o.section}s_${o.owner}o_${o.bookVolume}b_${o.pageVolume}p${o.bookNo != null ? `_B${o.bookNo}` : ""}.${ext}`;
 }
 
 // ── Key 정보(화면 항목) → .nkey 항목 · 내려받기 `PC-221`
@@ -65,40 +68,42 @@ const yes = (v: unknown) => /^Y/i.test(String(v ?? ""));
 export function nkeyFieldsOf(p: Params): Record<string, string | number | boolean | string[]> {
   const ct = String(p["Code Type"] ?? "");
   const patternType = ct === "PDS3" ? "Ncode_PDS3" : ct === "PDS2" ? "Ncode_PDS2" : ct === "PDS4" ? "Scode" : ct;
-  const profile = String(p["Profile"] ?? "").split(" ")[0];
+  // 프로필 = Ticket Version(1 LEGACY · 2 HYBRID) · 코드 재사용 = Ticket Type(Unlimited 재사용 · Single 재사용 안 함) `PC-257` `PC-258`
+  //   옛 발급분의 Profile · Code Reuse 항목이 있으면 그 값으로 Ticket Version · Ticket Type 을 정한다
+  const oldProfile = String(p["Profile"] ?? "").split(" ")[0];
+  const ticketVersion = oldProfile === "HYBRID" ? 2 : oldProfile === "LEGACY" ? 1 : num(p["Ticket Version"], 1);
+  const ticketType = p["Code Reuse"] !== undefined ? (yes(p["Code Reuse"]) ? "Unlimited" : "Single") : String(p["Ticket Type"] ?? "Unlimited").split(" ")[0];
   const perms = String(p["CasterN Permissions"] ?? "").split(",").map((x) => x.trim()).filter((x) => x && x !== "-");
   return {
     companyName: String(p["Company Name"] ?? ""),
     issuedTime: String(p["Issued Time"] ?? ""),
     validUntilTime: String(p["Valid Until Time"] ?? "99999999").split(" ")[0],
     ...(p["Used Customer"] && p["Used Customer"] !== "-" ? { usedCustomer: String(p["Used Customer"]) } : {}),
-    section: num(p["Section"]), owner: num(p["Owner"]), ticketVersion: num(p["Ticket Version"], 1),
+    section: num(p["Section"]), owner: num(p["Owner"]), ticketVersion,
     bookStart: num(p["Book Start"]), bookVolume: num(p["Book Volume"], 1),
     pageStart: num(p["Page Start"]), pageVolume: num(p["Page Volume"], 1),
-    patternType, ticketType: String(p["Ticket Type"] ?? "Unlimited"), separateEachBook: yes(p["Separate Each Book"]),
-    ...(profile ? { profile, codeReuse: yes(p["Code Reuse"]) } : {}),
-    ...(profile === "HYBRID" ? { permissions: perms } : {}),
+    patternType, ticketType, separateEachBook: yes(p["Separate Each Book"]),
+    ...(ticketVersion === 2 ? { permissions: perms } : {}),
   };
 }
 /** Key 정보 → 내려받을 파일명(.nkey 또는 .zip) — 겹침 안내 등에서 티켓을 파일명으로 가리킬 때 `PC-225` */
 export function nkeyFileNameOf(p: Params): string {
   const f = nkeyFieldsOf(p);
-  const bs = f.bookStart as number, books = Math.max(1, f.bookVolume as number);
+  const books = Math.max(1, f.bookVolume as number);
   const base = { co: String(f.companyName), cu: f.usedCustomer as string | undefined, section: f.section as number, owner: f.owner as number,
-    pageStart: f.pageStart as number, pageVolume: f.pageVolume as number };
-  const book = books === 1 ? bs : `${bs}-${bs + books - 1}`;
-  return nkeyName({ ...base, book }, !!f.separateEachBook && books >= 2 ? "zip" : "nkey");
+    bookVolume: books, pageVolume: f.pageVolume as number };
+  return nkeyName(base, !!f.separateEachBook && books >= 2 ? "zip" : "nkey");
 }
 /** Key 정보로 .nkey 를 내려받는다 — Separate Each Book + Book 볼륨 2 이상이면 Book 마다 .nkey 를 .zip 하나로. 내려받은 파일명을 돌려준다 */
 export function downloadNkey(p: Params, makeZip: (e: { name: string; content: string }[]) => Blob): string {
   const f = nkeyFieldsOf(p);
   const bs = f.bookStart as number, books = Math.max(1, f.bookVolume as number);
   const base = { co: String(f.companyName), cu: f.usedCustomer as string | undefined, section: f.section as number, owner: f.owner as number,
-    pageStart: f.pageStart as number, pageVolume: f.pageVolume as number };
+    bookVolume: books, pageVolume: f.pageVolume as number };
   const asZip = !!f.separateEachBook && books >= 2;
-  const fileName = asZip ? nkeyName({ ...base, book: `${bs}-${bs + books - 1}` }, "zip") : nkeyName({ ...base, book: books === 1 ? bs : `${bs}-${bs + books - 1}` });
+  const fileName = nkeyName(base, asZip ? "zip" : "nkey");
   const blob = asZip
-    ? makeZip(Array.from({ length: books }, (_, i) => ({ name: nkeyName({ ...base, book: bs + i }), content: toNkey({ ...f, bookStart: bs + i, bookVolume: 1 }) })))
+    ? makeZip(Array.from({ length: books }, (_, i) => ({ name: nkeyName({ ...base, bookVolume: 1, bookNo: bs + i }), content: toNkey({ ...f, bookStart: bs + i, bookVolume: 1 }) })))
     : new Blob([toNkey(f)], { type: "text/plain" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

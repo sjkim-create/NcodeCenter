@@ -294,24 +294,18 @@ def must_know():
                          ('디바이스(소리펜)에 넣어야 동작', 'color:#2563eb')],
                         [('nproj + PDF + JPG + 썸네일 png', 'font-weight:600'),
                          ('필기펜 편집 파일', ''), ('서버에 등록', 'color:#047857')]]), '2')
-               + sect('Ticket Version — 발급 항목 구성의 버전',
+               + sect('Ticket Version · Ticket Type — N Key 프로필 · 코드 재사용',   # 옛 「항목 구성 버전」 설명 `PC-065` 대체 `PC-257`~`PC-260`
                       '<ul style="%s">'
-                      '<li><b>Ticket Version</b> 은 키를 발급할 때 담는 <b>항목 구성(스펙)의 버전</b>이다. '
-                      '발급 건의 순번이나 재발급 횟수가 아니다.</li>'
-                      '<li>지금 발급되는 키는 모두 <b>버전 1</b> 이다.</li>'
-                      '<li><b>항목이 바뀌면(추가·삭제·의미 변경) 버전 2</b> 로 올린다. '
-                      '이미 발급된 키는 <b>발급 당시 버전 그대로</b> 남는다.</li>'
-                      '<li>그래서 Key 정보의 <b>Ticket Version</b> 은 <b>고를 수 없는 고정 값</b>이다(현재 <b>1</b>).</li>'
+                      '<li>N Key 의 <b>Ticket Version</b> 은 <b>프로필</b>이다 — 발급 화면 항목명 <b>프로필 (Ticket Version)</b>.</li>'
+                      '<li>N Key 의 <b>Ticket Type</b> 은 <b>코드 재사용 여부</b>이다 — 발급 화면 항목명 <b>코드 재사용 (Ticket Type)</b>.</li>'
+                      '<li><b>코드 재사용은 N Key 에서만</b> 쓴다. App Key 티켓 · 서비스 티켓에는 없다.</li>'
+                      '<li><b>HYBRID</b> 프로필은 <b>Page 볼륨이 8의 배수</b>여야 발급된다.</li>'
                       '</ul>' % ul
-                      + mini_table(['버전', '항목 구성', '상태'], [
-                          [('1', 'font-weight:700;font-family:ui-monospace,monospace'),
-                           ('Company Name · Account Id · Issued Time · Valid Until Time · Section · Owner · '
-                            'Ticket Version · Book Start · Book Volume · Page Start · Page Volume · '
-                            'Code Type · Ticket Type · Separate Each Book', ''),
-                           ('사용 중', 'color:#047857;font-weight:700')],
-                          [('2', 'font-weight:700;font-family:ui-monospace,monospace;color:#9ca3af'),
-                           ('항목이 바뀌는 시점에 정의 — 예정', 'color:#9ca3af'),
-                           ('예정', 'color:#9ca3af')]]), '5')))
+                      + mini_table(['항목', '값', '뜻'], [
+                          [('Ticket Version (프로필)', 'font-weight:700'), ('1', 'font-family:ui-monospace,monospace'), ('LEGACY — Caster Lite', '')],
+                          [('', ''), ('2', 'font-family:ui-monospace,monospace'), ('HYBRID — CasterN 오프라인 · Page 볼륨 8의 배수', '')],
+                          [('Ticket Type (코드 재사용)', 'font-weight:700'), ('Unlimited', 'font-family:ui-monospace,monospace'), ('재사용 (기본)', '')],
+                          [('', ''), ('Single', 'font-family:ui-monospace,monospace'), ('재사용 안 함', '')]]), '5')))
 
 
 def content(tab=0, flt='all', body=None):
@@ -463,9 +457,9 @@ def build():
         [('① 편집 비용 산출', '조회', '—', '소리펜·필기펜 모두 <b>페이지 수 + 심볼 갯수</b> · <b>심볼 갯수 = 작업량</b>'),
          ('② 산출물·저장 위치', '조회', '—',
           'mp3·ncp2 = <b>디바이스</b>(파랑) / nproj·PDF·JPG·썸네일 = <b>서버 등록</b>(초록)'),
-         ('⑤ Ticket Version', '조회', '—',
-          '<b>발급 항목 구성의 버전</b> <code>PC-065</code> — 현재 <b>버전 1</b>, '
-          '항목이 바뀌면 <b>버전 2</b>. 발급된 키는 당시 버전 그대로 남는다'),
+         ('⑤ Ticket Version · Ticket Type', '조회', '—',
+          'N Key — Ticket Version = <b>프로필</b>(1 LEGACY · 2 HYBRID) · Ticket Type = <b>코드 재사용</b>(Unlimited · Single, N Key 에만) · '
+          'HYBRID 는 Page 볼륨 8의 배수 <code>PC-257</code>~<code>PC-260</code>'),
          ('단가 지정하러 가기', '이동', '<code>MEM-01</code> → <code>MEM-02</code>', ''),
          ('SOBP 실시간 발급', '—', '<b>미구현</b>', '⚠ §7 — 이 메뉴의 탭으로 넣을지 협의')]))
 

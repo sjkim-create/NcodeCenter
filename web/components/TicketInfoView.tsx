@@ -24,7 +24,7 @@ const ROWS: Row[] = [
     svc: "고객사의 서비스 계정과 매칭(주인 = 고객사, 소속 사용자 전원이 공유)" },
   { k: "권한 · 설정",
     app: <>[권한] 탭의 <b>Caster U 권한 20항목</b>(true / false) — 설정해 발급하면 그 계정으로 Caster U 를 쓴다</>,
-    n: <>프로필 <b>LEGACY</b>(Caster Lite) / <b>HYBRID</b>(CasterN 오프라인 · CasterN 권한 6개) · 코드 재사용 여부</>,
+    n: <>프로필 (Ticket Version) <b>1 LEGACY</b>(Caster Lite) / <b>2 HYBRID</b>(CasterN 오프라인 · CasterN 권한 6개 · Page 볼륨 8의 배수) · 코드 재사용 (Ticket Type) Unlimited / Single — <b>코드 재사용은 N Key 에만</b></>,
     svc: "서비스 구분 casterN / 폼솔루션 — 티켓 하나에 서비스 하나" },
   { k: "기간",
     app: "티켓마다 사용기간(시작 ~ 끝 / 무제한)",
@@ -86,7 +86,7 @@ export default function TicketInfoView() {
         </div>
         <ul style={{ margin: "12px 0 0", paddingLeft: 18, fontSize: 13, color: "#374151", lineHeight: 1.9 }}>
           <li>App Key 는 <b>고객사의 계정마다 1개만</b> 만들어진다 — 계정을 만들 때 자동으로 생긴다.</li>
-          <li>티켓은 <b>App Key 에 매칭되지 않고 계정에 매칭</b>된다 — 한 계정에 티켓(Type · Section · Owner · Book · Page · Info · Period)을 <b>여러 개</b> 발급할 수 있다.</li>
+          <li>티켓은 <b>App Key 에 매칭되지 않고 계정에 매칭</b>된다 — 한 계정에 티켓(Code Type · Section · Owner · Book · Page · Info · Period)을 <b>여러 개</b> 발급할 수 있다.</li>
           <li>그래서 쓰는 코드(SOBP)가 늘거나 바뀌어도 <b>App Key 는 그대로</b> 두고 그 계정에 티켓만 더 발급한다. 정산도 티켓마다 한다.</li>
           <li style={{ color: "#6b7280" }}>이전 정책으로 App Key 가 2개 만들어진 옛 계정은 기록대로 둘 다 보이지만, 새 키는 만들지 않는다.</li>
         </ul>

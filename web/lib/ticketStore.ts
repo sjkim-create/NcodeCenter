@@ -97,12 +97,13 @@ const normParams = (p?: Ticket["params"]): Ticket["params"] => {
 };
 // Key 정보 표시 순서 — Issued Time 은 Code Type 뒤에 둔다 `PC-070`
 const PARAM_ORDER = [
+  "Ticket Name",   // App Key 티켓 이름 `PC-261`
   "Company Name", "Account Id", "App Key", "Service", "Usage", "Used Customer",
   "Section", "Owner", "Book Start", "Book Volume", "Book End",
   "Page Start", "Page Volume", "Page End",
   "Code Type", "Issued Time", "Valid From Time", "Valid Until Time", "Ticket Type", "Ticket Version",
   "Separate Each Book",
-  "Profile", "Code Reuse", "CasterN Permissions",   // N Key 프로필 · 코드 재사용 · HYBRID 권한 `PC-218`
+  "Profile", "Code Reuse", "CasterN Permissions",   // HYBRID 권한 `PC-218` · Profile · Code Reuse 는 옛 발급분만(지금은 Ticket Version · Ticket Type) `PC-257` `PC-258`
 ];
 const orderParams = (p: Ticket["params"]): Ticket["params"] => {
   const out: Ticket["params"] = {};

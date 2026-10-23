@@ -6,6 +6,7 @@
 // - 비어 있는 구간을 누르면 Start Book 을 그 자리로 옮긴다.
 import { occupiedSobp, spansOverlap, type SobpSpan, type Occupied } from "@/lib/rangeGuard";
 import { ticketById } from "@/lib/ticketStore";
+import { caster, accountTickets } from "@/lib/accountStore";
 import { nkeyFileNameOf } from "@/lib/nkeyFile";
 import { SobpChips } from "./sobp";
 import { S } from "./ui";
@@ -23,7 +24,9 @@ function ticketLink(o: Occupied): { name: string; href?: string } {
   }
   if (o.kind === "App Key") {
     const [acc, i] = o.ref.split("#");
-    return { name: `${acc} · 티켓 ${Number(i) + 1}`, href: `/tickets/account?acc=${encodeURIComponent(acc)}&tab=hist` };
+    // 티켓 이름이 있으면 그 이름, 없으면(옛 발급분) {계정} · 티켓 n `PC-261`
+    const nm = accountTickets(caster.snapshot().accounts.find((a) => a.id === acc))[Number(i)]?.name;
+    return { name: nm || `${acc} · 티켓 ${Number(i) + 1}`, href: `/tickets/account?acc=${encodeURIComponent(acc)}&tab=hist` };
   }
   return { name: `서비스 티켓 · ${o.who}` };
 }

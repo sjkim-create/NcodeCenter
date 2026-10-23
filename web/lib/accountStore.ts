@@ -141,6 +141,7 @@ export type KeyRange = {
   ticketId?: number;       // 원장(Key 발급 목록) 티켓 id — [티켓 삭제] 시 함께 제거 `PC-121`
   note?: string;
   info?: string;           // 티켓 Info — 티켓 메모(예: sample) `PC-206`. 없으면 note(대장 안내)
+  name?: string;           // 티켓 이름 — 비우면 {고객사}_{S}s_{O}o_{Book 볼륨}b_{Page 볼륨}p_{발급일} `PC-261` `PC-263`
   // 정산 — N Key 와 같은 4종(미정 · 유료 · 무료 · 체험) `PC-177`. 범위(=티켓)마다 둔다
   billing?: "미정" | "유료" | "무료" | "체험";
   amount?: number;
@@ -209,6 +210,12 @@ export const typeCode = (pt: string) => TYPE_CODE[pt] ?? pt;
 export const periodCode = (until?: string) =>
   !until || until === "무제한" ? "991231" : until.replace(/-/g, "").slice(2, 8);
 export const ticketInfo = (r: KeyRange) => r.info ?? r.note ?? "";
+// App Key 티켓 이름 — .nkey 파일명과 같은 규칙(파일이 아니라 이름일 뿐) `PC-221` `PC-261` `PC-263`
+//   {고객사}_{S}s_{O}o_{Book 볼륨}b_{Page 볼륨}p_{발급일 YYYYMMDD} — B · P 자리는 Start 가 아니라 볼륨
+export function appTicketName(o: { co: string; section: number; owner: number; bookVolume: number; pageVolume: number; date: string }) {
+  const safe = (x: string) => x.replace(/[\/:*?"<>|]/g, "_");
+  return `${safe(o.co)}_${o.section}s_${o.owner}o_${o.bookVolume}b_${o.pageVolume}p_${o.date.replace(/\D/g, "")}`;
+}
 type State = { accounts: CasterAccount[]; appKeys: AppKey[] };
 
 const KEY = "ncc-caster-v1";

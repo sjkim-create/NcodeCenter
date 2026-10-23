@@ -91,6 +91,31 @@ def license_box(kind='App Key', co='Study123', amount='1,200,000', saved=True, s
                 % ('' if fx else ' ph', fx or '예) 1,385', (' <span style="font-size:11.5px">≈ %s원 / 년</span>' % '{:,}'.format(round(float(amount.replace(',', '')) * float(fx.replace(',', ''))))) if fx else '')) if usd else ''))
 
 
+def license_slide(kind='App Key', co='Study123', open_=False, saved=False, amount='3,000,000', until='2027-10-22'):
+    """연간 라이선스 — 오른쪽 칸 맨 위 작은 탭 + 누르면 발급 상세 위로 오른쪽 슬라이드 패널 `PC-257`
+    (web/components/BillingEditor.tsx LicenseSlide) — 키를 발급받은 그 고객사(하위면 하위)에 붙는다"""
+    st = tg('%s원 / 년 · ~%s' % (amount, until), '#f0fdf4', '#166534', bold=False) if saved else tg('미등록', '#fef2f2', '#dc2626', bold=False)
+    pill = ('<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 6px;font-size:12px;border-radius:9px;'
+            'border:1px solid %s;background:%s;color:#374151"><span style="width:14px;text-align:center;font-weight:700">%s</span><b style="font-weight:800">연간 라이선스</b>%s</span>'   # 화살표 앞 · 패널 머리와 같은 바탕 · 패널과 같은 테두리 `PC-268`
+            % ('#F7B008', '#fdeec4' if open_ else '#fff8e6', '›' if open_ else '‹', st))
+    panel = ''
+    if open_:
+        on, off = 'background:#eef6ff;color:#1d4ed8;font-weight:700', 'color:#6b7280'
+        panel = ('<div style="position:absolute;top:calc(100%% + 6px);right:0;z-index:5;width:min(420px,100%%);background:#fff;border:1px solid #F7B008;'
+                 'border-radius:12px;box-shadow:0 18px 40px rgba(15,23,42,.18)">'
+                 '<div style="display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid #fde7b0;background:#fff8e6;border-radius:12px 12px 0 0">'
+                 '<b style="font-size:13.5px">연간 라이선스</b>%s<span style="font-size:12px;color:#6b7280">%s</span><span style="flex:1"></span><span style="color:#9ca3af">✕</span></div>'
+                 '<div style="padding:12px 14px 14px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+                 '<div class="fld" style="grid-column:1/-1"><span class="lbl">연간 금액</span><div style="display:flex;gap:6px">'
+                 '<div style="display:inline-flex;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden"><span style="padding:7px 12px;font-size:12.5px;%s">원</span>'
+                 '<span style="padding:7px 12px;font-size:12.5px;%s">USD</span></div><div class="inp" style="flex:1;text-align:right">%s</div></div></div>'
+                 '<div class="fld"><span class="lbl">기간 시작</span><div class="inp">2026-10-23</div></div>'
+                 '<div class="fld"><span class="lbl">기간 끝 (기본 1년)</span><div class="inp">%s</div></div></div>'
+                 '<div style="display:flex;justify-content:flex-end;margin-top:10px"><span class="btn pri">라이선스 저장</span></div></div></div>'
+                 % (tg(kind, '#f3e8ff', '#7e22ce'), co, on, off, amount if saved else '0', until))
+    return '<div style="position:relative;margin-bottom:8px;display:flex;justify-content:flex-end">%s%s</div>' % (pill, panel)
+
+
 def usage_box(s, o, gaps, occ, ok=True):
     """구간 사용 현황 (web/components/SobpUsage.tsx) `PC-195` — gaps: ['0~165', …] · occ: [(종류, 고객사, B, P), …]"""
     kc = {'App Key': ('#f5f3ff', '#6d28d9'), 'N Key': ('#eef6ff', '#1d4ed8'), '서비스 티켓': ('#ecfdf5', '#047857')}

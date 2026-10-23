@@ -26,7 +26,7 @@ import type { Company } from "@/lib/customerData";
 import { CODE_KINDS, patternOf, type CodeKind } from "@/lib/codeKind";
 import {
   caster, useCaster, genAppKey,
-  accountTickets, typeCode, periodCode, ticketInfo, rangeText, rangeBooks, rangePeriod, type KeyRange,
+  accountTickets, periodCode, ticketInfo, appTicketName, rangeText, rangeBooks, rangePeriod, type KeyRange,
   type CasterAccount,
 } from "@/lib/accountStore";
 
@@ -364,7 +364,9 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   const [addr, setAddr] = useState("");
   const [phone, setPhone] = useState("");   // PHONE (전화번호) `PC-209`
   const [homepage, setHomepage] = useState("");
-  const [since, setSince] = useState("");                     // 사용기간 시작(범위 발급 시) — 범위별 기간 `PC-118`
+  // 사용기간 시작 — 새 발급은 오늘이 기본, 수정은 그 티켓에 등록했던 날짜 `PC-118` `PC-265`
+  const todayDash = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  const [since, setSince] = useState(todayDash);
   const [loaded, setLoaded] = useState(false);
   const sp = useSearchParams();
   const tabQ = sp.get("tab") as AccTab;
@@ -386,6 +388,8 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   const [unlimited, setUnlimited] = useState(true);
   const [issued, setIssued] = useState<string | null>(null);
   const [selRange, setSelRange] = useState<{ keyId: number; idx: number } | null>(null);
+  const [tname, setTname] = useState("");   // 티켓 이름 — 비우면 제안 이름(placeholder)으로 `PC-261`
+  const [autoName, setAutoName] = useState(false);   // 입력 없이 칸을 벗어나면 제안 이름을 값으로(진하게) — 범위를 바꾸면 따라 바뀐다 `PC-262`
   const [info, setInfo] = useState("");   // 티켓 Info `PC-206`   // 발급 내역 선택 → 아래 Key 정보 `PC-120`
   const [openKey, setOpenKey] = useState(false);   // 발급 내역 표 — 고른 줄 아래 Key 정보 펼침 `PC-200`
   // 티켓 수정 중 — 위의 발급 폼을 그 티켓 값으로 채워 고친다 `PC-192` `PC-193`
@@ -444,7 +448,18 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   const keyVol = Math.max(1, Math.min(bVol ?? (range?.bookCount ?? 1), range ? range.bookEnd - keyBS + 1 : 1));
   const keyPVol = Math.max(1, pVol ?? PAGE_DEFAULT);
   const untilVal = () => (unlimited ? "무제한" : (until || "무제한"));
-  const resetIssueForm = () => { setSobpIdx(-1); setBStart(null); setBVol(null); setSince(""); setUntil(""); setUnlimited(true); setInfo(""); };
+  // 티켓 이름 제안 — .nkey 파일명 규칙과 같게 {고객사}_{S}s_{O}o_{Book 볼륨}b_{Page 볼륨}p_{발급일} `PC-261` `PC-263`
+  //   새 발급 = 오늘(발급일) · 수정 = 그 티켓의 발급일
+  const todayYmd = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, "");
+  const editT = editRange ? tickets[editRange.idx] : undefined;
+  const editTk = editT?.ticketId ? ticketById(editT.ticketId) : undefined;
+  const nameDate = editRange ? (String(editTk?.params["Issued Time"] ?? "").replace(/\D/g, "").slice(0, 8) || (editTk?.at ?? editT?.since ?? "").slice(0, 10).replace(/-/g, "") || todayYmd) : todayYmd;
+  const suggestName = range ? appTicketName({ co: accCo?.name ?? acc.company, section: range.section, owner: range.owner,
+    bookVolume: keyVol, pageVolume: keyPVol, date: nameDate }) : "";
+  const ticketName = (autoName ? "" : tname.trim()) || suggestName;
+  // Owner Size — Owner 개수. 범위가 아니면 1 `PC-264` `PC-265`
+  const ownerSize = editT && editT.ownerEnd != null && editT.ownerEnd > editT.owner ? editT.ownerEnd - editT.owner + 1 : 1;
+  const resetIssueForm = () => { setSobpIdx(-1); setBStart(null); setBVol(null); setSince(todayDash()); setUntil(""); setUnlimited(true); setInfo(""); setTname(""); setAutoName(false); };
   // 발급된 키에 코드 범위(=티켓)를 하나 더 발급 — **범위마다 사용기간을 함께 지정** `PC-118`
   //   범위 발급 = 티켓 발급이므로 **원장(Key 발급 목록)에도 티켓 1건을 남긴다** `PC-119`
   const addRange = () => {
@@ -454,21 +469,21 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
     if (clash) { setToast({ ok: false, text: clash }); return; }   // SOBP 무겹침 `PC-174`
     const untilStr = untilVal();
     const r: KeyRange = { pt: range.pt, section: range.section, owner: range.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, bookVol: keyVol,
-      pageStart: pStart, pageEnd: pStart + keyPVol - 1, pageVol: keyPVol, since, until: untilStr, info: info.trim() || undefined };
+      pageStart: pStart, pageEnd: pStart + keyPVol - 1, pageVol: keyPVol, since, until: untilStr, info: info.trim() || undefined, name: ticketName };
     // 원장 티켓을 먼저 만들어 그 id 를 범위에 연결한다 `PC-119`·`PC-121`
     const t = addTicket({ kind: "APP", companyId: acc.companyId, company: acc.company, accountId: acc.id, by: me?.name ?? "",
       summary: `계정 ${acc.id} · ${rangeText(r)} · 기간 ${since || "즉시"}~${untilStr}`,
       params: {
+        "Ticket Name": ticketName,   // `PC-261`
         "Company Name": acc.company, "Account Id": acc.id,
         "App Key": myKey.key || "미기재",
         "Issued Time": new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, ""),
         "Valid From Time": since ? since.replace(/-/g, "") : "즉시",
         "Valid Until Time": untilStr === "무제한" ? "99999999 (무제한)" : untilStr.replace(/-/g, ""),
-        Section: r.section, Owner: r.owner, "Ticket Version": 1,
+        Section: r.section, Owner: r.owner, "Owner Size": 1, "Ticket Version": 1,
         "Book Start": r.bookStart ?? 0, "Book Volume": r.bookVol ?? 0, "Book End": r.bookEnd ?? 0,
         "Page Start": r.pageStart ?? 0, "Page Volume": r.pageVol ?? 0, "Page End": r.pageEnd ?? 0,
-        "Code Type": ctype, Info: info.trim() || "-",
-        "Ticket Type": untilStr === "무제한" ? "Unlimited" : "Period",
+        "Code Type": ctype, Info: info.trim() || "-",   // Ticket Type(= 코드 재사용)은 N Key 에만 `PC-259`
       } });
     caster.addAccountTicket(acc.id, { ...r, ticketId: t.id });   // 티켓 = 계정 소속 `PC-206`
     logActivity("appkey", `티켓 발급 · ${acc?.company} · ${acc?.id} · ${rangeText(r)} · 기간 ${since || "즉시"}~${untilStr}`, me?.name);
@@ -485,9 +500,11 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
     const bound: SobpRange = { pt: own?.pt ?? r.pt, section: r.section, owner: r.owner, bookStart: lo, bookEnd: hi,
       pageStart: Math.min(own?.pageStart ?? 0, ps0), pageEnd: Math.max(own?.pageEnd ?? pe0, pe0), bookCount: hi - lo + 1 };
     const pr = rangePeriod(myKey, r);
-    setEditRange({ keyId: 0, idx: i, bound }); setSelRange({ keyId: 0, idx: i }); setSobpIdx(0); setInfo(ticketInfo(r));
+    const t0 = r.ticketId ? ticketById(r.ticketId) : undefined;   // 사용기간 시작이 비어 있던 옛 발급분은 그 티켓의 발급일 `PC-265`
+    const since0 = pr.since || [t0?.at, myKey?.createdAt].map((x) => (x ?? "").slice(0, 10)).find((x) => /^\d{4}-\d{2}-\d{2}$/.test(x)) || "";
+    setEditRange({ keyId: 0, idx: i, bound }); setSelRange({ keyId: 0, idx: i }); setSobpIdx(0); setInfo(ticketInfo(r)); setTname(r.name ?? ""); setAutoName(false);
     setBStart(bs0); setBVol(be0 - bs0 + 1); setPStart(ps0); setPVol(pe0 - ps0 + 1);
-    setCtype(CT_OF[r.pt] ?? "PDS3"); setSince(pr.since); setUnlimited(pr.until === "무제한"); setUntil(pr.until === "무제한" ? "" : pr.until);
+    setCtype(CT_OF[r.pt] ?? "PDS3"); setSince(since0); setUnlimited(!pr.until || pr.until === "무제한"); setUntil(!pr.until || pr.until === "무제한" ? "" : pr.until);   // 비어 있는 기한 = 무제한(Key 정보와 같게)
     setTab("ticket");
     setTimeout(() => document.getElementById("ak-issue-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   };
@@ -502,16 +519,15 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
     const clash = sobpOverlapMsg(cand, `${acc.id}#${editRange.idx}`);   // 자기 자신은 빼고 본다 `PC-192`
     if (clash) { setToast({ ok: false, text: clash }); return; }
     const patch: Partial<KeyRange> = { pt: patternOf(ctype), bookStart: cand.bookStart, bookEnd: cand.bookEnd, bookVol: keyVol,
-      pageStart: pStart, pageEnd: cand.pageEnd, pageVol: keyPVol, since, until: untilStr, info: info.trim() || undefined };
+      pageStart: pStart, pageEnd: cand.pageEnd, pageVol: keyPVol, since, until: untilStr, info: info.trim() || undefined, name: ticketName };
     caster.updateAccountTicket(acc.id, editRange.idx, patch);
     const nr = { ...r, ...patch } as KeyRange;
     const t = r.ticketId ? ticketById(r.ticketId) : undefined;   // 원장 티켓의 Key 정보도 같은 값으로
     if (t) updateTicket(t.id, { summary: `계정 ${acc.id} · ${rangeText(nr)} · 기간 ${since || "즉시"}~${untilStr}`,
-      params: { ...t.params, "Book Start": cand.bookStart, "Book Volume": keyVol, "Book End": cand.bookEnd,
+      params: { ...Object.fromEntries(Object.entries(t.params).filter(([k]) => k !== "Ticket Type")), "Ticket Name": ticketName, "Book Start": cand.bookStart, "Book Volume": keyVol, "Book End": cand.bookEnd,
         "Page Start": pStart, "Page Volume": keyPVol, "Page End": cand.pageEnd, "Code Type": ctype, Info: info.trim() || "-",
         "Valid From Time": since ? since.replace(/-/g, "") : "즉시",
-        "Valid Until Time": untilStr === "무제한" ? "99999999 (무제한)" : untilStr.replace(/-/g, ""),
-        "Ticket Type": untilStr === "무제한" ? "Unlimited" : "Period" } });
+        "Valid Until Time": untilStr === "무제한" ? "99999999 (무제한)" : untilStr.replace(/-/g, "") } });   // 옛 Ticket Type 은 지운다 `PC-259`
     logActivity("appkey", `티켓 수정 · ${acc.company} · ${acc.id} · ${rangeText(nr)} · 기간 ${since || "즉시"}~${untilStr}`, me?.name);
     setEditRange(null); resetIssueForm();
     setToast({ ok: true, text: `티켓 수정 — ${rangeText(nr)} · ${since || "즉시"}~${untilStr}` });
@@ -525,17 +541,25 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   };
 
   // 발급 · 수정 공용 — 2열 짝 묶음(N Key 발급과 같은 모양) `PC-223`
-  //   티켓 속성: Code Type · Section/Owner / Info(티켓 메모)   기간 · 버전: 사용기간 시작 · 끝 / Ticket Type · Ticket Version
+  //   티켓 속성: Code Type · Section/Owner / Info(티켓 메모)   기간 · 버전: 사용기간 시작 · 끝 / Ticket Version — Ticket Type(= 코드 재사용)은 N Key 에만 `PC-259`
   //   기간은 티켓별로 유지된다 `PC-117`
   const fixedSt: React.CSSProperties = { ...S.input, background: "#f7f8fa", color: "#6b7280" };
   const attrFields = (
     <FormSec title="티켓 속성" cols={4}>
+      {/* 티켓 이름 — 제안 이름(.nkey 파일명 규칙)을 placeholder 로, 비워 두면 그 이름으로 발급 `PC-261` */}
+      <div style={{ gridColumn: "1 / -1" }}><Field label="Ticket Name (티켓 이름)">
+        <input style={{ ...S.input, fontFamily: "ui-monospace,monospace" }} value={autoName ? suggestName : tname} disabled={!range}
+          onChange={(e) => { setAutoName(false); setTname(e.target.value); }}
+          onBlur={() => { if (!tname.trim() || autoName) setAutoName(!!suggestName); }}   // 입력 없이 벗어나면 제안 이름을 진하게 `PC-262`
+          placeholder={suggestName || "{고객사}_{S}s_{O}o_{Book 볼륨}b_{Page 볼륨}p_{발급일}"} />
+      </Field></div>
       <Field label="Code Type (발급 범위 따름)">
         {/* 고른 범위의 할당 타입으로 고정 `PC-220` */}
         <input style={fixedSt} value={range ? ctype : "-"} readOnly title="발급 범위의 코드 타입으로 정해집니다" />
       </Field>
-      <Field label="Section · Owner (자동)">
-        <input style={fixedSt} value={range ? `S${range.section} / O${range.owner}` : "-"} readOnly />
+      {/* Owner Size — 범위가 아니면 1 · 고칠 수 없음(Section · Owner 는 발급 범위에서) `PC-265` */}
+      <Field label="Owner Size">
+        <input style={fixedSt} value={range ? ownerSize : "-"} readOnly title="Owner 개수 — 범위가 아니면 1" />
       </Field>
       {/* 티켓 Info — 티켓 메모(예: sample) `PC-206` */}
       <div style={{ gridColumn: "span 2" }}><Field label="Info (티켓 메모)">
@@ -551,7 +575,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
       </Field>
       {/* 무제한 체크는 항목명(사용기간 끝) 옆 `PC-237` */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}><label style={{ fontSize: 11, color: "#6b7280" }}>Valid Until Time (사용기간 끝)</label>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}><label style={{ fontSize: 11, color: "#6b7280" }} title="발급 요청의 period(YYMMDD · 무제한 = 991231) `PC-264`">Valid Until Time (기한)</label>
           <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11.5, color: "#374151", whiteSpace: "nowrap", cursor: "pointer" }}>
             <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} /> 무제한
           </label>
@@ -563,7 +587,6 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   // 버전 — 코드 구간 아래 `PC-234`
   const versionFields = (
     <FormSec cols={4}>
-      <Field label="Ticket Type (자동)"><input style={fixedSt} value={unlimited || !until ? "Unlimited" : "Period"} readOnly /></Field>
       <Field label="Ticket Version"><input style={fixedSt} value={1} readOnly /></Field>
     </FormSec>
   );
@@ -673,8 +696,9 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
       <div style={{ ...S.card, padding: 18 }}>
         {/* 제목은 상단(브레드크럼)에만 두고, 여기서는 **고객사명을 크게** 보여 준다 `PC-069` */}
         <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-          <div style={{ fontSize: embedded ? 15 : 20, fontWeight: 800, color: "#111827" }}>{embedded ? (acc.name || acc.id) : acc.company}</div>
-          <code style={{ fontFamily: "ui-monospace,monospace", color: "#374151", fontSize: 12.5 }}>{acc.id}</code>
+          <div style={{ fontSize: embedded ? 15 : 20, fontWeight: 800, color: "#111827" }}>{embedded ? acc.id : acc.company}</div>
+          {!embedded && <code style={{ fontFamily: "ui-monospace,monospace", color: "#374151", fontSize: 12.5 }}>{acc.id}</code>}
+          {embedded && acc.name && <span style={{ fontSize: 12.5, color: "#6b7280" }}>담당자 {acc.name}</span>}
         </div>
 
         {/* 탭 3개 `PC-062` */}
@@ -717,7 +741,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
         <div style={{ ...SEC, marginTop: 0, display: tab === "ticket" ? "block" : "none", ...(editRange ? { borderColor: "#93c5fd", background: "#fbfdff" } : {}) }}>
           {editRange
             ? <SecHead t="티켓 수정" d="· 발급된 티켓의 정보를 고칩니다 — 다른 발급분과 겹치지 않는 구간이면 저장됩니다" />
-            : <SecHead t="티켓 발급" d={`· 계정 소속 · 발급된 티켓 ${tickets.length}개`} tip="티켓 = Type · Section · Owner · Book · Page · Info · Period. SOBP 가 바뀌면 App Key 대신 티켓을 더 발급합니다. 발급된 티켓은 지우지 않고 [수정]으로 고칩니다(PC-192)." />}
+            : <SecHead t="티켓 발급" d={`· 계정 소속 · 발급된 티켓 ${tickets.length}개`} tip="티켓 = Code Type · Section · Owner · Book · Page · Info · Period. SOBP 가 바뀌면 App Key 대신 티켓을 더 발급합니다. 발급된 티켓은 지우지 않고 [수정]으로 고칩니다(PC-192)." />}
           {ticketBlock}
         </div>
 
@@ -742,7 +766,9 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
                 const t = r.ticketId ? ticketById(r.ticketId) : undefined;
                 const at = [t?.at, r.since, k?.createdAt].map((x) => (x ?? "").slice(0, 10)).find((x) => /^\d{4}-\d{2}-\d{2}$/.test(x));
                 const ledger = t ? t.src === "ledger" : !!acc.seeded;   // 원장 티켓이 없으면 대장 시드분
-                const own = r.ownerEnd != null && r.ownerEnd !== r.owner ? `${r.owner}~${r.ownerEnd}` : `${r.owner}~${r.owner}`;
+                // Owner — 범위가 아니면 1개(그 번호만) `PC-264`
+                const own = r.ownerEnd != null && r.ownerEnd !== r.owner ? `${r.owner}~${r.ownerEnd}` : `${r.owner}`;
+                const ct = CT_OF[r.pt] ?? r.pt;   // Code Type(= 발급 요청 ncodetype) — 따로 「Type」 코드를 두지 않는다 `PC-264`
                 const bs = r.bookStart, be = r.bookEnd ?? (bs != null && r.bookVol ? bs + r.bookVol - 1 : bs);
                 const ps = r.pageStart, pe = r.pageEnd ?? (ps != null && r.pageVol ? ps + r.pageVol - 1 : ps);
                 const span = (a?: number | null, z?: number | null) => (a == null ? "전체" : z == null || z === a ? `${a}` : `${a}~${z}`);
@@ -753,9 +779,11 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
                       style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", cursor: "pointer", background: isSel ? "#f0f7ff" : "#fff" }}>
                       <span style={{ width: 18, flex: "0 0 18px", paddingTop: 2, fontSize: 11.5, color: isSel ? "#2563eb" : "#9ca3af", fontWeight: 700 }}>{n + 1}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        {/* 티켓 = Type · Section · Owner · Book · Page · Info · Period `PC-206` */}
+                        {/* 티켓 이름 `PC-261` */}
+                        {r.name && <div style={{ fontFamily: "ui-monospace,monospace", fontSize: 12, fontWeight: 700, color: "#111827", marginBottom: 4, wordBreak: "break-all" }}>{r.name}</div>}
+                        {/* 티켓 = Code Type · Section · Owner · Book · Page · Info · Period `PC-206` `PC-264` */}
                         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                          <code style={{ fontFamily: "ui-monospace,monospace", fontSize: 11.5, fontWeight: 700, color: "#1d4ed8" }} title={`Type ${typeCode(r.pt)} = ${r.pt}`}>{typeCode(r.pt)}</code>
+                          <code style={{ fontFamily: "ui-monospace,monospace", fontSize: 11.5, fontWeight: 700, color: "#1d4ed8" }} title="Code Type">{ct}</code>
                           <SobpChips s={r.section} o={own} b={span(bs, be)} p={span(ps, pe)} small />
                           {ticketInfo(r) && <span style={{ fontSize: 11.5, color: "#374151" }} title="Info">{ticketInfo(r)}</span>}
                         </div>
@@ -765,7 +793,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
                           <span style={{ color: "#d1d5db" }}>·</span>
                           <span>{rangeBooks(r) != null ? `${rangeBooks(r)!.toLocaleString()}권` : "권수 —"}</span>
                           <span style={{ color: "#d1d5db" }}>·</span>
-                          <span title="Period — 무제한 = 991231">Period <b style={{ fontFamily: "ui-monospace,monospace", color: "#374151" }}>{periodCode(p.until)}</b></span>
+                          <span title="Period = 기한(사용기간 끝) YYMMDD — 무제한 = 991231">기한 <b style={{ fontFamily: "ui-monospace,monospace", color: "#374151" }}>{periodCode(p.until)}</b></span>
                           <span style={{ color: "#d1d5db" }}>·</span>
                           <span>{p.since || "즉시"} ~ {p.until}</span>
                         </div>
@@ -774,16 +802,20 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
                       <span style={{ fontSize: 10, color: "#9ca3af", paddingTop: 5, transform: isSel && openKey ? "rotate(90deg)" : "none", transition: "transform .15s" }}>▶</span>
                     </div>
                     {isSel && openKey && (() => {
+                      // Key 정보 = 발급 폼과 같은 항목명 · 같은 내용(폼 순서) `PC-265`
+                      //   Period 는 따로 두지 않고 Valid Until Time(기한)으로 · 비어 있는 기한은 무제한
+                      const from0 = p.since || (at ?? "");
                       const params = {
-                        // 티켓 항목 먼저 — Type · Section · Owner · Book · Page · Info · Period `PC-206`
-                        Type: `${typeCode(r.pt)} (${r.pt})`, Section: r.section, Owner: own, Book: span(bs, be), Page: span(ps, pe),
-                        Info: ticketInfo(r) || "-", Period: `${periodCode(p.until)}${p.until === "무제한" ? " (무제한)" : ""}`,
-                        "Company Name": acc.company, "Account Id": acc.id, "App Key": k?.key || "미기재", "Code Type": r.pt,
-                        "Book Start": r.bookStart ?? "-", "Book Volume": rangeBooks(r) ?? "-", "Book End": r.bookEnd ?? "-",
-                        "Page Start": r.pageStart ?? "-", "Page Volume": r.pageVol ?? "-", "Page End": r.pageEnd ?? "-",
-                        "Valid From Time": p.since ? p.since.replace(/-/g, "") : "즉시",
-                        "Valid Until Time": p.until === "무제한" ? "99999999 (무제한)" : (p.until || "").replace(/-/g, ""),
-                        "Ticket Type": p.until === "무제한" ? "Unlimited" : "Period",
+                        Section: r.section, Owner: own,
+                        "Valid From Time": from0 || "-",
+                        "Valid Until Time": !p.until || p.until === "무제한" ? "무제한" : p.until,
+                        "Start Book": bs ?? "-", "Book 볼륨": rangeBooks(r) ?? "-",
+                        "Start Page": ps ?? "-", "Page 볼륨": r.pageVol ?? (ps != null && pe != null ? pe - ps + 1 : "-"),
+                        "Ticket Version": 1,
+                        "Ticket Name": r.name || "-", "Code Type": ct,
+                        "Owner Size": r.ownerEnd != null && r.ownerEnd > r.owner ? r.ownerEnd - r.owner + 1 : 1,
+                        Info: ticketInfo(r) || "-",
+                        "Company Name": acc.company, "Account Id": acc.id, "App Key": k?.key || "미기재",
                       } as Record<string, string | number>;
                       return (
                         <div style={{ padding: "10px 12px 12px", background: "#fbfdff", borderTop: "1px solid #e0ecff" }}>
@@ -813,7 +845,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
         {/* 정산 탭 — 티켓(코드 범위)을 고르고 그 정산을 등록한다. N Key 관리의 정산 탭과 같은 결 `PC-177` `PC-178` */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "bill" ? "block" : "none" }}>
           {/* 연간 라이선스 비용 — 고객사마다 1건(App Key) · 키 발급으로 생기는 비용 `PC-212` */}
-          {accCo && <LicenseEditor key={accCo.id} kind="APP" companyId={accCo.id} company={accCo.name} by={me?.name ?? ""} />}
+          {/* 연간 라이선스는 App Key 관리 오른쪽 칸 맨 위 탭으로 옮겼다 `PC-257` */}
           <SecHead t="정산할 티켓" d={`· 티켓마다 등록 · 미정 ${nTodo}건`} />
           {rangeItems.length === 0 ? (
             <div style={{ fontSize: 12, color: "#9ca3af", padding: "6px 0" }}>발급된 티켓이 없습니다. [티켓 발급] 탭에서 먼저 발급하세요.</div>

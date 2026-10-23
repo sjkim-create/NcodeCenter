@@ -25,7 +25,7 @@ import {
   addTicket, allTickets, deleteTicket, hydrateTickets, setBilling, ticketById, updateTicket, useTickets,
   BILLINGS, BILLINGS_FILTER, BILL_COLOR, daysLeft, plusMonth, fmtMoney, krwOf, type Billing, type Ticket,
 } from "@/lib/ticketStore";
-import { BillingEditor, LicenseEditor } from "./BillingEditor";   // 정산 입력 — App Key · 서비스 티켓과 같은 조각 `PC-202`
+import { BillingEditor, LicenseSlide } from "./BillingEditor";   // 정산 입력 — App Key · 서비스 티켓과 같은 조각 `PC-202`
 
 type Tab = "nkey" | "list";
 
@@ -118,7 +118,6 @@ function NKeyWorkspace() {
   const [right, setRight] = useState<NRight>({ kind: "none" });
   const [cq, setCq] = useState("");
   const [fBill, setFBill] = useState<"" | Billing>("");
-  const [fSrc, setFSrc] = useState<"" | "ledger" | "new">("");
   const [q, setQ] = useState("");
   const [inited, setInited] = useState(false);
   const [loadedKey, setLoadedKey] = useState<{ name: string; rows: KV[]; err?: string } | null>(null);
@@ -159,7 +158,6 @@ function NKeyWorkspace() {
   // 필터는 **전체 발급분에 먼저** 건다 → 왼쪽 고객사 건수 · 가운데 목록이 그 결과를 고객사별로 보여 준다 `PC-150`
   const hits = (t: Ticket) =>
     (fBill ? t.billing === fBill : true)
-    && (fSrc === "ledger" ? t.src === "ledger" : fSrc === "new" ? t.src !== "ledger" : true)
     && (q ? (labelOf(coKey(t)) + " " + t.company + " " + t.summary + " " + t.by + " " + t.no).toLowerCase().includes(q.toLowerCase()) : true);
   const hitAll = tickets.filter(hits);
   const hitOf = (k: string) => hitAll.filter((t) => (k === ALL_CO ? true : isOf(t, k)));
@@ -170,7 +168,7 @@ function NKeyWorkspace() {
   useEffect(() => {
     if (!inited || right.kind !== "t" || list.some((t) => t.id === right.id)) return;
     setRight(list[0] ? { kind: "t", id: list[0].id } : { kind: "none" });
-  }, [fBill, fSrc, q, cq]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fBill, q, cq]);   // eslint-disable-line react-hooks/exhaustive-deps
   // 고객사를 검색하면 가운데를 검색 결과(전체 기준)로 바꾼다 `PC-199`
   useEffect(() => { if (inited && cq) setCo(ALL_CO); }, [cq]);   // eslint-disable-line react-hooks/exhaustive-deps
   // 정산 집계 — 고른 고객사 · 필터 결과 기준 (옛 목록 요약과 같은 규칙)
@@ -186,7 +184,7 @@ function NKeyWorkspace() {
     const first = [...hitOf(name)].sort(sortAt)[0];
     setRight(first ? { kind: "t", id: first.id } : { kind: "none" });
   };
-  const filtered0 = !!(fBill || fSrc || q);
+  const filtered0 = !!(fBill || q);
   // 필터가 걸리면 맞는 발급이 있는 고객사만 남긴다
   const coList = names.filter((k) => (cq ? labelOf(k).toLowerCase().includes(cq.toLowerCase()) : true))
     .filter((k) => (filtered0 ? hitOf(k).length > 0 : true));
@@ -196,7 +194,7 @@ function NKeyWorkspace() {
     ? [...new Set(list.map((t) => ownKey(t)))].map((k) => ({ key: k, ts: list.filter((t) => ownKey(t) === k) }))   // 하위 고객사 티켓은 하위 고객사로 묶는다 `PC-199`
     : [{ key: co, ts: list }];
   const coCompany = companies.find((c) => String(c.id) === co);
-  const filtered = !!(fBill || fSrc || q);
+  const filtered = !!(fBill || q);
 
   const card = WS_CARD, hd = WS_HD;
   // 고객사 한 줄 — App Key 관리와 같은 모양(미정 표시 없음) `PC-198`
@@ -234,14 +232,9 @@ function NKeyWorkspace() {
           <button onClick={() => setFBill("")} style={chip(fBill === "")}>정산 전체</button>
           {BILLINGS_FILTER.map((b) => <button key={b} onClick={() => setFBill(b)} style={chip(fBill === b)}>{b}</button>)}
         </div>
-        <span style={{ color: "#d1d5db" }}>|</span>
-        <div style={{ display: "flex", gap: 4 }}>
-          {([["", "전체"], ["ledger", "대장"], ["new", "신규발급"]] as const).map(([v, l]) => (
-            <button key={v} onClick={() => setFSrc(v)} style={chip(fSrc === v)} title={v === "ledger" ? "nkey(HLP) 발급 대장" : v === "new" ? "이 화면에서 발급한 티켓" : undefined}>{l}</button>
-          ))}
-        </div>
+        {/* 출처(전체 · 대장 · 신규발급) 필터는 없앴다 — 상용에서 쓰지 않는다 `PC-267` */}
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="고객사 · 발급 내용 · 발급인 · 번호 검색" style={{ ...S.input, width: 260 }} />
-        {filtered && <button onClick={() => { setFBill(""); setFSrc(""); setQ(""); }} style={S.linkBtn}>필터 해제</button>}
+        {filtered && <button onClick={() => { setFBill(""); setQ(""); }} style={S.linkBtn}>필터 해제</button>}
         <span style={{ flex: 1 }} />
         {filtered && <span style={{ color: "#6b7280" }}>전체 <b style={{ color: "#111827" }}>{hitAll.length}건</b> · 고객사 <b style={{ color: "#111827" }}>{coList.length}곳</b></span>}
         <label style={{ ...S.smallBtn, whiteSpace: "nowrap" }} title="발급된 N Key 파일(.nkey)을 열어 내용을 봅니다(보기 전용). 목록에 없는 외부 키도 됩니다.">
@@ -343,15 +336,17 @@ function NKeyWorkspace() {
           </WsFillScroll>
         </div>
 
-        {/* ③ 발급 상세 · 정산 / N Key 발급 / 고객사 등록 */}
+        {/* ③ 발급 상세 · 정산 / N Key 발급 / 고객사 등록 — 맨 위에 연간 라이선스 탭 `PC-257`
+              그 고객사 자신의 발급분이 있을 때만(하위 고객사면 하위 고객사에 · 상위로 모으지 않는다) */}
         <div style={{ minWidth: 0 }}>
+          {coCompany && tickets.some((t) => ownKey(t) === co) && <LicenseSlide kind="N" company={coCompany} by={me?.name ?? ""} />}
           {right.kind === "t" && (
             <TicketDetailView key={`${right.id}-${right.tab ?? ""}`} ticketId={right.id} embedded initTab={right.tab}
               onDeleted={() => { const rest = list.filter((x) => x.id !== right.id); setRight(rest[0] ? { kind: "t", id: rest[0].id } : { kind: "none" }); }} />
           )}
           {right.kind === "new" && (
             <NKeyEmbeddedForm key={`new-${co}`} me={me} initCompanyId={coCompany?.id ?? 0}
-              onIssued={(t) => { setCo(String(t.coRef ?? ALL_CO)); setFBill(""); setFSrc(""); setQ(""); setRight({ kind: "t", id: t.id, tab: "bill" }); }}
+              onIssued={(t) => { setCo(String(t.coRef ?? ALL_CO)); setFBill(""); setQ(""); setRight({ kind: "t", id: t.id, tab: "bill" }); }}
               onCancel={() => { const first = list[0]; setRight(first ? { kind: "t", id: first.id } : { kind: "none" }); }} />
           )}
           {right.kind === "none" && (
@@ -548,8 +543,7 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
         ) : (
           // 정산 정보 — App Key · 서비스 티켓과 같은 공용 정산 입력 `PC-202`
           <>
-          {/* 연간 라이선스 비용 — 고객사마다 1건(N Key) · 키 발급으로 생기는 비용 `PC-212` */}
-          {(() => { const co = companyOfNTicket(t, companies); return co ? <LicenseEditor key={co.id} kind="N" companyId={co.id} company={co.name} by={me?.name ?? ""} /> : null; })()}
+          {/* 연간 라이선스는 오른쪽 칸 맨 위 탭으로 옮겼다 `PC-257` */}
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>이 티켓의 정산</div>
           <BillingEditor key={t.id} bare v={t} baseDate={t.at.slice(0, 10)} onSave={(p) => {
             setBilling(t.id, { ...p, by: me?.name ?? "" });
@@ -706,8 +700,11 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     setUntilUnlimited(/^9{6,}$/.test(vu)); setValidUntil(/^\d{8}$/.test(vu) && !/^9{8}$/.test(vu) ? vu.slice(2) : /^\d{6}$/.test(vu) ? vu : "");
     setSeparate(/^Y/i.test(String(p["Separate Each Book"] ?? "")));
     setCtype((origType || "PDS3") as CodeKind);
-    if (/^HYBRID/.test(String(p.Profile ?? ""))) setProfile("HYBRID");
+    // 프로필 = Ticket Version(1 LEGACY · 2 HYBRID) · 코드 재사용 = Ticket Type(Unlimited · Single) `PC-257` `PC-258`
+    //   옛 발급분의 Profile · Code Reuse 항목도 읽는다
+    if (/^HYBRID/.test(String(p.Profile ?? "")) || /^2/.test(String(p["Ticket Version"] ?? ""))) setProfile("HYBRID");
     if (p["Code Reuse"] !== undefined) setCodeReuse(/^Y/i.test(String(p["Code Reuse"])));
+    else setCodeReuse(!/^Single/i.test(String(p["Ticket Type"] ?? "")));
     if (p["CasterN Permissions"] !== undefined) setHperms(String(p["CasterN Permissions"]).split(",").map((x) => x.trim()).filter((x) => x && x !== "-") as CasterPerm[]);
     setFilled(true);
   }, [edit, filled]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -724,8 +721,12 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
   const typeBad = !(NKEY_TYPES as string[]).includes(ctype) && !keepOld;
   const secBad = !!range && !typeBad && !keepOld && !secOk(profile, ctype, range.section);
   const typeMismatch = !!range && !typeBad && !edit && allocType !== ctype;
+  // HYBRID 는 Page 볼륨이 8의 배수여야 한다 `PC-260`
+  const page8Bad = profile === "HYBRID" && pageVolume % 8 !== 0;
+  const page8Lo = Math.max(8, Math.floor(pageVolume / 8) * 8), page8Hi = Math.ceil(pageVolume / 8) * 8;
   const policyErr = typeBad ? "OID · PDS4 는 새로 발급할 수 없습니다. PDS2 · PDS3 중에서 고르세요."
     : secBad && range ? `S${range.section} 은 ${profile} + ${ctype} 에서 쓸 수 없습니다. 켜진 프로필 · 코드 타입을 고르세요.`
+    : page8Bad ? `HYBRID 프로필은 Page 볼륨을 8의 배수로 설정해야 합니다. (지금 ${pageVolume} → ${page8Lo === page8Hi ? page8Hi : `${page8Lo} 또는 ${page8Hi}`})`
     : "";
 
   // 발급 파라미터 — 화면 표시·키 생성·정보 확인이 같은 값을 쓴다
@@ -735,16 +736,14 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     "Valid Until Time": untilUnlimited ? "99999999 (무제한)" : validValue,
     Section: range?.section ?? "-",
     Owner: range?.owner ?? "-",
-    "Ticket Version": 1,
+    "Ticket Version": profile === "HYBRID" ? "2 (HYBRID · CasterN)" : "1 (LEGACY · Caster Lite)",   // 프로필 = Ticket Version `PC-257`
     "Book Start": bookStart,
     "Book Volume": books,
     "Page Start": pageStart,
     "Page Volume": pageVolume,
     "Code Type": ctype,
-    "Ticket Type": "Unlimited",
+    "Ticket Type": codeReuse ? "Unlimited (재사용)" : "Single (재사용 안 함)",   // 코드 재사용 = Ticket Type `PC-258`
     "Separate Each Book": separate ? "Y (북코드별 개별 티켓)" : "N (1개 티켓 병합)",
-    Profile: profile === "HYBRID" ? "HYBRID (CasterN)" : "LEGACY (Caster Lite)",   // `PC-218`
-    "Code Reuse": codeReuse ? "Y (재사용)" : "N (재사용 안 함)",
     ...(profile === "HYBRID" ? { "CasterN Permissions": hperms.length ? hperms.join(", ") : "-" } : {}),
     ...(isCommon ? { "Used Customer": selCu?.cu ?? "-" } : {}),   // 공통코드: 사용 고객사
   });
@@ -770,7 +769,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     const clash = sobpOverlapMsg({ section: range.section, owner: range.owner, bookStart, bookEnd, pageStart, pageEnd: pageStart + pageVolume - 1 });
     if (clash) { setToast(clash); return; }
     // .nkey(Key=Value · JSON 아님) 내려받기 — Separate + Book 2권 이상이면 .zip `PC-219`
-    //   파일명 Ticket_{고객사}[_{사용고객사}]_{S}s_{O}o_{B}b_{P}p_{Page 볼륨}.nkey `PC-221`
+    //   파일명 Ticket_{고객사}[_{사용고객사}]_{S}s_{O}o_{Book 볼륨}b_{Page 볼륨}p.nkey `PC-221` `PC-263`
     const params = ticketParams();
     const fileName = downloadNkey(params, makeZip);
     const asZip = fileName.endsWith(".zip");
@@ -786,7 +785,9 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
   // 수정 저장 — 발급 기록만 고친다(이미 내려받은 .nkey 는 그대로 · 다시 받으려면 [키 다운로드]) `PC-192` `PC-226`
   //   고객사 · 발급일 · 폼에 없는 항목(대장 항목 등)은 그대로 둔다
   const formKeys = new Set(Object.keys(ticketParams()));
-  const extraParams = edit ? Object.entries(edit.params).filter(([k]) => !formKeys.has(k) && k !== "Company Name" && k !== "Issued Time") : [];
+  //   옛 Profile · Code Reuse 는 Ticket Version · Ticket Type 으로 옮겨져 기타 항목에 두지 않는다 `PC-257` `PC-258`
+  const OLD_KEYS = ["Company Name", "Issued Time", "Profile", "Code Reuse", "CasterN Permissions"];
+  const extraParams = edit ? Object.entries(edit.params).filter(([k]) => !formKeys.has(k) && !OLD_KEYS.includes(k)) : [];
   const saveEdit = () => {
     if (!edit || !range) return;
     if (books < 1 || bookStart < range.bookStart || bookEnd > range.bookEnd) { setToast(`Book 은 B${range.bookStart}~B${range.bookEnd} 안이어야 합니다.`); return; }
@@ -799,6 +800,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
       "Company Name": edit.params["Company Name"] ?? edit.company };   // Issued Time 은 폼 값(고칠 수 있음) `PC-232`
     if (params["Used Customer"] === "-" && edit.params["Used Customer"]) params["Used Customer"] = edit.params["Used Customer"];
     if (profile !== "HYBRID") delete params["CasterN Permissions"];
+    delete params.Profile; delete params["Code Reuse"];   // Ticket Version · Ticket Type 로 옮김 `PC-257` `PC-258`
     const pt = PT_OF[ctype] ?? range.pt;
     const summary = `${pt} S${range.section}/O${range.owner}/B${bookStart}~${bookEnd} · Book ${books}권 · P${pageStart}~${pageStart + pageVolume - 1} · ${separate ? "개별티켓 " + books + "장" : "병합 1장"} · 유효 ${untilUnlimited ? "무제한" : validValue} · ${profile === "HYBRID" ? `HYBRID(권한 ${hperms.length})` : "LEGACY"}${codeReuse ? " · 코드 재사용" : ""}`;
     updateTicket(edit.id, { summary, params });
@@ -826,7 +828,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
       </div>
 
       {/* 폼 정리 — 발급 범위를 맨 위에, 나머지는 2열로 짝지어 묶는다 `PC-222`
-            ① 고객사 · 발급 범위 ② 코드 구간(Book · Page) ③ 티켓 속성(프로필 · Code Type / 코드 재사용 · Separate) ④ 기간 · 버전 */}
+            고객사 · 발급 범위 → 티켓 속성(프로필 · Code Type · 코드 재사용) → 발급일 · 기간 → 코드 구간 `PC-260` */}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <Field label="고객사 *">
           {edit
@@ -864,67 +866,8 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
 
 
 
-      {/* 순서: 발급일 · 기간 → 코드 구간 → 버전 → 티켓 속성 `PC-234` */}
-      {/* 입력 칸 너비 통일 — 모든 줄 4칸 격자(칸 하나 = 발급일 너비) `PC-236` */}
-      <FormSec cols={4}>
-        <Field label="Issued Time (발급일)">
-          {/* 오늘이 기본 · 달력으로 고칠 수 있다 `PC-232` */}
-          <input type="date" style={S.input} disabled={!company && !edit}
-            value={/^\d{8}$/.test(issuedTime) ? `${issuedTime.slice(0, 4)}-${issuedTime.slice(4, 6)}-${issuedTime.slice(6, 8)}` : ""}
-            onChange={(e) => e.target.value && setIssuedTime(e.target.value.replace(/-/g, ""))} />
-        </Field>
-        {/* 발급일과 같은 너비 · 무제한 체크는 항목명(사용기간 끝) 옆 `PC-236` `PC-237` */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}><label style={{ fontSize: 11, color: "#6b7280" }}>Valid Until Time (사용기간 끝)</label>
-            <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11.5, color: "#374151", whiteSpace: "nowrap", cursor: "pointer" }}>
-              <input type="checkbox" checked={untilUnlimited} onChange={(e) => setUntilUnlimited(e.target.checked)} /> 무제한
-            </label>
-          </div>
-          <input type="date" style={{ ...S.input, opacity: untilUnlimited ? 0.5 : 1 }} disabled={untilUnlimited}
-            value={sixToDate(validUntil)} onChange={(e) => setValidUntil(dateToSix(e.target.value))} title="달력에서 선택" />
-        </div>
-      </FormSec>
-
-      {/* 코드 구간 — 발급일 · 기간 아래 `PC-233` `PC-234` · — Book 짝 · Page 짝 */}
-      <FormSec cols={4}>
-        <Field label={`Start Book ${range ? `· ${range.bookStart}~${range.bookEnd}` : "(시작 북코드)"}`}>
-          <input type="number" min={range?.bookStart ?? 0} max={range?.bookEnd ?? undefined} style={S.input} value={bookStart}
-            onChange={(e) => setBookStart(Math.max(0, +e.target.value))} disabled={!range} />
-        </Field>
-        <Field label={`Book 볼륨 (권) ${range ? `· 최대 ${maxBooks}` : ""}`}>
-          <input type="number" min={1} max={maxBooks} style={S.input} value={books} onChange={(e) => setBooks(Math.max(1, +e.target.value))} disabled={!range} />
-          {/* Separate Each Book — Book 볼륨과 이어진 항목이라 그 바로 아래 체크로 `PC-228` · 2권 이상이면 자동으로 켜지고 끌 수 없다 `PC-221` */}
-          <label title={books >= 2 ? "Book 볼륨 2 이상은 자동으로 켜집니다" : "체크하면 북코드별 개별 티켓, 해제하면 1개 티켓으로 병합합니다"}
-            style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4, fontSize: 12, color: "#374151", whiteSpace: "nowrap", cursor: books >= 2 || !range ? "default" : "pointer" }}>
-            <input type="checkbox" checked={separate} disabled={books >= 2 || !range} onChange={(e) => setSeparate(e.target.checked)} />
-            Separate Each Book
-          </label>
-        </Field>
-        <Field label="Start Page">
-          <select style={S.input} value={pageStart} onChange={(e) => setPageStart(+e.target.value)} disabled={!range}>
-            <option value={0}>0</option><option value={1}>1 (기본)</option><option value={2}>2</option>
-          </select>
-        </Field>
-        {/* 페이지 정원은 **회사에 할당된 SOB(코드 종류·Section)** 를 따른다 `PC-051` */}
-        <Field label={`Page 볼륨 ${range ? `· 최대 ${(PAGE_CAP[range.pt]?.[range.section] ?? 0).toLocaleString()}` : ""}`}>
-          <input type="number" min={1} max={range ? (PAGE_CAP[range.pt]?.[range.section] ?? undefined) : undefined} style={S.input} value={pageVolume}
-            onChange={(e) => { const cap = range ? (PAGE_CAP[range.pt]?.[range.section] ?? Infinity) : Infinity; setPageVolume(Math.max(1, Math.min(cap, +e.target.value))); }} disabled={!range} />
-        </Field>
-      </FormSec>
-
-      {/* 버전 — Ticket Version · Ticket Type · 코드 재사용(체크) `PC-229` `PC-234` */}
-      <FormSec cols={4}>
-        <Field label="Ticket Version"><input style={fixed} value={1} readOnly /></Field>
-        <Field label="Ticket Type"><input style={fixed} value="Unlimited" readOnly /></Field>
-        {/* 코드 재사용 여부 — 체크(기본 체크 = 재사용) `PC-222` `PC-229` */}
-        <Field label="코드 재사용 여부">
-          <label style={{ ...S.input, display: "flex", alignItems: "center", gap: 6, cursor: company ? "pointer" : "default", color: "#374151" }}>
-            <input type="checkbox" checked={codeReuse} disabled={!company} onChange={(e) => setCodeReuse(e.target.checked)} /> 재사용
-          </label>
-        </Field>
-      </FormSec>
-
-      {/* ④ 티켓 속성 — 프로필 · Code Type 짝 / 코드 재사용 · Separate Each Book 짝 `PC-218` `PC-221` */}
+      {/* 순서: 티켓 속성 → 발급일 · 기간 → 코드 구간 — 프로필이 Page 볼륨(HYBRID = 8의 배수)을 정하므로 먼저 고른다 `PC-260` */}
+      {/* ① 티켓 속성 — 프로필 (Ticket Version) · Code Type · 코드 재사용 (Ticket Type) `PC-218` `PC-221` `PC-257` `PC-258` */}
       {(() => {
         const seg = (on: boolean): React.CSSProperties => ({ flex: 1, border: 0, padding: "8px 10px", fontSize: 12.5, cursor: "pointer", whiteSpace: "nowrap", fontWeight: on ? 700 : 400, background: on ? "#eef6ff" : "#fff", color: on ? "#1d4ed8" : "#6b7280" });
         const box: React.CSSProperties = { display: "flex", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" };
@@ -935,10 +878,11 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
         return (
           <FormSec title="티켓 속성" cols={4}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, position: "relative", gridColumn: "span 2" }}>   {/* 프로필 = 2칸 `PC-236` */}
-              <label style={{ fontSize: 11, color: "#6b7280" }}>프로필 *</label>
+              {/* 프로필 = Ticket Version (1 = LEGACY · 2 = HYBRID) `PC-257` */}
+              <label style={{ fontSize: 11, color: "#6b7280" }}>프로필 (Ticket Version) *</label>
               <span style={box}>
-                <button type="button" disabled={!company || pOff("LEGACY")} title={pOff("LEGACY") ? offTip : undefined} onClick={() => pickProfile("LEGACY")} style={{ ...seg(profile === "LEGACY"), ...offSt(pOff("LEGACY")) }}>LEGACY <span style={{ fontWeight: 400 }}>(Caster Lite)</span></button>
-                <button type="button" disabled={!company || pOff("HYBRID")} title={pOff("HYBRID") ? offTip : undefined} onClick={() => pickProfile("HYBRID")} style={{ ...seg(profile === "HYBRID"), borderLeft: "1px solid #e5e7eb", ...offSt(pOff("HYBRID")) }}>HYBRID <span style={{ fontWeight: 400 }}>(CasterN)</span></button>
+                <button type="button" disabled={!company || pOff("LEGACY")} title={pOff("LEGACY") ? offTip : undefined} onClick={() => pickProfile("LEGACY")} style={{ ...seg(profile === "LEGACY"), ...offSt(pOff("LEGACY")) }}>1 · LEGACY <span style={{ fontWeight: 400 }}>(Caster Lite)</span></button>
+                <button type="button" disabled={!company || pOff("HYBRID")} title={pOff("HYBRID") ? offTip : undefined} onClick={() => pickProfile("HYBRID")} style={{ ...seg(profile === "HYBRID"), borderLeft: "1px solid #e5e7eb", ...offSt(pOff("HYBRID")) }}>2 · HYBRID <span style={{ fontWeight: 400 }}>(CasterN)</span></button>
               </span>
               {/* 프로필을 고르면 그 프로필의 사용 가능 Section 을 말풍선으로(5초) — 본문에는 두지 않는다 `PC-222` */}
               {profTip && (
@@ -950,6 +894,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
                   <div style={{ color: "#9ca3af", fontSize: 11.5, marginTop: 4 }}>
                     {range && !isKnownSection(range.section) ? `S${range.section} 은 표에 없어 제한 없음` : "표에 없는 Section 은 제한 없음"}
                   </div>
+                  {profile === "HYBRID" && <div style={{ color: "#fde68a", fontSize: 11.5, marginTop: 2 }}>Page 볼륨은 8의 배수</div>}
                 </div>
               )}
             </div>
@@ -962,6 +907,13 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
                   return <option key={t} value={t} disabled={!ok} style={ok ? undefined : { color: "#c0c4cc" }}>{t}{ok ? (t === allocType ? " (할당)" : "") : " — 이 Section 불가"}</option>;
                 })}
               </select>
+            </Field>
+            {/* 코드 재사용 = Ticket Type — 체크 = Unlimited(재사용 · 기본) / 해제 = Single `PC-222` `PC-258` · N Key 에만 있다 `PC-259` */}
+            <Field label="코드 재사용 (Ticket Type)">
+              <label style={{ ...S.input, display: "flex", alignItems: "center", gap: 6, cursor: company ? "pointer" : "default", color: "#374151", whiteSpace: "nowrap" }}>
+                <input type="checkbox" checked={codeReuse} disabled={!company} onChange={(e) => setCodeReuse(e.target.checked)} />
+                재사용 <span style={{ color: "#9ca3af", fontFamily: "ui-monospace,monospace", fontSize: 11.5 }}>{codeReuse ? "Unlimited" : "Single"}</span>
+              </label>
             </Field>
             {profile === "HYBRID" && (
               <div style={{ gridColumn: "1 / -1", border: "1px solid #dbeafe", background: "#f8fbff", borderRadius: 10, padding: "10px 12px" }}>
@@ -991,6 +943,54 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
         );
       })()}
 
+      {/* ② 발급일 · 기간 — 입력 칸 너비 통일: 모든 줄 4칸 격자(칸 하나 = 발급일 너비) `PC-236` */}
+      <FormSec cols={4}>
+        <Field label="Issued Time (발급일)">
+          {/* 오늘이 기본 · 달력으로 고칠 수 있다 `PC-232` */}
+          <input type="date" style={S.input} disabled={!company && !edit}
+            value={/^\d{8}$/.test(issuedTime) ? `${issuedTime.slice(0, 4)}-${issuedTime.slice(4, 6)}-${issuedTime.slice(6, 8)}` : ""}
+            onChange={(e) => e.target.value && setIssuedTime(e.target.value.replace(/-/g, ""))} />
+        </Field>
+        {/* 발급일과 같은 너비 · 무제한 체크는 항목명(사용기간 끝) 옆 `PC-236` `PC-237` */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}><label style={{ fontSize: 11, color: "#6b7280" }}>Valid Until Time (사용기간 끝)</label>
+            <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11.5, color: "#374151", whiteSpace: "nowrap", cursor: "pointer" }}>
+              <input type="checkbox" checked={untilUnlimited} onChange={(e) => setUntilUnlimited(e.target.checked)} /> 무제한
+            </label>
+          </div>
+          <input type="date" style={{ ...S.input, opacity: untilUnlimited ? 0.5 : 1 }} disabled={untilUnlimited}
+            value={sixToDate(validUntil)} onChange={(e) => setValidUntil(dateToSix(e.target.value))} title="달력에서 선택" />
+        </div>
+      </FormSec>
+
+      {/* ③ 코드 구간 — 발급일 · 기간 아래 `PC-233` `PC-234` · — Book 짝 · Page 짝 */}
+      <FormSec cols={4}>
+        <Field label={`Start Book ${range ? `· ${range.bookStart}~${range.bookEnd}` : "(시작 북코드)"}`}>
+          <input type="number" min={range?.bookStart ?? 0} max={range?.bookEnd ?? undefined} style={S.input} value={bookStart}
+            onChange={(e) => setBookStart(Math.max(0, +e.target.value))} disabled={!range} />
+        </Field>
+        <Field label={`Book 볼륨 (권) ${range ? `· 최대 ${maxBooks}` : ""}`}>
+          <input type="number" min={1} max={maxBooks} style={S.input} value={books} onChange={(e) => setBooks(Math.max(1, +e.target.value))} disabled={!range} />
+          {/* Separate Each Book — Book 볼륨과 이어진 항목이라 그 바로 아래 체크로 `PC-228` · 2권 이상이면 자동으로 켜지고 끌 수 없다 `PC-221` */}
+          <label title={books >= 2 ? "Book 볼륨 2 이상은 자동으로 켜집니다" : "체크하면 북코드별 개별 티켓, 해제하면 1개 티켓으로 병합합니다"}
+            style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4, fontSize: 12, color: "#374151", whiteSpace: "nowrap", cursor: books >= 2 || !range ? "default" : "pointer" }}>
+            <input type="checkbox" checked={separate} disabled={books >= 2 || !range} onChange={(e) => setSeparate(e.target.checked)} />
+            Separate Each Book
+          </label>
+        </Field>
+        <Field label="Start Page">
+          <select style={S.input} value={pageStart} onChange={(e) => setPageStart(+e.target.value)} disabled={!range}>
+            <option value={0}>0</option><option value={1}>1 (기본)</option><option value={2}>2</option>
+          </select>
+        </Field>
+        {/* 페이지 정원은 **회사에 할당된 SOB(코드 종류·Section)** 를 따른다 `PC-051` · HYBRID 면 8의 배수만 `PC-260` */}
+        <Field label={`Page 볼륨 ${range ? `· 최대 ${(PAGE_CAP[range.pt]?.[range.section] ?? 0).toLocaleString()}` : ""}${profile === "HYBRID" ? " · 8의 배수" : ""}`}>
+          <input type="number" min={profile === "HYBRID" ? 8 : 1} step={profile === "HYBRID" ? 8 : 1} max={range ? (PAGE_CAP[range.pt]?.[range.section] ?? undefined) : undefined}
+            style={{ ...S.input, ...(page8Bad && range ? { border: "1px solid #f87171", background: "#fef2f2" } : {}) }} value={pageVolume}
+            onChange={(e) => { const cap = range ? (PAGE_CAP[range.pt]?.[range.section] ?? Infinity) : Infinity; setPageVolume(Math.max(1, Math.min(cap, +e.target.value))); }} disabled={!range} />
+          {page8Bad && range && <div style={{ fontSize: 11.5, color: "#b91c1c", marginTop: 4 }}>8의 배수만 — {page8Lo === page8Hi ? page8Hi : `${page8Lo} 또는 ${page8Hi}`}</div>}
+        </Field>
+      </FormSec>
 
       {/* 폼에 없는 항목(대장 항목 등) — 고치지 않고 그대로 둔다 `PC-226` */}
       {edit && extraParams.length > 0 && (

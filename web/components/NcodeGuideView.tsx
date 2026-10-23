@@ -51,31 +51,23 @@ export default function NcodeGuideView({ embedded }: { embedded?: boolean } = {}
       </Section>
 
       {/* 5. 실제 견적 단가 */}
-      {/* 5. 티켓 버전 — 발급 항목 구성의 버전 `PC-065` */}
-      <Section n="5" title="Ticket Version — 발급 항목 구성의 버전">
+      {/* 5. N Key 의 Ticket Version · Ticket Type — 프로필 · 코드 재사용 `PC-257` `PC-258` `PC-259` (옛 「항목 구성 버전」 설명 `PC-065` 대체) */}
+      <Section n="5" title="Ticket Version · Ticket Type — N Key 프로필 · 코드 재사용">
         <ul style={ul}>
-          <li><b>Ticket Version</b> 은 키를 발급할 때 담는 <b>항목 구성(스펙)의 버전</b>입니다. 발급 건의 순번이나 재발급 횟수가 아닙니다.</li>
-          <li>지금 발급되는 키는 모두 <b>버전 1</b> 로 관리합니다 — 아래 항목 구성이 <b>버전 1</b> 입니다.</li>
-          <li><b>항목이 바뀌면(추가·삭제·의미 변경) 버전 2</b> 로 올려 관리합니다. 이미 발급된 키는 <b>발급 당시 버전 그대로</b> 남습니다.</li>
-          <li>그래서 Key 정보의 <b>Ticket Version</b> 은 <b>고를 수 없는 고정 값</b>으로 보여 줍니다(현재 <b>1</b>).</li>
+          <li>N Key 의 <b>Ticket Version</b> 은 <b>프로필</b>입니다 — 발급 화면 항목명 <b>프로필 (Ticket Version)</b>.</li>
+          <li>N Key 의 <b>Ticket Type</b> 은 <b>코드 재사용 여부</b>입니다 — 발급 화면 항목명 <b>코드 재사용 (Ticket Type)</b>.</li>
+          <li><b>코드 재사용은 N Key 에서만</b> 씁니다. App Key 티켓 · 서비스 티켓에는 없습니다.</li>
+          <li><b>HYBRID</b> 프로필은 <b>Page 볼륨이 8의 배수</b>여야 발급됩니다.</li>
         </ul>
         <table style={{ ...S.table, marginTop: 10 }}>
-          <thead><tr>{["버전", "항목 구성", "상태"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
+          <thead><tr>{["항목", "값", "뜻"].map((h) => <th key={h} style={th}>{h}</th>)}</tr></thead>
           <tbody>
-            <tr>
-              <td style={{ ...td, fontWeight: 700, fontFamily: "ui-monospace,monospace" }}>1</td>
-              <td style={td}>
-                Company Name · Account Id · Issued Time · Valid Until Time · Section · Owner ·
-                Ticket Version · Book Start · Book Volume · Page Start · Page Volume ·
-                Code Type · Ticket Type · Separate Each Book
-              </td>
-              <td style={{ ...td, color: "#047857", fontWeight: 700 }}>사용 중</td>
-            </tr>
-            <tr>
-              <td style={{ ...td, fontWeight: 700, fontFamily: "ui-monospace,monospace", color: "#9ca3af" }}>2</td>
-              <td style={{ ...td, color: "#9ca3af" }}>항목이 바뀌는 시점에 정의 — 예정</td>
-              <td style={{ ...td, color: "#9ca3af" }}>예정</td>
-            </tr>
+            <tr><td style={{ ...td, fontWeight: 700 }} rowSpan={2}>Ticket Version (프로필)</td>
+              <td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>1</td><td style={td}>LEGACY — Caster Lite</td></tr>
+            <tr><td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>2</td><td style={td}>HYBRID — CasterN 오프라인 · Page 볼륨 8의 배수</td></tr>
+            <tr><td style={{ ...td, fontWeight: 700 }} rowSpan={2}>Ticket Type (코드 재사용)</td>
+              <td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>Unlimited</td><td style={td}>재사용 (기본)</td></tr>
+            <tr><td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>Single</td><td style={td}>재사용 안 함</td></tr>
           </tbody>
         </table>
         <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 8 }}>
