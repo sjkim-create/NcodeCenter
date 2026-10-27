@@ -112,24 +112,29 @@ PERMS = (('Project', 'Project/New/Enabled', False, '새 프로젝트'), ('', 'Pr
          ('Nproj', 'Nproj/Writer/StartPageSideAttr/Enabled', False, '.nproj 시작페이지 면(side) 속성 기록'))
 
 
-def perm_tab():
-    """권한 탭 — 분류 · Permission · 값(true / false) · 설명 `PC-207`"""
+def perm_tab(fixed=False, dirty=False):
+    """권한 탭 — 분류 · Permission · 값(true / false) · 설명 `PC-207` · fixed = 저장 후 확정(읽기 전용) `PC-275`"""
     seg = ('<span style="display:inline-flex;border:1px solid #e5e7eb;border-radius:7px;overflow:hidden;font-size:11.5px;%s">'
            '<span style="padding:3px 10px;%s">true</span><span style="padding:3px 10px;border-left:1px solid #e5e7eb;%s">false</span></span>' % (MONO, '%s', '%s'))
     on_t, on_f, off = 'background:#dcfce7;color:#166534;font-weight:700', 'background:#f3f4f6;color:#374151;font-weight:700', 'color:#c7cdd6'
+    val = (lambda v: '<span style="%s;font-size:11.5px;%s">%s</span>' % (MONO, 'color:#166534;font-weight:700' if v else 'color:#9ca3af', 'true' if v else 'false')) if fixed \
+        else (lambda v: seg % ((on_t, off) if v else (off, on_f)))
     tr = ''.join('<tr style="border-top:1px solid %s;background:%s"><td style="padding:6px 10px;font-weight:600">%s</td>'
                  '<td style="padding:6px 10px;%s;font-size:11.5px">%s</td><td style="padding:4px 10px;text-align:center">%s</td>'
                  '<td style="padding:6px 10px;color:#6b7280;font-size:12px">%s</td></tr>'
                  % ('#e5e7eb' if g else '#f3f4f6', '#fff' if v else '#fafbfc', g, MONO, k,
-                    seg % ((on_t, off) if v else (off, on_f)), d) for g, k, v, d in PERMS)
+                    val(v), d) for g, k, v, d in PERMS)
     n = sum(1 for p in PERMS if p[2])
+    tools = ('<span style="padding:1px 7px;border-radius:999px;background:#f3f4f6;color:#374151;font-size:11px" title="저장된 권한은 바꿀 수 없습니다 · 변경은 DB 에서 직접 수정합니다">확정</span><span style="flex:1"></span>' if fixed else
+             '<span style="flex:1"></span><span class="btn gho" style="padding:4px 10px;font-size:11.5px">모두 true</span><span class="btn gho" style="padding:4px 10px;font-size:11.5px">모두 false</span>')
+    foot = ('' if fixed else
+            '<div style="display:flex;align-items:center;gap:8px;margin-top:12px">%s<span style="flex:1"></span><span class="btn gho"%s>취소</span><span class="btn pri">권한 저장</span></div>'
+            % ('<span style="font-size:12px;color:#b45309">● 저장하지 않은 변경이 있습니다</span>' if dirty else '', '' if dirty else ' style="opacity:.5"'))
     return ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;color:#6b7280">'
-            '<b style="font-size:13.5px;color:#111827">App Key 권한</b><span style="color:#9ca3af" title="Caster U 권한">ⓘ</span><span>true <b style="color:#166534">%d</b> / 20</span><span style="flex:1"></span>'
-            '<span class="btn gho" style="padding:4px 10px;font-size:11.5px">모두 true</span><span class="btn gho" style="padding:4px 10px;font-size:11.5px">모두 false</span></div>'
+            '<b style="font-size:13.5px;color:#111827">App Key 권한</b><span style="color:#9ca3af" title="Caster U 권한">ⓘ</span><span>true <b style="color:#166534">%d</b> / 20</span>%s</div>'
             '<div style="border:1px solid #eef0f4;border-radius:10px;overflow:hidden"><table style="font-size:12.5px;width:100%%">'
-            '<tr><th style="width:76px">분류</th><th>Permission</th><th style="width:110px;text-align:center">값</th><th>설명</th></tr>%s</table></div>'
-            '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><span class="btn gho" style="opacity:.5">취소</span><span class="btn pri">권한 저장</span></div>'
-            % (n, tr))
+            '<tr><th style="width:76px">분류</th><th>Permission</th><th style="width:110px;text-align:center">값</th><th>설명</th></tr>%s</table></div>%s'
+            % (n, tools, tr, foot))
 
 
 
@@ -291,7 +296,7 @@ def key_panel(nokey=False, issued=''):
     return out
 
 
-def detail(tab='hist', sel_idx=0, open_=False, picked=False, issued_key='', toast='', dirty=False, acc=None, rows=HIST, co='Study123', nokey=False, keys2=False, lic=None):
+def detail(tab='hist', sel_idx=0, open_=False, picked=False, issued_key='', toast='', dirty=False, acc=None, rows=HIST, co='Study123', nokey=False, keys2=False, lic=None, perm_fixed=False):
     name, mail = acc or STUDY
     t = kws.tabs(tuple((v, lb, (str(len(rows)) if v == 'hist' else bd)) for v, lb, bd in ACC_TABS), tab)
     if tab == 'info':
@@ -301,7 +306,7 @@ def detail(tab='hist', sel_idx=0, open_=False, picked=False, issued_key='', toas
     elif tab == 'hist':
         body = hist_tab(rows, sel_idx, open_, key=issued_key, co=co, mail=mail)
     elif tab == 'perm':
-        body = perm_tab()
+        body = perm_tab(fixed=perm_fixed, dirty=dirty)
     elif tab == 'key':   # App Key — 계정당 1개 · 범위 없이 키만 `PC-208`
         body = kws.sec_head('App Key', '· 계정당 1개 · 발급된 키 %d개' % (0 if nokey else 1)) + key_panel(nokey, issued_key)
     else:   # 티켓 발급 — App Key 가 있는 계정에만 `PC-208`
@@ -518,11 +523,11 @@ def build():
               '(예: 네오랩 17 · 스콜라스틱 12 · 맥컬리 6 · Tranwisdom 0 / 20). 탭 배지는 true 개수. 고객사 관리 서비스 계정의 CasterN 권한 6종과는 별개다. '
               '<b>권한은 한 번 저장하면 확정</b> — [권한 저장] 때 확인창을 한 번 더 띄우고, 저장한 뒤에는 값만 보이고 「확정」 표시가 붙으며 바꿀 수 없다. 대장 계정은 대장 값으로 확정이다. 바꿔야 하면 고객사 요청을 받아 DB 에서 직접 수정한다 <code>PC-275</code>.',
               fr(H + kws.grid(left(sel='스콜라스틱', h=col_h(1300)), mid('스콜라스틱', cards=[acc_card('', 'scholastic@sample.com', key=True, n=1, on=True)], h=col_h(1300)),
-                              detail('perm')), 1300),
+                              detail('perm', dirty=True, acc=('scholastic@sample.com', 'scholastic@sample.com'), co='스콜라스틱')), 1300),
               [('값 true / false', '클릭', '그 항목만 바뀜', '저장 전이면 <b>● 저장하지 않은 변경이 있습니다</b>'),
                ('[모두 true] · [모두 false]', '클릭', '20항목 한 번에', ''),
-               ('[권한 저장]', '클릭', '확인창 → 저장 · 확정', '확인창 「<b>App Key 권한을 저장할까요? (true n / 20) 저장한 뒤에는 권한을 바꿀 수 없습니다.</b>」 · [취소]면 그대로 · [확인]이면 <b>권한이 저장되었습니다.</b> · 탭 배지 true 개수 · <code>LOG-01</code> <code>PC-275</code>'),
-               ('확정된 권한', '—', '읽기 전용', '값만 보이고 [모두 true] · [모두 false] · [취소] · [권한 저장] 없음 · 「확정」 표시 · 대장 계정 포함 <code>PC-275</code>'),
+               ('[권한 저장]', '클릭', 'S21 확인창', '확인창 「<b>App Key 권한을 저장할까요? (true n / 20) 저장한 뒤에는 권한을 바꿀 수 없습니다.</b>」 · [취소]면 그대로 · [확인]이면 <b>권한이 저장되었습니다.</b> · 탭 배지 true 개수 · <code>LOG-01</code> <code>PC-275</code>'),
+               ('확정된 권한', '—', 'S22', '값만 보이고 버튼 없음 · 대장 계정 포함 <code>PC-275</code>'),
                ('[취소]', '클릭', '저장된 값으로', '')]))
 
     # 티켓은 App Key 를 먼저 발급한 계정에만 `PC-208`
@@ -576,6 +581,26 @@ def build():
               [('「전체」', '클릭', '가운데 = 고객사별 묶음 · 오른쪽 = 가장 최근 계정', '건수 = 전체 계정 수(필터 중이면 결과 수)'),
                ('묶음 머리 (고객사명 n개 ›)', '클릭', '그 고객사만 보기', '왼쪽에서 그 고객사를 고른 것과 같다'),
                ('[＋ 계정 추가]', '—', '꺼짐', '고객사를 고른 뒤 쓸 수 있다')]))
+
+    # 권한 저장 확인창 · 확정 `PC-275`
+    pdlg = ('<div class="ovl"><div class="mdl"><div class="mh"><div class="mt">App Key 권한 저장</div><div class="mx">✕</div></div>'
+            '<div style="font-size:13px;color:#374151;line-height:1.7">App Key 권한을 저장할까요?<br>(true 12 / 20)<br><br>저장한 뒤에는 권한을 바꿀 수 없습니다.</div>'
+            '<div class="mf"><div class="btn gho">취소</div><div class="btn pri">확인</div></div></div></div>')
+    B.append(('S21', '권한 저장 확인창', '확인창',
+              '[권한 저장]을 누르면 확인창을 한 번 더 띄운다 — 권한은 <b>한 번 저장하면 확정</b>되어 바꿀 수 없기 때문이다 <code>PC-275</code>. '
+              '확인창에는 저장할 true 개수를 함께 보여 준다.',
+              frame('TKT-01', FT, H + kws.grid(left(sel='스콜라스틱', h=col_h(1300)), mid('스콜라스틱', cards=[acc_card('', 'scholastic@sample.com', key=True, n=1, on=True)], h=col_h(1300)),
+                                               detail('perm', dirty=True, acc=('scholastic@sample.com', 'scholastic@sample.com'), co='스콜라스틱')), overlay=pdlg, height=1300),
+              [('[확인]', '클릭', 'S22', '저장 · 확정 · <b>권한이 저장되었습니다.</b> · <code>LOG-01</code>'),
+               ('[취소] · ✕', '클릭', 'S16', '저장하지 않음 · 고친 값은 그대로 남아 계속 고칠 수 있다')]))
+    B.append(('S22', '권한 탭 — 확정(읽기 전용)', '분기',
+              '권한을 저장한 계정과 <b>대장 계정</b>(대장 값으로 확정)은 권한을 <b>바꿀 수 없다</b> <code>PC-275</code>. 값은 true / false 글자로만 보이고, 제목 옆에 「<b>확정</b>」이 붙으며 '
+              '[모두 true] · [모두 false] · [취소] · [권한 저장]이 없다. 바꿔야 하면 고객사 요청을 받아 <b>DB 에서 직접 수정</b>한다(ⓘ 말풍선에 안내) — PWD <code>PC-274</code> 와 같은 방식.',
+              fr(H + kws.grid(left(sel='스콜라스틱', h=col_h(1300)), mid('스콜라스틱', cards=[acc_card('', 'scholastic@sample.com', key=True, n=1, on=True)], h=col_h(1300)),
+                              detail('perm', perm_fixed=True, acc=('scholastic@sample.com', 'scholastic@sample.com'), co='스콜라스틱', toast='권한이 저장되었습니다.')), 1300),
+              [('값', '—', '읽기 전용', 'true / false 글자만'),
+               ('「확정」', '마우스 올림', '툴팁', '<b>저장된 권한은 바꿀 수 없습니다 · 변경은 DB 에서 직접 수정합니다</b>'),
+               ('ⓘ', '클릭', '말풍선', '「…한 번 저장하면 확정되어 바꿀 수 없습니다. 고객사 요청으로 바꿔야 하면 DB 에서 직접 수정합니다.」')]))
 
     intro = ('App Key 를 발급하는 화면이다. 「<b>고객사 | App Key 계정 | 계정 상세</b>」 3단 한 화면이며 옛 <code>TKT-01</code> 계정 발급(목록)과 '
              '옛 <code>TKT-02</code> 계정 등록·수정을 합쳤다 <code>PC-146</code> <code>PC-158</code>. 고객사는 <b>고객사 관리 고객사를 불러온다</b>(여기서 등록하지 않음) '
