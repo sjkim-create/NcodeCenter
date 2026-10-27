@@ -108,6 +108,8 @@ export type CasterAccount = {
   tickets?: KeyRange[];
   // App Key 권한 — Caster 권한 20항목 true / false `PC-207`. 기본 모두 false, 대장 계정은 대장 값
   keyPerms?: Record<string, boolean>;
+  // 권한을 한 번 저장하면 확정 — 이후 화면에서 바꿀 수 없다(변경은 DB 직접) · 대장 계정은 대장 값으로 확정 `PC-275`
+  keyPermsFixed?: boolean;
   createdAt: string;
   /** @deprecated 단일 사용처 시절 필드 — hydrate 에서 services 로 옮긴다 */
   service?: AccountService;
@@ -376,9 +378,9 @@ export const caster = {
     return rec;
   },
   removeAppKey(id: number) { commit({ ...state, appKeys: state.appKeys.filter((k) => k.id !== id) }); },
-  /** App Key 권한 저장 — 20항목 true / false `PC-207` */
+  /** App Key 권한 저장 — 20항목 true / false `PC-207`. 저장하면 확정(다시 바꿀 수 없음) `PC-275` */
   setKeyPerms(accountId: string, perms: Record<string, boolean>) {
-    commit({ ...state, accounts: state.accounts.map((a) => (a.id === accountId ? { ...a, keyPerms: normAppKeyPerms(perms) } : a)) });
+    commit({ ...state, accounts: state.accounts.map((a) => (a.id === accountId && !a.seeded && !a.keyPermsFixed ? { ...a, keyPerms: normAppKeyPerms(perms), keyPermsFixed: true } : a)) });
   },
   // 티켓 — **계정 소속** `PC-206`. 계정당 여러 개, 삭제 없이 정보만 고친다 `PC-192`
   addAccountTicket(accountId: string, r: KeyRange) {

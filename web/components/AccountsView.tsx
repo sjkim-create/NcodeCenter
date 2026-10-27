@@ -180,11 +180,17 @@ function issueAppKey(acc: CasterAccount, by?: string) {
 
 /* ── App Key 권한 — 분류 · Permission · 값(true / false) · 설명 `PC-207` ── */
 // 개발팀 대장(Caster_계정_퍼미션_티켓.xlsx)의 권한 표와 같은 모양. 기본 모두 false
-function KeyPermsEditor({ value, onSave }: { value?: Record<string, boolean>; onSave: (v: Record<string, boolean>) => void }) {
+// 한 번 저장하면 확정 — 이후는 값만 보여 주고 바꿀 수 없다(변경은 고객사 요청 시 DB 직접) `PC-275`
+function KeyPermsEditor({ value, fixed, onSave }: { value?: Record<string, boolean>; fixed: boolean; onSave: (v: Record<string, boolean>) => void }) {
   const saved = normAppKeyPerms(value);
   const [v, setV] = useState(saved);
   const [msg, setMsg] = useState("");
-  const dirty = APPKEY_PERMS.some((p) => v[p.key] !== saved[p.key]);
+  const dirty = !fixed && APPKEY_PERMS.some((p) => v[p.key] !== saved[p.key]);
+  const save = () => {
+    const n = Object.values(v).filter(Boolean).length;
+    if (!confirm(`App Key 권한을 저장할까요?\n(true ${n} / ${APPKEY_PERMS.length})\n\n저장한 뒤에는 권한을 바꿀 수 없습니다.`)) return;
+    onSave(v); setMsg("권한이 저장되었습니다.");
+  };
   const nOn = Object.values(v).filter(Boolean).length;
   const setAll = (b: boolean) => setV(Object.fromEntries(APPKEY_PERMS.map((p) => [p.key, b])));
   const seg = (on: boolean, tone: "t" | "f"): React.CSSProperties => ({ border: 0, padding: "3px 10px", fontSize: 11.5, cursor: "pointer", fontFamily: "ui-monospace,monospace",
@@ -197,11 +203,15 @@ function KeyPermsEditor({ value, onSave }: { value?: Record<string, boolean>; on
         {/* 숨김 설명 — Caster U 권한 `PC-214` */}
         <InfoTip title="App Key 권한이란?">
           <b>Caster U 권한</b>입니다. 이 App Key 로 Caster U 를 쓸 때 켜고 끄는 기능 20항목이며, 값이 <b>true</b> 인 기능만 쓸 수 있습니다. 기본값은 모두 false 입니다.
+          <br />권한은 <b>한 번 저장하면 확정</b>되어 바꿀 수 없습니다. 고객사 요청으로 바꿔야 하면 DB 에서 직접 수정합니다.
         </InfoTip>
         <span>true <b style={{ color: "#166534" }}>{nOn}</b> / {APPKEY_PERMS.length}</span>
+        {fixed && <span title="저장된 권한은 바꿀 수 없습니다 · 변경은 DB 에서 직접 수정합니다" style={{ padding: "1px 7px", borderRadius: 999, background: "#f3f4f6", color: "#374151", fontSize: 11 }}>확정</span>}
         <span style={{ flex: 1 }} />
-        <button type="button" onClick={() => setAll(true)} style={{ ...S.ghost, padding: "4px 10px", fontSize: 11.5 }}>모두 true</button>
-        <button type="button" onClick={() => setAll(false)} style={{ ...S.ghost, padding: "4px 10px", fontSize: 11.5 }}>모두 false</button>
+        {!fixed && <>
+          <button type="button" onClick={() => setAll(true)} style={{ ...S.ghost, padding: "4px 10px", fontSize: 11.5 }}>모두 true</button>
+          <button type="button" onClick={() => setAll(false)} style={{ ...S.ghost, padding: "4px 10px", fontSize: 11.5 }}>모두 false</button>
+        </>}
       </div>
       <div style={{ border: "1px solid #eef0f4", borderRadius: 10, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
@@ -216,10 +226,12 @@ function KeyPermsEditor({ value, onSave }: { value?: Record<string, boolean>; on
                   {/* 줄바꿈은 「/」 에서만 */}
                   <td style={{ padding: "6px 10px", fontFamily: "ui-monospace,monospace", fontSize: 11.5, color: "#374151" }}>{p.key.split("/").join("/​")}</td>
                   <td style={{ padding: "4px 10px", textAlign: "center" }}>
-                    <span style={{ display: "inline-flex", border: "1px solid #e5e7eb", borderRadius: 7, overflow: "hidden" }}>
-                      <button type="button" onClick={() => setV({ ...v, [p.key]: true })} style={seg(on, "t")}>true</button>
-                      <button type="button" onClick={() => setV({ ...v, [p.key]: false })} style={{ ...seg(!on, "f"), borderLeft: "1px solid #e5e7eb" }}>false</button>
-                    </span>
+                    {fixed
+                      ? <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11.5, fontWeight: on ? 700 : 400, color: on ? "#166534" : "#9ca3af" }}>{on ? "true" : "false"}</span>
+                      : <span style={{ display: "inline-flex", border: "1px solid #e5e7eb", borderRadius: 7, overflow: "hidden" }}>
+                          <button type="button" onClick={() => setV({ ...v, [p.key]: true })} style={seg(on, "t")}>true</button>
+                          <button type="button" onClick={() => setV({ ...v, [p.key]: false })} style={{ ...seg(!on, "f"), borderLeft: "1px solid #e5e7eb" }}>false</button>
+                        </span>}
                   </td>
                   <td style={{ padding: "6px 10px", color: "#6b7280", fontSize: 12 }}>{p.desc}</td>
                 </tr>
@@ -228,13 +240,14 @@ function KeyPermsEditor({ value, onSave }: { value?: Record<string, boolean>; on
           </tbody>
         </table>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
-        {dirty && <span style={{ fontSize: 12, color: "#b45309" }}>● 저장하지 않은 변경이 있습니다</span>}
-        {msg && !dirty && <span style={{ fontSize: 12, color: "#166534" }}>{msg}</span>}
-        <span style={{ flex: 1 }} />
-        <button type="button" disabled={!dirty} onClick={() => setV(saved)} style={{ ...S.ghost, opacity: dirty ? 1 : 0.5 }}>취소</button>
-        <button type="button" onClick={() => { onSave(v); setMsg("권한이 저장되었습니다."); }} style={S.primary}>권한 저장</button>
-      </div>
+      {fixed
+        ? msg && <div style={{ marginTop: 12, fontSize: 12, color: "#166534" }}>{msg}</div>
+        : <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+            {dirty && <span style={{ fontSize: 12, color: "#b45309" }}>● 저장하지 않은 변경이 있습니다</span>}
+            <span style={{ flex: 1 }} />
+            <button type="button" disabled={!dirty} onClick={() => setV(saved)} style={{ ...S.ghost, opacity: dirty ? 1 : 0.5 }}>취소</button>
+            <button type="button" onClick={save} style={S.primary}>권한 저장</button>
+          </div>}
     </div>
   );
 }
@@ -828,7 +841,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
 
         {/* 권한 탭 — App Key 가 가지는 Caster 권한 20항목 true / false `PC-207` */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "perm" ? "block" : "none" }}>
-          <KeyPermsEditor key={acc.id} value={acc.keyPerms}
+          <KeyPermsEditor key={acc.id} value={acc.keyPerms} fixed={!!(acc.seeded || acc.keyPermsFixed)}
             onSave={(v) => { caster.setKeyPerms(acc.id, v); logActivity("appkey", `App Key 권한 · ${acc.company} · ${acc.id} · true ${Object.values(v).filter(Boolean).length}/${APPKEY_PERMS.length}`, me?.name); }} />
         </div>
 
