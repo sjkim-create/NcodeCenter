@@ -670,24 +670,21 @@ def build():
         'S14', 'Page 용량 — 미사용(발급 가능)', '빈 상태',
         '선택한 S/O/B 에 쓰는 프로젝트가 없는 경우. 고객사 박스가 회색 안내로 바뀌고 '
         '<b>실 사용 0p</b> 가 되며 <b>사용 구간</b> 줄이 사라진다. '
-        '아직 <b>코드 종류가 정해지지 않은 좌표</b>라 잔여 페이지를 '
-        '<b>PDS2 · PDS3 로 나눠</b> 보여 준다 <code>PC-049</code>.',
+        '잔여 페이지는 <b>한 숫자</b>로만 보이고 코드 타입(PDS2 · PDS3)은 붙지 않는다 <code>PC-280</code>.',
         frame('SOB-01', 'SOBP 맵',
               content(sel_s=0, sel_o=4, sel_b=0,
                       own_rows=tuple(r for r in OWN_S0 if r[1] == '미사용'),
                       own_more=None,
                       book_rows=((b, '미사용', '', False) for b in range(4)),
                       book_more='16,379',
-                      page_kw=dict(in_use=False, total=0, own=4,
-                                   caps=(('PDS2', 1024), ('PDS3', 4096)))),
+                      page_kw=dict(in_use=False, total=0, own=4)),
               height=1060),
         [('고객사 박스', '표시', '—',
           '<b>미사용 (발급 가능) — 이 S/O/B에는 사용 중인 프로젝트가 없습니다.</b>'),
          ('실 사용 Page', '표시', '—', '<b>0p · 0%</b> · 보조 문구 없음'),
-         ('잔여 (발급 가능)', '표시', '<b>종류별</b>',
-          '아직 코드 종류가 정해지지 않은 좌표라 <b>PDS2 · PDS3 를 나눠</b> 보여 준다 '
-          '<code>PC-049</code> (예: PDS2 <b>1,024p</b> · PDS3 <b>4,096p</b>). '
-          '이미 발급된 좌표는 정해진 종류의 <b>잔여 페이지 하나</b>만 나온다'),
+         ('잔여 (발급 가능)', '표시', '<b>한 숫자</b>',
+          '코드 타입별(PDS2 · PDS3)로 나누지 않는다 <code>PC-280</code> — '
+          '할당은 넓은 코드 타입 기준이고 타입은 편집 · 키 발급에서 정한다 <code>PC-279</code>'),
          ('사용 구간', '—', '<b>표시 안 됨</b>', '사용 중일 때만 나온다')]))
 
     B.append((

@@ -306,10 +306,11 @@ def build():
         '<b>🚫 영역 할당됨</b> 차단은 <b>폐지</b>했고, 좌표가 어떤 종류인지는 <b>용도 표시</b>로만 남는다. '
         '같은 <b>S/O</b> 안에서 <b>Book 을 나눠</b> PDS2·PDS3 를 함께 쓰는 <b>과거 이력 3건</b>'
         '(S3/O42 · S3/O44 · S3/O1020)은 그대로 보여 준다. '
-        '다만 <b>신규 발급은 한 S/O 에 한 종류만</b> 하므로 이 화면에서는 막는다 <code>PC-041</code>.',
+        '<b>Book 마다 다른 코드 타입</b>을 쓸 수 있어(B1 PDS2 · B2 PDS3) 이 화면에서도 막지 않는다 '
+        '<code>PC-281</code> (<code>PC-041</code> 폐기).',
         scr(modal(T, detail('웅진씽크빅', cross=True)
                   + cust_svc('웅진씽크빅', 'NONE', kind_fixed=True, used=True)
-                  + owned('웅진씽크빅', OWN2), save_off=True)),
+                  + owned('웅진씽크빅', OWN2))),
         [('종류 배타', '—', '폐지', '<b>🚫 영역 할당됨</b> 배지·차단·확인창을 모두 없앴다'),
          ('코드 종류', '선택', '용도 표시',
           '할당한 좌표가 <b>PDS2 / PDS3 / PDS4</b> 중 무엇으로 쓰이는지만 기록한다'),
