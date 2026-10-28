@@ -18,7 +18,7 @@ import { sobpOverlapMsg } from "@/lib/rangeGuard";
 import { SobpRangePicker, FormSec, type SobpRange } from "./TicketsView";
 import { SobpUsage } from "./SobpUsage";
 import { APPKEY_PERMS, normAppKeyPerms } from "@/lib/appKeyPerms";
-import { InfoTip } from "./KeyWorkspaceUI";
+import { InfoTip, WsTabs } from "./KeyWorkspaceUI";
 import { SobpChips } from "./sobp";
 import { useTicketCustomers } from "@/lib/ticketCustomerStore";
 import { appKeyRangesOfCompany, companyOfAccount } from "@/lib/keyCompany";
@@ -87,22 +87,7 @@ const ACC_TABS_DETAIL: { v: AccTab; label: string }[] = [
   { v: "perm", label: "권한" },          // App Key 권한 20항목 `PC-207`
 ];
 function AccTabs({ tab, onTab, badge, items = ACC_TABS }: { tab: AccTab; onTab: (v: AccTab) => void; badge?: Partial<Record<AccTab, string>>; items?: { v: AccTab; label: string }[] }) {
-  return (
-    <div style={{ display: "flex", borderBottom: "1px solid #eef0f4", marginBottom: 14 }}>
-      {items.map(({ v, label }) => {
-        const on = tab === v;
-        return (
-          <button key={v} onClick={() => onTab(v)}
-            style={{ border: 0, background: "none", padding: "9px 16px", fontSize: 13, cursor: "pointer",
-              color: on ? "#111827" : "#6b7280", fontWeight: on ? 700 : 400,
-              borderBottom: `2px solid ${on ? "#5f8ff0" : "transparent"}`, marginBottom: -1 }}>
-            {label}
-            {badge?.[v] && <span style={{ ...S.tag, fontSize: 9.5, marginLeft: 5, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>{badge[v]}</span>}
-          </button>
-        );
-      })}
-    </div>
-  );
+  return <WsTabs items={items} tab={tab} onTab={onTab} badge={badge} />;   // 공용 탭 `PC-276`
 }
 
 // 영역 제목 — 번호를 붙이지 않는다. N Key 발급 상세(`TKT-02`)와 같은 결 `PC-052`

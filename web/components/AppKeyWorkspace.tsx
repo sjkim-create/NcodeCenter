@@ -145,10 +145,10 @@ export function AppKeyWorkspace() {
       <div style={{ ...card, padding: "10px 12px", marginBottom: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5 }}>
         <b style={{ fontSize: 12.5, color: "#374151" }}>필터</b>
         <div style={{ display: "flex", gap: 4 }} title="계정의 티켓 중 하나라도 이 정산이면">
-          <button onClick={() => setFBill("")} style={fchip(fBill === "")}>정산 전체</button>
-          {BILLINGS_FILTER.map((b) => <button key={b} onClick={() => setFBill(b)} style={fchip(fBill === b)}>{b}</button>)}
+          <button type="button" aria-pressed={fBill === ""} onClick={() => setFBill("")} style={fchip(fBill === "")}>정산 전체</button>
+          {BILLINGS_FILTER.map((b) => <button key={b} type="button" aria-pressed={fBill === b} onClick={() => setFBill(b)} style={fchip(fBill === b)}>{b}</button>)}
         </div>
-        <input value={aq} onChange={(e) => setAq(e.target.value)} placeholder="고객사 · 계정 ID · 티켓 이름 검색" style={{ ...S.input, width: 260 }} />
+        <input value={aq} onChange={(e) => setAq(e.target.value)} aria-label="고객사 · 계정 ID · 티켓 이름 검색" placeholder="고객사 · 계정 ID · 티켓 이름 검색" style={{ ...S.input, width: 260 }} />
         {filtered && <button onClick={() => { setFBill(""); setAq(""); }} style={S.linkBtn}>필터 해제</button>}
         <span style={{ flex: 1 }} />
         {filtered && <span style={{ color: "#6b7280" }}>계정 <b style={{ color: "#111827" }}>{keyAccounts.filter(accHit).length}개</b> · 고객사 <b style={{ color: "#111827" }}>{[...hitIds].filter((x) => x !== UNLINKED).length}곳</b></span>}
@@ -160,7 +160,7 @@ export function AppKeyWorkspace() {
           <WsCoHead count={filtered ? `${list.length}` : list.length} />
           <div style={{ padding: 10 }}>
             <WsCoToggle view={view} onView={setView} issued={issuedIds.size} total={companies.length} />
-            <input style={{ ...S.input, marginBottom: 8 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="고객사 검색" />
+            <input style={{ ...S.input, marginBottom: 8 }} value={q} onChange={(e) => setQ(e.target.value)} aria-label="고객사 검색" placeholder="고객사 검색" />
             {/* 고객사 목록 — 화면 아래 끝(100vh)까지 `PC-156` */}
             <WsFillScroll>
               {/* 전체 — N Key 관리와 같은 자리 `PC-269` */}
@@ -218,9 +218,10 @@ export function AppKeyWorkspace() {
               <div key={g.key}>
               {coId === ALL && (
                 <button type="button" onClick={() => pickCo(g.key)} title="이 고객사만 보기"
-                  style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", border: 0, background: "none", padding: "6px 2px", margin: "4px 0 6px", borderBottom: "1px solid #eef0f4", cursor: "pointer", fontSize: 12.5 }}>
-                  <b style={{ color: g.key === UNLINKED ? "#b45309" : "#111827" }}>{coName(g.key)}</b>
-                  <span style={{ color: "#9ca3af" }}>{g.as.length}개</span>
+                  style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", textAlign: "left", border: 0, background: "none", padding: "6px 2px", margin: "4px 0 6px", borderBottom: "1px solid #eef0f4", cursor: "pointer", fontSize: 12.5 }}>
+                  {/* 긴 고객사명은 한 줄 말줄임 · 개수는 꺾이지 않게 `PC-276` */}
+                  <b title={coName(g.key)} style={{ color: g.key === UNLINKED ? "#b45309" : "#111827", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{coName(g.key)}</b>
+                  <span style={{ color: "#6b7280", whiteSpace: "nowrap" }}>{g.as.length}개</span>
                   <span style={{ flex: 1 }} />
                   <span style={{ color: "#2563eb", fontSize: 11.5 }}>›</span>
                 </button>

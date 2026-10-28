@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { S, Field, Modal, BLUE } from "./ui";
+import { S, Field, Modal } from "./ui";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { makeZip } from "@/lib/zip";
@@ -17,7 +17,7 @@ import { SobpChips } from "./sobp";
 import { SobpUsage } from "./SobpUsage";
 import {
   WS_CARD, WS_HD, WS_GRID, WS_EMPTY, WS_HEAD_BTN, wsItem,
-  WsTitle, WsStats, WsCoHead, WsCoToggle, WsCoItem, WsFillScroll, WsCoGroup, useSubsOf, nestCompanies, type CoView, type WsFold,
+  WsTitle, WsStats, WsCoHead, WsCoToggle, WsCoItem, WsFillScroll, WsCoGroup, WsTabs, useSubsOf, nestCompanies, type CoView, type WsFold,
 } from "./KeyWorkspaceUI";   // App Key 관리와 같은 조각 `PC-154`
 import { useCaster, CASTERN_PERMS, ALL_PERMS, type CasterPerm } from "@/lib/accountStore";
 import { useStore } from "@/lib/store";
@@ -229,11 +229,11 @@ function NKeyWorkspace() {
       <div style={{ ...card, padding: "10px 12px", marginBottom: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5 }}>
         <b style={{ fontSize: 12.5, color: "#374151" }}>필터</b>
         <div style={{ display: "flex", gap: 4 }}>
-          <button onClick={() => setFBill("")} style={chip(fBill === "")}>정산 전체</button>
-          {BILLINGS_FILTER.map((b) => <button key={b} onClick={() => setFBill(b)} style={chip(fBill === b)}>{b}</button>)}
+          <button type="button" aria-pressed={fBill === ""} onClick={() => setFBill("")} style={chip(fBill === "")}>정산 전체</button>
+          {BILLINGS_FILTER.map((b) => <button key={b} type="button" aria-pressed={fBill === b} onClick={() => setFBill(b)} style={chip(fBill === b)}>{b}</button>)}
         </div>
         {/* 출처(전체 · 대장 · 신규발급) 필터는 없앴다 — 상용에서 쓰지 않는다 `PC-267` */}
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="고객사 · 발급 내용 · 발급인 · 번호 검색" style={{ ...S.input, width: 260 }} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} aria-label="고객사 · 발급 내용 · 발급인 · 번호 검색" placeholder="고객사 · 발급 내용 · 발급인 · 번호 검색" style={{ ...S.input, width: 260 }} />
         {filtered && <button onClick={() => { setFBill(""); setQ(""); }} style={S.linkBtn}>필터 해제</button>}
         <span style={{ flex: 1 }} />
         {filtered && <span style={{ color: "#6b7280" }}>전체 <b style={{ color: "#111827" }}>{hitAll.length}건</b> · 고객사 <b style={{ color: "#111827" }}>{coList.length}곳</b></span>}
@@ -251,7 +251,7 @@ function NKeyWorkspace() {
           <WsCoHead count={filtered ? `${coList.length}/${names.length}` : names.length} />
           <div style={{ padding: 10 }}>
             <WsCoToggle view={view} onView={setView} issued={issuedKeys.size} total={companies.length} />
-            <input style={{ ...S.input, marginBottom: 8 }} value={cq} onChange={(e) => setCq(e.target.value)} placeholder="고객사 검색" />
+            <input style={{ ...S.input, marginBottom: 8 }} value={cq} onChange={(e) => setCq(e.target.value)} aria-label="고객사 검색" placeholder="고객사 검색" />
             {/* 고객사 목록 — 화면 아래 끝(100vh)까지 `PC-156` */}
             <WsFillScroll>
               {!cq && coBtn(ALL_CO, "전체", hitAll.length)}
@@ -296,11 +296,12 @@ function NKeyWorkspace() {
               <div key={g.key || "__all"}>
               {co === ALL_CO && (
                 <button type="button" onClick={() => pickCo(g.key)} title="이 고객사만 보기"
-                  style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", border: 0, background: "none", padding: "6px 2px", margin: "4px 0 6px", borderBottom: "1px solid #eef0f4", cursor: "pointer", fontSize: 12.5 }}>
-                  <b style={{ color: g.key === UNLINKED_CO ? "#b45309" : "#111827" }}>{labelOf(g.key)}</b>
-                  <span style={{ color: "#9ca3af" }}>{g.ts.length}건</span>
+                  style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", textAlign: "left", border: 0, background: "none", padding: "6px 2px", margin: "4px 0 6px", borderBottom: "1px solid #eef0f4", cursor: "pointer", fontSize: 12.5 }}>
+                  {/* 긴 고객사명은 한 줄 말줄임 · 개수는 꺾이지 않게 `PC-276` */}
+                  <b title={labelOf(g.key)} style={{ color: g.key === UNLINKED_CO ? "#b45309" : "#111827", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{labelOf(g.key)}</b>
+                  <span style={{ color: "#6b7280", whiteSpace: "nowrap" }}>{g.ts.length}건</span>
                   <span style={{ flex: 1 }} />
-                  {g.ts.some((t) => t.billing === "유료") && <b style={{ color: "#1d4ed8", fontSize: 11.5 }}>{won(g.ts.reduce((x, t) => x + (t.billing === "유료" ? krwOf(t) ?? 0 : 0), 0))}</b>}
+                  {g.ts.some((t) => t.billing === "유료") && <b style={{ color: "#1d4ed8", fontSize: 11.5, whiteSpace: "nowrap" }}>{won(g.ts.reduce((x, t) => x + (t.billing === "유료" ? krwOf(t) ?? 0 : 0), 0))}</b>}
                   <span style={{ color: "#2563eb", fontSize: 11.5 }}>›</span>
                 </button>
               )}
@@ -464,19 +465,7 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
         </div>
 
         {/* 탭 — 발급 기본정보 / 정산 정보. 수정 중에는 숨긴다(입력에 집중) `PC-201` */}
-        <div style={{ display: editing ? "none" : "flex", borderBottom: "1px solid #eef0f4", marginBottom: 14 }}>
-          {TABS.map(([v, l]) => {
-            const on = tab === v;
-            return (
-              <button key={v} onClick={() => setTab(v)}
-                style={{ border: 0, background: "none", padding: "9px 16px", fontSize: 13, cursor: "pointer",
-                  color: on ? "#111827" : "#6b7280", fontWeight: on ? 700 : 400,
-                  borderBottom: `2px solid ${on ? BLUE : "transparent"}`, marginBottom: -1 }}>
-                {l}
-              </button>
-            );
-          })}
-        </div>
+        {!editing && <WsTabs items={TABS.map(([v, label]) => ({ v, label }))} tab={tab} onTab={setTab} />}
 
         {tab === "base" || editing ? (
           <div style={editing ? { border: "1px solid #93c5fd", background: "#fbfdff", borderRadius: 10, padding: "14px 16px" } : undefined}>
@@ -1083,7 +1072,7 @@ function KeyInfoModal({ title, subtitle, source, all, err, onClose }: {
         {/* 불러온 정보는 고치지 않는다 — 창에서 보기만(저장 · 원장 반영 없음) `PC-217` */}
         <span style={{ ...S.tag, background: "#f3f4f6", color: "#6b7280", fontWeight: 700 }} title="불러온 키 정보는 고칠 수 없고 저장되지 않습니다">보기 전용</span>
         <span style={{ flex: 1 }} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="항목 검색" style={{ ...S.input, width: 150 }} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} aria-label="항목 검색" placeholder="항목 검색" style={{ ...S.input, width: 150 }} />
       </div>
       <div style={{ border: "1px solid #eef0f4", borderRadius: 9, overflow: "hidden", maxHeight: 420, overflowY: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>

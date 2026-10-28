@@ -36,10 +36,10 @@ export function Field({ label, full, children }: { label: string; full?: boolean
 export function Modal({ title, wide, width, onClose, children }: { title: string; wide?: boolean; width?: number; onClose: () => void; children: React.ReactNode }) {
   return (
     <div style={S.overlay} onClick={onClose}>
-      <div style={{ ...S.modal, width: width ?? (wide ? 660 : 460) }} onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label={title} style={{ ...S.modal, width: width ?? (wide ? 660 : 460) }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{title}</div>
-          <button onClick={onClose} style={{ ...S.linkBtn, fontSize: 16 }}>✕</button>
+          <button type="button" aria-label="닫기" onClick={onClose} style={{ ...S.linkBtn, fontSize: 16 }}>✕</button>
         </div>
         {children}
       </div>
