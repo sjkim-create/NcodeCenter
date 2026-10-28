@@ -9,7 +9,7 @@ import { allTickets, hydrateTickets } from "./ticketStore";
 import { allServiceTickets } from "./serviceTicketStore";
 
 export type SobpSpan = { section: number; owner: number; bookStart: number; bookEnd: number; pageStart: number; pageEnd: number };
-export type Occupied = SobpSpan & { kind: "App Key" | "N Key" | "서비스 티켓"; who: string; ref: string };
+export type Occupied = SobpSpan & { kind: "App Key" | "N Key" | "서비스 티켓"; who: string; ref: string; pt?: string };   // pt = 발급한 Code Type `PC-281`
 
 const MAX = 1e9;
 const val = (v: unknown): number | null => (v === "" || v == null || !Number.isFinite(Number(v)) ? null : Number(v));
@@ -22,7 +22,7 @@ export function occupiedSobp(): Occupied[] {
   hydrateTickets();
   const out: Occupied[] = [];
   for (const a of caster.snapshot().accounts) {   // App Key 티켓 = 계정 소속 `PC-206`
-    accountTickets(a).forEach((r, i) => out.push({ kind: "App Key", who: a.company, ref: `${a.id}#${i}`,
+    accountTickets(a).forEach((r, i) => out.push({ kind: "App Key", who: a.company, ref: `${a.id}#${i}`, pt: r.pt,
       section: r.section, owner: r.owner,
       bookStart: r.bookStart ?? 0, bookEnd: endOf(r.bookStart, r.bookEnd, r.bookVol ?? null),
       pageStart: r.pageStart ?? 0, pageEnd: endOf(r.pageStart, r.pageEnd, r.pageVol ?? null) }));
@@ -30,13 +30,13 @@ export function occupiedSobp(): Occupied[] {
   for (const t of allTickets()) {
     if (t.kind !== "N") continue;
     const p = t.params ?? {};
-    out.push({ kind: "N Key", who: t.company, ref: `N${t.id}`,
+    out.push({ kind: "N Key", who: t.company, ref: `N${t.id}`, pt: String(p["Code Type"] ?? ""),
       section: val(p.Section) ?? -1, owner: val(p.Owner) ?? -1,
       bookStart: val(p["Book Start"]) ?? 0, bookEnd: endOf(val(p["Book Start"]), val(p["Book End"]), val(p["Book Volume"])),
       pageStart: val(p["Page Start"]) ?? 0, pageEnd: endOf(val(p["Page Start"]), val(p["Page End"]), val(p["Page Volume"])) });
   }
   for (const t of allServiceTickets()) {
-    out.push({ kind: "서비스 티켓", who: t.company, ref: `S${t.id}`,
+    out.push({ kind: "서비스 티켓", who: t.company, ref: `S${t.id}`, pt: t.pt,
       section: t.section, owner: t.owner, bookStart: t.bookStart, bookEnd: t.bookEnd, pageStart: t.pageStart, pageEnd: t.pageEnd });
   }
   return out;

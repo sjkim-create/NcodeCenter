@@ -148,11 +148,16 @@ export function isBookEdited(recs: BookRec[] | undefined, overrideEa?: number): 
 }
 
 // 특정 S/O의 Book별 레코드 목록 (EDIT_BOOKS + extra=코드 프로젝트)
+// 같은 Book 자리를 다투는 종류인가 — PDS2 · PDS3 · PDS4 는 Book 하나를 한 타입만 쓴다(B1 PDS2 · B2 PDS3) `PC-281`
+//   OID(옛 IDS 포함)는 index 부여라 같은 S/O 를 따로 쓴다.
+const isOidK = (k: string) => k === "O" || k === "A";
+export const sameBookSpace = (a: string, b: string) => (isOidK(a) || isOidK(b) ? a === b || (isOidK(a) && isOidK(b)) : true);
+
 export function bookRecordsOf(k: string, sec: number, owner: number, extra: BookRec[] = []): Map<number, BookRec[]> {
   const m = new Map<number, BookRec[]>();
   for (const r of [...EDIT_BOOKS, ...extra]) {
     if (r.nb) continue;                                   // book 미분할 행 제외
-    if (r.k === k && r.sec === sec && r.owner === owner) {
+    if (sameBookSpace(r.k, k) && r.sec === sec && r.owner === owner) {
       const arr = m.get(r.book);
       if (arr) arr.push(r); else m.set(r.book, [r]);
     }

@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { S, Field, AutoTextarea } from "./ui";
-import { codeKind, kindMeta, type CodeKind } from "@/lib/codeKind";
+import { codeKind, codeTypeRangeErr, kindMeta, type CodeKind } from "@/lib/codeKind";
 import { SobpChips } from "./sobp";
 import type { WorkKind } from "@/lib/customerData";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { useStore } from "@/lib/store";
-import { assignedSOFor, editableBookNumbers, projectBooks, sharedInfo } from "@/lib/codeUsage";
+import { assignedSOFor, editableBookNumbers, projectBooks, sameBookSpace, sharedInfo } from "@/lib/codeUsage";
 import { usePenModels, addPenModel } from "@/lib/penModels";
 import { hydrateShared, useSharedOwners, COMMON_LABEL, commonRangesText } from "@/lib/sharedOwners";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
@@ -399,7 +399,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   //   한 번에 다 그리면 느려서 **100개씩** 보여 주고 [더 보기] 로 100씩 늘린다 `PC-046`
   //   **사용한 Book 은 노출하지 않는다** `PC-112` — 이 고객사 교재 목록(화면에서 추가한 행 포함)에 있는 Book 도 뺀다.
   const freeBooks = (k: string, sec: number, own: number, keep?: number, limit = bookLimit) => {
-    const used = new Set(rows.filter((r) => r.k === k && r.s === sec && r.o === own && r.b !== keep).map((r) => r.b));
+    const used = new Set(rows.filter((r) => sameBookSpace(r.k, k) && r.s === sec && r.o === own && r.b !== keep).map((r) => r.b));   // 다른 타입이 쓴 Book 도 뺀다 `PC-281`
     return editableBookNumbers(k, sec, own, BOOK_MAX[k]?.[sec] ?? 4096, limit, keep, allocBooks, used);
   };
 
@@ -470,12 +470,19 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
 
   const saveRow = () => {
     if (!editing) return;
+    // 할당은 넓은 코드 타입 기준 — 고른 코드 종류의 범위를 넘으면 막는다 `PC-279` (새 교재만 · OID 는 index 라 제외)
+    const rowKind = codeKind(editing.row.k, editing.row.s);
+    if (editing.idx === -1 && editing.dupOf == null && rowKind !== "OID") {
+      const ctErr = codeTypeRangeErr(rowKind, { section: editing.row.s, owner: editing.row.o, bookStart: editing.row.b, bookEnd: editing.row.b });
+      if (ctErr) { alert(ctErr); return; }
+    }
     // 공유 OWNER는 여러 고객사가 함께 쓰므로 어느 고객사 것인지 반드시 남긴다
     if (isSharedRow(editing.row) && !(editing.row.cu ?? "").trim()) {
       alert(`S${editing.row.s}/O${editing.row.o} 는 공유 코드입니다. 사용 고객사를 입력하세요.`); return;
     }
     // 같은 코드(S/O/B) 교재는 [복제]로만 만든다 — 일반 추가에서 겹치면 막는다 `PC-112`
-    if (editing.idx === -1 && editing.dupOf == null && rows.some((r) => r.k === editing.row.k && r.s === editing.row.s && r.o === editing.row.o && r.b === editing.row.b)) {
+    //   Book 하나는 한 코드 타입만 — 다른 타입(PDS2 · PDS3)이 쓴 Book 도 막는다 `PC-281`
+    if (editing.idx === -1 && editing.dupOf == null && rows.some((r) => sameBookSpace(r.k, editing.row.k) && r.s === editing.row.s && r.o === editing.row.o && r.b === editing.row.b)) {
       alert(`S${editing.row.s}/O${editing.row.o}/B${editing.row.b} 에는 이미 교재가 있습니다. 같은 코드에 작업물을 더 만들려면 목록의 [복제]를 쓰세요.`); return;
     }
     // ncp2 파일명은 겹치면 안 된다 — 서버의 파일명과 비교한다(프로토타입은 적재된 전체 교재 + 이 고객사 목록) `PC-112`

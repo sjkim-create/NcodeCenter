@@ -8,7 +8,7 @@ import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
 import { makeZip } from "@/lib/zip";
 import { NKEY_TYPES, sectionsFor, parseNkey, secOk, profileOk, isKnownSection, downloadNkey, type NkeyProfile } from "@/lib/nkeyFile";   // 발급 정책 · .nkey `PC-219` `PC-221`
-import { codeKind, kindLabel, patternOf, patternTypeParam, CODE_KINDS, PAGE_CAP, BOOK_CAP, type CodeKind } from "@/lib/codeKind";
+import { codeKind, codeTypeRangeErr, kindsFor, kindLabel, patternOf, patternTypeParam, CODE_KINDS, PAGE_CAP, BOOK_CAP, type CodeKind } from "@/lib/codeKind";
 import { codesOfCompany } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { companyOfNTicket, nKeyRangesOfCompany } from "@/lib/keyCompany";
@@ -662,7 +662,8 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     setBooks(r.bookCount);
     // 범위의 종류가 기본 — OID · PDS4 는 새로 발급하지 않는다 `PC-064` `PC-219`
     //   Section 에 맞게 프로필 · 타입을 맞춘다(지금 프로필로 못 쓰면 다른 프로필로) `PC-221`
-    const at = CT_OF[r.pt] ?? "PDS3";
+    //   할당만 한 범위(타입 없음)는 그 S/O 에서 쓸 수 있는 타입 중 첫 값 — Book 마다 바꿔 고를 수 있다 `PC-281`
+    const at = r.untyped ? (kindsFor(r.section, r.owner)[0] ?? "PDS3") : (CT_OF[r.pt] ?? "PDS3");
     const prof: NkeyProfile = profileOk(profile, r.section) ? profile : profile === "LEGACY" ? "HYBRID" : "LEGACY";
     const t = secOk(prof, at, r.section) ? at : (NKEY_TYPES.find((x) => secOk(prof, x, r.section)) ?? "PDS3");
     setProfile(prof); setCtype(t as CodeKind);
@@ -704,12 +705,12 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
   //   ① 새로 발급하는 Code Type 은 PDS2 · PDS3 만(범위 목록에서 OID · PDS4 제외)
   //   ② 고른 범위의 Section 에 맞는 프로필 · 타입만 켠다(예: S10 → HYBRID · PDS3). 표에 없는 Section 은 모두 켠다
   //   ③ 할당 타입과 다른 타입을 고르면 ⚠ 경고 ④ Book Size 2 이상이면 Separate Each Book 자동으로 켬
-  const allocType = range ? (CT_OF[range.pt] ?? range.pt) : "";
+  const allocType = range && !range.untyped ? (CT_OF[range.pt] ?? range.pt) : "";   // 할당만 한 범위는 타입 없음 `PC-281`
   const allowedSecs = sectionsFor(profile, ctype);
   const keepOld = !!edit && ctype === origType && !(NKEY_TYPES as string[]).includes(ctype);   // 옛 발급분 타입 유지 `PC-226`
   const typeBad = !(NKEY_TYPES as string[]).includes(ctype) && !keepOld;
   const secBad = !!range && !typeBad && !keepOld && !secOk(profile, ctype, range.section);
-  const typeMismatch = !!range && !typeBad && !edit && allocType !== ctype;
+  const typeMismatch = !!range && !!allocType && !typeBad && !edit && allocType !== ctype;
   // HYBRID 는 Page Size가 8의 배수여야 한다 `PC-260`
   const page8Bad = profile === "HYBRID" && pageVolume % 8 !== 0;
   const page8Lo = Math.max(8, Math.floor(pageVolume / 8) * 8), page8Hi = Math.ceil(pageVolume / 8) * 8;
@@ -754,6 +755,9 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     if (!untilUnlimited && !/^\d{6}$/.test(validUntil)) { setToast("Valid Until Time 은 6자리(YYMMDD)이거나 무제한이어야 합니다."); return; }
     if (!/^\d{8}$/.test(issuedTime)) { setToast("Issued Time(발급일)을 선택하세요."); return; }   // `PC-232`
     if (policyErr) { setToast(policyErr); return; }   // 발급 정책 `PC-219`
+    // 할당은 넓은 코드 타입 기준 — 고른 Code Type 의 범위를 넘으면 막는다 `PC-279`
+    const ctErr = codeTypeRangeErr(ctype, { section: range.section, owner: range.owner, bookStart, bookEnd, pageStart, pageEnd: pageStart + pageVolume - 1 });
+    if (ctErr) { setToast(ctErr); return; }
     // N Key · App Key · 서비스 티켓은 SOBP 가 겹칠 수 없다 `PC-174`
     const clash = sobpOverlapMsg({ section: range.section, owner: range.owner, bookStart, bookEnd, pageStart, pageEnd: pageStart + pageVolume - 1 });
     if (clash) { setToast(clash); return; }
@@ -763,7 +767,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     const fileName = downloadNkey(params, makeZip);
     const asZip = fileName.endsWith(".zip");
 
-    const summary = `${selCu ? `[사용 고객사: ${selCu.cu}] ` : ""}${range.pt} S${range.section}/O${range.owner}/B${bookStart}~${bookEnd} · Book ${books}권 · P${pageStart}~${pageStart + pageVolume - 1} · ${separate ? "개별티켓 " + books + "장" : "병합 1장"} · 유효 ${untilUnlimited ? "무제한" : validValue} · ${profile === "HYBRID" ? `HYBRID(권한 ${hperms.length})` : "LEGACY"}${codeReuse ? " · 코드 재사용" : ""}`;
+    const summary = `${selCu ? `[사용 고객사: ${selCu.cu}] ` : ""}${patternOf(ctype)} S${range.section}/O${range.owner}/B${bookStart}~${bookEnd} · Book ${books}권 · P${pageStart}~${pageStart + pageVolume - 1} · ${separate ? "개별티켓 " + books + "장" : "병합 1장"} · 유효 ${untilUnlimited ? "무제한" : validValue} · ${profile === "HYBRID" ? `HYBRID(권한 ${hperms.length})` : "LEGACY"}${codeReuse ? " · 코드 재사용" : ""}`;
     const issued = addTicket({ kind: "N", companyId: company.id, company: company.name, coRef: company.id,
                 by: me?.name ?? "", summary, params });
     logActivity("nkey", `N Key · ${company.name} · ${summary}`, me?.name);
@@ -783,6 +787,8 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     if (pageVolume < 1) { setToast("Page Size는 1 이상이어야 합니다."); return; }
     if (!untilUnlimited && !/^\d{6}$/.test(validUntil)) { setToast("Valid Until Time 은 6자리(YYMMDD)이거나 무제한이어야 합니다."); return; }
     if (policyErr) { setToast(policyErr); return; }
+    const ctErr = codeTypeRangeErr(ctype, { section: range.section, owner: range.owner, bookStart, bookEnd, pageStart, pageEnd: pageStart + pageVolume - 1 });
+    if (ctErr && !keepOld) { setToast(ctErr); return; }   // 코드 타입 범위 `PC-279` (옛 발급분 타입 유지는 제외)
     const clash = sobpOverlapMsg({ section: range.section, owner: range.owner, bookStart, bookEnd, pageStart, pageEnd: pageStart + pageVolume - 1 }, `N${edit.id}`);
     if (clash) { setToast(clash); return; }
     const params: Record<string, string | number> = { ...edit.params, ...ticketParams(),
@@ -809,7 +815,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
         </div>
         {range && (
           <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>
-            {range.pt} S{range.section}/O{range.owner}
+            {range.untyped ? "" : `${range.pt} `}S{range.section}/O{range.owner}
           </span>
         )}
         <span style={{ flex: 1 }} />
@@ -1118,7 +1124,7 @@ function StepHead({ n, t, d }: { n: number; t: string; d?: string }) {
 }
 
 // 할당된 SOBP 범위 선택 — 셀렉트(접힘) → 클릭 시 칩 리스트 펼침
-export type SobpRange = { pt: string; section: number; owner: number; bookStart: number; bookEnd: number; pageStart: number; pageEnd: number; bookCount: number };
+export type SobpRange = { pt: string; section: number; owner: number; bookStart: number; bookEnd: number; pageStart: number; pageEnd: number; bookCount: number; untyped?: boolean };
 function Chips({ r }: { r: SobpRange }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -1139,7 +1145,7 @@ export function SobpRangePicker({ company, ranges, value, onSelect, showType = f
   if (ranges.length === 0) return note(showType ? "이 고객사에 새로 발급할 수 있는 범위(PDS2 · PDS3)가 없습니다. OID · PDS4 는 새로 발급할 수 없습니다." : "이 고객사의 발급 범위(대장 이력)가 없습니다.");
   const sel = ranges[value];
   const typeTag = (r: SobpRange) => {
-    if (!showType) return null;
+    if (!showType || r.untyped) return null;   // 할당만 한 범위 = 타입 없음 `PC-281`
     const t = ({ PDS3: "PDS3", PDS2: "PDS2", Scode: "PDS4", OID: "OID" } as Record<string, string>)[r.pt] ?? r.pt;
     return <span style={{ fontSize: 11, fontWeight: 700, color: t === "PDS2" ? "#b45309" : "#2563eb", background: t === "PDS2" ? "#fef3c7" : "#eef6ff", borderRadius: 6, padding: "2px 6px" }}>{t}</span>;
   };

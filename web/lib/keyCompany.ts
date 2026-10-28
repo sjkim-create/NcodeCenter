@@ -60,14 +60,16 @@ export function companyOfNTicket(t: TicketLike, companies: Company[]): Company |
 /** 고객사의 SOBP 할당(고객사 관리 고객사로 할당한 프로젝트) → 발급 범위 */
 function sobpRangesOf(co: Company, projects: Project[]): TicketRange[] {
   return projects.filter((p) => !p.keyCustomer && p.companyId === co.id).flatMap((p) => p.issued.map((b) =>
-    makeRange(patternOf(codeKind(b.kind ?? "N", b.section)), b.section, b.owner, b.bookStart, b.bookEnd)));
+    untypedIf(b.kind, makeRange(patternOf(codeKind(b.kind ?? "N", b.section)), b.section, b.owner, b.bookStart, b.bookEnd))));
 }
+/** 할당만 한 범위(코드 종류 없음)는 타입 미정 — 발급 때 Book 마다 타입을 고른다 `PC-281` */
+const untypedIf = (kind: string | undefined, r: TicketRange): TicketRange => (kind == null ? { ...r, untyped: true } : r);
 /** SOBP 맵에서 (K) 로 할당한 범위 중 이 고객사 것(이름 + Owner) — 옛 티켓 고객사 할당분 */
 function keyAllocRangesOf(co: Company, projects: Project[]): TicketRange[] {
   const b = baseName(co.name), own = ownerSuffix(co.name);
   return projects.filter((p) => p.keyCustomer && baseName(keyNameOf(p.keyCustomer)) === b).flatMap((p) => p.issued
     .filter((x) => own == null || x.owner === own)
-    .map((x) => makeRange(patternOf(codeKind(x.kind ?? "N", x.section)), x.section, x.owner, x.bookStart, x.bookEnd)));
+    .map((x) => untypedIf(x.kind, makeRange(patternOf(codeKind(x.kind ?? "N", x.section)), x.section, x.owner, x.bookStart, x.bookEnd))));
 }
 const dedupe = (rs: TicketRange[]) =>
   rs.filter((r, i, arr) => arr.findIndex((x) => x.pt === r.pt && x.section === r.section && x.owner === r.owner && x.bookStart === r.bookStart && x.bookEnd === r.bookEnd) === i);

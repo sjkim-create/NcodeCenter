@@ -23,7 +23,7 @@ import { SobpChips } from "./sobp";
 import { useTicketCustomers } from "@/lib/ticketCustomerStore";
 import { appKeyRangesOfCompany, companyOfAccount } from "@/lib/keyCompany";
 import type { Company } from "@/lib/customerData";
-import { CODE_KINDS, patternOf, type CodeKind } from "@/lib/codeKind";
+import { CODE_KINDS, codeTypeRangeErr, kindsFor, patternOf, type CodeKind } from "@/lib/codeKind";
 import {
   caster, useCaster, genAppKey,
   accountTickets, periodCode, ticketInfo, appTicketName, rangeText, rangeBooks, rangePeriod, type KeyRange,
@@ -460,10 +460,13 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   const addRange = () => {
     if (!myKey) { setToast({ ok: false, text: "App Key 를 먼저 발급하세요." }); return; }   // 티켓은 App Key 가 있는 계정에만 `PC-208`
     if (!range) return;
+    // 할당은 넓은 코드 타입 기준 — Code Type 의 범위를 넘으면 막는다 `PC-279`
+    const ctErr = codeTypeRangeErr(ctype, { section: range.section, owner: range.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, pageStart: pStart, pageEnd: pStart + keyPVol - 1 });
+    if (ctErr) { setToast({ ok: false, text: ctErr }); return; }
     const clash = sobpOverlapMsg({ section: range.section, owner: range.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, pageStart: pStart, pageEnd: pStart + keyPVol - 1 });
     if (clash) { setToast({ ok: false, text: clash }); return; }   // SOBP 무겹침 `PC-174`
     const untilStr = untilVal();
-    const r: KeyRange = { pt: range.pt, section: range.section, owner: range.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, bookVol: keyVol,
+    const r: KeyRange = { pt: patternOf(ctype), section: range.section, owner: range.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, bookVol: keyVol,
       pageStart: pStart, pageEnd: pStart + keyPVol - 1, pageVol: keyPVol, since, until: untilStr, info: info.trim() || undefined, name: ticketName };
     // 원장 티켓을 먼저 만들어 그 id 를 범위에 연결한다 `PC-119`·`PC-121`
     const t = addTicket({ kind: "APP", companyId: acc.companyId, company: acc.company, accountId: acc.id, by: me?.name ?? "",
@@ -511,6 +514,8 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
     const untilStr = untilVal();
     if (!unlimited && until && since && until < since) { setToast({ ok: false, text: "사용기간 끝이 시작보다 앞설 수 없습니다." }); return; }
     const cand = { section: r.section, owner: r.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, pageStart: pStart, pageEnd: pStart + keyPVol - 1 };
+    const ctErr = codeTypeRangeErr(ctype, cand);   // 코드 타입 범위 `PC-279`
+    if (ctErr) { setToast({ ok: false, text: ctErr }); return; }
     const clash = sobpOverlapMsg(cand, `${acc.id}#${editRange.idx}`);   // 자기 자신은 빼고 본다 `PC-192`
     if (clash) { setToast({ ok: false, text: clash }); return; }
     const patch: Partial<KeyRange> = { pt: patternOf(ctype), bookStart: cand.bookStart, bookEnd: cand.bookEnd, bookVol: keyVol,
@@ -548,10 +553,19 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
           onBlur={() => { if (!tname.trim() || autoName) setAutoName(!!suggestName); }}   // 입력 없이 벗어나면 제안 이름을 진하게 `PC-262`
           placeholder={suggestName || "{고객사}_{S}s_{O}o_{Book Size}b_{Page Size}p_{발급일}"} />
       </Field></div>
-      <Field label="Code Type (발급 범위 따름)">
-        {/* 고른 범위의 할당 타입으로 고정 `PC-220` */}
-        <input style={fixedSt} value={range ? ctype : "-"} readOnly title="발급 범위의 코드 타입으로 정해집니다" />
-      </Field>
+      {range?.untyped ? (
+        <Field label="Code Type">
+          {/* 할당만 한 범위는 타입이 없다 — 티켓(Book)마다 고른다 `PC-281` */}
+          <select style={S.input} value={ctype} onChange={(e) => setCtype(e.target.value as CodeKind)}>
+            {kindsFor(range.section, range.owner).map((k) => <option key={k} value={k}>{k}</option>)}
+          </select>
+        </Field>
+      ) : (
+        <Field label="Code Type (발급 범위 따름)">
+          {/* 고른 범위의 할당 타입으로 고정 `PC-220` */}
+          <input style={fixedSt} value={range ? ctype : "-"} readOnly title="발급 범위의 코드 타입으로 정해집니다" />
+        </Field>
+      )}
       {/* Owner Size — 범위가 아니면 1 · 고칠 수 없음(Section · Owner 는 발급 범위에서) `PC-265` */}
       <Field label="Owner Size">
         <input style={fixedSt} value={range ? ownerSize : "-"} readOnly title="Owner 개수 — 범위가 아니면 1" />
@@ -643,7 +657,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
             );
           })()}
           <Field label="발급 범위 * (Caster 대장 이력 · SOBP 할당 — 고르면 Section · Owner · Book · Code Type 이 채워집니다)">
-          <SobpRangePicker company showType ranges={formRanges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = formRanges[i]; if (r) setCtype(CT_OF[r.pt] ?? "PDS3"); }} />
+          <SobpRangePicker company showType ranges={formRanges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = formRanges[i]; if (r) setCtype(r.untyped ? (kindsFor(r.section, r.owner)[0] ?? "PDS3") : (CT_OF[r.pt] ?? "PDS3")); }} />
           </Field>
           {/* 구간 사용 현황 — 수정 중이면 자기 자신은 빼고 본다 `PC-195` */}
           {range && <SobpUsage range={range} onPickBook={(b) => setBStart(b)} exclude={editRange ? `${acc.id}#${editRange.idx}` : undefined}
@@ -658,7 +672,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 14, paddingTop: 12, borderTop: "1px solid #eef0f4" }}>
             {range && (
               <span style={{ fontSize: 11.5, color: "#6b7280", flex: 1, minWidth: 200 }}>
-                발급 범위 <b>{range.pt} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권 · <b>P{pStart}~{pStart + keyPVol - 1}</b> · 기간 {since || "즉시"}~{untilVal()}
+                발급 범위 <b>{patternOf(ctype)} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권 · <b>P{pStart}~{pStart + keyPVol - 1}</b> · 기간 {since || "즉시"}~{untilVal()}
               </span>
             )}
             <span style={{ flex: 1 }} />

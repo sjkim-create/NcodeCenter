@@ -21,6 +21,7 @@ const KEY = "ncc-ticket-customers-v1";
 export type TicketRange = {
   pt: TicketPattern; section: number; owner: number;
   bookStart: number; bookEnd: number; pageStart: number; pageEnd: number; bookCount: number;
+  untyped?: boolean;   // SOBP 할당만 한 범위 — 코드 타입 없음. 발급 때 Book 마다 타입을 고른다 `PC-281`
 };
 export type TicketScope = "nkey" | "appkey";
 export type TicketCustomer = {
@@ -154,7 +155,7 @@ export function allocRangesOfKeyCustomer(projects: Project[], name?: string): Ti
   return projects.filter((p) => p.keyCustomer && custKey(p.keyCustomer) === k).flatMap((p) => p.issued.map((b) => {
     const pt = patternOf(codeKind(b.kind ?? "N", b.section));
     const r = makeRange(pt, b.section, b.owner, b.bookStart, b.bookEnd);
-    return r;
+    return b.kind == null ? { ...r, untyped: true } : r;   // 할당만 한 범위 = 타입 없음 `PC-281`
   }));
 }
 /** 계정·티켓이 들고 있는 고객사 이름으로 발급 범위를 찾는다 — **그 명단 안에서만** `PC-152`

@@ -15,11 +15,12 @@ import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers
 import { langLabelOfOwner, isLangOwner, LANG_PDS, LANG_SECTION } from "@/lib/languageSlots";
 import { hydrateOverrides, overrideOf, useBookOverrides } from "@/lib/editOverrides";
 import { Sc, SobpChips, KindChip, PenChip } from "./sobp";
-import { codeKind, CODE_KINDS, kindMeta, type CodeKind } from "@/lib/codeKind";
+import { allocSpan, codeKind, CODE_KINDS, kindMeta, type CodeKind } from "@/lib/codeKind";
 import { companyServices, companyServiceText, serviceLabel, type ServiceType } from "@/lib/customerData";
 import { allTicketCustomers, ticketCustomerByName, useTicketCustomers } from "@/lib/ticketCustomerStore";
 import { custKey, isKeyLabel, keyLabel, keyNameOf } from "@/lib/keyCustomer";
 import { allTickets, hydrateTickets, useTickets } from "@/lib/ticketStore";
+import { occupiedSobp } from "@/lib/rangeGuard";
 import ticketLedger from "@/data/ticket-ledger.json";
 
 // N Key 티켓 = nkey(HLP) 대장(정본, 브라우저 저장 상태와 무관) + 화면에서 새로 발급한 N Key `PC-130`
@@ -40,8 +41,11 @@ const SCALE: Partial<Record<CodeKind, Record<number, { o: number; b: number; p: 
 // 종류 → 데이터 종류값(코드 원장·편집 데이터의 k). PDS4 는 Section 44 로 판별하므로 원장 기준 N 을 쓴다.
 //   OID 는 데이터 k="O" 와 옛 IDS 표기 k="A" 를 함께 본다 (동일 용어, PC-035).
 const DK: Record<CodeKind, string> = { PDS3: "N", PDS2: "G", PDS4: "N", OID: "O" };
-// 직접 코드 할당에서 고를 수 있는 종류 — OID 는 index 부여라 좌표 할당 대상이 아니다.
-const ALLOC_KINDS: CodeKind[] = ["PDS2", "PDS3", "PDS4"];
+// 티켓의 Code Type 값(PDS2 · Ncode_PDS3 · Scode …) → 코드 종류
+const ctKind = (v: unknown): CodeKind | null => {
+  const t = String(v ?? "");
+  return t.includes("PDS2") ? "PDS2" : t.includes("PDS3") ? "PDS3" : t.includes("Scode") || t.includes("PDS4") ? "PDS4" : null;
+};
 const hue = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; };
 
 // 사용 중: 편집 데이터(교재) + 소유권 데이터(범위) + 코드 프로젝트(신규 할당)
@@ -87,7 +91,7 @@ export default function OwnershipMap() {
   }, [tkVer]);   // eslint-disable-line react-hooks/exhaustive-deps
   // 티켓의 Book 범위 — "sec:owner" → [{ (K)고객사, Book 시작~끝 }] (Book 미지정 = 오너 전체) `PC-129`
   const nkeyBooks = useMemo(() => {
-    const m = new Map<string, { name: string; bs: number | null; be: number | null }[]>();
+    const m = new Map<string, { name: string; bs: number | null; be: number | null; ct: CodeKind | null }[]>();
     for (const t of nkeyTickets()) {
       if (t.kind !== "N" || !t.company) continue;
       const p = t.params ?? {};
@@ -96,23 +100,50 @@ export default function OwnershipMap() {
       const bs = p["Book Start"] === undefined || p["Book Start"] === "" ? null : Number(p["Book Start"]);
       const bv = Number(p["Book Volume"]) || 1;
       const k = `${s}:${o}`;
-      m.set(k, [...(m.get(k) ?? []), { name: keyLabel(t.company), bs, be: bs == null ? null : bs + bv - 1 }]);
+      const ct = ctKind(p["Code Type"]);
+      m.set(k, [...(m.get(k) ?? []), { name: keyLabel(t.company), bs, be: bs == null ? null : bs + bv - 1, ct }]);
     }
     return m;
   }, [tkVer]);   // eslint-disable-line react-hooks/exhaustive-deps
   /** 이 Book 을 티켓으로 발급받은 (K)고객사 — 없으면 "" */
   const tkOfBook = (s: number, o: number, b: number) =>
     [...new Set((nkeyBooks.get(`${s}:${o}`) ?? []).filter((x) => x.bs == null || (b >= x.bs && b <= (x.be ?? x.bs))).map((x) => x.name))].join(", ");
+  // App Key · 서비스 티켓 발급분 — Book 의 Code Type 표시용 `PC-281`
+  const keySpans = useMemo(() => occupiedSobp().filter((x) => x.kind !== "N Key"), [tkVer]);   // eslint-disable-line react-hooks/exhaustive-deps
+  /** 이 Book 을 발급한 티켓(N Key · App Key · 서비스 티켓)의 Code Type — 없으면 null `PC-280` `PC-281` */
+  const tkKindOfBook = (s: number, o: number, b: number): CodeKind | null =>
+    (nkeyBooks.get(`${s}:${o}`) ?? []).find((x) => x.ct && (x.bs == null || (b >= x.bs && b <= (x.be ?? x.bs))))?.ct
+    ?? ctKind(keySpans.find((x) => x.section === s && x.owner === o && b >= x.bookStart && b <= x.bookEnd)?.pt);
   const me = currentUser(useAuth());
   // 사업 종료 고객사 — 발급됐던 코드를 리셋(미발급)해 다른 회사가 재할당 가능하게 한다.
   const _cnz = (s?: string) => (s ?? "").replace(/\s+/g, "").toLowerCase();
   const closedNames = useMemo(() => new Set(companies.filter((c) => c.closed).map((c) => _cnz(c.name))), [companies]);
   // 스토어(코드 프로젝트)의 발급 내역 → 맵 레코드 (신규 할당분 포함). 사업 종료 회사 코드는 제외 → 미발급.
+  // 편집 프로젝트에서 새로 추가한 교재(브라우저 저장분) — 원장에 없는 Book 만 더해 코드 타입까지 지도에 보인다 `PC-281`
+  const [localEdits, setLocalEdits] = useState<BookRec[]>([]);
+  useEffect(() => {
+    const seen = new Set(EDIT_BOOKS.map((r) => `${r.k}/${r.sec}/${r.owner}/${r.book}`));
+    const out: BookRec[] = [];
+    try {
+      for (const key of Object.keys(localStorage)) {
+        if (!key.startsWith("ncc-edit14-")) continue;
+        const cust = key.slice("ncc-edit14-".length);
+        const rows = JSON.parse(localStorage.getItem(key) ?? "[]") as { k: string; s: number; o: number; b: number; t?: string; pg?: number; sp?: number }[];
+        for (const r of rows) {
+          const id = `${r.k}/${r.s}/${r.o}/${r.b}`;
+          if (seen.has(id)) continue;
+          seen.add(id);
+          out.push({ k: r.k, sec: r.s, owner: r.o, book: r.b, pg: r.pg ?? 0, sp: r.sp ?? 1, cust, title: r.t ?? "", status: "편집", kindSet: true });
+        }
+      }
+    } catch { /* 저장분 없음 */ }
+    setLocalEdits(out);
+  }, []);
   const RECS: Rec[] = useMemo(
-    () => [...EDIT_BOOKS, ...projectBooks(projects, companies)]
+    () => [...EDIT_BOOKS, ...localEdits, ...projectBooks(projects, companies)]
       .filter((r) => !closedNames.has(_cnz(r.cust)))
       .map((r) => ({ ...r, edited: r.status === "편집" })),
-    [projects, companies, closedNames]
+    [projects, companies, closedNames, localEdits]
   );
 
   const [kind, setKind] = useState<CodeKind | "ALL">("ALL");   // 코드 필터 — 전체 / PDS2 / PDS3 / PDS4 / OID `PC-039`
@@ -262,12 +293,12 @@ export default function OwnershipMap() {
   const clearFilters = () => { setFStat("전체"); setFAcct(""); setQ(""); setOFrom(""); setBFrom(""); setOLimit(PAGE_O); setBLimit(PAGE_B); };
 
   const curO = selO >= 0 && ownerNums.includes(selO) ? selO : (ownerNums[0] ?? 0);
-  // 이 S/O 가 이미 발급됐는지 · 이 Section 에서 종류별 페이지 정원 `PC-049`
-  const soUsed = useMemo(() => RECS.some((r) => r.sec === curS && r.owner === curO), [RECS, curS, curO]);
-  const capsOf = (sec: number) => ALLOC_KINDS
-    .filter((k2) => (SCALE[k2] ?? {})[sec])
-    .map((k2) => ({ k: k2, p: (SCALE[k2] ?? {})[sec].p }));
   const ownRecs = secRecs.filter((r) => r.owner === curO && !r.nb);
+  // Book 의 코드 타입 — 편집 · 키 발급에서 정한 값만 보인다. 할당만 한 Book(코드 종류 미정)은 비운다 `PC-280`
+  const bookKindOf = (b: number): CodeKind | null => {
+    const r = ownRecs.find((x) => x.book === b && !(x.fromProject && !x.kindSet));
+    return r ? codeKind(r.k, r.sec) : tkKindOfBook(curS, curO, b);
+  };
   // book 을 나누지 않은 행(OID) — Book 카드 없이 목록으로 안내한다 `PC-036`
   const noBookRecs = secRecs.filter((r) => r.owner === curO && r.nb);
   // 사업 종료 회사 할당 제외(→ 미발급) + Book 범위는 이 PDS/Section 의 정원(scale.b, = 코드 관리 정보 기준)으로 클램프.
@@ -491,14 +522,14 @@ export default function OwnershipMap() {
           <div onScroll={onScrollMore(setBLimit)} style={{ maxHeight: "calc(100vh - 282px)", overflowY: "auto" }}>
             {bookNums.map((b) => {
               const bs = bookStatus(b); const st = bs.st; const on = b === curB;
-              const bookKind = ownRecs.find((r) => r.book === b);
+              const bookKind = bookKindOf(b);
               return (
                 <button key={b} onClick={() => setSelB(b)} style={cardBtn(on)}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", rowGap: 3 }}>
                     <Sc k="B" v={b} small />
                     <span style={{ ...S.tag, fontSize: 9, whiteSpace: "nowrap", ...stColor(st) }}>{stLabel(st)}</span>
                     {/* 좌표 속성: 코드 종류 · 펜 구분 (용도 표시) */}
-                    {bookKind && <KindChip kind={codeKind(bookKind.k, bookKind.sec)} small />}
+                    {bookKind && <KindChip kind={bookKind} small />}
                     {ownRecs.find((r) => r.book === b && r.pen)?.pen && <PenChip pen={ownRecs.find((r) => r.book === b && r.pen)?.pen} small />}
                   </div>
                   {bs.label && <div style={{ fontSize: 10, color: shOwner ? "#7e22ce" : "#6b7280", fontWeight: shOwner ? 700 : 400, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={shOwner ? `사용 고객사: ${bs.label}${bs.title ? ` · 교재: ${bs.title}` : ""}` : bs.label}>{bs.label}</div>}
@@ -517,7 +548,7 @@ export default function OwnershipMap() {
         {/* Page 그리드맵 */}
         <div style={{ ...S.card, padding: 16 }}>
           <PageView tkCust={tkOfBook(curS, curO, curB) || tkWho} sec={curS} owner={curO} book={curB} recs={bookRecs} pmax={scale.p} dk={pds} setTip={setTip}
-            soUsed={soUsed} caps={capsOf(curS)} />
+            kind={bookKindOf(curB)} />
         </div>
       </div>
 
@@ -532,8 +563,7 @@ export default function OwnershipMap() {
         //   이미 쓰는 종류가 있으면 그 종류로 고정하고 상태로만 보여 준다 (한 S/O = 한 종류 `PC-041`)
         // 코드 종류는 이 창에서 정하지 않는다 `PC-051` — 좌표(S/O)만 점유하고
         // 종류(PDS2·PDS3·PDS4)는 **N Key 발급 · App Key 발급 · 편집 프로젝트**에서 지정한다.
-        // 과거 혼용 좌표(S3/O42 등)에는 신규 발급하지 않는다 `PC-041`
-        const mixedBlock = soKinds.length > 1;
+        // 한 S/O 안에서 Book 마다 다른 타입을 쓸 수 있다(B1 PDS2 · B2 PDS3) — 혼용 좌표 차단 폐지 `PC-281` (`PC-041` 폐기)
         const allocBooks = projectBooks(projects, companies);
         // (K) 표시는 지우지 않는다 — 같은 이름이어도 티켓 고객사와 고객사 관리 고객사는 다른 업체 `PC-125`
         const nzn = custKey;
@@ -576,7 +606,7 @@ export default function OwnershipMap() {
         const coSvcs: ServiceType[] = companyServices(myCo);
         const myAlloc = (isKey ? (keyCo ? projects.filter((p) => p.keyCustomer && custKey(p.keyCustomer) === custKey(keyCo.name)) : [])
           : !myCo ? [] : projects.filter((p) => !p.keyCustomer && p.companyId === myCo.id))
-          .flatMap((p) => p.issued.map((b) => ({ k: b.kind ?? "N", s: b.section, o: b.owner,
+          .flatMap((p) => p.issued.map((b) => ({ k: b.kind ?? "", s: b.section, o: b.owner,
             bs: b.bookStart, be: b.bookEnd, ps: b.pageStart, pe: b.pageEnd, codes: b.codes })))
           .sort((a, b) => a.s - b.s || a.o - b.o);
 
@@ -588,16 +618,16 @@ export default function OwnershipMap() {
         const stBg = locked ? "#fee2e2" : shared ? "#f3e8ff" : soKinds.length ? "#ccfbf1" : "#eef6ff";
         const stFg = locked ? "#991b1b" : shared ? "#6b21a8" : soKinds.length ? "#0f766e" : "#2563eb";
         const blockMsg = locked ? `“${others.join(", ")}” 전용으로 추가 발급이 불가`
-          : mixedBlock ? `이 S/O 는 ${soKinds.join(" · ")} 가 함께 쓰인 과거 이력 좌표입니다 — 신규 발급은 다른 Owner 를 고르세요.`
           : commonBlock ? `${name} 는 공유 코드 ${cCode!.name} 의 사용 고객사가 아닙니다 — [고객사 관리] 에서 하위 등록하세요.`
           : "";
         const save = () => {
           if (!name) { alert("고객사를 선택하세요. (신규 고객사는 고객사 관리에서 등록)"); return; }
           if (locked) { alert(blockMsg); return; }
           if (commonBlock) { alert(blockMsg); return; }
-          if (mixedBlock) { alert(blockMsg); return; }
+          // 할당 범위 = 코드 타입 중 넓은 쪽(Book · Page 전체) — 타입은 편집 · 키 발급에서 정한다 `PC-279`
+          const span = allocSpan(curS, curO) ?? { bookEnd: scale.b - 1, pageEnd: scale.p - 1 };
           const issued0 = { id: 1, date: new Date().toISOString().slice(0, 10), codes: 0,
-                            by: me?.name ?? "", section: curS, owner: curO, bookStart: 0, bookEnd: scale.b - 1, pageStart: 1, pageEnd: 1 };
+                            by: me?.name ?? "", section: curS, owner: curO, bookStart: 0, bookEnd: span.bookEnd, pageStart: 0, pageEnd: span.pageEnd };
           // (K) 티켓 고객사 — 고객사 관리와 별개로 할당한다. companyId 0 + keyCustomer 이름 `PC-125`
           if (isKey) {
             if (!keyCo) { alert("티켓 고객사(nkey(HLP) 대장)에 없는 고객사입니다. App Key·N Key 관리의 [＋ 신규 등록]으로 먼저 등록하세요."); return; }
@@ -702,10 +732,11 @@ export default function OwnershipMap() {
                     const on = a.s === curS && a.o === curO;
                     return (
                       <button key={i} title="이 S/O 로 이동"
-                        onClick={() => { setKind(codeKind(a.k as string, a.s)); setSelS(a.s); setSelO(a.o); setSelB(-1); }}
+                        onClick={() => { setKind(a.k ? codeKind(a.k, a.s) : "ALL"); setSelS(a.s); setSelO(a.o); setSelB(-1); }}
                         style={{ display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 8, padding: "4px 8px", fontSize: 11.5, cursor: "pointer",
                           border: on ? "1px solid #93c5fd" : "1px solid #eef0f4", background: on ? "#eef6ff" : "#fff" }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: a.k === "N" ? "#2563eb" : "#d97706", borderRadius: 4, padding: "1px 5px" }}>{a.k === "N" ? "PDS3" : "PDS2"}</span>
+                        {/* 할당만 한 좌표는 코드 타입이 없다 — 태그를 붙이지 않는다 `PC-280` */}
+                        {a.k && <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: a.k === "N" ? "#2563eb" : "#d97706", borderRadius: 4, padding: "1px 5px" }}>{a.k === "N" ? "PDS3" : "PDS2"}</span>}
                         <Sc k="S" c="#5f8ff0" v={a.s} />
                         <Sc k="O" c="#14b8a6" v={a.o} />
                       </button>
@@ -719,8 +750,8 @@ export default function OwnershipMap() {
               <button onClick={() => setAlloc(null)} style={S.ghost}>취소</button>
               {/* 이미 쓰는 좌표는 **조회 전용** — 서비스도 코드 종류도 이 창에서 바꾸지 않는다 `PC-076` */}
               {!usedSO && (
-                <button onClick={save} disabled={locked || !name || mixedBlock || commonBlock}
-                  style={{ ...S.primary, ...(locked || !name || mixedBlock || commonBlock ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>할당</button>
+                <button onClick={save} disabled={locked || !name || commonBlock}
+                  style={{ ...S.primary, ...(locked || !name || commonBlock ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>할당</button>
               )}
             </div>
           </Modal>
@@ -764,7 +795,7 @@ function Bar({ h, label, value, width, bg, fg, tip, setTip }: { h: number; label
   );
 }
 
-function PageView({ tkCust, sec, owner, book, recs, pmax, dk, setTip, soUsed, caps }: { tkCust?: string; sec: number; owner: number; book: number; recs: Rec[]; pmax: number; dk?: string; setTip: (t: { x: number; y: number; html: string } | null) => void; soUsed?: boolean; caps?: { k: CodeKind; p: number }[] }) {
+function PageView({ tkCust, sec, owner, book, recs, pmax, dk, setTip, kind }: { tkCust?: string; sec: number; owner: number; book: number; recs: Rec[]; pmax: number; dk?: string; setTip: (t: { x: number; y: number; html: string } | null) => void; kind?: CodeKind | null }) {
   const r = recs[0];
   const k = r?.k ?? dk ?? "N";
   const shared = !!sharedInfo(sec, owner, k);               // 공유(커먼) 코드 여부
@@ -786,7 +817,9 @@ function PageView({ tkCust, sec, owner, book, recs, pmax, dk, setTip, soUsed, ca
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 13, fontWeight: 700 }}>Page 용량</span>
-        <SobpChips k={k} s={sec} o={owner} b={book} small />
+        {/* 코드 타입은 편집 · 키 발급에서 정한 Book 에만 붙는다 `PC-280` */}
+        {kind && <KindChip kind={kind} small />}
+        <SobpChips s={sec} o={owner} b={book} small />
       </div>
       {/* 사용 프로젝트 강조 (칸 크게) */}
       <div style={{ marginTop: 8, marginBottom: 12, borderRadius: 12, padding: "14px 16px", border: `1px solid ${inUse ? "#bfdbfe" : "#e5e7eb"}`, background: inUse ? "#f5f9ff" : "#fafbfc" }}>
@@ -816,22 +849,8 @@ function PageView({ tkCust, sec, owner, book, recs, pmax, dk, setTip, soUsed, ca
         <Stat label="전체 사용 가능" value={pmax} pct={100} color="#111827" />
         <Stat label={`권장 사용량 (기준 ${RECOMMEND_PAGES.toLocaleString()}p)`} value={rec} pct={pct(rec)} color="#b45309" />
         <Stat label="실 사용 Page" value={total} pct={pct(total)} color="#2563eb" sub={inUse ? `권장 대비 ${rec ? Math.round((total / rec) * 100) : 0}%` : undefined} />
-        {/* 미발급 좌표는 코드 종류가 정해지지 않아 **종류별 발급 가능 페이지**를 함께 보여 준다 `PC-049` */}
-        {!soUsed && caps && caps.length > 1 ? (
-          <div style={{ ...S.card, padding: "10px 12px" }}>
-            <div style={{ fontSize: 11, color: "#6b7280" }}>잔여 (발급 가능) · 종류별</div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 3 }}>
-              {caps.map((c2) => (
-                <span key={c2.k} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                  <KindChip kind={c2.k} small />
-                  <b style={{ fontSize: 15, fontWeight: 700, color: "#166534" }}>{c2.p.toLocaleString()}p</b>
-                </span>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <Stat label="잔여 (발급 가능)" value={remain} pct={pct(remain)} color="#166534" />
-        )}
+        {/* 종류별 발급 가능 페이지(PDS2 · PDS3) 표시는 두지 않는다 — 할당은 넓은 코드 타입 기준 `PC-280` (`PC-049` 폐기) */}
+        <Stat label="잔여 (발급 가능)" value={remain} pct={pct(remain)} color="#166534" />
       </div>
 
       {/* 용량 맵 — 행 높이 50px 고정, 폭(width)만 페이지 비율로 조절 */}

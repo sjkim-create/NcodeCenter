@@ -79,3 +79,37 @@ export const BOOK_CAP: Partial<Record<TicketPattern, Record<number, number>>> = 
   Scode: { 44: 256 },
   OID: { 3: 8192 },
 };
+export const OWNER_CAP: Partial<Record<TicketPattern, Record<number, number>>> = {
+  PDS3: { 0: 1024, 3: 1024, 5: 256, 10: 1024, 11: 1024, 14: 1024, 15: 32768 },
+  PDS2: { 0: 524288, 3: 4096, 14: 4096 },
+  Scode: { 44: 4096 },
+  OID: { 3: 4096 },
+};
+
+// SOBP 할당 범위 — 할당 때는 코드 타입을 정하지 않는다(PDS2·PDS3 태그 없음) `PC-279`
+//   그 S/O 를 쓸 수 있는 코드 타입 중 **넓은 쪽**으로 Book · Page 를 미리 잡아 둔다.
+//   예) S3 O2000 = PDS2 만(PDS3 Owner 는 0~1023) → PDS2 범위 · S3 O5 = Book 은 PDS3(8192) · Page 는 PDS2(4096)
+//   OID 는 index 부여라 할당 범위 계산에서 뺀다.
+export function allocSpan(section: number, owner: number): { bookEnd: number; pageEnd: number } | null {
+  const fit = (["PDS2", "PDS3", "Scode"] as TicketPattern[]).filter((pt) => (OWNER_CAP[pt]?.[section] ?? 0) > owner);
+  if (!fit.length) return null;
+  return {
+    bookEnd: Math.max(...fit.map((pt) => BOOK_CAP[pt]?.[section] ?? 0)) - 1,
+    pageEnd: Math.max(...fit.map((pt) => PAGE_CAP[pt]?.[section] ?? 0)) - 1,
+  };
+}
+
+// 이 S/O 에서 쓸 수 있는 코드 타입 — Book 마다 다른 타입을 쓸 수 있다(B1 PDS2 · B2 PDS3) `PC-281`
+export const kindsFor = (section: number, owner: number): CodeKind[] =>
+  (["PDS3", "PDS2", "PDS4"] as CodeKind[]).filter((k) => (OWNER_CAP[patternOf(k)]?.[section] ?? 0) > owner);
+
+// 발급(편집 · 키 발급)에서 코드 타입을 정하면 그 타입의 범위를 넘을 수 없다 `PC-279` — 넘으면 안내 문구, 안 넘으면 ""
+export function codeTypeRangeErr(kind: CodeKind, c: { section: number; owner: number; bookStart: number; bookEnd: number; pageStart?: number; pageEnd?: number }): string {
+  const pt = patternOf(kind);
+  const o = OWNER_CAP[pt]?.[c.section], b = BOOK_CAP[pt]?.[c.section], p = PAGE_CAP[pt]?.[c.section];
+  if (o == null || b == null || p == null) return `S${c.section} 은 ${kind} 코드 타입이 없습니다.`;
+  if (c.owner >= o) return `${kind} 의 S${c.section} Owner 는 0~${o - 1} 입니다. O${c.owner} 는 ${kind} 로 쓸 수 없습니다.`;
+  if (c.bookEnd >= b) return `${kind} 의 S${c.section} Book 은 0~${b - 1} 입니다. (지금 B${c.bookStart}~B${c.bookEnd})`;
+  if (c.pageEnd != null && c.pageEnd >= p) return `${kind} 의 S${c.section} Page 는 0~${p - 1} 입니다. (지금 P${c.pageStart ?? 0}~P${c.pageEnd})`;
+  return "";
+}

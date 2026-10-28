@@ -21,6 +21,7 @@ import { BillingEditor, BillTag } from "./BillingEditor";
 import { codesOfMember, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { serviceRangesOfCompany, type ServiceRange } from "@/lib/keyCompany";
 import { sobpOverlapMsg } from "@/lib/rangeGuard";
+import { codeTypeRangeErr, kindsFor } from "@/lib/codeKind";
 import {
   addServiceTicket, updateServiceTicket, allServiceTickets, hydrateServiceTickets, useServiceTickets,
   ticketState, STATE_COLOR, serviceTicketText, setServiceBilling, TICKET_SERVICES, ticketServiceOf, type ServiceTicket, type TicketService,
@@ -239,7 +240,9 @@ function IssueForm({ edit, coId, coName, coSvcs, ranges, mine, me, onDone, onCan
   const pick = (i: number) => {
     const x = ranges[i]; setIdx(i); setErr("");
     if (!x) return;
-    if (!ctypeSet && (x.pt === "PDS2" || x.pt === "PDS3")) setCtype(x.pt);
+    // 할당만 한 범위(타입 없음)는 그 S/O 에서 쓸 수 있는 타입 중 첫 값 `PC-281`
+    const xt = x.untyped ? kindsFor(x.section, x.owner).find((k) => k === "PDS2" || k === "PDS3") : x.pt;
+    if (!ctypeSet && (xt === "PDS2" || xt === "PDS3")) setCtype(xt);
     setBStart(firstFreeBook(x, mine.filter((m) => m.id !== edit?.id))); setBVol(1); setPStart(x.pageStart); setPVol(Math.min(PAGE_DEFAULT, x.pageEnd - x.pageStart + 1));
   };
   const maxVol = r ? Math.max(1, r.bookEnd - bStart + 1) : 1;
@@ -255,6 +258,9 @@ function IssueForm({ edit, coId, coName, coSvcs, ranges, mine, me, onDone, onCan
     if (!since || !until) { setErr("사용기간 시작과 끝을 모두 정하세요."); return; }
     if (until < since) { setErr("사용기간 끝이 시작보다 앞설 수 없습니다."); return; }
     const cand = { section: r.section, owner: r.owner, bookStart: bStart, bookEnd: bStart + bVol - 1, pageStart: pStart, pageEnd: pStart + pVol - 1 };
+    // 할당은 넓은 코드 타입 기준 — 고른 Code Type 의 범위를 넘으면 막는다 `PC-279`
+    const ctErr = codeTypeRangeErr(ctype, cand);
+    if (ctErr) { setErr(ctErr); return; }
     // N Key · App Key · 서비스 티켓은 SOBP 가 절대 겹칠 수 없다 — 고객사를 가리지 않고 전체에서 검사 `PC-174`
     //   수정이면 자기 자신은 빼고 본다 — 사용 가능한 구간이면 고칠 수 있다 `PC-192`
     const clash = sobpOverlapMsg(cand, edit ? `S${edit.id}` : undefined);
