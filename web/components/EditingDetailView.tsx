@@ -77,11 +77,11 @@ const methodsForType = (ty?: string) => {
 };
 
 // 입력칸 너비는 **격자에 맞춘다** `PC-099` — 항목마다 제각각이면 구도가 깨진다.
-//   기본 정보 6열 격자의 span-5 칸 안을 다시 5열로 나눠, 칩이 붙는 셀렉트(펜 모델·편집 방식)를
-//   **2칸** 폭으로 고정하고 칩은 나머지 3칸에 흐르게 한다.
-const SUB5: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10, alignItems: "center" };
-const SEL_2: React.CSSProperties = { gridColumn: "span 2", width: "100%" };
-const CHIPS_3: React.CSSProperties = { gridColumn: "span 3", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" };
+//   발급인 · 펜 모델 · 타입 · 편집 방식을 6열 격자 **한 줄**(1 · 2 · 1 · 2칸)에 둔다 `PC-278`.
+//   칩이 붙는 셀렉트(펜 모델 · 편집 방식)는 칸 폭을 다 쓰고, 고른 값(칩)은 셀렉트 **아래**에 흐른다.
+const SUB5: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 6 };
+const SEL_2: React.CSSProperties = { width: "100%" };
+const CHIPS_3: React.CSSProperties = { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minHeight: 22 };
 
 const won = (n: number) => `₩${Math.round(n).toLocaleString()}`;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -1031,19 +1031,19 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   onChange={(e) => setF("bytes", Math.max(0, Math.round(+e.target.value)))} />
               </Field>
             </div>
-            {/* 발급인 · 펜 모델 — 한 행에 나란히 `PC-096` (발급인이 앞).
-                아래 [타입]·[Start Page] 행과 **같은 6열 격자**를 써서 시작 열을 맞춘다 `PC-098` */}
+            {/* 발급인 · 펜 모델 · 타입 · 편집 방식 — 한 줄 `PC-278` (발급인이 앞 `PC-096` · 편집 방식은 타입 바로 옆 `PC-087`).
+                아래 [Start Page] 행과 **같은 6열 격자**를 써서 시작 열을 맞춘다 `PC-098` */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 10, marginTop: 10, alignItems: "start" }}>
-              <Field label="발급인 (코드 할당자 · 사용자 명단)">
-                <select style={S.input} value={editing.row.iss ?? ""} onChange={(e) => setF("iss", e.target.value)}>
+              <Field label="발급인">
+                <select style={S.input} title="코드 할당자 · 사용자 명단" value={editing.row.iss ?? ""} onChange={(e) => setF("iss", e.target.value)}>
                   <option value="">- 선택 -</option>
                   {staff.map((u) => <option key={u.id} value={u.name}>{u.name} ({u.role})</option>)}
                   {editing.row.iss && !staff.some((u) => u.name === editing.row.iss) && <option value={editing.row.iss}>{editing.row.iss} (미등록)</option>}
                 </select>
               </Field>
               {/* 항목명은 **위**, 고른 값은 셀렉트 **오른쪽** — 다른 항목과 같은 결 `PC-097` */}
-              <div style={{ gridColumn: "span 5" }}>
-              <Field label="펜 모델 · 다중 선택">
+              <div style={{ gridColumn: "span 2" }}>
+              <Field label="펜 모델 · 복수 선택">
                 <div style={SUB5}>
                   {penNew === null ? (
                     <select style={{ ...S.input, ...SEL_2 }} value={penPick} onChange={(e) => addPen(e.target.value)}>
@@ -1053,8 +1053,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                     </select>
                   ) : (
                     /* 목록에 없는 모델을 직접 적는다 `PC-100` */
-                    <div style={{ ...SEL_2, display: "flex", gap: 6 }}>
-                      <input autoFocus style={{ ...S.input, flex: 1, minWidth: 0 }} value={penNew}
+                    <div style={{ ...SEL_2, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <input autoFocus style={{ ...S.input, flex: "1 1 120px", minWidth: 0 }} value={penNew}
                         placeholder="새 펜 모델명"
                         onChange={(e) => setPenNew(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPenNew(); } if (e.key === "Escape") setPenNew(null); }} />
@@ -1066,16 +1066,14 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                     {selPens.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>선택된 펜 모델 없음</span>}
                     {selPens.map((pm) => (
                       <span key={pm} style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        {pm}<button onClick={() => rmPen(pm)} style={{ border: 0, background: "none", color: "#dc2626", cursor: "pointer", padding: 0 }}>✕</button>
+                        {pm}<button type="button" aria-label={`${pm} 빼기`} onClick={() => rmPen(pm)} style={{ border: 0, background: "none", color: "#dc2626", cursor: "pointer", padding: 0 }}>✕</button>
                       </span>
                     ))}
                   </div>
                 </div>
               </Field>
               </div>
-            </div>
-            {/* 타입 · 편집 방식 — 편집 방식은 타입을 따라가므로 나란히 둔다 `PC-087` · 6열 격자 `PC-098` */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 10, marginTop: 10, alignItems: "start" }}>
+              {/* 편집 방식은 타입을 따라가므로 바로 옆에 둔다 `PC-087` */}
               <Field label="타입">
                 <select style={S.input} value={normTy(editing.row.ty)}
                   onChange={(e) => {
@@ -1088,10 +1086,10 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </Field>
-              <div style={{ gridColumn: "span 5" }}>
-              <Field label={`편집 방식 · ${normTy(editing.row.ty)} 항목만 · 선택해서 추가 (복수)`}>
+              <div style={{ gridColumn: "span 2" }}>
+              <Field label="편집 방식 · 복수 선택">
                 <div style={SUB5}>
-                  <select style={{ ...S.input, ...SEL_2 }} value={pick} onChange={(e) => addMethod(e.target.value)}>
+                  <select style={{ ...S.input, ...SEL_2 }} title={`${normTy(editing.row.ty)} 타입의 편집 방식만 고를 수 있습니다`} value={pick} onChange={(e) => addMethod(e.target.value)}>
                     <option value="">＋ 편집방식 선택…</option>
                     {methodsForType(editing.row.ty).filter((mm) => !selMethods.includes(mm)).map((mm) => <option key={mm} value={mm}>{mm}</option>)}
                   </select>
@@ -1099,7 +1097,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                     {selMethods.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>선택된 편집방식 없음</span>}
                     {selMethods.map((mm) => (
                       <span key={mm} style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        {mm}<button onClick={() => rmMethod(mm)} style={{ border: 0, background: "none", color: "#dc2626", cursor: "pointer", padding: 0 }}>✕</button>
+                        {mm}<button type="button" aria-label={`${mm} 빼기`} onClick={() => rmMethod(mm)} style={{ border: 0, background: "none", color: "#dc2626", cursor: "pointer", padding: 0 }}>✕</button>
                       </span>
                     ))}
                   </div>

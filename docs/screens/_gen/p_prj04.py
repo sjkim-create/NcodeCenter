@@ -93,17 +93,14 @@ def coord(mode='edit', share=False, sub_err=False):
             % (banner, field('할당된 S / O', so, True, None, hint), book_f, kind_f, sub))
 
 
-# span-5 칸 안을 다시 5열로 — 셀렉트 **2칸**, 칩 **3칸** `PC-099`
-#   항목마다 너비가 제각각이면 구도가 깨지므로 격자 배수로만 쓴다.
-SUB5 = ('display:grid;grid-template-columns:repeat(5,minmax(0,1fr));'
-        'gap:10px;align-items:center')
+# 칩이 붙는 셀렉트 — 2칸 폭을 셀렉트가 다 쓰고 칩은 **아래**로 `PC-278`
+#   (옛 「셀렉트 2칸 · 칩 3칸」 `PC-099` 폐기 — 네 항목을 한 줄에 넣으려면 칩을 옆에 둘 폭이 없다)
+SUB5 = 'display:flex;flex-direction:column;gap:6px'
 
 
 def sel_chips(placeholder, chips):
-    return ('<div style="%s">'
-            '<div style="grid-column:span 2">%s</div>'
-            '<div style="grid-column:span 3;display:flex;align-items:center;gap:6px;'
-            'flex-wrap:wrap">%s</div></div>'
+    return ('<div style="%s">%s'
+            '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">%s</div></div>'
             % (SUB5, sel(placeholder), chips))
 
 
@@ -111,19 +108,19 @@ def info(empty=False, mod_date=True):
     def v(x, ph=False):
         return '<div class="inp%s">%s</div>' % (' ph' if ph else '', x)
     e = empty
-    # 발급인 · 펜 모델 — 교재명 다음 줄에 **한 행**으로 (발급인이 앞) `PC-095` `PC-096`
-    # 항목명은 **위**, 고른 값은 셀렉트 **오른쪽** — 다른 항목과 같은 결 `PC-097`
+    # 발급인 · 펜 모델 · 타입 · 편집 방식 — 교재명 다음 **한 줄** (1 · 2 · 1 · 2칸) `PC-278`
+    #   발급인이 앞 `PC-096` · 항목명은 **위** `PC-097` · 고른 값(칩)은 셀렉트 **아래** `PC-278`
     pen_models = ('<div style="display:grid;'
                   'grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;'
                   'margin-top:10px;align-items:start">%s'
-                  '<div style="grid-column:span 5">%s</div></div>'
-                  % (field('발급인 (코드 할당자 · 사용자 명단)', sel('김순정'), False, None,
-                           '코드 할당자·사용자 명단에서 선택'),
-                     field('펜 모델 · 다중 선택',
+                  '<div style="grid-column:span 2">%s</div>'
+                  % (field('발급인', sel('김순정'), False, None,
+                           '코드 할당자·사용자 명단에서 선택(마우스를 올리면 설명)'),
+                     field('펜 모델 · 복수 선택',
                            sel_chips('＋ 펜 모델 추가…',
                                      '<span class="chip on">C90 ✕</span>'
                                      '<span class="chip on">C91 ✕</span>'), False, None,
-                           '셀렉트에서 고르면 <b>오른쪽에 칩</b>으로 쌓이고 <b>✕</b> 로 뺀다 · '
+                           '셀렉트에서 고르면 <b>아래에 칩</b>으로 쌓이고 <b>✕</b> 로 뺀다 · '
                            '미선택이면 <b>선택된 펜 모델 없음</b>. '
                            '목록 맨 아래 <b>[＋ 직접 추가…]</b> 로 <b>새 모델을 직접 적을 수 있다</b> '
                            '<code>PC-100</code>')))
@@ -132,8 +129,7 @@ def info(empty=False, mod_date=True):
     g6 = 'display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-top:10px'
     tmpl = ('<div class="card"><div class="hd">교재 정보</div><div class="bd">'
             '<div class="g3">%s%s%s</div>%s'
-            '<div style="' + g6 + ';align-items:start">%s'
-            '<div style="grid-column:span 5">%s</div></div>'
+            '%s<div style="grid-column:span 2">%s</div></div>'
             '<div style="' + g6 + '">%s%s%s%s</div>'
             '</div></div>')
     return (tmpl
@@ -146,12 +142,12 @@ def info(empty=False, mod_date=True):
                field('타입', sel('소리펜'), False, None,
                      '<b>소리펜 · 필기펜 2종</b> <code>PC-086</code> — 적용비·심볼 단가의 펜 구분'),
                # 편집 방식은 타입 바로 옆 · 그 타입의 항목만 `PC-087`
-               field('편집 방식 · 소리펜 항목만 · 선택해서 추가 (복수)',
+               field('편집 방식 · 복수 선택',
                      sel_chips('＋ 편집방식 선택…',
                                '<span class="chip on">소리펜_기본 ✕</span>'
                                '<span class="chip on">소리펜_멀티터치 ✕</span>'), False, None,
                      '소리펜 12종 / 필기펜 7종 + <b>기능 없음</b>(공통) <code>PC-087</code> — '
-                     '타입을 바꾸면 그 타입에 없는 것은 떨어진다'),
+                     '타입을 바꾸면 그 타입에 없는 것은 떨어진다 · 그 타입의 항목만(마우스를 올리면 설명)'),
                field('Start Page', v('0'), False, None, '0 이상'),
                field('Total Page', v('0' if e else '48'), False, None,
                      '<b>직접 입력</b> · <b>목록의 페이지 항목</b>에 반영된다 <code>PC-089</code>. '
@@ -397,8 +393,8 @@ def build():
         frame('PRJ-03', '교재(책) 편집 수정', content(), height=2100),
         [('S / O', '—', '<b>수정 불가</b>', '수정 모드에서는 변경할 수 없다'),
          ('Book', '선택', '—', '사용 가능한 번호에서'),
-         ('발급인 · 펜 모델', '—', '<b>한 행</b>',
-          '교재명 다음 줄에 <b>발급인(앞) · 펜 모델(뒤)</b> 순으로 나란히 둔다 <code>PC-096</code>'),
+         ('발급인 · 펜 모델 · 타입 · 편집 방식', '—', '<b>한 줄</b>',
+          '교재명 다음 줄에 <b>발급인 · 펜 모델 · 타입 · 편집 방식</b>(1 · 2 · 1 · 2칸) — 고른 값은 셀렉트 아래 <code>PC-096</code> <code>PC-278</code>'),
          ('펜 모델 [＋ 직접 추가…]', '선택', '입력칸으로 바뀜',
           '목록에 없는 모델을 <b>직접 적어 추가</b>한다 <code>PC-100</code> — '
           '[추가]/Enter 로 확정, [취소]/Esc 로 되돌린다. '
