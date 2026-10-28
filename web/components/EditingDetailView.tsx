@@ -531,7 +531,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
 
   return (
     <div style={{ padding: embedded ? "2px 2px 18px" : "20px 22px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+      {/* 전체 고객사 보기는 바깥 머리(「전체 고객사 n곳」)가 제목이라 여기 제목 줄을 두지 않는다 `PC-277` */}
+      {!allCustomers && <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
         {!embedded && (
           // 교재 등록·상세에서는 **그 고객사 교재 목록**으로, 교재 목록 화면에서는 편집 프로젝트로 `PC-056`
           <Link href={bookMode ? listHref : "/projects/editing"} style={{ ...S.ghost, textDecoration: "none", padding: "6px 12px" }}>
@@ -541,11 +542,14 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
         <div style={{ fontSize: 18, fontWeight: 700 }}>{cust.customer}</div>
         <span style={{ ...S.tag, fontFamily: "ui-monospace,monospace" }}>owner {cust.owners && cust.owners.length ? cust.owners.join("·") : owner}</span>
         {[...new Set((cust.bookRows ?? []).map((r) => codeKind(r.k, r.s)))].map((k) => <span key={k} style={{ ...S.tag, background: kindMeta(k).bg, color: kindMeta(k).color, fontWeight: 700 }}>{kindMeta(k).short}</span>)}
-        <div style={{ flex: 1 }} />
-        {/* 목록용 버튼 — 교재 편집 화면에서는 숨긴다 `PC-054` */}
-        {!readOnly && !bookMode && <button onClick={() => { if (confirm("엑셀 시드로 초기화할까요?")) { commit(base); flash("초기화됨"); } }} style={{ ...S.ghost, marginRight: 8 }}>초기화</button>}
-        {!readOnly && !bookMode && <button onClick={openAdd} style={S.primary}>＋ 교재(책) 추가</button>}
-      </div>
+        {/* 목록용 버튼 — 교재 편집 화면에서는 숨긴다 `PC-054` · 줄이 좁으면 두 버튼이 함께 오른쪽 아래로 `PC-277` */}
+        {!readOnly && !bookMode && (
+          <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+            <button type="button" onClick={() => { if (confirm("엑셀 시드로 초기화할까요?")) { commit(base); flash("초기화됨"); } }} style={S.ghost}>초기화</button>
+            <button type="button" onClick={openAdd} style={S.primary}>＋ 교재(책) 추가</button>
+          </div>
+        )}
+      </div>}
 
       {toast && <div style={S.toast}>{toast}</div>}
 
@@ -588,7 +592,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
         )}
         <span>청구액 <b style={{ color: "#2563eb", fontSize: 15 }}>{won(agg.cost)}</b></span>
         <div style={{ position: "relative" }}>
-          <button onClick={() => setBasis((v) => !v)} title="계산식 · 단가 근거"
+          <button type="button" onClick={() => setBasis((v) => !v)} title="계산식 · 단가 근거" aria-label="계산식 · 단가 근거" aria-expanded={basis}
             style={{ width: 22, height: 22, borderRadius: "50%", border: "1px solid #bfdbfe", background: basis ? "#2563eb" : "#eff6ff", color: basis ? "#fff" : "#2563eb", cursor: "pointer", fontWeight: 700, fontSize: 12, lineHeight: 1 }}>?</button>
           {basis && (
             <div style={basisBox}>
@@ -1382,12 +1386,13 @@ function KpiGroup({ title, items, grow, accent }: { title: string; items: string
   return (
     <div style={{ flex: grow, minWidth: 260, border: `1px solid ${accent ? "#dbeafe" : "#eef0f4"}`, borderRadius: 12, padding: "8px 10px 10px", background: accent ? "#f7faff" : "#fff" }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: accent ? "#2563eb" : "#6b7280", marginBottom: 6, paddingLeft: 2 }}>{title}</div>
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${items.length}, 1fr)`, gap: 8 }}>
+      {/* 칸이 좁으면 칸 밖으로 숫자가 넘치지 않고 다음 줄로 내려간다 `PC-277` */}
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${accent ? 150 : 118}px, 1fr))`   /* 금액(₩ 10자리)은 더 넓게 */, gap: 8 }}>
         {items.map(([l, v, sub], i) => (
-          <div key={i} style={{ background: "#fff", border: "1px solid #f0f2f5", borderRadius: 8, padding: "7px 9px" }}>
+          <div key={i} title={sub || undefined} style={{ background: "#fff", border: "1px solid #f0f2f5", borderRadius: 8, padding: "7px 9px", minWidth: 0 }}>
             <div style={{ fontSize: 10.5, color: "#6b7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: accent ? "#2563eb" : "#111827" }}>{v}</div>
-            {sub && <div style={{ fontSize: 9.5, color: "#9ca3af", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>}
+            <div style={{ fontSize: 16, fontWeight: 700, color: accent ? "#2563eb" : "#111827", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{v}</div>
+            {sub && <div style={{ fontSize: 10.5, color: "#6b7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>}
           </div>
         ))}
       </div>

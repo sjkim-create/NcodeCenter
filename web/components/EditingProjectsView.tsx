@@ -179,11 +179,11 @@ export default function EditingProjectsView() {
               (기준가 {won(agg.listed)} · 할인 −{won(agg.listed - agg.cost)})
             </span>
           )}
-          <span style={{ color: "#9ca3af", marginLeft: 5 }} title={`기본 단가 적용 ${BASE_RATE.page} / 편집 ${BASE_RATE.symbol} · 고객사 단가는 고객사 관리에서 지정`}>· 고객사 단가 기준</span>
+          <span style={{ color: "#6b7280", marginLeft: 5 }} title={`기본 단가 적용 ${BASE_RATE.page} / 편집 ${BASE_RATE.symbol} · 고객사 단가는 고객사 관리에서 지정`}>· 고객사 단가 기준</span>
         </span>
         {isFiltered
           ? <span style={{ color: "#2563eb" }}>· 필터 적용 (전체 {D.summary.customers}곳 / {D.summary.books.toLocaleString()}권)</span>
-          : <span style={{ color: "#9ca3af" }}>· 편집현황 장부에 있는 업체만 표시</span>}
+          : <span style={{ color: "#6b7280" }}>· 편집현황 장부에 있는 업체만 표시</span>}
       </div>
 
       <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
@@ -197,40 +197,46 @@ export default function EditingProjectsView() {
             {/* 코드 종류 필터 */}
             <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
               {([["ALL", "전체"] as const, ...CODE_KINDS.map((k) => [k.v, k.short] as const)]).map(([v, label]) => (
-                <button key={v} onClick={() => setPds(v)} style={pdsChip(pds === v)}>{label}</button>
+                <button key={v} type="button" aria-pressed={pds === v} onClick={() => setPds(v)} style={pdsChip(pds === v)}>{label}</button>
               ))}
             </div>
             <div style={{ position: "relative", marginBottom: 10 }}>
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="고객사 · owner 검색" style={{ ...S.input, paddingRight: 28 }} />
-              {q && <button onClick={() => setQ("")} title="검색어 지우기" style={clearBtn}>×</button>}
+              <input value={q} onChange={(e) => setQ(e.target.value)} aria-label="고객사 · owner 검색" placeholder="고객사 · owner 검색" style={{ ...S.input, paddingRight: 28 }} />
+              {q && <button type="button" onClick={() => setQ("")} title="검색어 지우기" aria-label="검색어 지우기" style={clearBtn}>×</button>}
             </div>
-            <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 6 }}>{list.length}곳 표시{pds !== "ALL" ? ` · ${kindMeta(pds).label} 보유` : ""}</div>
+            <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>{list.length}곳 표시{pds !== "ALL" ? ` · ${kindMeta(pds).label} 보유` : ""}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
               {list.map((c) => {
                 const id = uidOf(c);
                 const active = id === sel;
                 const isCustom = customOwners.has(c.owner);
+                // [삭제]는 카드 버튼 밖의 따로 된 버튼 — 버튼 안에 버튼을 두지 않아 키보드로도 쓴다 `PC-277`
                 return (
-                  <button key={id} onClick={() => setSel(id)} style={{ ...card, ...(active ? cardActive : {}) }}>
+                  <div key={id} style={{ position: "relative" }}>
+                  <button type="button" aria-current={active ? "true" : undefined} onClick={() => setSel(id)} style={{ ...card, ...(active ? cardActive : {}) }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontWeight: 700, fontSize: 13, flex: 1, color: active ? "#1d4ed8" : "#111827" }}>{c.customer}</span>
+                      <span title={c.customer} style={{ fontWeight: 700, fontSize: 13, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: active ? "#1d4ed8" : "#111827" }}>{c.customer}</span>
                       {isCustom && <span style={{ ...S.tag, fontSize: 10, background: "#ecfdf5", color: "#047857" }}>신규</span>}
                       {kindsOfCust(c as never).map((k) => <span key={k} style={{ ...S.tag, fontSize: 10, background: kindMeta(k).bg, color: kindMeta(k).color, fontWeight: 700 }}>{kindMeta(k).short}</span>)}
                     </div>
-                    <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
                       {pds === "ALL" ? "북" : kindMeta(pds).short} {statOf(c).books.toLocaleString()}권
-                      {isCustom && <span onClick={(e) => { e.stopPropagation(); delCustom(c); }} style={{ color: "#dc2626", marginLeft: 8, cursor: "pointer" }}>삭제</span>}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
                       <div style={{ flex: 1, height: 4, background: "#eef0f4", borderRadius: 3, overflow: "hidden" }}>
                         <div style={{ width: `${Math.max(3, (statOf(c).symbols / maxSym) * 100)}%`, height: "100%", background: active ? "#2563eb" : "#93c5fd" }} />
                       </div>
-                      <span style={{ fontSize: 10.5, color: active ? "#1d4ed8" : "#6b7280", fontFamily: "ui-monospace,monospace" }}>심볼 {statOf(c).symbols.toLocaleString()}</span>
+                      <span style={{ fontSize: 10.5, color: active ? "#1d4ed8" : "#6b7280", fontVariantNumeric: "tabular-nums" }}>심볼 {statOf(c).symbols.toLocaleString()}</span>
                     </div>
                   </button>
+                  {isCustom && (
+                    <button type="button" onClick={() => delCustom(c)} aria-label={`${c.customer} 편집 고객사 삭제`}
+                      style={{ position: "absolute", right: 10, top: 28, border: 0, background: "none", padding: "1px 4px", fontSize: 11, color: "#dc2626", cursor: "pointer" }}>삭제</button>
+                  )}
+                  </div>
                 );
               })}
-              {list.length === 0 && <div style={{ fontSize: 12, color: "#9ca3af", padding: 12, textAlign: "center" }}>결과 없음</div>}
+              {list.length === 0 && <div style={{ fontSize: 12, color: "#6b7280", padding: 12, textAlign: "center" }}>검색 결과가 없습니다.</div>}
             </div>
           </div>
         </div>
@@ -251,7 +257,7 @@ export default function EditingProjectsView() {
                     <b style={{ fontSize: 14 }}>전체 고객사</b>
                     <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>{list.length}곳</span>
                     {pds !== "ALL" && <span style={{ ...S.tag, background: kindMeta(pds).bg, color: kindMeta(pds).color, fontWeight: 700 }}>{kindMeta(pds).short} 보유</span>}
-                    <span style={{ fontSize: 11.5, color: "#9ca3af" }}>모든 고객사의 교재를 한 목록으로 봅니다 · 조회 전용(수정은 고객사 선택 후)</span>
+                    <span style={{ fontSize: 11.5, color: "#6b7280" }}>모든 고객사의 교재를 한 목록으로 봅니다 · 조회 전용(수정은 고객사 선택 후)</span>
                   </div>
                   {/* 고객사 상세와 같은 표 — 항목 셀렉트 필터 + 페이지네이션 `PC-040` */}
                   <EditingDetailView allCustomers embedded pdsLock={pds === "ALL" ? "" : pds} />
