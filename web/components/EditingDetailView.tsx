@@ -371,7 +371,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     if (!t) return <span style={{ color: "#9ca3af" }} title={`S${r.s}/O${r.o}/B${r.b} 를 덮는 서비스 티켓이 없습니다`}>티켓 없음</span>;
     const st = ticketState(t);
     return (
-      <span title={`서비스 티켓 #${t.no} · ${serviceTicketText(t)} · ${t.since} ~ ${t.until}`}>
+      <span title={`${t.test ? "테스트 티켓" : "서비스 티켓"} #${t.no} · ${serviceTicketText(t)} · ${t.since} ~ ${t.until}`}>
         <span style={{ ...S.tag, background: "#f3e8ff", color: "#7e22ce", fontWeight: 700 }}>{t.company}</span>
         {st !== "사용 중" && <span style={{ fontSize: 10.5, color: "#9ca3af", marginLeft: 4 }}>{st}</span>}
       </span>

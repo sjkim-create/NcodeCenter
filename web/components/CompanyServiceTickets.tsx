@@ -118,6 +118,7 @@ export function CompanyServiceTickets({ company, accountCount }: { company: Comp
                   <SvcTag v={t.service} />
                   <span style={tag(STATE_COLOR[st].bg, STATE_COLOR[st].fg)}>{st}</span>
                   {t.shared && <span style={tag("#f3e8ff", "#7e22ce")}>공유</span>}
+                  {t.test && <span style={tag("#fef3c7", "#92400e")} title="프로토 확인용 가짜 티켓 — 기존 공용 코드 교재에 자동으로 만든 것">테스트</span>}
                   <span style={{ flex: 1 }} />
                   <BillTag v={t} />
                 </div>
@@ -178,6 +179,8 @@ function TicketDetail({ t, onEdit, me }: { t: ServiceTicket; onEdit: () => void;
         <span style={tag(STATE_COLOR[st].bg, STATE_COLOR[st].fg)}>{st}</span>
         <SvcTag v={t.service} />
         {t.shared && <span style={tag("#f3e8ff", "#7e22ce")}>공유 코드</span>}
+        {/* 테스트 티켓 — 프로토 확인용 가짜 데이터 `PC-295` */}
+        {t.test && <span style={tag("#fef3c7", "#92400e")} title="프로토 확인용 가짜 티켓 — 기존 공용 코드 교재에 자동으로 만든 것">테스트 티켓</span>}
       </div>
       <div style={{ padding: 16 }}>
         <WsTabs items={DETAIL_TABS} tab={tab} onTab={setTab} badge={{ bill: (t.billing ?? "미정") === "미정" ? "미정" : undefined }} />

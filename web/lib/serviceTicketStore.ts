@@ -30,6 +30,7 @@ export type ServiceTicket = {
   since: string;           // 사용기간 시작 (YYYY-MM-DD)
   until: string;           // 사용기간 끝 (YYYY-MM-DD)
   shared?: boolean;        // 공유(커먼) 코드 안에서 발급
+  test?: boolean;          // 테스트 티켓 — 프로토 확인용 가짜 데이터(기존 공용 코드 교재 자동 발급) `PC-295`
   service?: TicketService; // 서비스 구분 — 이 티켓으로 승인하는 서비스 `PC-186` (옛 기록은 비어 있음 = 미지정)
   at: string;              // 발급 일시 (KST)
   by: string;
@@ -78,7 +79,14 @@ export function addServiceTicketsBulk(ts: Omit<ServiceTicket, "id" | "no" | "at"
   list = [...ts.map((t) => ({ ...t, id: ++id, no: ++no, at })).reverse(), ...list];
   persist(); notify();
 }
-/** 정산 등록 —유료면 금액, 체험이면 만료일을 함께 둔다 `PC-176` */
+/** 조건에 맞는 티켓을 테스트 티켓으로 표시 `PC-295` */
+export function markTestTickets(pred: (t: ServiceTicket) => boolean) {
+  hydrateServiceTickets();
+  if (!list.some((t) => pred(t) && !t.test)) return;
+  list = list.map((t) => (pred(t) ? { ...t, test: true } : t));
+  persist(); notify();
+}
+/** 정산 등록 — 유료면 금액, 체험이면 만료일을 함께 둔다 `PC-176` */
 export function setServiceBilling(id: number, patch: { billing: Billing; amount?: number; currency?: "KRW" | "USD"; fxRate?: number; trialUntil?: string; billNote?: string; by?: string }) {
   hydrateServiceTickets();
   list = list.map((t) => {

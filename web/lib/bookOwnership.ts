@@ -15,10 +15,8 @@ import { loadCustomCustomers } from "./editingCustomers";
 import { COMMON_CODES, commonCodeOf } from "./commonCodes";
 import { codeKind, patternOf } from "./codeKind";
 import { makeRange } from "./ticketCustomerStore";
-import { sobpOverlapMsg } from "./rangeGuard";
-import { caster } from "./accountStore";
 import { baseName } from "./keyCompany";
-import { allServiceTickets, addServiceTicketsBulk, hydrateServiceTickets, type ServiceTicket } from "./serviceTicketStore";
+import { allServiceTickets, addServiceTicketsBulk, hydrateServiceTickets, markTestTickets, type ServiceTicket } from "./serviceTicketStore";
 import type { Company } from "./customerData";
 
 export type EditBook = { cust: string; k: string; s: number; o: number; b: number; t: string; cu?: string; d?: string };
@@ -85,7 +83,7 @@ export function ticketBookErr(cand: Span & { company: string }, edit?: ServiceTi
 }
 
 // ── 기존 공용 코드 교재 → 사용 고객사 서비스 티켓 자동 발급(1회) `PC-292` ─────────────────
-const ALIGN_KEY = "ncc-svc-align-v1";
+const ALIGN_KEY = "ncc-svc-align-v2";   // v2 — 테스트 티켓 표시 · 키 겹침 무시로 남은 「티켓 필요」 채움 `PC-295`
 const matchCompany = (name: string, companies: Company[]) => {
   const ex = companies.filter((c) => c.name.trim().toLowerCase() === name.trim().toLowerCase());
   if (ex.length === 1) return ex[0];
@@ -93,15 +91,20 @@ const matchCompany = (name: string, companies: Company[]) => {
   return bs.length === 1 ? bs[0] : undefined;
 };
 
-/** 공용 코드마다 Book 순으로 훑어, **같은 사용 고객사가 이어지는 구간**을 티켓 하나로 만든다.
- *  다른 고객사 교재 · 사용 고객사 없는 교재(상위 소유)가 끼면 구간을 끊는다 → 상위 · 하위 · 하위끼리 겹치지 않는다.
- *  고객사 관리에 없는 이름 · 기존 티켓(App Key · N Key · 서비스 티켓)과 겹치는 구간은 만들지 않는다(「티켓 필요」로 남음). */
+/** 공용 코드마다 Book 순으로 훑어, **같은 사용 고객사가 이어지는 구간**을 티켓 하나로 만든다 `PC-292` `PC-295`
+ *  - 다른 고객사 교재 · 사용 고객사 없는 교재(상위 소유) · 이미 티켓이 있는 교재가 끼면 구간을 끊는다.
+ *  - 만든 티켓은 모두 **테스트 티켓**(test) — 프로토 확인용 가짜 데이터다. 서비스 티켓끼리만 겹치지 않게 하고,
+ *    App Key · N Key 와의 겹침(PC-174)은 보지 않는다 → 편집 프로젝트의 「⚠ 티켓 필요」가 필요한 만큼 채워진다.
+ *  - 구간 전체가 다른 서비스 티켓과 겹치면 Book 하나씩 만든다.
+ *  - 만들지 않는 경우: 사용 고객사가 고객사 관리에 없음 · 한 Book 에 사용 고객사가 둘 이상 · OID(서비스 티켓 대상 아님).
+ *  - v1 에서 시스템이 만든 티켓도 테스트 티켓으로 표시한다. */
 export function alignLegacyServiceTickets(companies: Company[]): { made: number; skipped: number } | null {
   if (typeof window === "undefined" || companies.length === 0) return null;
   try { if (localStorage.getItem(ALIGN_KEY)) return null; } catch { return null; }
   hydrateServiceTickets();
-  caster.subscribe(() => {})();   // App Key 겹침 검사용으로 계정 원장을 읽어 둔다
+  markTestTickets((t) => t.by === "시스템");
   const books = allEditBooks();
+  const existing = allServiceTickets();
   const recs: Omit<ServiceTicket, "id" | "no" | "at">[] = [];
   let skipped = 0;
   for (const cc of COMMON_CODES.filter((c) => !c.historyOnly)) {
@@ -109,18 +112,24 @@ export function alignLegacyServiceTickets(companies: Company[]): { made: number;
     const pt = ticketPtOf(cc.k, cc.s);
     if (!pt) continue;
     const full = makeRange(patternOf(codeKind(cc.k, cc.s)), cc.s, cc.o, null, null);
+    const taken = (bs: number, be: number) => [...existing, ...recs].some((t) =>
+      t.pt === pt && t.section === cc.s && t.owner === cc.o && t.bookStart <= be && bs <= t.bookEnd);
+    const make = (co: Company, bs: number, be: number, part: EditBook[]) => {
+      const since = part.map((x) => x.d ?? "").filter(Boolean).sort()[0] ?? new Date().toISOString().slice(0, 10);
+      recs.push({ companyId: co.id, company: co.name, pt, section: cc.s, owner: cc.o, bookStart: bs, bookVol: be - bs + 1, bookEnd: be,
+        pageStart: full.pageStart, pageVol: full.pageEnd - full.pageStart + 1, pageEnd: full.pageEnd,
+        since, until: "2099-12-31", shared: true, service: "CASTERN", by: "시스템", test: true });
+    };
     let run: EditBook[] = [];
     const flush = () => {
       if (!run.length) return;
-      const cu = run[0].cu!;
-      const co = matchCompany(cu, companies);
-      const span = { section: cc.s, owner: cc.o, bookStart: run[0].b, bookEnd: run[run.length - 1].b, pageStart: full.pageStart, pageEnd: full.pageEnd };
+      const co = matchCompany(run[0].cu!, companies);
       if (co && co.name === cc.company) { run = []; return; }   // 상위 고객사 자신 — 티켓 없이 상위 소유
-      if (!co || allServiceTickets().some((t) => covers(t, run[0])) || sobpOverlapMsg(span)) skipped++;
-      else {
-        const since = run.map((x) => x.d ?? "").filter(Boolean).sort()[0] ?? new Date().toISOString().slice(0, 10);
-        recs.push({ companyId: co.id, company: co.name, pt, ...span, bookVol: span.bookEnd - span.bookStart + 1,
-          pageVol: span.pageEnd - span.pageStart + 1, since, until: "2099-12-31", shared: true, service: "CASTERN", by: "시스템" });
+      if (!co) { skipped++; run = []; return; }
+      const bs = run[0].b, be = run[run.length - 1].b;
+      if (!taken(bs, be)) make(co, bs, be, run);
+      else for (const b of [...new Set(run.map((x) => x.b))]) {   // 구간이 막히면 Book 하나씩
+        if (taken(b, b)) skipped++; else make(co, b, b, run.filter((x) => x.b === b));
       }
       run = [];
     };
@@ -128,6 +137,7 @@ export function alignLegacyServiceTickets(companies: Company[]): { made: number;
     const cuSet = new Map<number, Set<string>>();
     for (const bk of list) { const s = cuSet.get(bk.b) ?? new Set<string>(); s.add(bk.cu ?? ""); cuSet.set(bk.b, s); }
     for (const bk of list) {
+      if (existing.some((t) => covers(t, bk))) { flush(); continue; }   // 이미 티켓이 있다
       if ((cuSet.get(bk.b)?.size ?? 0) > 1) { flush(); skipped++; continue; }
       if (!bk.cu) { flush(); continue; }
       if (run.length && run[0].cu !== bk.cu) flush();
