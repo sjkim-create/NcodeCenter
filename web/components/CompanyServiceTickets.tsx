@@ -21,6 +21,7 @@ import { BillingEditor, BillTag } from "./BillingEditor";
 import { codesOfMember, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { serviceRangesOfCompany, type ServiceRange } from "@/lib/keyCompany";
 import { sobpOverlapMsg } from "@/lib/rangeGuard";
+import { alignLegacyServiceTickets, ticketBookErr } from "@/lib/bookOwnership";
 import { codeTypeRangeErr, kindsFor } from "@/lib/codeKind";
 import {
   addServiceTicket, updateServiceTicket, allServiceTickets, hydrateServiceTickets, useServiceTickets,
@@ -55,10 +56,11 @@ const firstFreeBook = (r: ServiceRange, ts: ServiceTicket[]) => {
 
 /** 고객사 관리 ▸ 서비스 티켓 섹션 — 「할당 범위 · 티켓 목록 | 티켓 상세 / 지정」 2칸 `PC-173` */
 export function CompanyServiceTickets({ company, accountCount }: { company: Company; accountCount: number }) {
-  const { projects } = useStore();
+  const { projects, companies } = useStore();
   const me = currentUser(useAuth());
   useServiceTickets(); useTickets(); useCommonMembers();
-  useEffect(() => { hydrateServiceTickets(); hydrateTickets(); hydrateMembers(); }, []);
+  // 기존 공용 코드 교재의 사용 고객사에 서비스 티켓을 자동 발급(1회) — 티켓 기획 전 데이터 정합 `PC-292`
+  useEffect(() => { hydrateServiceTickets(); hydrateTickets(); hydrateMembers(); alignLegacyServiceTickets(companies); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const mine = allServiceTickets().filter((t) => t.companyId === company.id).sort((a, b) => b.no - a.no);
   const ranges = useMemo(() => serviceRangesOfCompany(company, projects, codesOfMember(company.name)), [company, projects]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -265,6 +267,9 @@ function IssueForm({ edit, coId, coName, coSvcs, ranges, mine, me, onDone, onCan
     //   수정이면 자기 자신은 빼고 본다 — 사용 가능한 구간이면 고칠 수 있다 `PC-192`
     const clash = sobpOverlapMsg(cand, edit ? `S${edit.id}` : undefined);
     if (clash) { setErr(clash); return; }
+    // 교재 검사 — ⑤ 범위 안 다른 고객사 소유 교재 · ⑥ 수정으로 이 고객사 교재가 범위 밖으로 `PC-291`
+    const bookErr = ticketBookErr({ ...cand, pt: ctype, company: coName }, edit);
+    if (bookErr) { setErr(bookErr); return; }
     if (edit) {
       updateServiceTicket(edit.id, { pt: ctype, section: r.section, owner: r.owner,
         bookStart: cand.bookStart, bookVol: bVol, bookEnd: cand.bookEnd, pageStart: pStart, pageVol: pVol, pageEnd: cand.pageEnd,

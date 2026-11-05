@@ -69,7 +69,16 @@ export function addServiceTicket(t: Omit<ServiceTicket, "id" | "no" | "at">): Se
   persist(); notify();
   return rec;
 }
-/** 정산 등록 — 유료면 금액, 체험이면 만료일을 함께 둔다 `PC-176` */
+/** 여러 장 한 번에 — 기존 공용 코드 교재의 사용 고객사 티켓 자동 발급용 `PC-292` */
+export function addServiceTicketsBulk(ts: Omit<ServiceTicket, "id" | "no" | "at">[]) {
+  if (!ts.length) return;
+  hydrateServiceTickets();
+  let id = Math.max(0, ...list.map((x) => x.id)), no = Math.max(0, ...list.map((x) => x.no));
+  const at = nowKst();
+  list = [...ts.map((t) => ({ ...t, id: ++id, no: ++no, at })).reverse(), ...list];
+  persist(); notify();
+}
+/** 정산 등록 —유료면 금액, 체험이면 만료일을 함께 둔다 `PC-176` */
 export function setServiceBilling(id: number, patch: { billing: Billing; amount?: number; currency?: "KRW" | "USD"; fxRate?: number; trialUntil?: string; billNote?: string; by?: string }) {
   hydrateServiceTickets();
   list = list.map((t) => {
