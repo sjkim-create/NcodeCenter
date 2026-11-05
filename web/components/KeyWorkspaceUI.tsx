@@ -149,19 +149,33 @@ export function WsCoToggle({ view, onView, issued, total, issuedLabel = "발급 
 }
 
 /** 고객사 한 줄 — [접기 ▸] · 이름 · (하위 n) · 건수 배지. App Key 관리 · N Key 관리 같은 모양 `PC-198` */
-export function WsCoItem({ label, n, on, warn = false, bold = false, sub = false, fold, title, onClick }: {
+export function WsCoItem({ label, n, on, warn = false, bold = false, sub = false, fold, title, onClick, tags, meta }: {
   label: string; n: number; on: boolean; warn?: boolean; bold?: boolean; sub?: boolean; fold?: WsFold; title?: string; onClick: () => void;
+  tags?: React.ReactNode; meta?: React.ReactNode;
 }) {
   // sub = 하위 고객사 — 묶음(WsCoGroup)의 세로 안내선 안에 놓인다
   // 접기 ▶ 는 줄 버튼 밖의 따로 된 버튼 — 버튼 안에 버튼을 두지 않아 키보드로도 접고 편다 `PC-276`
+  // tags = 이름 뒤 작은 배지(코드 종류 등) · meta = 둘째 줄(권수 · 심볼 등) — 편집 프로젝트가 쓴다. 없으면 한 줄 그대로 `PC-294`
+  const line = (
+    <>
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: sub ? 12.5 : 13 }} title={label}>{label}</span>
+      {fold && <span style={{ fontSize: 10.5, color: "#6b7280", fontWeight: 400, whiteSpace: "nowrap" }}>하위 {fold.n}</span>}
+      {tags}
+      <span style={{ flex: 1 }} />
+      <span title={title} style={{ fontSize: 10.5, borderRadius: 999, padding: "1px 8px", fontWeight: 700, fontVariantNumeric: "tabular-nums", background: on ? "#dbeafe" : "#f3f4f6", color: on ? "#1d4ed8" : n ? "#6b7280" : "#9ca3af" }}>{n.toLocaleString()}</span>
+    </>
+  );
   const row = (
     <button type="button" onClick={onClick} aria-current={on ? "true" : undefined}
       style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0, textAlign: "left", border: 0, borderRadius: 9, padding: sub ? "6px 10px" : "8px 10px 8px 2px", cursor: "pointer", fontSize: sub ? 12.5 : 13,
-        background: "transparent", color: on ? "#1d4ed8" : warn ? "#b45309" : sub ? "#4b5563" : "#374151", fontWeight: on || bold ? 700 : 400 }}>
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: sub ? 12.5 : 13 }} title={label}>{label}</span>
-      {fold && <span style={{ fontSize: 10.5, color: "#6b7280", fontWeight: 400, whiteSpace: "nowrap" }}>하위 {fold.n}</span>}
-      <span style={{ flex: 1 }} />
-      <span title={title} style={{ fontSize: 10.5, borderRadius: 999, padding: "1px 8px", fontWeight: 700, fontVariantNumeric: "tabular-nums", background: on ? "#dbeafe" : "#f3f4f6", color: on ? "#1d4ed8" : n ? "#6b7280" : "#9ca3af" }}>{n}</span>
+        background: "transparent", color: on ? "#1d4ed8" : warn ? "#b45309" : sub ? "#4b5563" : "#374151", fontWeight: on || bold ? 700 : 400,
+        ...(meta ? { flexDirection: "column", alignItems: "stretch", gap: 2 } : {}) }}>
+      {meta
+        ? <>
+            <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>{line}</span>
+            <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 400, display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>{meta}</span>
+          </>
+        : line}
     </button>
   );
   if (sub) return <div style={{ display: "flex", borderRadius: 9, background: on ? "#eef6ff" : "transparent" }}>{row}</div>;

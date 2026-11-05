@@ -12,6 +12,12 @@ import { clearOverridesOfCustomer } from "@/lib/editOverrides";
 import { EDIT_CUSTOMERS, EDIT_SUMMARY } from "@/lib/editingData";
 import { rateOf, settle, BASE_RATE, won } from "@/lib/pricing";
 import { Sc } from "./sobp";
+import { WS_CARD, WS_HEAD_BTN, WsCoHead, WsCoGroup, WsCoItem, WsFillScroll, wsChip } from "./KeyWorkspaceUI";
+import { allEditBooks, ownerOfBook } from "@/lib/bookOwnership";
+import { allServiceTickets, hydrateServiceTickets, useServiceTickets } from "@/lib/serviceTicketStore";
+import { isCommonCodeCompany } from "@/lib/commonCodes";
+
+type Sub = { name: string; books: number; need: number };   // 하위 고객사 · 교재 수 · 그중 티켓 필요 수
 
 type Cust = {
   customer: string; owner: string; owners?: number[]; codeKinds: string[];
@@ -44,8 +50,36 @@ export default function EditingProjectsView() {
   const [custom, setCustom] = useState<EditCustomer[]>([]);
   const [addForm, setAddForm] = useState<{ companyId: number; owner: string; kind: "N" | "G" } | null>(null);
   const st = useStore(); // 고객사 관리에 등록된 고객사/프로젝트
+  const [sub, setSub] = useState("");                     // 고른 하위 고객사 — 상위 고객사 교재를 그 사용 고객사로 거른다 `PC-293`
+  const [mounted, setMounted] = useState(false);          // 티켓 · 교재 저장분은 브라우저에만 있다 — 마운트 뒤에 계산(하이드레이션 불일치 방지)
+  const tv = useServiceTickets();
 
-  useEffect(() => { setCustom(loadCustomCustomers()); }, []);
+  useEffect(() => { setCustom(loadCustomCustomers()); hydrateServiceTickets(); setMounted(true); }, []);
+
+  // 상위 고객사(공용 코드 보유) → 하위 고객사별 교재 수 `PC-293`
+  //   하위 = 그 Book 에 서비스 티켓을 받은 고객사(소유 `PC-291`) · 티켓이 없으면 등록된 사용 고객사(티켓 필요 `PC-290`)
+  //   사용 고객사가 없거나 상위 자신이면 상위 소유라 하위로 세지 않는다
+  const subsOf = useMemo(() => {
+    const m = new Map<string, Sub[]>();
+    if (!mounted) return m;
+    const ts = allServiceTickets();
+    const acc = new Map<string, Map<string, Sub>>();
+    for (const bk of allEditBooks()) {
+      if (!isCommonCodeCompany(bk.cust)) continue;
+      if (pds !== "ALL" && codeKind(bk.k, bk.s) !== pds) continue;
+      const o = ownerOfBook(bk, ts);
+      const name = o.by === "ticket" ? o.name : bk.cu;
+      if (!name || name === bk.cust) continue;
+      const g = acc.get(bk.cust) ?? new Map<string, Sub>();
+      const x = g.get(name) ?? { name, books: 0, need: 0 };
+      x.books++; if (o.by !== "ticket" && codeKind(bk.k, bk.s) !== "OID") x.need++;   // OID 는 서비스 티켓 대상이 아니다
+      g.set(name, x); acc.set(bk.cust, g);
+    }
+    acc.forEach((g, cust) => m.set(cust, [...g.values()].sort((a, b) => a.name.localeCompare(b.name, "ko"))));
+    return m;
+  }, [mounted, tv, pds]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const isParent = (name: string) => isCommonCodeCompany(name);
+  const subCount = useMemo(() => [...subsOf.values()].reduce((a, s) => a + s.length, 0), [subsOf]);
 
   const all = useMemo(() => [...custom.map(toFull), ...D.customers], [custom]);
   const customOwners = useMemo(() => new Set(custom.map((c) => c.owner)), [custom]);
@@ -81,10 +115,12 @@ export default function EditingProjectsView() {
   const list = useMemo(
     () => all
       .filter((c) => (pds === "ALL" ? true : kindsOfCust(c as never).includes(pds)))
-      .filter((c) => (q ? (c.customer + c.owner).toLowerCase().includes(q.toLowerCase()) : true))
+      // 검색은 하위 고객사 이름도 찾는다 — 걸리면 그 상위 고객사가 남고 하위 목록이 펼쳐진다 `PC-293`
+      .filter((c) => (q ? (c.customer + c.owner).toLowerCase().includes(q.toLowerCase())
+        || (subsOf.get(c.customer) ?? []).some((s) => s.name.toLowerCase().includes(q.toLowerCase())) : true))
       .slice()
       .sort((a, b) => a.customer.localeCompare(b.customer, "ko")),   // 고객사명 오름차순
-    [q, all, pds]
+    [q, all, pds, subsOf]
   );
   // 화면에 보이는 목록 기준 합계
   const agg = useMemo(() => list.reduce((a, c) => {
@@ -93,7 +129,6 @@ export default function EditingProjectsView() {
              listed: a.listed + st2.listed, cost: a.cost + st2.cost };
   }, { books: 0, pages: 0, symbols: 0, sizeMB: 0, listed: 0, cost: 0 }), [list, statOf]);
   const isFiltered = pds !== "ALL" || !!q;
-  const maxSym = Math.max(1, ...list.map((c) => statOf(c).symbols));
   const selCust = all.find((c) => uidOf(c) === sel) ?? all.find((c) => c.owner === sel);
 
   const openAdd = () => setAddForm({ companyId: 0, owner: "", kind: "N" });
@@ -169,7 +204,10 @@ export default function EditingProjectsView() {
     <div style={{ padding: "16px 18px" }}>
       {/* 전체 요약 */}
       <div style={{ display: "flex", gap: 18, flexWrap: "wrap", fontSize: 12.5, color: "#6b7280", marginBottom: 12 }}>
-        <span>편집 고객사 <b style={{ color: "#111827" }}>{list.length.toLocaleString()}</b></span>
+        <span>편집 고객사 <b style={{ color: "#111827" }}>{list.length.toLocaleString()}</b>
+          {/* 상위(공용 코드 보유) · 하위(그 코드를 나눠 쓰는 고객사) 수 `PC-293` */}
+          <span style={{ marginLeft: 5 }}>(상위 {list.filter((c) => isParent(c.customer)).length} · 하위 {subCount})</span>
+        </span>
         <span>편집 북코드 <b style={{ color: "#111827" }}>{agg.books.toLocaleString()}</b></span>
         <span>총 심볼 <b style={{ color: "#2563eb" }}>{agg.symbols.toLocaleString()}</b></span>
         <span>리소스 <b style={{ color: "#111827" }}>{(agg.sizeMB / 1000).toFixed(1)}GB</b></span>
@@ -187,56 +225,66 @@ export default function EditingProjectsView() {
       </div>
 
       <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-        {/* 좌: 고객사 목록 */}
-        <div style={{ width: 280, flexShrink: 0 }}>
-          <div style={{ ...S.card, padding: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
-              <div style={{ fontWeight: 700, fontSize: 13, flex: 1 }}>고객사 선택</div>
-              <button onClick={openAdd} style={{ ...S.smallBtn, background: "#5f8ff0", color: "#fff", border: 0 }}>＋ 고객사</button>
-            </div>
-            {/* 코드 종류 필터 */}
-            <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-              {([["ALL", "전체"] as const, ...CODE_KINDS.map((k) => [k.v, k.short] as const)]).map(([v, label]) => (
-                <button key={v} type="button" aria-pressed={pds === v} onClick={() => setPds(v)} style={pdsChip(pds === v)}>{label}</button>
-              ))}
-            </div>
-            <div style={{ position: "relative", marginBottom: 10 }}>
-              <input value={q} onChange={(e) => setQ(e.target.value)} aria-label="고객사 · owner 검색" placeholder="고객사 · owner 검색" style={{ ...S.input, paddingRight: 28 }} />
-              {q && <button type="button" onClick={() => setQ("")} title="검색어 지우기" aria-label="검색어 지우기" style={clearBtn}>×</button>}
-            </div>
-            <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>{list.length}곳 표시{pds !== "ALL" ? ` · ${kindMeta(pds).label} 보유` : ""}</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
-              {list.map((c) => {
-                const id = uidOf(c);
-                const active = id === sel;
-                const isCustom = customOwners.has(c.owner);
-                // [삭제]는 카드 버튼 밖의 따로 된 버튼 — 버튼 안에 버튼을 두지 않아 키보드로도 쓴다 `PC-277`
-                return (
-                  <div key={id} style={{ position: "relative" }}>
-                  <button type="button" aria-current={active ? "true" : undefined} onClick={() => setSel(id)} style={{ ...card, ...(active ? cardActive : {}) }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span title={c.customer} style={{ fontWeight: 700, fontSize: 13, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: active ? "#1d4ed8" : "#111827" }}>{c.customer}</span>
-                      {isCustom && <span style={{ ...S.tag, fontSize: 10, background: "#ecfdf5", color: "#047857" }}>신규</span>}
-                      {kindsOfCust(c as never).map((k) => <span key={k} style={{ ...S.tag, fontSize: 10, background: kindMeta(k).bg, color: kindMeta(k).color, fontWeight: 700 }}>{kindMeta(k).short}</span>)}
+        {/* 좌: 고객사 목록 — 고객사 관리 · App Key 관리와 같은 줄 목록(카드 아님) `PC-294`
+            상위 고객사 줄의 ▶ 로 하위 고객사를 접고 편다 · 하위는 세로 안내선 안 · 오른쪽 배지 = 교재(권) 수
+            둘째 줄 = 코드 종류 · 하위 고객사 줄 = 이름 · ⚠ 서비스 티켓 없는 교재 수 · 권수.
+            심볼 수는 목록에 두지 않는다 — 고객사 · 하위 고객사를 고르면 오른쪽 편집량 집계에 그 범위로 나온다 */}
+        <div style={{ width: 270, flexShrink: 0 }}>
+          <div style={WS_CARD}>
+            <WsCoHead count={list.length}
+              right={<button type="button" onClick={openAdd} style={{ ...WS_HEAD_BTN, padding: "5px 10px", fontSize: 12 }}>＋ 고객사</button>} />
+            <div style={{ padding: 10 }}>
+              {/* 코드 종류 필터 */}
+              <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+                {([["ALL", "전체"] as const, ...CODE_KINDS.map((k) => [k.v, k.short] as const)]).map(([v, label]) => (
+                  <button key={v} type="button" aria-pressed={pds === v} onClick={() => setPds(v)} style={{ ...wsChip(pds === v), flex: 1, padding: "5px 2px", fontSize: 11.5, textAlign: "center" }}>{label}</button>
+                ))}
+              </div>
+              <div style={{ position: "relative", marginBottom: 8 }}>
+                <input value={q} onChange={(e) => setQ(e.target.value)} aria-label="고객사 · owner 검색" placeholder="고객사 · owner 검색"
+                  style={{ width: "100%", padding: "8px 28px 8px 10px", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 13, boxSizing: "border-box" }} />
+                {q && <button type="button" onClick={() => setQ("")} title="검색어 지우기" aria-label="검색어 지우기" style={clearBtn}>×</button>}
+              </div>
+              <div style={{ fontSize: 11, color: "#6b7280", margin: "0 0 6px 4px" }}>{list.length}곳 표시{pds !== "ALL" ? ` · ${kindMeta(pds).label} 보유` : ""}</div>
+              <WsFillScroll>
+                {list.map((c) => {
+                  const id = uidOf(c);
+                  const isCustom = customOwners.has(c.owner);
+                  const ql = q.toLowerCase();
+                  const subsAll = subsOf.get(c.customer) ?? [];
+                  const parentHit = !q || (c.customer + c.owner).toLowerCase().includes(ql);
+                  const subs = parentHit ? subsAll : subsAll.filter((x) => x.name.toLowerCase().includes(ql));
+                  const stc = statOf(c);
+                  const kindTags = kindsOfCust(c as never).map((k) => (
+                    <span key={k} style={{ ...S.tag, fontSize: 9.5, padding: "0 5px", background: kindMeta(k).bg, color: kindMeta(k).color, fontWeight: 700 }}>{kindMeta(k).short}</span>
+                  ));
+                  return (
+                    <div key={id} style={{ position: "relative" }}>
+                      <WsCoGroup n={subsAll.length} autoOpen={(!!q && !parentHit && subs.length > 0) || (id === sel && !!sub)}
+                        head={(fold) => (
+                          <WsCoItem label={c.customer} n={stc.books} on={id === sel && !sub} sub={false} fold={fold}
+                            title={`${pds === "ALL" ? "교재" : kindMeta(pds).short} ${stc.books.toLocaleString()}권`}
+                            onClick={() => { setSel(id); setSub(""); }}
+                            tags={isCustom ? <span style={{ ...S.tag, fontSize: 9.5, padding: "0 5px", background: "#ecfdf5", color: "#047857" }}>신규</span> : undefined}
+                            meta={kindTags.length ? <>{kindTags}</> : undefined} />   /* 심볼 수는 목록에 두지 않는다 — 고르면 오른쪽 집계에 나온다 `PC-294` */
+                        )}>
+                        {subs.map((x) => (
+                          <WsCoItem key={x.name} label={x.name} n={x.books} on={id === sel && sub === x.name} sub
+                            title={x.need ? `${x.name} — 교재 ${x.books}권 중 ${x.need}권은 서비스 티켓이 없습니다` : `${x.name} — 교재 ${x.books}권`}
+                            onClick={() => { setSel(id); setSub(x.name); }}
+                            tags={x.need > 0 ? <span style={{ fontSize: 10, color: "#d97706", fontWeight: 700, whiteSpace: "nowrap" }}>⚠ {x.need}</span> : undefined} />
+                        ))}
+                      </WsCoGroup>
+                      {/* [삭제]는 줄 버튼 밖의 따로 된 버튼 — 버튼 안에 버튼을 두지 않는다 `PC-277` */}
+                      {isCustom && (
+                        <button type="button" onClick={() => delCustom(c)} aria-label={`${c.customer} 편집 고객사 삭제`}
+                          style={{ position: "absolute", right: 10, top: 30, border: 0, background: "none", padding: "1px 4px", fontSize: 11, color: "#dc2626", cursor: "pointer" }}>삭제</button>
+                      )}
                     </div>
-                    <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
-                      {pds === "ALL" ? "북" : kindMeta(pds).short} {statOf(c).books.toLocaleString()}권
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-                      <div style={{ flex: 1, height: 4, background: "#eef0f4", borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{ width: `${Math.max(3, (statOf(c).symbols / maxSym) * 100)}%`, height: "100%", background: active ? "#2563eb" : "#93c5fd" }} />
-                      </div>
-                      <span style={{ fontSize: 10.5, color: active ? "#1d4ed8" : "#6b7280", fontVariantNumeric: "tabular-nums" }}>심볼 {statOf(c).symbols.toLocaleString()}</span>
-                    </div>
-                  </button>
-                  {isCustom && (
-                    <button type="button" onClick={() => delCustom(c)} aria-label={`${c.customer} 편집 고객사 삭제`}
-                      style={{ position: "absolute", right: 10, top: 28, border: 0, background: "none", padding: "1px 4px", fontSize: 11, color: "#dc2626", cursor: "pointer" }}>삭제</button>
-                  )}
-                  </div>
-                );
-              })}
-              {list.length === 0 && <div style={{ fontSize: 12, color: "#6b7280", padding: 12, textAlign: "center" }}>검색 결과가 없습니다.</div>}
+                  );
+                })}
+                {list.length === 0 && <div style={{ fontSize: 12, color: "#9ca3af", padding: "14px 6px", textAlign: "center" }}>검색 결과가 없습니다.</div>}
+              </WsFillScroll>
             </div>
           </div>
         </div>
@@ -247,8 +295,16 @@ export default function EditingProjectsView() {
             {selCust
               ? (
                 <>
-                  <button onClick={() => setSel("")} style={{ ...S.linkBtn, padding: 0, marginBottom: 8 }}>← 전체 고객사</button>
-                  <EditingDetailView key={sel} owner={selCust.owner} custName={selCust.customer} embedded pdsLock={pds === "ALL" ? "" : pds} seedCustomer={customOwners.has(selCust.owner) ? (selCust as never) : undefined} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                    <button onClick={() => { setSel(""); setSub(""); }} style={{ ...S.linkBtn, padding: 0 }}>← 전체 고객사</button>
+                    {/* 하위 고객사로 들어오면 「상위 ▸ 하위」 — 상위 이름을 누르면 거르기를 푼다 `PC-293` */}
+                    {sub && (
+                      <span style={{ fontSize: 12, color: "#6b7280" }}>
+                        · <button onClick={() => setSub("")} style={{ ...S.linkBtn, padding: 0 }}>{selCust.customer}</button> ▸ <b style={{ color: "#7e22ce" }}>{sub}</b>
+                      </span>
+                    )}
+                  </div>
+                  <EditingDetailView key={`${sel}|${sub}`} owner={selCust.owner} custName={selCust.customer} embedded pdsLock={pds === "ALL" ? "" : pds} seedCustomer={customOwners.has(selCust.owner) ? (selCust as never) : undefined} initCu={sub || undefined} />
                 </>
               )
               : (
@@ -345,13 +401,3 @@ const clearBtn: React.CSSProperties = {
   position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
   border: 0, background: "none", color: "#9ca3af", fontSize: 16, lineHeight: 1, cursor: "pointer", padding: "0 4px",
 };
-const pdsChip = (on: boolean): React.CSSProperties => ({
-  flex: 1, fontSize: 10.5, padding: "4px 2px", borderRadius: 7, cursor: "pointer", whiteSpace: "nowrap",
-  border: on ? "1px solid #93c5fd" : "1px solid #e5e7eb", background: on ? "#eef6ff" : "#fff",
-  color: on ? "#2563eb" : "#6b7280", fontWeight: on ? 700 : 400,
-});
-const card: React.CSSProperties = {
-  display: "block", width: "100%", textAlign: "left",
-  background: "#fff", border: "1px solid #eef0f4", borderRadius: 10, padding: "10px 12px", cursor: "pointer",
-};
-const cardActive: React.CSSProperties = { border: "1px solid #93c5fd", background: "#f5f9ff", boxShadow: "0 2px 8px rgba(95,143,240,.12)" };
