@@ -313,9 +313,10 @@ def summary(filtered=False, base_price=False, discount=True, basis=False,
     sv = ('<div class="inp" style="width:%dpx;padding-right:26px">%s'
           '<span style="position:absolute;right:6px;top:50%%;transform:translateY(-50%%);'
           'color:#9ca3af;font-size:14px">×</span></div>'
-          % (260 if share else 220, search)) if search else \
+          % (280 if share else 240, search)) if search else \
          ('<div class="inp ph" style="width:%dpx">%s</div>'
-          % (260 if share else 220, '교재명·사용고객사 검색' if share else '교재명 검색'))
+          % (280 if share else 240,
+             '교재명·프로젝트명·사용고객사 검색' if share else '교재명·프로젝트명 검색'))   # `PC-282`
     tags += ('<div style="position:relative;margin-left:%s">%s</div>'
              % ('8px' if unfilter else 'auto', sv))
 
@@ -325,8 +326,17 @@ def summary(filtered=False, base_price=False, discount=True, basis=False,
             % (edit, pay, tags))
 
 
-HEAD3 = ('No', '상태', '교재명', '코드', '타입', 'S/O/B', '페이지', '심볼 개수',
-         '편집방식', '발급일', '최종 수정일', '메모', 'ncp2 크기(byte)', '정산 (청구액)')
+# 타입 · 편집방식 · ncp2 크기 열 삭제 · 프로젝트명 열을 교재명 왼쪽에 추가 `PC-282`
+HEAD3 = ('No', '상태', '프로젝트명', '교재명', '코드', 'S/O/B', '페이지', '심볼 개수',
+         '최초 등록일', 'ncp2 최종수정', '메모', '정산 (청구액)')   # 옛 발급일 `PC-284`
+
+
+def proj_of(fn):
+    # 프로젝트명 = casterN 에 저장한 .nproj 파일명(자동) — 그림용 예시는 ncp2 파일명에서 만든다 `PC-282`
+    #   ncp2 가 없는 교재(—)와 보류 예시(kinder_h1)는 아직 casterN 과 연결 전 → 「미연동」
+    if not fn or fn == '—' or fn.startswith('kinder'):
+        return None
+    return fn[:-5] + '.nproj' if fn.endswith('.ncp2') else fn + '.nproj'
 
 
 def sob(s, o, b):
@@ -352,7 +362,7 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
         cols.append('복제')
     th = ''
     for h in cols:
-        k = 't' if h == '교재명' else ('d' if h == '발급일' else None)
+        k = {'교재명': 't', '프로젝트명': 'p', '최초 등록일': 'd'}.get(h)
         mark = ''
         if k:
             if sort and sort[0] == k:
@@ -383,8 +393,9 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                   'display:flex;align-items:center;justify-content:space-between">'
                   '<span style="color:#9ca3af">B 전체</span>'
                   '<span style="color:#9ca3af;font-size:9px">&#9662;</span></div></th>')
-        fr += blank + fsel('PDS2', 58, True) + fsel('전체', 74) + bcombo + blank * 2
-        fr += fsel('편집방식 전체', 130) + blank * (6 if dup else 5) + '</tr>'
+        # 프로젝트명 · 교재명 다음 코드 · Book — 타입 · 편집방식 필터는 없앴다 `PC-282`
+        fr += blank * 2 + fsel('PDS2', 58, True) + bcombo + blank * 2
+        fr += blank * (5 if dup else 4) + '</tr>'
 
     body = ''
     if empty:
@@ -400,8 +411,8 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                     v = ('<span style="font-size:11px;background:#f3e8ff;color:#7e22ce;'
                          'border-radius:5px;padding:2px 7px;font-weight:700">%s</span>' % cu)
                 else:
-                    v = ('<span style="color:#d97706" title="사용 고객사가 '
-                         '비어 있습니다. 교재를 열어 입력하세요.">미입력</span>')   # `PC-109`
+                    v = ('<span style="color:#9ca3af" title="S%s/O%s/B%s 를 덮는 '
+                         '서비스 티켓이 없습니다">티켓 없음</span>' % (s, o, b))   # `PC-289`
                 cell_cu = ('<td style="font-size:11.5px;text-align:left;max-width:130px">%s</td>'
                            % v)
             # 같은 코드(S/O/B)에 작업물이 여럿이면 교재명 옆에 「작업 n/N」 `PC-110` `PC-112`
@@ -425,31 +436,34 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                      '<td style="color:#9ca3af;font-family:ui-monospace,monospace">%d</td>'
                      '<td><span style="font-size:10px;background:%s;color:%s;border-radius:5px;'
                      'padding:2px 7px;font-weight:700;white-space:nowrap">%s</span></td>%s'
-                     '<td style="font-weight:600;text-align:left;max-width:200px">%s%s'
-                     '<div style="color:#9ca3af;font-size:10.5px">%s</div></td>'
+                     '<td style="text-align:left;max-width:200px;font-size:11.5px">%s%s</td>'
+                     '<td style="font-weight:600;text-align:left;max-width:200px">%s%s</td>'
                      '<td><span style="font-size:11px;background:%s;color:%s;border-radius:5px;'
                      'padding:2px 7px">%s</span></td>'
-                     '<td style="font-size:11px">%s</td><td>%s</td>'
+                     '<td>%s</td>'
                      '<td>%s<div style="font-size:10px;color:#9ca3af">%dp</div></td>'
                      '<td style="font-weight:700;white-space:nowrap">%s</td>'
-                     '<td style="font-size:10.5px;color:#6b7280;text-align:left;'
-                     'max-width:180px">%s</td>'
                      '<td style="font-size:11;color:#6b7280">%s</td>'
                      '<td style="font-size:11px;color:%s">%s</td>'
                      '<td>%s</td>'
-                     '<td style="color:#9ca3af;font-family:ui-monospace,monospace;'
-                     'font-size:11px">%s</td>'
                      '<td style="color:#2563eb;font-weight:600;white-space:nowrap">₩%s%s</td>'
                      '%s</tr>'
-                     % (no, bgc, fgc, st, cell_cu, t, wbadge, fn,
+                     % (no, bgc, fgc, st, cell_cu,
+                        # 프로젝트명(.nproj · 자동) — 교재명 왼쪽 · 아래 줄 ncp2 파일명 · 연결 전이면 미연동 `PC-282`
+                        ('<span style="font-weight:600;color:#374151">%s</span>' % proj_of(fn))
+                        if proj_of(fn) else '<span style="color:#d1d5db">미연동</span>',
+                        ('<div style="color:#9ca3af;font-size:10.5px;'
+                         'font-family:ui-monospace,monospace">%s</div>' % fn)
+                        if fn and fn != '—' else '',
+                        t, wbadge,
                         '#eef6ff' if k == 'N' else '#fef3c7',
-                        '#2563eb' if k == 'N' else '#92400e', k, ty, sob(s, o, b),
-                        prange, pg, '{:,}'.format(sym), mth, d,
+                        '#2563eb' if k == 'N' else '#92400e', k, sob(s, o, b),
+                        prange, pg, '{:,}'.format(sym), d,
                         '#374151' if nmod != '—' else '#d1d5db', nmod,
                         ('<span style="font-size:11px;background:#eef6ff;color:#2563eb;'
                          'border-radius:5px;padding:2px 7px">%d</span>' % logs) if logs
                         else '<span style="color:#d1d5db">0</span>',
-                        '{:,}'.format(by), amt, dcv, cell_dup))
+                        amt, dcv, cell_dup))
     pgn = ''
     if page and not empty:
         nums = ''.join('<span style="min-width:24px;text-align:center;font-size:11.5px;'
@@ -655,7 +669,7 @@ def build2():
         [('전체 고객사 표', '표시', '—',
           '상세와 같은 교재 표 + <b>고객사</b> 열 · 상단 집계는 전체 기준'),
          ('항목 셀렉트 필터', '선택', '목록 필터',
-          '<b>상태 · 고객사 · 사용 고객사 · 코드(PDS2·PDS3·PDS4·OID) · 타입 · 편집방식</b>'),
+          '<b>상태 · 고객사 · 사용 고객사 · 코드(PDS2·PDS3·PDS4·OID)</b> — 타입 · 편집방식 필터는 열과 함께 없앴다 <code>PC-282</code>'),
          ('페이지네이션', '클릭', '페이지 이동',
           '<b>50 / 100 / 200 / 500 / 전체 보기</b> · <b>전체 {n}건 중 {a}~{b} 표시</b>'),
          ('전체 보기 편집', '—', '조회 전용',
@@ -838,6 +852,12 @@ def build3():
           '아래에 <b>{타입} {n}p × 단가</b> — 타입이 정하는 <b>활성 펜</b>의 [Ncode 적용] 기준 <code>PC-091</code>'),
          ('편집·기능비', '표시', '—', '아래에 <b>심볼·기능 {n} (항목별 단가)</b>'),
          ('청구액', '표시', '—', '아래에 <b>할인 −{n}</b> 또는 <b>할인 없음</b>'),
+         ('교재명 열', '표시', '—', '담당자가 <b>직접 입력한 교재명</b> <code>PC-282</code>'),
+         ('프로젝트명 열', '표시', '—',
+          '<b>교재명 왼쪽</b> · casterN 에 저장한 <b>.nproj 파일명</b>(자동) + 아래 줄 <b>ncp2 파일명</b>. '
+          '연결 전이면 <b>미연동</b> <code>PC-282</code>'),
+         ('미연동', 'hover', '툴팁', '<b>casterN 에서 프로젝트를 저장하면 채워집니다</b>'),
+         ('ncp2 최종수정 열', '표시', '—', 'casterN 에서 ncp2 를 마지막으로 고친 날짜(자동)'),
          ('페이지 열', '표시', '—', '<b>{시작}~{끝}</b> + 아래 <b>{n}p</b>'),
          ('메모 열', '표시', '—', '⚠ 메모 글이 아니라 <b>업무 원장(요청·처리·메모) 건수</b>')]
         + NAV3))
@@ -897,27 +917,31 @@ def build3():
          ('[닫기]', '클릭', '접힘', '')] + NAV3))
 
     B.append((
-        'S5', '사용 고객사 열 — 공유 코드 · 사용 고객사가 있는 고객사', '분기',
-        '<code>P-12</code> — 공유(커먼) 코드를 쓰는 Owner 거나, <b>교재에 사용 고객사 값이 하나라도 있는 고객사</b>'
-        '(예: 네오노트-14-27)면 <b>교재명 왼쪽에 「사용 고객사」 열</b>이 추가되고 그 열의 필터도 함께 나타난다 '
-        '<code>PC-109</code>. 검색창도 <b>교재명·사용고객사 검색</b> 으로 바뀐다. '
-        '값이 비면 공유 코드든 아니든 <b>미입력</b>(주황)으로 표시된다. 필터에는 <b>(미입력)</b> 이 따로 있어 '
-        '비어 있는 교재만 골라 볼 수 있다.',
+        'S5', '사용 고객사 열 — 서비스 티켓의 고객사', '분기',
+        '<code>P-12</code> — 공유(커먼) 코드를 쓰는 Owner 거나, <b>서비스 티켓 고객사가 하나라도 잡히는 고객사</b>면 '
+        '<b>교재명 왼쪽에 「사용 고객사」 열</b>이 추가되고 그 열의 필터도 함께 나타난다 <code>PC-109</code>. '
+        '값은 직접 넣지 않는다 — <b>그 교재의 S/O/B 를 덮는 서비스 티켓의 고객사명</b>이 자동으로 뜬다 <code>PC-289</code>. '
+        '서비스 티켓끼리는 겹칠 수 없어(상위 · 하위 포함 <code>PC-291</code>) 한 장만 잡히고, 그 고객사가 교재 <b>소유 고객사</b>다. '
+        '덮는 티켓이 없으면 <b>티켓 없음</b>(회색)이고, 필터의 <b>(티켓 없음)</b> 으로 그런 교재만 골라 볼 수 있다. '
+        '검색창도 <b>교재명·프로젝트명·사용고객사 검색</b> 으로 바뀐다.',
         frame('PRJ-02', '편집 프로젝트',
               content(share=True, sel_cust='NeoLAB'), height=H3),
-        [('사용 고객사 열', '표시', '—', '공유 코드 또는 사용 고객사 값이 있는 고객사 · 보라 배지'),
-         ('미입력', 'hover', '툴팁',
-          '<b>사용 고객사가 비어 있습니다. 교재를 열어 입력하세요.</b>'),
-         ('사용 고객사 필터', '선택', '행 필터', '그 열 아래 드롭다운 — <b>전체 · (미입력) · 고객사명</b> <code>PC-109</code>'),
-         ('(미입력)', '선택', '빈 교재만', '사용 고객사가 비어 있는 교재만 남는다'),
-         ('검색', '입력', '교재명 + 사용 고객사', '검색창이 넓어진다'),
-         ('입력', '행 클릭', '<code>PRJ-04</code>', '교재를 열어 사용 고객사를 넣는다')]
+        [('사용 고객사 열', '표시', '—', '서비스 티켓의 고객사명 · 보라 배지 · 만료 · 대기 티켓이면 이름 뒤에 상태 <code>PC-289</code>'),
+         ('고객사명', 'hover', '툴팁', '<b>서비스 티켓 #{번호} · {코드 범위} · {사용기간}</b>'),
+         ('⚠ 티켓 필요', '표시', '—', '티켓이 없지만 <b>등록된 사용 고객사</b>가 있으면 그 이름을 흐린 점선 태그로 + '
+          '「⚠ 티켓 필요」 <code>PC-290</code> — 툴팁 <b>서비스 티켓이 없습니다. 고객사 관리에서 {고객사} 에 '
+          'S{s}/O{o}/B{b} 서비스 티켓을 발급하세요.</b>'),
+         ('티켓 없음', 'hover', '툴팁', '등록된 이름도 없을 때 — <b>S{s}/O{o}/B{b} 를 덮는 서비스 티켓이 없습니다</b>'),
+         ('사용 고객사 필터', '선택', '행 필터', '그 열 아래 드롭다운 — <b>전체 · (티켓 없음) · 고객사명</b> <code>PC-109</code>'),
+         ('(티켓 없음)', '선택', '티켓 없는 교재만', '서비스 티켓이 덮지 않는 교재만 남는다(「티켓 필요」 포함)'),
+         ('검색', '입력', '교재명 + 프로젝트명 + 사용 고객사', '검색창이 넓어진다')]
         + NAV3))
 
     B.append((
         'S6', '머리글 필터 · 코드 필터 잠금', '필터',
-        '머리글 <b>아래 줄</b>에 필터가 붙는다 — <b>상태 · (사용 고객사) · 코드 · 타입 · '
-        '편집방식</b> 5종. <code>PRJ-02</code> 에서 코드 종류를 고르면 이 화면의 '
+        '머리글 <b>아래 줄</b>에 필터가 붙는다 — <b>상태 · (사용 고객사) · 코드</b> · Book. '
+        '타입 · 편집방식 필터는 열과 함께 없앴다 <code>PC-282</code>. '
+        '<code>PRJ-02</code> 에서 코드 종류를 고르면 이 화면의 '
         '<b>코드 필터가 그 값으로 고정·잠긴다</b>(회색).',
         frame('PRJ-02', '편집 프로젝트',
               content(kind='PDS2(Gcode)', filtered=True, hf=True, unfilter=True),
@@ -925,8 +949,6 @@ def build3():
         [('상태', '선택', '행 필터', '진행중 / 완료 / 보류'),
          ('코드', '—', '<b>잠금</b>',
           '<code>PRJ-02</code> 필터가 걸리면 회색으로 고정 — <b>목록의 PDS 필터로 고정됨</b>'),
-         ('타입', '선택', '행 필터', '소리펜 / 필기펜 / 교원구몬·KEP'),
-         ('편집방식', '선택', '행 필터', '<b>편집방식 전체</b> 가 기본'),
          ('S/O/B 의 B 필터', '입력 또는 선택', '행 필터 · 정렬',
           '<b>콤보박스</b> — 입력칸에 Book 번호를 <b>바로 친다</b>(별도 [직접 입력] 선택 없음) '
           '<code>PC-057</code>. 목록에서는 <b>B 낮은순 · B 높은순</b> 을 고른다 <code>PC-052</code>. '
@@ -934,30 +956,31 @@ def build3():
          ('지표', '자동', '재계산', '교재 지표가 <b>교재(책)·필터</b> 로 바뀐다')] + NAV3))
 
     B.append((
-        'S7', '정렬 — 교재명 · 발급일', '분기',
-        '정렬 가능한 열은 <b>교재명 · 발급일</b> 둘뿐이다. 머리글을 누르면 '
+        'S7', '정렬 — 교재명 · 프로젝트명 · 최초 등록일', '분기',
+        '정렬 가능한 열은 <b>교재명 · 프로젝트명 · 최초 등록일</b> 셋이다 <code>PC-282</code> <code>PC-284</code>. 머리글을 누르면 '
         '<b>오름 → 내림 → 해제</b> 3단으로 돈다. 정렬 중이면 <b>▲▼</b>(파랑), '
         '아니면 <b>↕</b>(회색).',
         frame('PRJ-02', '편집 프로젝트', content(sort=('t', 1)), height=H3),
         [('교재명', '클릭', '오름 → 내림 → 해제', '3번 누르면 원래 순서로'),
-         ('발급일', '클릭', '오름 → 내림 → 해제', ''),
+         ('프로젝트명', '클릭', '오름 → 내림 → 해제', '미연동 행은 뒤로'),
+         ('최초 등록일', '클릭', '오름 → 내림 → 해제', '옛 발급일 — 교재 생성 요청이 처음 들어온 날짜'),
          ('그 외 열', '클릭', '<b>동작 없음</b>', '정렬 대상이 아니다'),
          ('기본', '—', '정렬 없음', '엑셀 시드 순서 그대로')] + NAV3))
 
     B.append((
-        'S8', '교재명 검색', '필터',
-        '교재명으로 거른다. 공유 코드 Owner 면 <b>사용 고객사까지</b> 함께 찾는다. '
+        'S8', '교재명·프로젝트명 검색', '필터',
+        '교재명 · 프로젝트명 · ncp2 파일명으로 거른다 <code>PC-282</code>. 공유 코드 Owner 면 <b>사용 고객사까지</b> 함께 찾는다. '
         '입력하면 <b>×</b> 가 나타난다.',
         frame('PRJ-02', '편집 프로젝트',
               content(bsearch='범블비', filtered=True, unfilter=True), height=H3),
         [('검색', '입력', '행 필터 · 1페이지로', '입력할 때마다 페이지가 1로 돌아간다'),
          ('×', '클릭', '검색 해제', ''),
-         ('공유 코드', '참고', '—', '<b>교재명·사용고객사 검색</b> 으로 바뀐다')] + NAV3))
+         ('공유 코드', '참고', '—', '<b>교재명·프로젝트명·사용고객사 검색</b> 으로 바뀐다')] + NAV3))
 
     B.append((
         'S9', '필터 해제', '필터',
         '필터가 하나라도 걸리면 단가 줄 오른쪽에 <b>필터 해제 ({보이는}/{전체})</b> 버튼이 '
-        '나타난다. 누르면 <b>상태·사용 고객사·코드·타입·편집방식·검색</b>이 한 번에 풀린다.',
+        '나타난다. 누르면 <b>상태·사용 고객사·코드·Book·검색</b>이 한 번에 풀린다.',
         frame('PRJ-02', '편집 프로젝트',
               content(filtered=True, unfilter=True, hf=True), height=H3),
         [('[필터 해제]', '표시', '—', '괄호 안은 <b>보이는 건수 / 전체 건수</b>'),
@@ -1019,12 +1042,12 @@ def build3():
          ('작업 n/N', 'hover', '툴팁',
           '<b>같은 코드(S{s}/O{o}/B{b})에 작업물이 {N}건 — 이 행은 {n}번째</b>'),
          ('[복제]', '클릭', '<code>PRJ-04</code> 복제 등록',
-          '코드(종류·S/O/B)는 <b>원본에 고정(수정 불가)</b> · 교재명·사용 고객사만 물려받고 '
+          '코드(종류·S/O/B)는 <b>원본에 고정(수정 불가)</b> · 교재명만 물려받고 '
           '<b>기본 정보·심볼 입력·산출물은 초기화</b>'),
          ('[복제] 행 클릭', '참고', '—', '버튼만 복제로 동작 — 행 자체를 누르면 수정으로 들어간다'),
-         ('ncp2 파일명', '규칙', '중복 금지',
-          '복제본은 <b>원본과 다른 파일명</b>이어야 저장된다 — 실서비스는 <b>서버 파일명과 비교</b> '
-          '<code>PC-112</code>'),
+         ('프로젝트 · ncp2', '규칙', '자동',
+          '복제본의 프로젝트명 · ncp2 는 비어 있다가 casterN 에서 새 작업을 저장하면 채워진다 '
+          '<code>PC-282</code> (저장 때 ncp2 파일명 중복 검사는 폐지)'),
          ('전체 보기', '참고', '조회 전용', '[복제] 열이 없다 <code>PC-040</code>')] + NAV3))
 
     intro = ('한 고객사의 <b>편집 내역과 정산</b>을 보는 화면. '

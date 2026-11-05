@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { S, Field, AutoTextarea } from "./ui";
+import { InfoTip } from "./KeyWorkspaceUI";
 import { codeKind, codeTypeRangeErr, kindMeta, type CodeKind } from "@/lib/codeKind";
 import { SobpChips } from "./sobp";
 import type { WorkKind } from "@/lib/customerData";
@@ -12,7 +13,9 @@ import { useStore } from "@/lib/store";
 import { assignedSOFor, editableBookNumbers, projectBooks, sameBookSpace, sharedInfo } from "@/lib/codeUsage";
 import { usePenModels, addPenModel } from "@/lib/penModels";
 import { hydrateShared, useSharedOwners, COMMON_LABEL, commonRangesText } from "@/lib/sharedOwners";
-import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
+import { hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
+import { alignLegacyServiceTickets } from "@/lib/bookOwnership";
+import { allServiceTickets, hydrateServiceTickets, useServiceTickets, ticketState, serviceTicketText, type ServiceTicket } from "@/lib/serviceTicketStore";
 import { setBookOverride } from "@/lib/editOverrides";
 import { logActivity } from "@/lib/activityStore";
 import { EDIT_CUSTOMERS } from "@/lib/editingData";
@@ -40,6 +43,12 @@ type BR = {
   nhist?: { date: string; movedAt: string; by: string }[];   // 완료→진행중 전환 시 보관하는 ncp2 최종수정 이력
   // 같은 코드(SOBP)에 작업물(ncp2)이 여럿인 교재 — wn=작업 번호 · wc=그 코드의 작업 수. 코드는 1개, 작업은 N행 `PC-110`
   wn?: number; wc?: number;
+  // 프로젝트명 — casterN 에서 저장한 .nproj 파일명. casterN 저장 때 자동으로 채워진다(직접 입력 없음) `PC-282`
+  //   ncp2 파일명(f) · 크기(bytes) · 최종수정(nmod) 도 casterN 내보내기 · 저장 때마다 최신 값으로 덮어쓴다.
+  pj?: string;
+  // 편집 유형 — 유입 경로(casterN 마스터 계정 / Resource Studio) · 연동이 채운다 `PC-284`
+  //   d(옛 발급일자)는 **최초 등록일**(교재 생성 요청이 처음 들어온 날짜)로 쓴다 `PC-284`
+  src?: string;
 };
 type Cust = { customer: string; owner: string; owners?: number[]; codeKinds: string[]; books: number; pages: number; symbols: number; soundSymbols: number; penSymbols: number; sizeMB: number; topMethods?: [string, number][]; bookRows?: BR[] };
 const D = { customers: EDIT_CUSTOMERS as unknown as Cust[] };
@@ -140,13 +149,12 @@ function BookPicker({ value, list, more, step, onPick, onMore }: {
     </div>
   );
 }
-// ncp2 파일명 비교 키 — 공백·대소문자·.ncp2 확장자 차이는 같은 파일로 본다 `PC-112`
-const normFile = (f?: string) => (f ?? "").trim().toLowerCase().replace(/\.ncp2$/, "").replace(/\s+/g, "");
 const EMPTY = (o: number): BR => ({ b: 0, s: 0, o, k: "N", pg: 0, t: "", f: "", bytes: 0, ty: "소리펜", sm: zeros(SOUND_N), pm: zeros(PEN_N), m: "", d: "" });
 
 // bookIdx — 교재 편집 화면(모달이 아니라 별도 페이지)에서만 넘어온다.
 //   "new" = 교재(책) 추가 · 숫자 = rows 인덱스의 교재 수정
-export default function EditingDetailView({ owner: ownerProp, custName, embedded, seedCustomer, ownerFilter, pdsLock, allCustomers, bookIdx }: { owner?: string; custName?: string; embedded?: boolean; seedCustomer?: Cust; ownerFilter?: number | null; pdsLock?: CodeKind | ""; allCustomers?: boolean; bookIdx?: string } = {}) {
+// initCu — 편집 프로젝트 목록에서 **하위 고객사**를 골라 들어오면 사용 고객사 필터를 그 고객사로 연다 `PC-293`
+export default function EditingDetailView({ owner: ownerProp, custName, embedded, seedCustomer, ownerFilter, pdsLock, allCustomers, bookIdx, initCu }: { owner?: string; custName?: string; embedded?: boolean; seedCustomer?: Cust; ownerFilter?: number | null; pdsLock?: CodeKind | ""; allCustomers?: boolean; bookIdx?: string; initCu?: string } = {}) {
   const params = useParams();
   const router = useRouter();
   const sp = useSearchParams();
@@ -203,8 +211,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const [fS, setFS] = useState<number | null>(null);   // Section 필터
   const [fO, setFO] = useState<number | null>(null);   // Owner 필터
   const [fB, setFB] = useState<number | null>(null);   // Book 필터
-  const [fM, setFM] = useState("");                    // 편집방식 필터
-  const [fT, setFT] = useState("");                    // 타입 필터
+  // 목록에서 타입 · 편집방식 열을 뺐다 — 필터도 함께 없앤다(교재 편집 화면에는 남는다) `PC-282`
   const [fK, setFK] = useState("");                    // 코드(PDS) 필터
   const [fSt, setFSt] = useState("");                  // 진행 상태 필터
   const [fCu, setFCu] = useState("");                  // 사용 고객사 필터 · CU_NONE = (미입력) `PC-109`
@@ -212,7 +219,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   useSharedOwners();                                   // 공유 OWNER 변경 시 리렌더
   useEffect(() => { hydrateShared(); hydrateMembers(); }, []);
   useCommonMembers();
-  const [sort, setSort] = useState<{ key: "t" | "d" | "b" | null; dir: 1 | -1 }>({ key: null, dir: 1 });   // 교재명·발급일·Book 정렬
+  const [sort, setSort] = useState<{ key: "t" | "p" | "d" | "b" | null; dir: 1 | -1 }>({ key: null, dir: 1 });   // 교재명·최초 등록일·Book 정렬
   const [bText, setBText] = useState("");            // Book 필터 입력값(번호 또는 낮은순/높은순) `PC-057`
   // 고객사 단가 — 고객사 관리에 입력된 값. 없으면 기본 단가(500/1,000)
   const nzc = (x: string) => x.replace(/\s+/g, "").replace(/\(.*\)/g, "").toLowerCase();
@@ -241,15 +248,15 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
 
   // 고객사(owner) 전환 시 해당 고객사 데이터로 재로드 (localStorage 우선, 없으면 시드)
   useEffect(() => {
-    setEditing(null); setQ(""); setPage(1); setFS(null); setFO(null); setFB(null); setFM(""); setFT(""); setFK(""); setFSt(""); setFCu(""); setFOwnerCust(""); setSort({ key: null, dir: 1 });
+    setEditing(null); setQ(""); setPage(1); setFS(null); setFO(null); setFB(null); setFK(""); setFSt(""); setFCu(initCu ?? ""); setFOwnerCust(""); setSort({ key: null, dir: 1 });
     setLoadedKey(null);
     if (allCustomers) { setRows(base); setLoadedKey(key); return; }   // 전체 보기는 캐시를 쓰지 않는다
     try { const raw = localStorage.getItem(key); setRows(raw ? norm(JSON.parse(raw)) : base); }
     catch { setRows(base); }
     setLoadedKey(key);
   }, [key, base]);   // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setPage(1); }, [ownerFilter, pdsLock, fS, fO, fB, fM, fT, fK, fSt, fCu, fOwnerCust]);
-  const toggleSort = (k: "t" | "d") => { setSort((s2) => (s2.key === k ? (s2.dir === 1 ? { key: k, dir: -1 } : { key: null, dir: 1 }) : { key: k, dir: 1 })); setPage(1); };
+  useEffect(() => { setPage(1); }, [ownerFilter, pdsLock, fS, fO, fB, fK, fSt, fCu, fOwnerCust]);
+  const toggleSort = (k: "t" | "p" | "d") => { setSort((s2) => (s2.key === k ? (s2.dir === 1 ? { key: k, dir: -1 } : { key: null, dir: 1 }) : { key: k, dir: 1 })); setPage(1); };
   // 저장 실패(용량 초과) 시 다른 편집 캐시를 비우고 재시도 — 조용히 사라지지 않도록 경고
   const commit = (next: BR[]) => {
     if (readOnly) { flash("전체 고객사 보기는 조회 전용입니다. 고객사를 선택해 수정하세요."); return; }
@@ -318,9 +325,6 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
 
   const uniqS = (a: string[]) => [...new Set(a.filter(Boolean))].sort((x, y) => x.localeCompare(y, "ko"));
   // 편집방식은 "A, B" 복수 저장 → 개별 항목으로 펼쳐서 옵션 구성
-  const methodsOf = (r: BR) => (r.m ? r.m.split(",").map((s) => s.trim()).filter(Boolean) : []);
-  const methodOpts = uniqS(rows.flatMap(methodsOf));
-  const typeOpts = uniqS(rows.map((r) => r.ty));
   // 코드 종류(좌표 속성) — PDS3 · PDS2 · PDS4(Section 44) · OID(옛 IDS 포함) `PC-037`
   const kindOpts = uniqS(rows.map((r) => codeKind(r.k, r.s)));
   const ownerCustOpts = uniqS(rows.map((r) => r._cust ?? ""));   // 전체 보기의 고객사 목록
@@ -329,34 +333,73 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const hasSharedRows = rows.some(isSharedRow);
   // 사용 고객사 열 — 공유 코드 고객사뿐 아니라 **교재에 사용 고객사 값이 하나라도 있는 고객사**(예: 네오노트-14-27)에도 보인다 `PC-109`
   //   공유 목록(sharedOwners)에 없는 S/O 라도 편집 대장이 고객사별로 나눠 쓰던 코드면 같은 항목으로 관리한다.
-  const cuMode = hasSharedRows || rows.some((r) => (r.cu ?? "").trim());
-  const custOpts = uniqS(rows.map((r) => r.cu ?? ""));
-  // 커먼 코드 사용 고객사 후보 — 중앙 멤버십(히스토리 + 고객사 등록)에서 이 코드(k/s/o)의 하위 고객사
-  const commonCandidates = (k: string, sec: number, own: number) => membersOf(k, sec, own).map((m) => m.name);
+  // 사용 고객사 — **직접 고르지 않는다**. 이 S/O/B 를 덮는 서비스 티켓의 고객사 이름을 상태값으로 보여 준다 `PC-289`
+  //   코드 타입: 티켓 PDS2 = 교재 PDS2 · 티켓 PDS3 = 교재 PDS3 · PDS4. OID 는 서비스 티켓이 없다.
+  //   서비스 티켓끼리는 겹칠 수 없어(상위 · 하위 포함 `PC-174` `PC-291`) 보통 한 장만 잡힌다. 옛 데이터로 여러 장이면 좁은 범위 → 사용 중 → 최근 발급 순.
+  //   티켓 원장은 브라우저 저장소에 있어, 첫 렌더(서버와 같은 화면)에서는 읽지 않고 저장분을 읽은 뒤(loadedKey)부터 찾는다.
+  useServiceTickets();
+  // 기존 공용 코드 교재의 사용 고객사에 서비스 티켓을 자동 발급(1회) `PC-292` — 이후 사용 고객사는 티켓의 고객사로 진하게 뜬다
+  useEffect(() => { hydrateServiceTickets(); alignLegacyServiceTickets(st.companies); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  const ticketOf = (r: BR): ServiceTicket | undefined => {
+    if (loadedKey === null) return undefined;
+    const ck = codeKind(r.k, r.s);    const pt = ck === "OID" ? null : ck === "PDS2" ? "PDS2" : "PDS3";
+    if (!pt) return undefined;
+    const hits = allServiceTickets().filter((t) => t.pt === pt && t.section === r.s && t.owner === r.o && t.bookStart <= r.b && r.b <= t.bookEnd);
+    return hits.sort((a, b) => (a.bookEnd - a.bookStart) - (b.bookEnd - b.bookStart)
+      || +(ticketState(b) === "사용 중") - +(ticketState(a) === "사용 중") || b.no - a.no)[0];
+  };
+  // 티켓이 없으면 **교재에 등록돼 있던 사용 고객사**를 쓴다(흐리게 + 「티켓 필요」) `PC-290`
+  const cuOf = (r: BR) => ticketOf(r)?.company ?? (r.cu ?? "").trim();
+  const isOid = (r: BR) => codeKind(r.k, r.s) === "OID";
+  const cuMode = hasSharedRows || rows.some((r) => !!cuOf(r));
+  const custOpts = uniqS(rows.map(cuOf));
+  // 사용 고객사 상태값 — 이름 태그(만료 · 대기 티켓이면 상태를 덧붙임) · 티켓 없이 등록된 이름은 흐리게 + 티켓 필요 · 둘 다 없으면 「티켓 없음」 `PC-289` `PC-290`
+  const cuBadge = (r: BR) => {
+    const t = ticketOf(r);
+    const reg = (r.cu ?? "").trim();
+    // OID 는 서비스 티켓 대상이 아니다 — 등록된 사용 고객사를 그대로 보이고 「티켓 필요」를 붙이지 않는다
+    if (!t && isOid(r)) return reg
+      ? <span style={{ ...S.tag, background: "#f3f4f6", color: "#4b5563", fontWeight: 600 }} title="OID 는 서비스 티켓 대상이 아닙니다 — 등록된 사용 고객사">{reg}</span>
+      : <span style={{ color: "#9ca3af" }}>-</span>;
+    if (!t && reg) return (
+      <span title={`서비스 티켓이 없습니다. 고객사 관리에서 ${reg} 에 S${r.s}/O${r.o}/B${r.b} 서비스 티켓을 발급하세요.`}
+        style={{ display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+        <span style={{ ...S.tag, background: "#f9fafb", color: "#9ca3af", border: "1px dashed #d1d5db", fontWeight: 600 }}>{reg}</span>
+        <span style={{ fontSize: 10.5, color: "#d97706", fontWeight: 700, whiteSpace: "nowrap" }}>⚠ 티켓 필요</span>
+      </span>
+    );
+    if (!t) return <span style={{ color: "#9ca3af" }} title={`S${r.s}/O${r.o}/B${r.b} 를 덮는 서비스 티켓이 없습니다`}>티켓 없음</span>;
+    const st = ticketState(t);
+    return (
+      <span title={`서비스 티켓 #${t.no} · ${serviceTicketText(t)} · ${t.since} ~ ${t.until}`}>
+        <span style={{ ...S.tag, background: "#f3e8ff", color: "#7e22ce", fontWeight: 700 }}>{t.company}</span>
+        {st !== "사용 중" && <span style={{ fontSize: 10.5, color: "#9ca3af", marginLeft: 4 }}>{st}</span>}
+      </span>
+    );
+  };
   const filtered = rows.map((r, i) => [r, i] as const)
     .filter(([r]) => (pdsLock ? codeKind(r.k, r.s) === pdsLock : true))   // 목록에서 고른 코드 종류 강제
     .filter(([r]) => (ownerFilter == null ? true : r.o === ownerFilter))
     .filter(([r]) => (fS == null ? true : r.s === fS))
     .filter(([r]) => (fO == null ? true : r.o === fO))
     .filter(([r]) => (fB == null ? true : r.b === fB))
-    .filter(([r]) => (fM ? methodsOf(r).includes(fM) : true))
-    .filter(([r]) => (fT ? r.ty === fT : true))
     .filter(([r]) => (fK ? codeKind(r.k, r.s) === fK : true))
     .filter(([r]) => (fOwnerCust ? r._cust === fOwnerCust : true))
     .filter(([r]) => (fSt ? stateOf(r.use) === fSt : true))
-    .filter(([r]) => (fCu ? (fCu === CU_NONE ? !(r.cu ?? "").trim() : (r.cu ?? "") === fCu) : true))   // (미입력) 따로 검색 `PC-109`
-    .filter(([r]) => (q ? `${r.t ?? ""} ${r.cu ?? ""}`.toLowerCase().includes(q.toLowerCase()) : true));   // 교재명·사용고객사 검색
-  // 교재명(가나다) / 발급일(날짜) 정렬 — 값 없는 행은 항상 뒤로
+    .filter(([r]) => (fCu ? (fCu === CU_NONE ? !ticketOf(r) && !isOid(r) : cuOf(r) === fCu) : true))   // (티켓 없음) = 티켓 필요 교재 포함 `PC-109` `PC-289` `PC-290`
+    .filter(([r]) => (q ? `${r.t ?? ""} ${r.pj ?? ""} ${r.f ?? ""} ${cuOf(r)}`.toLowerCase().includes(q.toLowerCase()) : true));   // 교재명·프로젝트명(ncp2 파일명 포함)·사용고객사 검색 `PC-282`
+  // 교재명(가나다) / 최초 등록일(날짜) 정렬 — 값 없는 행은 항상 뒤로
   if (sort.key === "b") {
     filtered.sort(([a], [b]) => (a.b - b.b) * sort.dir);
   } else if (sort.key) {
     const k = sort.key;
     filtered.sort(([a], [b]) => {
-      const va = (k === "t" ? a.t : a.d) ?? "", vb = (k === "t" ? b.t : b.d) ?? "";
+      const pick = (r: BR) => (k === "t" ? r.t : k === "p" ? r.pj : r.d) ?? "";
+      const va = pick(a), vb = pick(b);
       if (!va && !vb) return 0;
       if (!va) return 1;
       if (!vb) return -1;
-      return k === "t" ? va.localeCompare(vb, "ko") * sort.dir : (va < vb ? -1 : va > vb ? 1 : 0) * sort.dir;
+      return k !== "d" ? va.localeCompare(vb, "ko") * sort.dir : (va < vb ? -1 : va > vb ? 1 : 0) * sort.dir;
     });
   }
   // 페이징 (전체 건수 모두 열람 가능)
@@ -373,8 +416,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
              dcBooks: a.dcBooks + (discounted(r) ? 1 : 0) };
   }, { books: 0, pages: 0, sound: 0, pen: 0, sym: 0, bytes: 0, cost: 0, listed: 0, dc: 0, pageAmt: 0, symAmt: 0, dcBooks: 0 });
   const aggPct = agg.listed > 0 ? Math.round((agg.dc / agg.listed) * 1000) / 10 : 0;
-  const isFiltered = fS != null || fO != null || fB != null || !!fM || !!fT || !!fK || !!fSt || !!fCu || !!fOwnerCust || !!q;
-  const clearFilters = () => { setFS(null); setFO(null); setFB(null); setBText(""); setFM(""); setFT(""); setFK(""); setFSt(""); setFCu(""); setFOwnerCust(""); setQ(""); setSort({ key: null, dir: 1 }); setPage(1); };
+  const isFiltered = fS != null || fO != null || fB != null || !!fK || !!fSt || !!fCu || !!fOwnerCust || !!q;
+  const clearFilters = () => { setFS(null); setFO(null); setFB(null); setBText(""); setFK(""); setFSt(""); setFCu(""); setFOwnerCust(""); setQ(""); setSort({ key: null, dir: 1 }); setPage(1); };
 
   // 할당된 S/O (수정 불가) — 편집 데이터 + 소유권 데이터 + 코드 프로젝트 발급 내역
   const allocBooks = useMemo(() => projectBooks(st.projects, st.companies), [st]);
@@ -451,7 +494,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     if (!editing) return;
     const cur = stateOf(editing.row.use);
     if (next === "완료" && !(editing.row.nmod ?? "").trim()) {
-      alert("ncp2 최종수정 날짜가 비어 있어 완료할 수 없습니다. 날짜를 입력한 뒤 완료로 변경하세요.");
+      alert("ncp2 최종수정 날짜가 비어 있어 완료할 수 없습니다. casterN 에서 ncp2 를 내보낸 뒤 완료로 변경하세요.");
       return;
     }
     if (cur === "완료" && next !== "완료") {
@@ -476,29 +519,21 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
       const ctErr = codeTypeRangeErr(rowKind, { section: editing.row.s, owner: editing.row.o, bookStart: editing.row.b, bookEnd: editing.row.b });
       if (ctErr) { alert(ctErr); return; }
     }
-    // 공유 OWNER는 여러 고객사가 함께 쓰므로 어느 고객사 것인지 반드시 남긴다
-    if (isSharedRow(editing.row) && !(editing.row.cu ?? "").trim()) {
-      alert(`S${editing.row.s}/O${editing.row.o} 는 공유 코드입니다. 사용 고객사를 입력하세요.`); return;
-    }
+    // 공유 코드의 사용 고객사 필수 검사는 없앴다 — 사용 고객사는 서비스 티켓에서 자동으로 정해진다 `PC-289`
     // 같은 코드(S/O/B) 교재는 [복제]로만 만든다 — 일반 추가에서 겹치면 막는다 `PC-112`
     //   Book 하나는 한 코드 타입만 — 다른 타입(PDS2 · PDS3)이 쓴 Book 도 막는다 `PC-281`
     if (editing.idx === -1 && editing.dupOf == null && rows.some((r) => sameBookSpace(r.k, editing.row.k) && r.s === editing.row.s && r.o === editing.row.o && r.b === editing.row.b)) {
       alert(`S${editing.row.s}/O${editing.row.o}/B${editing.row.b} 에는 이미 교재가 있습니다. 같은 코드에 작업물을 더 만들려면 목록의 [복제]를 쓰세요.`); return;
     }
-    // ncp2 파일명은 겹치면 안 된다 — 서버의 파일명과 비교한다(프로토타입은 적재된 전체 교재 + 이 고객사 목록) `PC-112`
-    const fn = normFile(editing.row.f);
-    if (fn) {
-      const hitLocal = rows.some((r, i) => i !== editing.idx && normFile(r.f) === fn);
-      const hitSeed = !hitLocal && EDIT_CUSTOMERS.some((c) => c.customer !== cust?.customer && (c.bookRows ?? []).some((r) => normFile((r as BR).f) === fn));
-      if (hitLocal || hitSeed) { alert(`ncp2 파일명 "${editing.row.f}" 은 이미 다른 교재에 있습니다. 파일명은 겹칠 수 없습니다.`); return; }
-    }
+    // ncp2 파일명 중복 검사는 저장에서 하지 않는다 — 파일명은 casterN 내보내기에서 자동으로 들어오고 이 화면에서 고칠 수 없다 `PC-282`
+    //   (옛 장부에 같은 파일명이 이미 110종 있어, 여기서 막으면 그 교재는 저장할 길이 없다. 중복은 casterN · 서버 매칭에서 다룬다)
     // 단가 스냅샷 — 신규 교재는 현재 고객사 단가로 고정한다.
     // 스냅샷이 없는 구 교재도 저장 시점에 현재 적용 단가로 고정해, 이후 단가 변경의 영향을 받지 않게 한다.
     const r: BR = editing.row.rs ? editing.row : { ...editing.row, rs: { ...rateMap }, rsAt: today() };
     const next = editing.idx === -1 ? [r, ...rows] : rows.map((x, i) => (i === editing.idx ? r : x));
     commit(next);
     // 공유(커먼) 코드면 SOBP 맵에 사용 고객사·상태(편집)를 반영 (편집 프로젝트 등록 = 편집 관리 → ea=1)
-    if (isSharedRow(r) && (r.cu ?? "").trim()) setBookOverride(r.k, r.s, r.o, r.b, { cu: r.cu!.trim(), ea: 1 });
+    if (isSharedRow(r) && cuOf(r)) setBookOverride(r.k, r.s, r.o, r.b, { cu: cuOf(r), ea: 1 });   // 티켓의 고객사 `PC-289`
     if (editing.idx === -1) logActivity("edit", `교재 추가 · ${cust?.customer ?? owner} · S${editing.row.s}/O${editing.row.o}/B${editing.row.b} · ${editing.row.t || "교재"}`, me?.name);
     else logActivity("edit", `교재 작업 · ${cust?.customer ?? owner} · S${editing.row.s}/O${editing.row.o}/B${editing.row.b} · ${editing.row.t || "교재"}`, me?.name);
     setEditing(null);
@@ -667,7 +702,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
           </button>
         )}
         <div style={{ position: "relative", marginLeft: isFiltered ? 8 : "auto" }}>
-          <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={hasSharedRows ? "교재명·사용고객사 검색" : "교재명 검색"} style={{ ...S.input, width: hasSharedRows ? 260 : 220, paddingRight: 26 }} />
+          <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={hasSharedRows ? "교재명·프로젝트명·사용고객사 검색" : "교재명·프로젝트명 검색"} style={{ ...S.input, width: hasSharedRows ? 280 : 240, paddingRight: 26 }} />
           {q && <button onClick={() => { setQ(""); setPage(1); }} title="검색어 지우기"
             style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", border: 0, background: "none", color: "#9ca3af", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>}
         </div>
@@ -677,8 +712,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
         <table style={{ ...S.table, textAlign: "center", minWidth: 1120 }}>
           <thead>
             {/* 공유 OWNER를 쓰는 고객사면 "사용 고객사" 열이 교재명 왼쪽에 추가된다 */}
-            <tr>{["No", "상태", ...(readOnly ? ["고객사"] : []), ...(cuMode ? ["사용 고객사"] : []), "교재명", "코드", "타입", "S/O/B", "페이지", "심볼 개수", "편집방식", "발급일", "최종 수정일", "메모", "ncp2 크기(byte)", "정산 (청구액)", ...(readOnly ? [] : ["복제"])].map((h) => {
-              const k = h === "교재명" ? "t" : h === "발급일" ? "d" : null;   // 정렬 가능한 항목
+            <tr>{["No", "상태", ...(readOnly ? ["고객사"] : []), ...(cuMode ? ["사용 고객사"] : []), "프로젝트명", "교재명", "코드", "S/O/B", "페이지", "심볼 개수", "최초 등록일", "ncp2 최종수정", "메모", "정산 (청구액)", ...(readOnly ? [] : ["복제"])].map((h) => {
+              const k = h === "교재명" ? "t" : h === "프로젝트명" ? "p" : h === "최초 등록일" ? "d" : null;   // 정렬 가능한 항목 — 옛 발급일 `PC-284`
               return (
                 <th key={h} style={{ ...S.th, textAlign: "center", cursor: k ? "pointer" : "default", userSelect: "none" }}
                   onClick={() => k && toggleSort(k)} title={k ? "클릭하면 오름차순 → 내림차순 → 해제" : undefined}>
@@ -710,24 +745,19 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                 <th style={filterTh}>
                   <select value={fCu} onChange={(e) => setFCu(e.target.value)} style={{ ...fSel, maxWidth: 120 }} title="사용 고객사">
                     <option value="">전체</option>
-                    <option value={CU_NONE}>(미입력)</option>
+                    <option value={CU_NONE}>(티켓 없음)</option>
                     {custOpts.map((v) => <option key={v} value={v}>{v}</option>)}
                   </select>
                 </th>
               )}
+              {/* 프로젝트명 · 교재명 */}
+              <th style={filterTh} />
               <th style={filterTh} />
               {/* 코드(PDS) */}
               <th style={filterTh}>
                 <select value={pdsLock || fK} onChange={(e) => setFK(e.target.value)} disabled={!!pdsLock} style={{ ...fSel, minWidth: 58, ...(pdsLock ? { background: "#f3f4f6", color: "#6b7280" } : {}) }} title={pdsLock ? "목록의 PDS 필터로 고정됨" : "코드 종류"}>
                   {!pdsLock && <option value="">전체</option>}
                   {(pdsLock ? [pdsLock] : kindOpts).map((v) => <option key={v} value={v}>{kindMeta(v as CodeKind).short}</option>)}
-                </select>
-              </th>
-              {/* 타입 */}
-              <th style={filterTh}>
-                <select value={fT} onChange={(e) => setFT(e.target.value)} style={{ ...fSel, minWidth: 74 }} title="타입">
-                  <option value="">전체</option>
-                  {typeOpts.map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
               </th>
               {/* Book(B) 필터 — 낮은순 · 높은순 · 직접 입력 `PC-052` */}
@@ -757,15 +787,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               </th>
               {/* 페이지 · 합계 */}
               {Array.from({ length: 2 }, (_, i) => <th key={i} style={filterTh} />)}
-              {/* 편집방식 */}
-              <th style={filterTh}>
-                <select value={fM} onChange={(e) => setFM(e.target.value)} style={{ ...fSel, maxWidth: 170 }} title="편집방식">
-                  <option value="">편집방식 전체</option>
-                  {methodOpts.map((v) => <option key={v} value={v}>{v}</option>)}
-                </select>
-              </th>
-              {/* 발급일 · 최종 수정일 · 메모 · ncp2 · 정산 (· 복제) */}
-              {Array.from({ length: readOnly ? 5 : 6 }, (_, i) => <th key={`t${i}`} style={filterTh} />)}
+              {/* 최초 등록일 · ncp2 최종수정 · 메모 · 정산 (· 복제) */}
+              {Array.from({ length: readOnly ? 4 : 5 }, (_, i) => <th key={`t${i}`} style={filterTh} />)}
             </tr>
           </thead>
           <tbody>
@@ -776,12 +799,17 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                 {readOnly && <td style={{ ...S.td, fontSize: 11.5, textAlign: "left", maxWidth: 140, fontWeight: 600 }}>{r._cust ?? "-"}</td>}
                 {cuMode && (
                   <td style={{ ...S.td, fontSize: 11.5, textAlign: "left", maxWidth: 130 }}>
-                    {/* 값이 없으면 공유 코드든 아니든 **미입력** `PC-109` */}
-                    {r.cu
-                      ? <span style={{ ...S.tag, background: "#f3e8ff", color: "#7e22ce", fontWeight: 700 }}>{r.cu}</span>
-                      : <span style={{ color: "#d97706" }} title="사용 고객사가 비어 있습니다. 교재를 열어 입력하세요.">미입력</span>}
+                    {/* 서비스 티켓의 고객사(자동) · 없으면 **티켓 없음** `PC-289` */}
+                    {cuBadge(r)}
                   </td>
                 )}
+                {/* 프로젝트명 — 교재명 **왼쪽** `PC-282` · casterN 의 .nproj 파일명(자동) · 아래 줄은 내보낸 ncp2 파일명 */}
+                <td style={{ ...S.td, textAlign: "left", maxWidth: 200, fontSize: 11.5 }}>
+                  {r.pj
+                    ? <span style={{ fontWeight: 600, color: "#374151" }}>{r.pj}</span>
+                    : <span style={{ color: "#d1d5db" }} title="casterN 에서 프로젝트를 저장하면 채워집니다">미연동</span>}
+                  {r.f && <div style={{ color: "#9ca3af", fontSize: 10.5, fontFamily: "ui-monospace,monospace" }} title="ncp2 파일명">{r.f}</div>}
+                </td>
                 <td style={{ ...S.td, fontWeight: 600, textAlign: "left", maxWidth: 200 }}>
                   {r.t || "-"}
                   {/* 같은 코드의 작업이 여럿이면 몇 번째 작업인지 표시 — 코드 1개 · 작업 N행 `PC-110` */}
@@ -789,21 +817,17 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                     const w = workSeq.get(idx);
                     return w && w.wc > 1 ? <span style={{ ...S.tag, marginLeft: 5, fontSize: 10, background: "#fff7ed", color: "#c2410c", fontWeight: 700 }} title={`같은 코드(S${r.s}/O${r.o}/B${r.b})에 작업물이 ${w.wc}건 — 이 행은 ${w.wn}번째`}>작업 {w.wn}/{w.wc}</span> : null;
                   })()}
-                  <div style={{ color: "#9ca3af", fontSize: 10.5 }}>{r.f}</div>
                 </td>
                 <td style={S.td}><span style={{ ...S.tag, background: kindMeta(codeKind(r.k, r.s)).bg, color: kindMeta(codeKind(r.k, r.s)).color, fontWeight: 700 }}>{kindMeta(codeKind(r.k, r.s)).short}</span></td>
-                <td style={{ ...S.td, fontSize: 11 }}>{r.ty}</td>
                 <td style={S.td}><SobpChips s={r.s} o={r.o} b={r.b} small /></td>
                 <td style={S.td}>{(() => { const st = typeof r.sp === "number" ? r.sp : 1; return `${st.toLocaleString()}~${(st + r.pg - 1).toLocaleString()}`; })()}<div style={{ fontSize: 10, color: "#9ca3af" }}>{r.pg.toLocaleString()}p</div></td>
                 {/* 심볼 개수 (합계) */}
                 <td style={{ ...S.td, fontWeight: 700, whiteSpace: "nowrap" }}>
                   {tSum(r).toLocaleString()}
                 </td>
-                <td style={{ ...S.td, fontSize: 10.5, color: "#6b7280", textAlign: "left", maxWidth: 180 }}>{r.m || "-"}</td>
                 <td style={{ ...S.td, fontSize: 11, color: "#6b7280" }}>{r.d || "-"}</td>
                 <td style={{ ...S.td, fontSize: 11, color: r.nmod ? "#374151" : "#d1d5db" }}>{r.nmod || "-"}</td>
                 <td style={S.td}>{(r.logs?.length ?? 0) > 0 ? <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb" }}>{r.logs!.length}</span> : <span style={{ color: "#d1d5db" }}>0</span>}</td>
-                <td style={{ ...S.td, color: "#9ca3af", fontFamily: "ui-monospace,monospace", fontSize: 11 }}>{(r.bytes ?? 0).toLocaleString()}</td>
                 <td style={{ ...S.td, color: "#2563eb", fontWeight: 600, whiteSpace: "nowrap" }}>
                   {(() => {
                     const b = bill(r);
@@ -822,7 +846,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                 {!readOnly && (
                   <td style={S.td} onClick={(e) => e.stopPropagation()}>
                     {/* 같은 코드에 작업물을 하나 더 — 코드 고정 · 기본 정보·심볼 초기화 `PC-112` */}
-                    <button onClick={() => openDup(idx)} style={{ ...S.ghost, padding: "3px 8px", fontSize: 11 }} title="같은 S/O/B 코드로 교재 행을 하나 더 만듭니다 (ncp2 파일명이 다른 작업물)">복제</button>
+                    <button onClick={() => openDup(idx)} style={{ ...S.ghost, padding: "3px 8px", fontSize: 11 }} title="같은 S/O/B 코드로 교재 행을 하나 더 만듭니다 (프로젝트 · ncp2 가 다른 작업물)">복제</button>
                   </td>
                 )}
               </tr>
@@ -868,7 +892,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
             {/* 복제 — 코드는 원본에 고정, 기본 정보·심볼은 새로 입력 `PC-112` */}
             {editing.dupOf != null && (
               <span style={{ ...S.tag, background: "#fff7ed", color: "#c2410c", fontWeight: 600, fontSize: 11 }}>
-                복제 · 코드 S{editing.row.s}/O{editing.row.o}/B{editing.row.b} 고정 — 기본 정보·심볼 입력은 초기화됨 · ncp2 파일명은 원본과 달라야 합니다
+                복제 · 코드 S{editing.row.s}/O{editing.row.o}/B{editing.row.b} 고정 — 기본 정보·심볼 입력은 초기화됨 · casterN 연동 항목은 새 작업으로 채워집니다
               </span>
             )}
             {editing.idx !== -1 && editing.row.t && <span style={{ ...S.tag, background: "#f3f4f6", color: "#6b7280" }}>{editing.row.t}</span>}
@@ -908,7 +932,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                     ? <span style={{ ...S.tag, background: "#a855f7", color: "#fff", fontWeight: 700 }} title={sh.note}>공유 코드 · 여러 고객사 사용</span>
                     : <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>전용 코드 · {cust.customer}</span>}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: sh ? "1.3fr 0.9fr 0.9fr 1.1fr" : "1.3fr 0.9fr 0.9fr", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: sh || cuMode ? "1.3fr 0.9fr 0.9fr 1.1fr" : "1.3fr 0.9fr 0.9fr", gap: 10 }}>
                   {/* 좌표만 고른다 `PC-083` — 종류는 뒤의 [코드 종류]에서 정한다 `PC-054` */}
                   <Field label={`할당된 S / O${editing.idx === -1 && editing.dupOf == null && assignedCoords.length > 0 ? " (선택)" : " (수정 불가)"}`}>
                     {editing.idx === -1 && editing.dupOf == null && assignedCoords.length > 0 ? (
@@ -978,42 +1002,25 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                       </Field>
                     );
                   })()}
-                  {!sh && cuMode && (
-                    /* 공유 목록에 없는 코드지만 이 고객사는 교재를 사용 고객사별로 나눠 쓴다 `PC-109` — 직접 적는다 */
-                    <Field label="사용 고객사">
-                      <input style={S.input} list="cu-opts" value={editing.row.cu ?? ""} placeholder="미입력"
-                        onChange={(e) => setF("cu", e.target.value)} />
-                      <datalist id="cu-opts">{custOpts.map((v) => <option key={v} value={v} />)}</datalist>
+                  {/* 사용 고객사 — 고르지 않는다. 이 S/O/B 에 서비스 티켓을 받은 고객사 이름이 상태값으로 뜬다 `PC-289`
+                      (옛 방식: 공유 코드는 커먼 코드 체크 고객사 중 선택 · 그 밖은 직접 입력 `PC-109`) */}
+                  {(sh || cuMode) && (
+                    <Field label="사용 고객사 (서비스 티켓)">
+                      <div style={{ ...S.input, background: "#f9fafb", display: "flex", alignItems: "center", gap: 6, minHeight: 34 }}>
+                        {cuBadge(editing.row)}
+                      </div>
                     </Field>
                   )}
-                  {sh && (() => {
-                    const cands = commonCandidates(editing.row.k, editing.row.s, editing.row.o);
-                    const cur = editing.row.cu ?? "";
-                    return (
-                      <Field label={`사용 고객사 *${sh.group ? ` (${COMMON_LABEL[sh.group]})` : ""}`}>
-                        <select style={{ ...S.input, background: "#fff" }} value={cur} onChange={(e) => setF("cu", e.target.value)}>
-                          <option value="">- 선택 -</option>
-                          {cands.map((n) => <option key={n} value={n}>{n}</option>)}
-                          {cur && !cands.includes(cur) && <option value={cur}>{cur} (미체크)</option>}
-                        </select>
-                        {cands.length === 0 && (
-                          <div style={{ fontSize: 10.5, color: "#b45309", marginTop: 3 }}>
-                            후보 없음 — 고객사 관리에서 {sh.group ? COMMON_LABEL[sh.group] : "커먼 코드"} 를 체크하세요.
-                          </div>
-                        )}
-                      </Field>
-                    );
-                  })()}
                 </div>
                 <div style={{ fontSize: 11.5, marginTop: 8, color: sh ? "#6b21a8" : "#6b7280" }}>
                   {sh
                     ? <>
                         {sh.note}
                         {sh.group && <span style={{ color: "#9ca3af" }}> · {commonRangesText(sh.group)}</span>}
-                        <br />여러 고객사가 Book 번호만 나눠 쓰는 코드입니다 — <b>{sh.group ? COMMON_LABEL[sh.group] : "커먼 코드"} 를 체크한 고객사만</b> 후보로 나옵니다.
+                        <br />여러 고객사가 Book 번호만 나눠 쓰는 코드입니다 — 사용 고객사는 <b>이 Book 에 서비스 티켓을 받은 고객사</b>로 표시됩니다.
                       </>
                     : cuMode
-                      ? `이 S/O는 ${cust.customer} 코드입니다. 교재를 쓰는 고객사가 따로 있으면 사용 고객사에 적습니다.`
+                      ? `이 S/O는 ${cust.customer} 코드입니다. 사용 고객사는 이 Book 에 서비스 티켓을 받은 고객사로 표시됩니다.`
                       : `이 S/O는 ${cust.customer} 전용입니다. 별도 고객사 입력이 필요 없습니다.`}
                 </div>
               </div>
@@ -1030,13 +1037,12 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                 </span>
               )}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-              <Field label="교재명"><input style={S.input} value={editing.row.t} onChange={(e) => setF("t", e.target.value)} /></Field>
-              <Field label="ncp2 파일명"><input style={S.input} value={editing.row.f} onChange={(e) => setF("f", e.target.value)} /></Field>
-              <Field label="ncp2 파일 크기 (byte)">
-                <input type="number" min={0} step={1} style={S.input} value={editing.row.bytes}
-                  onChange={(e) => setF("bytes", Math.max(0, Math.round(+e.target.value)))} />
-              </Field>
+            {/* 교재명 — 연동이 NPROJ 타이틀(없으면 NPROJ 파일명)로 처음 채우고 여기서 고칠 수 있다. 이후 전송에서는 바꾸지 않는다 `PC-284`.
+                프로젝트 · ncp2 · 편집 유형 · 최초 등록일은 아래 [casterN 연동]에 자동으로 채워진다 */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 10 }}>
+              <div style={{ gridColumn: "span 2" }}>
+                <Field label="교재명"><input style={S.input} value={editing.row.t} placeholder="교재명 입력" onChange={(e) => setF("t", e.target.value)} /></Field>
+              </div>
             </div>
             {/* 발급인 · 펜 모델 · 타입 · 편집 방식 — 한 줄 `PC-278` (발급인이 앞 `PC-096` · 편집 방식은 타입 바로 옆 `PC-087`).
                 아래 [Start Page] 행과 **같은 6열 격자**를 써서 시작 열을 맞춘다 `PC-098` */}
@@ -1120,13 +1126,44 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   onChange={(e) => setF("pg", Math.max(0, +e.target.value))} />
                 <div style={{ fontSize: 10.5, color: "#9ca3af", marginTop: 2 }}>목록의 페이지 항목 · 청구액과 무관</div>
               </Field>
-              <Field label="발급일자 (Ncode 발급일)">
-                <input type="date" style={S.input} value={editing.row.d} onChange={(e) => setF("d", e.target.value)} />
-                {!editing.row.d && <div style={{ fontSize: 10.5, color: "#9ca3af", marginTop: 2 }}>원본에 발급일 없음 — 직접 입력</div>}
-              </Field>
-              <Field label="ncp2 최종수정 (완료 필수)">
-                <input type="date" style={S.input} value={editing.row.nmod ?? ""} onChange={(e) => setF("nmod", e.target.value)} />
-              </Field>
+              {/* 발급일자는 casterN 연동의 **최초 등록일**(자동)로 옮겼다 `PC-284` */}
+            </div>
+          </div>
+
+          {/* casterN 연동 — 모두 **자동**이라 직접 고치지 않는다 `PC-282` `PC-284`
+              · 같은 코드 + 같은 ncp2 파일명으로 다시 들어오면 이 교재를 최신 값으로 갱신
+              · 편집 유형 = 유입 경로 · 최초 등록일 = 첫 생성 요청 날짜(옛 발급일자)
+              · 프로젝트명 = casterN 에서 저장한 .nproj 파일명
+              · ncp2 파일명 = ncp2 내보내기 때 지정한 파일명
+              · ncp2 파일 크기 · 최종수정 = 저장 · 수정할 때마다 최신 값으로 덮어쓴다 */}
+          <div style={rowBox}>
+            <div style={{ ...rowHead, display: "flex", alignItems: "center", gap: 6 }}>
+              casterN 연동
+              <span style={{ ...S.tag, fontSize: 10.5, background: "#f3f4f6", color: "#6b7280", fontWeight: 700 }}>자동</span>
+              <InfoTip title="casterN 연동 설명" width={340}>
+                casterN 에서 프로젝트를 저장하면 .nproj 파일명이 <b>프로젝트명</b>으로, ncp2 를 내보내면 그때 지정한 파일명이 <b>ncp2 파일명</b>으로 채워집니다.
+                같은 코드 · 같은 ncp2 파일명으로 다시 들어오면 이 교재가 최신 값으로 바뀝니다. 이 화면에서 고칠 수 없습니다.
+              </InfoTip>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 10 }}>
+              {([
+                ["프로젝트명 (.nproj)", editing.row.pj, 2, false],
+                ["ncp2 파일명", editing.row.f, 2, true],
+                ["ncp2 파일 크기 (byte)", editing.row.bytes ? editing.row.bytes.toLocaleString() : "", 1, true],
+                ["ncp2 최종수정 (완료 필수)", editing.row.nmod, 1, true],
+                ["편집 유형", editing.row.src, 2, false],
+                ["최초 등록일", editing.row.d, 1, true],
+              ] as [string, string | undefined, number, boolean][]).map(([lab, v, span, mono]) => (
+                <div key={lab} style={{ gridColumn: `span ${span}` }}>
+                  <Field label={lab}>
+                    <div aria-readonly="true" title={v || undefined}
+                      style={{ ...S.input, background: "#f9fafb", color: v ? "#374151" : "#9ca3af", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        ...(mono && v ? { fontFamily: "ui-monospace,monospace" } : {}) }}>
+                      {v || "미연동"}
+                    </div>
+                  </Field>
+                </div>
+              ))}
             </div>
           </div>
 

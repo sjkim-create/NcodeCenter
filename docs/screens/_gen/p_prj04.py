@@ -62,10 +62,15 @@ def coord(mode='edit', share=False, sub_err=False):
             else '할당된 S/O가 여러 개면 선택 · <b>좌표만</b> 나온다 <code>PC-083</code>')
     sub = ''
     if share:
-        sub = field('사용 고객사', sel('아들과딸' if not sub_err else '사용 고객사를 선택하세요',
-                                  ph=sub_err, err=sub_err), True,
-                    '공유 코드입니다. 사용 고객사를 입력하세요.' if sub_err else None,
-                    '공유(커먼) 코드 Owner인 경우에만 표시·<b>필수</b> <code>P-12</code>')
+        # 고르지 않는다 — 이 S/O/B 를 덮는 서비스 티켓의 고객사가 상태값으로 뜬다 `PC-289`
+        #   sub_err = 덮는 티켓이 없는 경우(티켓 없음)
+        badge = ('<span style="color:#9ca3af">티켓 없음</span>' if sub_err else
+                 '<span style="font-size:11px;background:#f3e8ff;color:#7e22ce;border-radius:5px;'
+                 'padding:2px 7px;font-weight:700">아들과딸</span>')
+        sub = field('사용 고객사 (서비스 티켓)', '<div class="inp ro">%s</div>' % badge, False, None,
+                    '<b>고르지 않는다</b> — 이 S/O/B 를 덮는 <b>서비스 티켓의 고객사</b>(교재 소유 고객사 <code>PC-291</code>) '
+                    '· 만료 · 대기면 이름 뒤에 상태 · 티켓이 없으면 등록된 이름을 흐리게 + <b>⚠ 티켓 필요</b> '
+                    '<code>PC-290</code> · 그것도 없으면 <b>티켓 없음</b> <code>PC-289</code>')
     # 코드 종류는 **Book 다음**에 온다 `PC-054`
     if dup:
         kind_f = field('코드 종류 (수정 불가)',
@@ -86,7 +91,7 @@ def coord(mode='edit', share=False, sub_err=False):
     if dup:
         banner = ('<div class="toast" style="margin-bottom:10px;background:#fff7ed;'
                   'border-color:#fed7aa;color:#c2410c">복제 · 코드 S0/O10/B1108 고정 — '
-                  '기본 정보·심볼 입력은 초기화됨 · ncp2 파일명은 원본과 달라야 합니다</div>')
+                  '기본 정보·심볼 입력은 초기화됨 · casterN 연동 항목은 새 작업으로 채워집니다</div>')   # `PC-282`
     return ('<div class="card"><div class="hd">코드 좌표</div><div class="bd">%s'
             '<div class="g3">%s%s%s</div>'
             '<div class="g3" style="margin-top:10px">%s</div></div></div>'
@@ -127,17 +132,18 @@ def info(empty=False, mod_date=True):
     # 아래 세 행은 **같은 6열 격자** — 시작 열이 맞아야 화면 구도가 깨지지 않는다 `PC-098`
     #   (1fr 은 내용에 따라 열이 늘어나므로 minmax(0,1fr) 로 고정)
     g6 = 'display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-top:10px'
+    # 첫 줄은 **교재명만**(2칸) — 연동이 NPROJ 타이틀(없으면 파일명)로 채우고 여기서 고칠 수 있다 `PC-284`
+    #   ncp2 파일명 · 크기 · 최종수정은 아래 [casterN 연동] 묶음(읽기 전용)으로 옮겼다
     tmpl = ('<div class="card"><div class="hd">교재 정보</div><div class="bd">'
-            '<div class="g3">%s%s%s</div>%s'
+            '<div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px">'
+            '<div style="grid-column:span 2">%s</div></div>%s'
             '%s<div style="grid-column:span 2">%s</div></div>'
-            '<div style="' + g6 + '">%s%s%s%s</div>'
+            '<div style="' + g6 + '">%s%s</div>'
             '</div></div>')
     return (tmpl
-            % (field('교재명', v('교재명을 입력하세요' if e else '범블비 잉글리시 전집 1권', e),
-                     False, None, '목록·검색에 표시'),
-               field('ncp2 파일명', v('ncp2 파일명' if e else 'BUMBLEBEE_ENG_01', e)),
-               field('ncp2 파일 크기(byte)', v('0' if e else '109,316,656'), False, None,
-                     '서버 저장 용량 파악용'),
+            % (field('교재명', v('교재명 입력' if e else '범블비 잉글리시 전집 1권', e),
+                     False, None, '연동이 <b>NPROJ 타이틀 → 없으면 NPROJ 파일명</b>으로 채우고 <b>여기서 고칠 수 있다</b> '
+                     '(이후 전송에서 바꾸지 않는다) <code>PC-284</code> · 목록·검색에 표시'),
                pen_models,
                field('타입', sel('소리펜'), False, None,
                      '<b>소리펜 · 필기펜 2종</b> <code>PC-086</code> — 적용비·심볼 단가의 펜 구분'),
@@ -148,16 +154,58 @@ def info(empty=False, mod_date=True):
                                '<span class="chip on">소리펜_멀티터치 ✕</span>'), False, None,
                      '소리펜 12종 / 필기펜 7종 + <b>기능 없음</b>(공통) <code>PC-087</code> — '
                      '타입을 바꾸면 그 타입에 없는 것은 떨어진다 · 그 타입의 항목만(마우스를 올리면 설명)'),
-               field('Start Page', v('0'), False, None, '0 이상'),
+               field('Start Page', v('0'), False, None, '0 이상 · 연동: NPROJ 시작 페이지 <code>PC-284</code>'),
                field('Total Page', v('0' if e else '48'), False, None,
                      '<b>직접 입력</b> · <b>목록의 페이지 항목</b>에 반영된다 <code>PC-089</code>. '
                      '<b>청구액과는 무관</b> — 적용비는 [Ncode 적용] 수량으로 계산한다 '
                      '<code>PC-085</code>'),
-               field('발급일자 (Ncode 발급일)', v('2026-08-26' if e else '2019-04-11')),
-               field('ncp2 최종수정',
-                     v('입력 안 함' if not mod_date else '2019-08-16', not mod_date),
-                     False, None, '<b>완료 처리의 선행 조건</b>'),
                ))
+
+
+CASTER_TIP = ('casterN 에서 프로젝트를 저장하면 .nproj 파일명이 <b>프로젝트명</b>으로, ncp2 를 내보내면 그때 지정한 파일명이 <b>ncp2 파일명</b>으로 채워집니다. 같은 코드 · 같은 ncp2 파일명으로 다시 들어오면 이 교재가 최신 값으로 바뀝니다. 이 화면에서 고칠 수 없습니다.')
+
+
+def caster(empty=False, mod_date=True, tip=False):
+    # casterN 연동 — 네 칸 모두 **자동 · 읽기 전용** `PC-282`
+    #   프로젝트명 = 저장한 .nproj 파일명 · ncp2 파일명 = 내보내기 때 지정한 이름
+    #   ncp2 파일 크기 · 최종수정 = 저장 · 수정할 때마다 최신 값으로
+    def ro(x, mono=True):
+        if not x:
+            return '<div class="inp" style="background:#f9fafb;color:#9ca3af">미연동</div>'
+        return ('<div class="inp" style="background:#f9fafb;color:#374151;%s">%s</div>'
+                % ('font-family:ui-monospace,monospace' if mono else '', x))
+    e = empty
+    bubble = ''
+    if tip:
+        bubble = ('<div style="position:absolute;top:calc(100%% + 8px);left:-10px;z-index:5;width:340px;'
+                  'background:#1f2937;color:#f9fafb;border-radius:10px;padding:10px 14px;font-size:12.5px;'
+                  'line-height:1.6;font-weight:400">%s</div>' % CASTER_TIP)
+    head = ('<div class="hd" style="display:flex;align-items:center;gap:6px">casterN 연동'
+            '<span style="font-size:10.5px;background:#f3f4f6;color:#6b7280;border-radius:5px;'
+            'padding:2px 7px;font-weight:700">자동</span>'
+            '<span style="position:relative;display:inline-flex"><span style="display:inline-grid;'
+            'place-items:center;width:20px;height:20px;border-radius:999px;color:%s;background:%s;'
+            'font-size:12px">ⓘ</span>%s</span></div>'
+            % ('#2563eb' if tip else '#6b7280', '#eef6ff' if tip else 'transparent', bubble))
+    g6 = 'display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px'
+    return ('<div class="card">%s<div class="bd"><div style="%s">'
+            '<div style="grid-column:span 2">%s</div><div style="grid-column:span 2">%s</div>%s%s'
+            '<div style="grid-column:span 2">%s</div>%s'
+            '</div></div></div>'
+            % (head, g6,
+               field('프로젝트명 (.nproj)', ro(None if e else 'BUMBLEBEE_ENG_01.nproj', False), False, None,
+                     'casterN 에서 <b>프로젝트를 저장</b>하면 .nproj 파일명'),
+               field('ncp2 파일명', ro(None if e else 'BUMBLEBEE_ENG_01'), False, None,
+                     'ncp2 <b>내보내기 때 지정한 파일명</b>'),
+               field('ncp2 파일 크기 (byte)', ro(None if e else '109,316,656'), False, None,
+                     '저장 · 수정 때마다 갱신'),
+               field('ncp2 최종수정 (완료 필수)', ro('2019-08-16' if (mod_date and not e) else None),
+                     False, None, '마지막 수정일로 갱신 · <b>완료 처리의 선행 조건</b>'),
+               # 편집 유형(유입 경로) · 최초 등록일(옛 발급일자) `PC-284`
+               field('편집 유형', ro(None if e else 'casterN 마스터 계정', False), False, None,
+                     '유입 경로 — casterN 마스터 계정 / Resource Studio'),
+               field('최초 등록일', ro(None if e else '2019-04-11'), False, None,
+                     '교재 생성 요청이 처음 들어온 날짜 · <b>옛 발급일자</b>')))
 
 
 def qty(pen='소리펜'):
@@ -322,12 +370,13 @@ def extra(hi=None):
 
 def content(mode='edit', st='진행중', locked=False, need_date=False, released=False,
             share=False, sub_err=False, empty=False, pen='소리펜', badge='fixed',
-            discount=True, mod_date=True, hi=None, toast=''):
+            discount=True, mod_date=True, hi=None, toast='', tip=False):
     save = '추가' if mode in ('new', 'dup') else '저장'
     return (toast
             + status_row(st, locked, need_date, released) + '<div style="height:12px"></div>'
             + coord(mode, share, sub_err) + '<div style="height:12px"></div>'
             + info(empty, mod_date) + '<div style="height:12px"></div>'
+            + caster(empty, mod_date, tip) + '<div style="height:12px"></div>'
             + qty(pen) + '<div style="height:12px"></div>'
             + totals(pen) + '<div style="height:12px"></div>'
             + settle(badge, discount) + '<div style="height:12px"></div>'
@@ -360,7 +409,7 @@ def build():
         '편집팀 작업 기록이자 정산 입력 화면이다. 대상 단위 = 교재(책) 1권 = S/O/B 좌표 1개.',
         frame('PRJ-03', '교재(책) 추가',
               content(mode='new', empty=True, badge='new', discount=False, mod_date=False),
-              height=2100),
+              height=2260),
         [('진행 상태', '선택', '진행중 / 완료 / 보류', '기본값 <b>진행중</b>'),
          ('타입 = 소리펜', '선택', '<b>소리펜 심볼 입력 활성</b> · 필기펜 심볼 입력 <b>잠김</b>',
           '잠긴 묶음은 흐리게 + 제목에 <b>[잠김]</b> 배지 <code>PC-091</code>. '
@@ -390,8 +439,13 @@ def build():
         'S2', '수정 모드 · 교재(책) 편집 수정', '기본',
         '<code>PRJ-03</code>의 <b>교재 행 클릭</b>으로 진입. 화면 제목 <b>교재(책) 편집 수정</b>. '
         'S/O는 <b>(수정 불가)</b>로 표기된다.',
-        frame('PRJ-03', '교재(책) 편집 수정', content(), height=2100),
+        frame('PRJ-03', '교재(책) 편집 수정', content(tip=True), height=2260),
         [('S / O', '—', '<b>수정 불가</b>', '수정 모드에서는 변경할 수 없다'),
+         ('교재명', '입력', '—', '연동이 <b>NPROJ 타이틀 → 없으면 NPROJ 파일명</b>으로 채우고 여기서 고칠 수 있다 <code>PC-284</code>'),
+         ('casterN 연동', '—', '<b>읽기 전용 · 자동</b>',
+          '프로젝트명(.nproj) · ncp2 파일명 · ncp2 파일 크기 · ncp2 최종수정 · 편집 유형 · 최초 등록일 — casterN 저장 · 수정 때마다 '
+          '최신 값으로 채워진다. 값이 없으면 <b>미연동</b> <code>PC-282</code>'),
+         ('casterN 연동 ⓘ', '클릭', '말풍선(5초)', CASTER_TIP),
          ('Book', '선택', '—', '사용 가능한 번호에서'),
          ('발급인 · 펜 모델 · 타입 · 편집 방식', '—', '<b>한 줄</b>',
           '교재명 다음 줄에 <b>발급인 · 펜 모델 · 타입 · 편집 방식</b>(1 · 2 · 1 · 2칸) — 고른 값은 셀렉트 아래 <code>PC-096</code> <code>PC-278</code>'),
@@ -415,7 +469,7 @@ def build():
         'PRD §4.1 · §5 — <b>완료 처리하려면 ncp2 최종수정 날짜가 필요</b>하고, '
         '완료 상태에서는 <b>내용이 잠긴다</b>.',
         frame('PRJ-03', '교재(책) 편집 수정',
-              content(st='완료', locked=True), height=2100),
+              content(st='완료', locked=True), height=2260),
         [('안내', '표시', '—',
           '<b>🔒 완료 처리되어 내용이 잠겼습니다. 수정하려면 진행중으로 변경하세요.</b>'),
          ('입력 항목', '—', '<b>잠금</b>', ''),
@@ -429,34 +483,37 @@ def build():
               content(need_date=True, mod_date=False),
               overlay=ovl('완료할 수 없습니다',
                           'ncp2 최종수정 날짜가 비어 있어 완료할 수 없습니다. '
-                          '날짜를 입력한 뒤 완료로 변경하세요.'),
-              height=2100),
+                          'casterN 에서 ncp2 를 내보낸 뒤 완료로 변경하세요.'),
+              height=2260),
         [('[완료]', '클릭', '<b>차단</b>',
-          '<b>ncp2 최종수정 날짜가 비어 있어 완료할 수 없습니다. 날짜를 입력한 뒤 완료로 변경하세요.</b>'),
+          '<b>ncp2 최종수정 날짜가 비어 있어 완료할 수 없습니다. casterN 에서 ncp2 를 내보낸 뒤 완료로 변경하세요.</b>'),
          ('인라인 안내', '표시', '—', '<b>※ 완료하려면 ncp2 최종수정 날짜가 필요합니다.</b>'),
-         ('ncp2 최종수정', '입력', '완료 가능', '')]))
+         ('ncp2 최종수정', '자동', '완료 가능',
+          'casterN 에서 ncp2 를 내보내면 채워진다 — 직접 입력하지 않는다 <code>PC-282</code>')]))
 
     boards.append((
         'S5', '완료 해제 이력', '변형',
         'PRD §4.1 — 완료를 해제하면 그때의 ncp2 최종수정 날짜가 <b>이력으로 보관</b>되고'
         '(해제 시각·해제자 포함) 화면에서 확인할 수 있다.',
-        frame('PRJ-03', '교재(책) 편집 수정', content(released=True), height=2100),
+        frame('PRJ-03', '교재(책) 편집 수정', content(released=True), height=2260),
         [('완료 해제 이력', '표시', '—', '<b>· {날짜} (완료 해제 {해제일시} · {해제자})</b>'),
          ('[완료]', '클릭', '재완료', 'ncp2 최종수정 날짜가 있으면 가능')]))
 
     boards.append((
-        'S6', '공유 코드 · 사용 고객사 필수', '오류',
-        '<code>P-12</code> — 공유(커먼) 코드 Owner의 교재는 <b>사용 고객사 입력이 필수</b>다. '
-        '비우고 저장하면 확인창으로 막는다.',
+        'S6', '공유 코드 · 사용 고객사 = 서비스 티켓의 고객사', '분기',
+        '<code>P-12</code> — 공유(커먼) 코드 Owner의 교재는 <b>사용 고객사 (서비스 티켓)</b> 칸이 붙는다. '
+        '<b>고르지 않는다</b> — 이 교재의 S/O/B(코드 타입 포함)를 덮는 <b>서비스 티켓의 고객사명</b>이 상태값으로 뜬다 '
+        '<code>PC-289</code>. 코드 타입은 티켓 PDS2 = 교재 PDS2, 티켓 PDS3 = 교재 PDS3 · PDS4 (OID 는 서비스 티켓이 없다). '
+        '서비스 티켓끼리는 겹칠 수 없어(상위 · 하위 포함 <code>PC-291</code>) 한 장만 잡히고, 그 고객사가 교재 <b>소유 고객사</b>다. '
+        '옛 「사용 고객사를 입력하세요」 저장 차단은 없앴다.',
         frame('PRJ-03', '교재(책) 편집 수정',
-              content(share=True, sub_err=True),
-              overlay=ovl('저장할 수 없습니다',
-                          'S3/O21 는 공유 코드입니다. 사용 고객사를 입력하세요.'),
-              height=2160),
-        [('사용 고객사', '선택 (필수)', '—', '공유 코드 Owner일 때만 표시'),
-         ('[저장]', '클릭', '<b>차단</b>',
-          '<b>S{n}/O{n} 는 공유 코드입니다. 사용 고객사를 입력하세요.</b>'),
-         ('저장 후', '반영', '<code>SOB-01</code>', '지도에 사용 고객사·편집 상태 반영')]))
+              content(share=True), height=2160),
+        [('사용 고객사 (서비스 티켓)', '표시', '—', '티켓의 고객사명 · 보라 배지 · 고칠 수 없다'),
+         ('만료 · 대기 티켓', '표시', '—', '이름 뒤에 <b>만료</b> / <b>대기</b>'),
+         ('티켓 없음 · 등록된 이름 있음', '표시', '—', '그 이름을 흐린 점선 태그로 + <b>⚠ 티켓 필요</b> <code>PC-290</code>'),
+         ('티켓 없음 · 이름도 없음', '표시', '—', '<b>티켓 없음</b>(회색)'),
+         ('고객사명', 'hover', '툴팁', '<b>서비스 티켓 #{번호} · {코드 범위} · {사용기간}</b>'),
+         ('저장 후', '반영', '<code>SOB-01</code>', '지도에 사용 고객사(티켓의 고객사)·편집 상태 반영')]))
 
     boards.append((
         'S7', '단가 고정 · 현재 단가로 갱신', '분기',
@@ -501,7 +558,7 @@ def build():
         'PRD §4.7 · §5 — 확인 후 해당 교재 행이 <code>PRJ-03</code> 목록에서 제거된다.',
         frame('PRJ-03', '교재(책) 편집 수정', content(),
               overlay=ovl('교재 삭제', '이 책(교재) 편집 행을 삭제할까요?', danger=True),
-              height=2100),
+              height=2260),
         [('[교재 삭제]', '클릭', '확인창', '<b>이 책(교재) 편집 행을 삭제할까요?</b>'),
          ('[확인]', '클릭', '<code>PRJ-03</code> 목록에서 제거', '집계·청구액 갱신'),
          ('[취소] · [✕]', '클릭', 'S2 복귀', '')]))
@@ -513,7 +570,7 @@ def build():
         frame('PRJ-03', '교재(책) 편집 수정', content(hi='1'),
               overlay=ovl('수정할 수 없습니다',
                           '박지훈 님이 작성한 메모입니다. 본인 글만 수정할 수 있습니다.'),
-              height=2100),
+              height=2260),
         [('메모 종류', '선택', '요청 / 처리 / 메모', ''),
          ('내용 입력 후 Enter', 'Enter', '기록', 'Shift+Enter 줄바꿈'),
          ('남의 메모 [수정]', '클릭', '<b>차단</b>',
@@ -528,23 +585,23 @@ def build():
     boards.append((
         'S11', '복제 등록 — 같은 코드에 작업물 하나 더', '기본',
         '<code>PRJ-03</code> 교재 목록의 <b>[복제]</b> 로 진입 <code>PC-112</code>. 화면 제목 '
-        '<b>교재(책) 복제 추가</b>. 같은 코드(S/O/B)에 <b>ncp2 파일명이 다른 작업물</b>을 하나 더 '
+        '<b>교재(책) 복제 추가</b>. 같은 코드(S/O/B)에 <b>프로젝트 · ncp2 가 다른 작업물</b>을 하나 더 '
         '만들 때 쓴다 <code>PC-110</code> — 학생용 · 교사용 · 필기펜처럼. '
         '<b>코드 좌표 3칸(할당된 S/O · Book · 코드 종류)이 모두 수정 불가</b>이고, '
-        '교재명·사용 고객사만 원본에서 물려받은 채 <b>기본 정보 · 심볼 입력 · 산출물은 빈 값</b>으로 열린다. '
+        '교재명만 원본에서 물려받은 채 <b>기본 정보 · 심볼 입력 · 산출물은 빈 값</b>으로 열린다. '
         '일반 <b>[＋ 교재(책) 추가]</b> 의 Book 목록에는 <b>이미 쓴 Book 이 나오지 않으므로</b>(S1) '
         '같은 S/O/B 교재는 이 화면으로만 만들어진다.',
         frame('PRJ-03', '교재(책) 복제 추가',
               content(mode='dup', empty=True, badge='new', discount=False, mod_date=False),
-              height=2100),
+              height=2260),
         [('안내 배너', '표시', '—',
           '<b>복제 · 코드 S{s}/O{o}/B{b} 고정 — 기본 정보·심볼 입력은 초기화됨 · '
-          'ncp2 파일명은 원본과 달라야 합니다</b>'),
+          'casterN 연동 항목은 새 작업으로 채워집니다</b> <code>PC-282</code>'),
          ('할당된 S / O · Book · 코드 종류', '—', '<b>수정 불가</b>',
           '복제 원본의 코드 — 세 칸 모두 회색 고정 <code>PC-112</code>'),
-         ('교재명 · 사용 고객사', '표시', '—', '원본에서 물려받는다(고칠 수 있다)'),
-         ('ncp2 파일명', '입력 (필수)', '<b>중복 금지</b>',
-          '원본과 같으면 저장할 수 없다 — 실서비스는 <b>서버(노트서버) 파일명과 비교</b>'),
+         ('교재명', '표시', '—', '원본에서 물려받는다(고칠 수 있다) · 사용 고객사는 같은 코드라 같은 티켓으로 표시 <code>PC-289</code>'),
+         ('casterN 연동', '—', '<b>미연동</b>',
+          '프로젝트명 · ncp2 는 비어 있고 casterN 에서 새 작업을 저장하면 채워진다 <code>PC-282</code>'),
          ('심볼 입력 · 산출물', '—', '<b>초기화</b>', '원본 값을 가져오지 않는다'),
          ('[추가]', '클릭', '<code>PRJ-03</code> 갱신',
           '목록에 행이 늘고 <b>「작업 n/N」 배지의 N 이 하나 커진다</b>'),
@@ -552,23 +609,21 @@ def build():
          ('[목록]', '클릭', '<code>PRJ-03</code>', '입력값은 저장되지 않는다')]))
 
     boards.append((
-        'S12', 'ncp2 파일명 중복 · 같은 코드 중복', '오류',
-        '<code>PC-112</code> — 저장할 때 두 가지를 막는다. ① <b>ncp2 파일명</b>이 다른 교재(이 고객사 목록 + '
-        '적재된 전체)와 겹치면 저장되지 않는다(공백·대소문자·<code>.ncp2</code> 차이는 같은 파일로 본다). '
-        '② 일반 등록에서 <b>같은 S/O/B</b> 교재가 이미 있으면 막고 <b>[복제]</b> 를 안내한다.',
-        frame('PRJ-03', '교재(책) 복제 추가',
-              content(mode='dup', empty=True, badge='new', discount=False, mod_date=False),
+        'S12', '같은 코드 중복', '오류',
+        '<code>PC-112</code> — 일반 등록에서 <b>같은 S/O/B</b> 교재가 이미 있으면 막고 <b>[복제]</b> 를 안내한다. '
+        '<b>ncp2 파일명 중복 차단은 폐지</b> <code>PC-282</code> — 파일명은 casterN 이 채우고 이 화면에서 '
+        '고칠 수 없어, 옛 장부의 같은 이름이 저장을 막지 않도록 검사하지 않는다.',
+        frame('PRJ-03', '교재(책) 추가',
+              content(mode='new', empty=True, badge='new', discount=False, mod_date=False),
               overlay=ovl('저장할 수 없습니다',
-                          'ncp2 파일명 "ENGLISH_A_BOOK" 은 이미 다른 교재에 있습니다. '
-                          '파일명은 겹칠 수 없습니다.'),
-              height=2100),
-        [('[추가] · [저장]', '클릭', '<b>차단</b>',
-          '<b>ncp2 파일명 "{파일명}" 은 이미 다른 교재에 있습니다. 파일명은 겹칠 수 없습니다.</b>'),
-         ('같은 S/O/B (일반 등록)', '[추가]', '<b>차단</b>',
+                          'S3/O17/B431 에는 이미 교재가 있습니다. '
+                          '같은 코드에 작업물을 더 만들려면 목록의 [복제]를 쓰세요.'),
+              height=2260),
+        [('같은 S/O/B (일반 등록)', '[추가]', '<b>차단</b>',
           '<b>S{s}/O{o}/B{b} 에는 이미 교재가 있습니다. 같은 코드에 작업물을 더 만들려면 '
           '목록의 [복제]를 쓰세요.</b>'),
-         ('비교 대상', '참고', '—',
-          '프로토타입은 <b>이 고객사 목록 + 적재된 전체 교재</b> · 실서비스는 <b>서버 파일명</b>'),
+         ('ncp2 파일명 중복', '—', '<b>검사 안 함</b>',
+          '폐지 <code>PC-282</code> — 중복은 casterN · 서버 매칭에서 다룬다'),
          ('[확인]', '클릭', '폼 복귀', '입력값은 그대로 남는다')]))
 
     intro = ('교재(책) 1권의 <b>편집 내역과 정산 근거를 입력</b>하는 화면. '
