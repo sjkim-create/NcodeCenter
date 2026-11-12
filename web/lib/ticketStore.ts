@@ -30,7 +30,9 @@ export type Ticket = {
   company: string;
   accountId?: string;         // 연결 계정(email) — 계정 : 키 = **1:1** `PC-059`
   at: string;                 // 발급 일시 (KST, ISO)
-  by: string;                 // 발급인
+  by: string;                 // 발급인 (원장 기준값 · 고정)
+  manager?: string;           // 담당자 — 발급할 때 로그인한 직원이 기본 · 고칠 수 있다 `PC-296`
+  memo?: string;              // 메모 — 자유 기록 `PC-296`
   summary: string;            // 한 줄 요약
   params: Record<string, string | number>;   // Key 정보 확인용 전체 항목
   // 정산
@@ -144,11 +146,15 @@ export function hydrateTickets() {
   notify();
 }
 export const allTickets = () => list;
+// 담당자 — 저장한 값 → 대장의 「메모」 열(담당자 이름 · 담당(대장)) → 발급인 `PC-296`
+export const managerOf = (t: Ticket) => t.manager ?? (String(t.params["담당(대장)"] ?? "") || t.by || "");
+// 메모 — 저장한 값 → 대장 원본의 메모(2018 이전 시트) `PC-296`
+export const memoOf = (t: Ticket) => t.memo ?? (t.src === "ledger" ? (LEDGER.find((r) => r.no === t.no)?.memo ?? "") : "");
 export const ticketById = (id: number) => list.find((t) => t.id === id);
 
 // 발급 기록 수정 — 발급 내용·Key 정보 항목만 고친다.
 // 발급번호(no)·종류·고객사·발급일시·발급인은 원장 기준값이라 바꾸지 않는다.
-export function updateTicket(id: number, patch: { summary: string; params: Record<string, string | number> }) {
+export function updateTicket(id: number, patch: { summary: string; params: Record<string, string | number>; manager?: string; memo?: string }) {
   hydrateTickets();
   list = list.map((t) => (t.id === id ? { ...t, ...patch } : t));
   persist(); notify();

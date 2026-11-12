@@ -40,7 +40,8 @@ wb = load_workbook(SRC, data_only=True)
 tickets = []
 no = 0
 
-def add(sec, pt, owner, bs, be, project, gubun, issuer, pages, date, per):
+# 「메모」 열 = 담당자 이름(Ncode · Scode 시트) → issuer(담당(대장)) / 2018 이전 시트의 메모 · 기타 → memo `PC-296`
+def add(sec, pt, owner, bs, be, project, gubun, issuer, pages, date, per, memo=""):
     global no
     if not project: return
     no += 1
@@ -69,6 +70,7 @@ def add(sec, pt, owner, bs, be, project, gubun, issuer, pages, date, per):
         "at": (date or "2020-01-01") + "T00:00:00", "by": issuer, "summary": summary,
         "params": params, "billing": bill, "amount": 0,
         "billNote": note, "period": per,
+        **({"memo": memo} if memo else {}),
     })
 
 # ── Ncode 티켓 (Section 3) ──  col1=owner 2=bs 3=be 4=project 5=구분 6=발급자 7=page 8=date 9=기간
@@ -100,10 +102,11 @@ for row in ws.iter_rows(min_row=2, values_only=True):
     bm = re.findall(r"\d+", str(g(2) or ""))
     if bm: bs = int(bm[0]); be = int(bm[1]) if len(bm) > 1 else int(bm[0])
     add(sec, "Ncode_PDS3", inum(g(1)), bs, be, company,
-        "", txt(g(9)), inum(g(3)), dstr(g(8)), period(g(7)))
+        "", txt(g(9)), inum(g(3)), dstr(g(8)), period(g(7)),
+        " · ".join(x for x in (txt(g(5)), txt(g(6))) if x))
 
 json.dump(tickets, open(os.path.join(WEB, "ticket-ledger.json"), "w", encoding="utf-8"),
-          ensure_ascii=False, separators=(",", ":"))
+          ensure_ascii=False, indent=1)
 
 from collections import Counter
 bc = Counter(t["billing"] for t in tickets)

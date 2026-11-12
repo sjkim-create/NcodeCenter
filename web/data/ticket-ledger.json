@@ -1696,7 +1696,8 @@
   "billing": "미정",
   "amount": 0,
   "billNote": "",
-  "period": "무제한"
+  "period": "무제한",
+  "memo": "SDK PF-NOTE용 · 요청자 : 문홍균"
  },
  {
   "src": "ledger",
@@ -1724,6 +1725,7 @@
   "billing": "미정",
   "amount": 0,
   "billNote": "",
-  "period": "무제한"
+  "period": "무제한",
+  "memo": "전자칠판 컨트롤러사용 · 요청자 : 황락평"
  }
 ]

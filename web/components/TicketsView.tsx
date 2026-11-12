@@ -22,7 +22,7 @@ import {
 import { useCaster, CASTERN_PERMS, ALL_PERMS, type CasterPerm } from "@/lib/accountStore";
 import { useStore } from "@/lib/store";
 import {
-  addTicket, allTickets, deleteTicket, hydrateTickets, setBilling, ticketById, updateTicket, useTickets,
+  addTicket, allTickets, deleteTicket, hydrateTickets, setBilling, ticketById, updateTicket, useTickets, managerOf, memoOf,
   BILLINGS, BILLINGS_FILTER, BILL_COLOR, daysLeft, plusMonth, fmtMoney, krwOf, type Billing, type Ticket,
 } from "@/lib/ticketStore";
 import { BillingEditor, LicenseSlide } from "./BillingEditor";   // 정산 입력 — App Key · 서비스 티켓과 같은 조각 `PC-202`
@@ -158,7 +158,7 @@ function NKeyWorkspace() {
   // 필터는 **전체 발급분에 먼저** 건다 → 왼쪽 고객사 건수 · 가운데 목록이 그 결과를 고객사별로 보여 준다 `PC-150`
   const hits = (t: Ticket) =>
     (fBill ? t.billing === fBill : true)
-    && (q ? (labelOf(coKey(t)) + " " + t.company + " " + t.summary + " " + t.by + " " + t.no).toLowerCase().includes(q.toLowerCase()) : true);
+    && (q ? (labelOf(coKey(t)) + " " + t.company + " " + t.summary + " " + t.by + " " + managerOf(t) + " " + memoOf(t) + " " + t.no).toLowerCase().includes(q.toLowerCase()) : true);
   const hitAll = tickets.filter(hits);
   const hitOf = (k: string) => hitAll.filter((t) => (k === ALL_CO ? true : isOf(t, k)));
   // 고객사 검색 중 「전체」면 가운데에 검색한 고객사(하위 고객사 포함)의 발급 티켓을 보인다 `PC-199`
@@ -323,7 +323,7 @@ function NKeyWorkspace() {
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, fontSize: 11.5, color: "#6b7280" }}>
                     {t.src === "ledger" && <span style={{ ...S.tag, background: "#f3f4f6", color: "#9ca3af" }} title="nkey(HLP) 발급 대장에서 가져온 과거 이력">대장</span>}
                     {p["Book Volume"] ? <span>{p["Book Volume"]}권</span> : null}
-                    <span>{t.by || "-"}</span>
+                    <span title="담당자">{managerOf(t) || "-"}</span>   {/* 담당자 `PC-296` */}
                     {coKey(t) === UNLINKED_CO && <span style={{ color: "#b45309" }}>대장명 {t.company}</span>}
                     {t.billing === "유료" && <b style={{ color: "#1d4ed8" }}>{t.currency === "USD" ? fmtMoney(t) : won(t.amount)}</b>}
                     {t.billing === "체험" && t.trialUntil && <span style={{ color: (left ?? 0) < 0 ? "#dc2626" : "#92400e" }}>~{t.trialUntil.slice(5)} {(left ?? 0) < 0 ? "(만료)" : `D-${left}`}</span>}
@@ -487,6 +487,11 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
               <Field label="발급일시"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280", fontFamily: "ui-monospace,monospace" }}>{t.at.slice(0, 16).replace("T", " ")}</div></Field>
               <Field label="발급인"><div style={{ ...S.input, background: "#f7f8fa", color: "#6b7280" }}>{t.by || "-"}</div></Field>
             </div>
+            {/* 담당자 · 메모 — 보기 전용 · 고치려면 [티켓 수정] `PC-296` */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12, marginTop: 12 }}>
+              <Field label="담당자"><div style={{ ...S.input, background: "#f7f8fa", color: "#374151" }}>{managerOf(t) || "-"}</div></Field>
+              <Field label="메모"><div style={{ ...S.input, background: "#f7f8fa", color: memoOf(t) ? "#374151" : "#9ca3af", whiteSpace: "pre-wrap", minHeight: 34 }}>{memoOf(t) || "-"}</div></Field>
+            </div>
             <div style={{ marginTop: 12 }}>
               <Field label={editing ? "발급 내용 (목록 표기) *" : "발급 내용 (목록 표기)"}>
                 {editing
@@ -605,6 +610,10 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
   // 고객사 = **고객사 관리 고객사** `PC-153`
   const company = companyId ? companies.find((c) => c.id === companyId) : undefined;
   const [issuedTime, setIssuedTime] = useState(yyyymmdd());   // 발급일 — 오늘이 기본 · 고칠 수 있다(YYYYMMDD) `PC-232`
+  // 담당자 — 로그인한 직원이 기본 · 고칠 수 있다(등록된 직원 이름을 제안) / 메모 — 자유 기록 `PC-296`
+  const [manager, setManager] = useState(edit ? managerOf(edit) : (me?.name ?? ""));
+  const [memo, setMemo] = useState(edit ? memoOf(edit) : "");
+  const staffNames = useAuth().users.filter((u) => u.enabled).map((u) => u.name);
 
   useEffect(() => { hydrateMembers(); }, []);
   useCommonMembers();   // 사용자 등록분 변경 시 리렌더
@@ -769,7 +778,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
 
     const summary = `${selCu ? `[사용 고객사: ${selCu.cu}] ` : ""}${patternOf(ctype)} S${range.section}/O${range.owner}/B${bookStart}~${bookEnd} · Book ${books}권 · P${pageStart}~${pageStart + pageVolume - 1} · ${separate ? "개별티켓 " + books + "장" : "병합 1장"} · 유효 ${untilUnlimited ? "무제한" : validValue} · ${profile === "HYBRID" ? `HYBRID(권한 ${hperms.length})` : "LEGACY"}${codeReuse ? " · 코드 재사용" : ""}`;
     const issued = addTicket({ kind: "N", companyId: company.id, company: company.name, coRef: company.id,
-                by: me?.name ?? "", summary, params });
+                by: me?.name ?? "", manager: manager.trim() || me?.name || "", memo: memo.trim() || undefined, summary, params });
     logActivity("nkey", `N Key · ${company.name} · ${summary}`, me?.name);
     if (onIssued) { onIssued(issued); return; }   // 3단 화면 — 발급한 티켓의 정산 정보 탭으로 `PC-149`
     setToast(`N Key 발급됨 · 티켓 ${asZip ? books + "개(개별 .nkey)" : "1장"} · B${bookStart}~${bookEnd} — ${fileName} 으로 다운로드됩니다.`);
@@ -779,7 +788,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
   //   고객사 · 발급일 · 폼에 없는 항목(대장 항목 등)은 그대로 둔다
   const formKeys = new Set(Object.keys(ticketParams()));
   //   옛 Profile · Code Reuse 는 Ticket Version · Ticket Type 으로 옮겨져 기타 항목에 두지 않는다 `PC-257` `PC-258`
-  const OLD_KEYS = ["Company Name", "Issued Time", "Profile", "Code Reuse", "CasterN Permissions"];
+  const OLD_KEYS = ["Company Name", "Issued Time", "Profile", "Code Reuse", "CasterN Permissions", "담당(대장)"];   // 담당(대장) = 담당자 칸 `PC-296`
   const extraParams = edit ? Object.entries(edit.params).filter(([k]) => !formKeys.has(k) && !OLD_KEYS.includes(k)) : [];
   const saveEdit = () => {
     if (!edit || !range) return;
@@ -798,7 +807,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     delete params.Profile; delete params["Code Reuse"];   // Ticket Version · Ticket Type 로 옮김 `PC-257` `PC-258`
     const pt = PT_OF[ctype] ?? range.pt;
     const summary = `${pt} S${range.section}/O${range.owner}/B${bookStart}~${bookEnd} · Book ${books}권 · P${pageStart}~${pageStart + pageVolume - 1} · ${separate ? "개별티켓 " + books + "장" : "병합 1장"} · 유효 ${untilUnlimited ? "무제한" : validValue} · ${profile === "HYBRID" ? `HYBRID(권한 ${hperms.length})` : "LEGACY"}${codeReuse ? " · 코드 재사용" : ""}`;
-    updateTicket(edit.id, { summary, params });
+    updateTicket(edit.id, { summary, params, manager: manager.trim(), memo: memo.trim() });   // 담당자 · 메모 `PC-296`
     logActivity("nkey", `티켓 수정 · ${edit.company} · 발급 ${edit.no}번 · N Key`, me?.name);
     onSaved?.();
   };
@@ -985,6 +994,18 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
             onChange={(e) => { const cap = range ? (PAGE_CAP[range.pt]?.[range.section] ?? Infinity) : Infinity; setPageVolume(Math.max(1, Math.min(cap, +e.target.value))); }} disabled={!range} />
           {page8Bad && range && <div style={{ fontSize: 11.5, color: "#b91c1c", marginTop: 4 }}>8의 배수만 — {page8Lo === page8Hi ? page8Hi : `${page8Lo} 또는 ${page8Hi}`}</div>}
         </Field>
+      </FormSec>
+
+      {/* ④ 관리 정보 — 담당자(로그인한 직원이 기본 · 고칠 수 있음) · 메모 `PC-296` */}
+      <FormSec title="관리 정보" cols={4}>
+        <Field label="담당자">
+          <input style={S.input} list="ncc-staff-names" value={manager} disabled={!company && !edit} onChange={(e) => setManager(e.target.value)} placeholder="담당 직원 이름" />
+          <datalist id="ncc-staff-names">{staffNames.map((n) => <option key={n} value={n} />)}</datalist>
+        </Field>
+        <div style={{ gridColumn: "span 3" }}><Field label="메모">
+          <textarea style={{ ...S.input, resize: "vertical", minHeight: 36, fontFamily: "inherit" }} rows={2} value={memo} disabled={!company && !edit}
+            onChange={(e) => setMemo(e.target.value)} placeholder="예) 최초 500개 요청 → 고객사 정정으로 200개 제공" />
+        </Field></div>
       </FormSec>
 
       {/* 폼에 없는 항목(대장 항목 등) — 고치지 않고 그대로 둔다 `PC-226` */}

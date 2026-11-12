@@ -125,7 +125,8 @@ def ticket_detail(tab='base', no=36, co='KODION', bill='무료', amount='', tria
     if tab == 'base' or editing:
         body = (('<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 12px;border-radius:9px;border:1px solid #93c5fd;'
                  'background:#f0f7ff;font-size:12.5px"><b style="color:#1d4ed8">수정 전</b><span style="color:#374151">%s</span></div>' % SUM) if editing else '') + (
-                '<div class="g3">' + fld('고객사', co, ro=True) + fld('발급일시', at, ro=True, mono=True) + fld('발급인', by, ro=True) + '</div>'
+                '<div class="g3">' + fld('고객사', co, ro=True) + fld('발급일시', at, ro=True, mono=True) + fld('발급인', by, ro=True) + '</div>' +
+                ('' if editing else '<div style="display:grid;grid-template-columns:1fr 2fr;gap:12px;margin-top:12px">' + fld('담당자', by, ro=True) + fld('메모', '-', ro=True) + '</div>') +   # 담당자 · 메모 `PC-296`
                 '<div style="margin-top:12px">' + (fld('발급 내용 (목록 표기) *', '' if err == 'sum' else SUM, err=(err == 'sum')) if editing
                                                      else fld('발급 내용 (목록 표기)', kws.sobp_chips('PDS3', '3', '46', '10~11', '0~511') + ' <span style="font-size:12.5px;color:#6b7280">Book 2권 · 기간 무제한</span>', ro=True)) + '</div>'   # SOBP 칩 `PC-241`
                 + ('<div class="inline-err">발급 내용을 입력하세요.</div>' if err == 'sum' else '') +
@@ -200,7 +201,10 @@ def nkey_form(co='KODION-46', picked=False, open_=False, common=False, sep=False
              sec('', fld('Start Book (시작 북코드)', bs, ph=not bs) + fld('Book Size (권)', bv, ph=not bv, err=over)[:-6] + '<div style="margin-top:4px;font-size:12px;color:#374151;white-space:nowrap">%s Separate Each Book</div></div>' % ('☑' if sep else '☐') +   # Book Size 아래 체크 `PC-228`
                  fld('Start Page', '1 (기본)') +
                  (fld('Page Size · 8의 배수', '500', err=True)[:-6] + '<div style="margin-top:4px;font-size:11.5px;color:#b91c1c">8의 배수만 — 496 또는 504</div></div>' if page8
-                  else fld('Page Size' + (' · 8의 배수' if hybrid else ''), '512')), 'g4'))   # HYBRID 8의 배수 `PC-260`
+                  else fld('Page Size' + (' · 8의 배수' if hybrid else ''), '512')), 'g4') +   # HYBRID 8의 배수 `PC-260`
+             # 관리 정보 — 담당자(로그인한 직원이 기본 · 고칠 수 있음) · 메모 `PC-296`
+             sec('관리 정보', fld('담당자', '황락평' if edit else '김순정') +
+                 '<div style="grid-column:span 3">' + fld('메모', '예) 최초 500개 요청 → 고객사 정정으로 200개 제공', ph=True) + '</div>', 'g4'))
     prof = ''
     # 발급 정책 — 막음(빨강) · 경고(주황) `PC-219`
     if policy:
@@ -224,7 +228,7 @@ def nkey_form(co='KODION-46', picked=False, open_=False, common=False, sep=False
             % (co, tg('PDS3 S3/O46', '#eef6ff', '#2563eb') if picked else ''))
     if edit:   # 수정 — 상세 안에 넣는다: 머리 · 카드 · 다운로드 안내 없이, 폼에 없는 대장 항목은 「기타 항목」으로 `PC-226`
         extra = ('<div style="margin-top:16px"><div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #f1f3f6">기타 항목 (그대로 둠)</div>'
-                 '<div class="g2" style="gap:10px 12px">' + fld('구분(대장)', '무상', ro=True) + fld('담당(대장)', '황락평', ro=True) + '</div></div>')
+                 '<div class="g2" style="gap:10px 12px">' + fld('구분(대장)', '무상', ro=True) + '</div></div>')
         return ('%s<div style="margin-top:12px">%s</div>%s%s%s%s'
                 % (fld('고객사', 'KODION', ro=True), pick, grid1 + prof + extra, foot, plan.replace('발급 예정', '수정 후').replace('S3/O46/B8~11', 'S3/O46/B10~11'), msg))
     return ('<div style="%s;padding:18px">%s%s<div style="margin-top:12px">%s</div>%s%s%s%s%s</div>'
