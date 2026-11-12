@@ -214,6 +214,7 @@ MENU = [
     ('grp', '멤버 관리', None, None),
     ('item', '고객사 관리', 'MEM-01', '👥'),
     ('admin', '활동 로그', 'LOG-01', '📝'),
+    ('admin', '직원 계정', 'MEM-03', '🪪'),   # ADMIN 전용 `PC-297`
     ('grp', '코드', None, None),
     ('item', 'SOBP 맵', 'SOB-01', '🗺️'),
     ('item', '코드 프로젝트', 'PRJ-01', '🎫'),

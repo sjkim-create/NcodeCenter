@@ -50,6 +50,9 @@ function hydrate() {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       state = JSON.parse(raw);
+      // 명단(staffUsers)에 새로 넣은 직원이 저장분에 없으면 채운다 — 이미 있는 직원의 값은 그대로 `PC-297`
+      const missing = SEED.users.filter((u) => !state.users.some((x) => x.email.toLowerCase() === u.email.toLowerCase()));
+      if (missing.length) { state = { ...state, users: [...state.users, ...missing] }; persist(); }
       const cur = state.currentEmail ? state.users.find((u) => u.email === state.currentEmail) : null;
       if (cur) setActivityActor(cur.name);   // 새로고침해도 활동 기록 작성자 유지
       // 로그인 상태(currentEmail)면 데모 세션 쿠키를 다시 세워 미들웨어 게이트와 일치시킨다 `PC-116`.
@@ -83,9 +86,16 @@ export const auth = {
     }
     const wasLoggedIn = state.currentEmail?.toLowerCase() === s.email.toLowerCase();
     const existing = state.users.find((u) => u.email.toLowerCase() === s.email.toLowerCase());
+    if (existing && !existing.enabled) {
+      // 사용 중지한 직원 — 회사 계정으로 들어와도 콘솔에 들이지 않는다 `PC-297`
+      if (state.currentEmail !== null) commit({ ...state, currentEmail: null });
+      setActivityActor("");
+      return;
+    }
     if (existing) {
-      // 이름은 IdP 값을 우선(회사 프로필), 역할/부서 등 로컬 편집값은 유지
-      const users = state.users.map((u) => (u.id === existing.id ? { ...u, name: s.name || u.name, enabled: true } : u));
+      // 이름 · 역할 · 부서 · 사용 여부는 직원 계정 화면에서 정한 값을 유지한다 — 이름은 비어 있을 때만 회사 프로필 값 `PC-297`
+      //   (사용 중지한 직원을 로그인만으로 다시 켜지 않는다)
+      const users = state.users.map((u) => (u.id === existing.id ? { ...u, name: u.name || s.name } : u));
       commit({ ...state, users, currentEmail: existing.email });
     } else {
       const nu: User = { id: s.email, email: s.email, name: s.name, department: "-", role: s.role, enabled: true, password: "" };

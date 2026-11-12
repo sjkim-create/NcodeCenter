@@ -63,6 +63,7 @@ export const MENU: MenuGroup[] = [
     items: [
       { no: 7, label: "고객사 관리", path: "/companies", icon: "👥", ready: true },
       { no: 9, label: "활동 로그", path: "/activity", icon: "📝", ready: true, admin: true },
+      { label: "직원 계정", path: "/staff", icon: "🪪", ready: true, admin: true },   // MEM-03 · ADMIN 전용 `PC-297`
     ],
   },
   {
