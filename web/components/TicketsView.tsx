@@ -11,13 +11,13 @@ import { NKEY_TYPES, sectionsFor, parseNkey, secOk, profileOk, isKnownSection, d
 import { codeKind, codeTypeRangeErr, kindsFor, kindLabel, patternOf, patternTypeParam, CODE_KINDS, PAGE_CAP, BOOK_CAP, type CodeKind } from "@/lib/codeKind";
 import { codesOfCompany } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
-import { companyOfNTicket, nKeyRangesOfCompany } from "@/lib/keyCompany";
+import { companyOfNTicket, nKeyRangesOfCompany, scopeRanges, type RangeScope } from "@/lib/keyCompany";
 import { sobpOverlapMsg, spanOfParams, spansOverlap } from "@/lib/rangeGuard";
 import { SobpChips } from "./sobp";
 import { SobpUsage } from "./SobpUsage";
 import {
   WS_CARD, WS_HD, WS_GRID, WS_EMPTY, WS_HEAD_BTN, wsItem,
-  WsTitle, WsStats, WsCoHead, WsCoToggle, WsCoItem, WsFillScroll, WsCoGroup, WsTabs, useSubsOf, nestCompanies, type CoView, type WsFold,
+  WsTitle, WsStats, WsCoHead, WsCoToggle, WsCoItem, WsFillScroll, WsCoGroup, WsTabs, useSubsOf, nestCompanies, InfoTip, type CoView, type WsFold,
 } from "./KeyWorkspaceUI";   // App Key 관리와 같은 조각 `PC-154`
 import { useCaster, CASTERN_PERMS, ALL_PERMS, type CasterPerm } from "@/lib/accountStore";
 import { useStore } from "@/lib/store";
@@ -179,8 +179,10 @@ function NKeyWorkspace() {
     expired: a.expired + (t.billing === "체험" && (daysLeft(t.trialUntil) ?? 0) < 0 ? 1 : 0),
   }), { paid: 0, amount: 0, free: 0, trial: 0, todo: 0, expired: 0 });
 
-  const pickCo = (name: string) => {
-    setCo(name);
+  // 어느 줄로 골랐나 — 상위 밑 하위 줄이면 그 상위 이름(공유 범위만) · 자기 줄이면 null(자기 범위만) — App Key 와 같다 `PC-318`
+  const [via, setVia] = useState<string | null>(null);
+  const pickCo = (name: string, parent: string | null = null) => {
+    setCo(name); setVia(parent);
     const first = [...hitOf(name)].sort(sortAt)[0];
     setRight(first ? { kind: "t", id: first.id } : { kind: "none" });
   };
@@ -198,8 +200,8 @@ function NKeyWorkspace() {
 
   const card = WS_CARD, hd = WS_HD;
   // 고객사 한 줄 — App Key 관리와 같은 모양(미정 표시 없음) `PC-198`
-  const coBtn = (name: string, label: string, n: number, warn = false, sub = false, fold?: WsFold) =>
-    <WsCoItem key={name || "__all"} label={label} n={n} on={co === name} warn={warn} sub={sub} fold={fold} bold={name === ALL_CO} title="N Key 발급 건수" onClick={() => pickCo(name)} />;
+  const coBtn = (name: string, label: string, n: number, warn = false, sub = false, fold?: WsFold, parent: string | null = null) =>
+    <WsCoItem key={`${parent ?? ""}|${name || "__all"}`} label={label} n={n} on={co === name && via === parent} warn={warn} sub={sub} fold={fold} bold={name === ALL_CO} title="N Key 발급 건수" onClick={() => pickCo(name, parent)} />;
   // 하위 고객사는 상위 고객사 밑에 들여 보인다 — App Key 관리와 같다 `PC-197`
   const keepCo = (k: string) => (cq ? labelOf(k).toLowerCase().includes(cq.toLowerCase()) : true) && (filtered0 ? hitOf(k).length > 0 : true);
   const coRows = nestCompanies(coList.map((k) => companies.find((c) => String(c.id) === k)!).filter(Boolean), companies, subsOf, (c) => keepCo(String(c.id)));
@@ -259,7 +261,7 @@ function NKeyWorkspace() {
               {coRows.map(({ c, subs }) => (
                 <WsCoGroup key={c.id} n={subs.length} autoOpen={!!cq}
                   head={(fold) => coBtn(String(c.id), c.name, hitOf(String(c.id)).length, false, false, fold)}>
-                  {subs.map((x) => coBtn(String(x.id), x.name, hitOf(String(x.id)).length, false, true))}
+                  {subs.map((x) => coBtn(String(x.id), x.name, hitOf(String(x.id)).length, false, true, undefined, c.name))}
                 </WsCoGroup>
               ))}
               {coList.length === 0 && <div style={{ fontSize: 12, color: "#9ca3af", padding: "14px 6px", textAlign: "center", lineHeight: 1.7 }}>{filtered ? "필터에 맞는 고객사가 없습니다." : view === "issued" && cq ? <>발급 고객사에 없습니다.<br />[전체 고객사]에서 찾아 발급하세요.</> : "검색 결과가 없습니다."}</div>}
@@ -346,7 +348,7 @@ function NKeyWorkspace() {
               onDeleted={() => { const rest = list.filter((x) => x.id !== right.id); setRight(rest[0] ? { kind: "t", id: rest[0].id } : { kind: "none" }); }} />
           )}
           {right.kind === "new" && (
-            <NKeyEmbeddedForm key={`new-${co}`} me={me} initCompanyId={coCompany?.id ?? 0}
+            <NKeyEmbeddedForm key={`new-${co}-${via ?? ""}`} me={me} initCompanyId={coCompany?.id ?? 0} rangeScope={coCompany ? (via ? { parent: via } : "own") : undefined}
               onIssued={(t) => { setCo(String(t.coRef ?? ALL_CO)); setFBill(""); setQ(""); setRight({ kind: "t", id: t.id, tab: "bill" }); }}
               onCancel={() => { const first = list[0]; setRight(first ? { kind: "t", id: first.id } : { kind: "none" }); }} />
           )}
@@ -367,11 +369,13 @@ function NKeyWorkspace() {
 }
 
 // 3단 화면 오른쪽 칸의 N Key 발급 폼 — 왼쪽에서 고른 고객사로 시작한다(바꿀 수 있음)
-function NKeyEmbeddedForm({ me, initCompanyId, onIssued, onCancel }: {
-  me: ReturnType<typeof currentUser>; initCompanyId: number; onIssued: (t: Ticket) => void; onCancel: () => void;
+function NKeyEmbeddedForm({ me, initCompanyId, onIssued, onCancel, rangeScope }: {
+  me: ReturnType<typeof currentUser>; initCompanyId: number; onIssued: (t: Ticket) => void; onCancel: () => void; rangeScope?: RangeScope;
 }) {
   const [companyId, setCompanyId] = useState(initCompanyId);
-  return <NKeyForm me={me} companyId={companyId} setCompanyId={setCompanyId} embedded onIssued={onIssued} onCancel={onCancel} />;
+  // 왼쪽에서 고른 줄의 범위 맥락은 그 고객사 그대로일 때만 — 폼에서 고객사를 바꾸면 그 고객사 범위 전부 `PC-318`
+  return <NKeyForm me={me} companyId={companyId} setCompanyId={setCompanyId} embedded onIssued={onIssued} onCancel={onCancel}
+    rangeScope={companyId === initCompanyId ? rangeScope : undefined} />;
 }
 
 /* ── 발급 상세 · 수정 — 목록에서 발급번호·발급내용을 누르면 열린다 ── */
@@ -469,13 +473,7 @@ export function TicketDetailView({ ticketId, embedded = false, initTab, onDelete
 
         {tab === "base" || editing ? (
           <div style={editing ? { border: "1px solid #93c5fd", background: "#fbfdff", borderRadius: 10, padding: "14px 16px" } : undefined}>
-            {/* 수정 중 — 수정 전 값을 보이고 그 아래에서 고친다 `PC-201` */}
-            {editing && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "8px 12px", borderRadius: 9, border: "1px solid #93c5fd", background: "#f0f7ff", fontSize: 12.5, flexWrap: "wrap" }}>
-                <b style={{ color: "#1d4ed8" }}>수정 전</b>
-                <span style={{ color: "#374151" }}>{t.summary}</span>
-              </div>
-            )}
+            {/* 「수정 전」 박스는 뺐다 — 폼이 그 티켓 값으로 채워지고 [취소]로 되돌린다(App Key 와 같게) `PC-315` */}
             {/* 수정 = 발급과 같은 폼(코드 구간 · 티켓 속성 · 기간 · 버전) `PC-226` */}
             {editing ? (
               <NKeyForm me={me} companyId={companyOfNTicket(t, companies)?.id ?? 0} setCompanyId={() => {}} embedded edit={t}
@@ -581,10 +579,11 @@ const yyyymmdd = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slic
 
 // 고객사 = **티켓 고객사**(nkey(HLP) 대장 프로젝트명 + 티켓 화면 등록분) — 고객사 관리와 별개 `PC-123`
 // edit — 발급된 티켓 수정: 같은 폼을 그 티켓 값으로 채워 고친다(App Key 처럼) `PC-226`
-function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onCancel, edit, onSaved }: {
+function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onCancel, edit, onSaved, rangeScope }: {
   me: ReturnType<typeof currentUser>; companyId: number; setCompanyId: (n: number) => void;
   embedded?: boolean; onIssued?: (t: Ticket) => void; onCancel?: () => void;   // 3단 화면 오른쪽 칸 `PC-149`
   edit?: Ticket; onSaved?: () => void;
+  rangeScope?: RangeScope;   // 단독 줄 = 자기 범위만 · 하위 줄 = 그 상위 공유 범위만 `PC-318`
 }) {
   const [sobpIdx, setSobpIdx] = useState(-1);
   const [bookStart, setBookStart] = useState(0);   // Start Book (할당 범위 안에서 직접 입력)
@@ -643,8 +642,8 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
       });
     }
     // N Key 발급 범위 = nkey 대장 이력(이 고객사로 이어진 티켓) + 고객사의 SOBP 할당 + (K) 할당 `PC-153`
-    return nKeyRangesOfCompany(company, projects, allTickets().filter((t) => t.kind === "N"), companies);
-  }, [company, isCommon, commonCodes, projects, companies, edit])
+    return scopeRanges(nKeyRangesOfCompany(company, projects, allTickets().filter((t) => t.kind === "N"), companies), rangeScope);   // `PC-318`
+  }, [company, isCommon, commonCodes, projects, companies, edit, rangeScope])
     // OID · PDS4 는 새로 발급할 수 없다 — 범위 목록에도 내지 않는다(수정 중인 옛 티켓은 그대로) `PC-219` `PC-220`
     .filter((r) => !!edit || (NKEY_TYPES as string[]).includes(CT_OF[r.pt] ?? r.pt));
   const range = ranges[sobpIdx];
@@ -827,8 +826,9 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
             {range.untyped ? "" : `${range.pt} `}S{range.section}/O{range.owner}
           </span>
         )}
+        {/* 설명은 ⓘ 말풍선 — App Key 티켓 발급과 같게 `PC-318` */}
+        <InfoTip title="N Key 발급 설명" width={300}>SOBP 코드 사용 허가 티켓입니다(Caster lite · 오프라인 CasterN). 범위를 고르면 Section · Owner · Book · Code Type 이 채워집니다.</InfoTip>
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 11.5, color: "#9ca3af" }}>SOBP 코드 사용 허가 (Caster lite 티켓)</span>
       </div>
 
       {/* 폼 정리 — 발급 범위를 맨 위에, 나머지는 2열로 짝지어 묶는다 `PC-222`
@@ -859,7 +859,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
             {selCu && <div style={{ fontSize: 11.5, color: "#6b21a8", marginTop: 6 }}>발급 코드: <b>{kindLabel(codeKind(selCu.k, 3))} · S3 / O{selCu.owner}</b> · 사용 고객사 <b>{selCu.cu}</b></div>}
           </Field>
         ) : (
-          <Field label={edit ? "코드 범위 (같은 Section · Owner 의 할당 범위 안에서 고칩니다)" : "발급 범위 * (nkey 대장 이력 · SOBP 할당 — 고르면 Section · Owner · Book · Code Type 이 채워집니다)"}>
+          <Field label="SOBP 발급 범위 *">{/* App Key 와 같은 칸 제목 `PC-317` */}
             <SobpRangePicker company={!!company} ranges={ranges} value={sobpIdx} onSelect={onRange} />   {/* 코드 타입 표시 없음 `PC-224` */}
           </Field>
         )}
@@ -1024,13 +1024,9 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
       )}
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 14, paddingTop: 12, borderTop: "1px solid #eef0f4" }}>
-        <div style={{ fontSize: 12, color: "#6b7280", flex: 1, minWidth: 200 }}>
-          {range ? (
-            <>
-              발급 예정: <b style={{ color: "#111827" }}>S{range.section}/O{range.owner}/B{bookStart}~{bookEnd}</b> · {separate ? `개별 티켓 ${books}장` : "병합 티켓 1장"} · P{pageStart}~{pageStart + pageVolume - 1} · <b style={{ color: "#111827" }}>{profile === "HYBRID" ? `HYBRID (권한 ${hperms.length})` : "LEGACY"}</b>{codeReuse ? " · 코드 재사용" : ""}
-              {bookEnd > range.bookEnd && <span style={{ color: "#dc2626", fontWeight: 700 }}> · ⚠ 할당 범위(B{range.bookEnd}) 초과</span>}
-            </>
-          ) : null}
+        {/* 「발급 예정: …」 요약 줄은 뺐다(같은 값이 위 칸에 있다 — App Key 와 같게) · 할당 범위 초과 경고만 남긴다 `PC-318` */}
+        <div style={{ fontSize: 12, flex: 1, minWidth: 200 }}>
+          {range && bookEnd > range.bookEnd && <span style={{ color: "#dc2626", fontWeight: 700 }}>⚠ 할당 범위(B{range.bookEnd}) 초과</span>}
         </div>
         {embedded || edit
           ? <button onClick={onCancel} style={{ ...S.ghost, whiteSpace: "nowrap" }}>취소</button>

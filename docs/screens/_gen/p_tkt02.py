@@ -115,7 +115,7 @@ KODION_PARAMS = (('Company Name', 'KODION'), ('Section', '3'), ('Owner', '46'), 
 
 
 def ticket_detail(tab='base', no=36, co='KODION', bill='무료', amount='', trial='', note='무상', err='', toast='', at='2026-07-07 00:00', by='황락평', editing=False, currency='KRW', fx='', lic=None):
-    """발급 상세 — 보기(읽기 전용) → [티켓 수정] → 수정 상태(파란 테두리 · 수정 전 · 탭 숨김) `PC-201`"""
+    """발급 상세 — 보기(읽기 전용) → [티켓 수정] → 수정 상태(파란 테두리 · 탭 숨김) `PC-201` `PC-315`"""
     t = '' if editing else kws.tabs((('base', '발급 기본정보', ''), ('bill', '정산 정보', '')), tab)
     head = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap"><b style="font-size:14px;color:%s">%s</b>'
             '%s<span style="%s;font-size:12.5px">발급 %d번</span>%s%s</div>'
@@ -123,8 +123,7 @@ def ticket_detail(tab='base', no=36, co='KODION', bill='무료', amount='', tria
                tg('N Key', '#eef6ff', '#2563eb'), MONO, no, tg(co, '#f3f4f6', '#6b7280', False), tg('대장', '#f3f4f6', '#9ca3af')))
     SUM = 'Ncode_PDS3 S3/O46/B10 · Book 2권 · P0~511 · 기간 무제한'
     if tab == 'base' or editing:
-        body = (('<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 12px;border-radius:9px;border:1px solid #93c5fd;'
-                 'background:#f0f7ff;font-size:12.5px"><b style="color:#1d4ed8">수정 전</b><span style="color:#374151">%s</span></div>' % SUM) if editing else '') + (
+        body = (   # 「수정 전」 박스 없음 `PC-315`
                 '<div class="g3">' + fld('고객사', co, ro=True) + fld('발급일시', at, ro=True, mono=True) + fld('발급인', by, ro=True) + '</div>' +
                 ('' if editing else '<div style="display:grid;grid-template-columns:1fr 2fr;gap:12px;margin-top:12px">' + fld('담당자', by, ro=True) + fld('메모', '-', ro=True) + '</div>') +   # 담당자 · 메모 `PC-296`
                 '<div style="margin-top:12px">' + (fld('발급 내용 (목록 표기) *', '' if err == 'sum' else SUM, err=(err == 'sum')) if editing
@@ -137,8 +136,7 @@ def ticket_detail(tab='base', no=36, co='KODION', bill='무료', amount='', tria
                  '코드 구간을 바꾸면 사용할 수 있는 구간인지 검사합니다.</div>' if editing else ''))
         if editing:   # 수정 = 발급과 같은 폼 `PC-226`
             body = ('<div style="border:1px solid #93c5fd;background:#fbfdff;border-radius:10px;padding:14px 16px">'
-                    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 12px;border-radius:9px;border:1px solid #93c5fd;'
-                    'background:#f0f7ff;font-size:12.5px"><b style="color:#1d4ed8">수정 전</b><span style="color:#374151">%s</span></div>%s</div>' % (SUM, nkey_form(edit=True)))
+                    '%s</div>' % nkey_form(edit=True))   # 「수정 전」 박스 없음 `PC-315`
     else:
         # 정산 정보 — App Key · 서비스 티켓과 같은 공용 정산 입력 `PC-202`
         # 연간 라이선스 비용(고객사마다 1건 · N Key) + 이 티켓의 정산 `PC-212`
@@ -165,8 +163,8 @@ def nkey_form(co='KODION-46', picked=False, open_=False, common=False, sep=False
                 '<span style="color:#9ca3af"> (선택하면 코드가 자동으로 지정됩니다)</span></div><div class="inp">한솔교육 · Common-21 (PDS2 S3/O21)</div>'
                 '<div style="font-size:11.5px;color:#6b21a8;margin-top:6px">발급 코드: <b>PDS2 · S3 / O21</b> · 사용 고객사 <b>한솔교육</b></div>')
     else:
-        pick = ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">%s ' % ('코드 범위 (같은 Section · Owner 의 할당 범위 안에서 고칩니다)' if edit else '발급 범위 (nkey 대장 이력 · SOBP 할당) *') +
-                '<span style="color:#9ca3af">(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다)</span></div>' +
+        pick = ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">%s ' % ('SOBP 발급 범위 *') +   # 칸 제목만 · 수정도 같게 `PC-317` `PC-318`
+                '</div>' +
                 kws.range_picker(open_, sel, rng))
     if picked or common:   # 구간 사용 현황 — 하위 고객사끼리도 보인다 `PC-195`
         pick += (kws.usage_box('3', '21', ['0~165', '167~899', '983~4095'], [('App Key', '유니메이션', '166', '1~4095'), ('App Key', '스콜라스틱', '900~982', '0~2000')])
@@ -215,22 +213,18 @@ def nkey_form(co='KODION-46', picked=False, open_=False, common=False, sep=False
     foot = kws.footer(sepline, '<span class="btn gho">취소</span><span class="btn pri"%s>%s</span>' % ('' if (picked or common) and not policy else ' style="opacity:.5"', '수정 저장' if edit else 'N Key 발급'))
     plan = ''
     if picked or common:
-        plan = ('<div style="margin-top:8px;font-size:12px;color:#6b7280">발급 예정: <b style="color:#111827">S3/O46/B8~%s</b> · %s · P1~512 · <b style="color:#111827">%s</b>%s</div>'
-                % ('13' if over else '11', '개별 티켓 4장' if sep else '병합 티켓 1장', 'HYBRID (권한 6)' if hybrid else 'LEGACY',
-                   ' <b style="color:#dc2626">· ⚠ 할당 범위(B11) 초과</b>' if over else ''))
-        if page8:
-            plan = plan.replace('P1~512', 'P1~500')
+        # 「발급 예정: …」 요약 줄 없음 — 할당 범위 초과 경고만 `PC-318`
+        plan = '<div style="margin-top:8px;font-size:12px"><b style="color:#dc2626">⚠ 할당 범위(B11) 초과</b></div>' if over else ''
     msg = ('<div style="margin-top:10px;font-size:12.5px;color:%s">%s</div>' % ('#dc2626' if err else '#2563eb', err or toast)) if (err or toast) else ''
     info = ''   # 다운로드 · 사용 안내 설명글 없음 `PC-231`
     head = ('<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px"><b style="font-size:15px">N Key 발급</b>'
-            '<span style="font-size:13px;color:#6b7280">%s</span>%s<span style="flex:1"></span>'
-            '<span style="font-size:11.5px;color:#9ca3af">SOBP 코드 사용 허가 (Caster lite 티켓)</span></div>'
+            '<span style="font-size:13px;color:#6b7280">%s</span>%s<span style="display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%%;color:#6b7280;font-size:12px;border:1px solid #d1d5db">i</span><span style="flex:1"></span></div>'   # 설명은 ⓘ `PC-318`
             % (co, tg('PDS3 S3/O46', '#eef6ff', '#2563eb') if picked else ''))
     if edit:   # 수정 — 상세 안에 넣는다: 머리 · 카드 · 다운로드 안내 없이, 폼에 없는 대장 항목은 「기타 항목」으로 `PC-226`
         extra = ('<div style="margin-top:16px"><div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #f1f3f6">기타 항목 (그대로 둠)</div>'
                  '<div class="g2" style="gap:10px 12px">' + fld('구분(대장)', '무상', ro=True) + '</div></div>')
         return ('%s<div style="margin-top:12px">%s</div>%s%s%s%s'
-                % (fld('고객사', 'KODION', ro=True), pick, grid1 + prof + extra, foot, plan.replace('발급 예정', '수정 후').replace('S3/O46/B8~11', 'S3/O46/B10~11'), msg))
+                % (fld('고객사', 'KODION', ro=True), pick, grid1 + prof + extra, foot, plan, msg))
     return ('<div style="%s;padding:18px">%s%s<div style="margin-top:12px">%s</div>%s%s%s%s%s</div>'
             % (kws.CARD, head, fld('고객사 *', co, ro=True), pick, grid1 + prof, foot, plan, msg, info))   # 프로필은 Code Type 아래 `PC-221`
 
@@ -384,7 +378,7 @@ def build():
 
     B.append(('S12', 'N Key 발급 — 범위 선택', '분기',
               '<b>[＋ N Key 발급]</b>을 누르면 오른쪽에 발급 폼이 열린다. 고객사는 왼쪽에서 고른 값(「전체」면 고른다). <b>발급 범위</b> = nkey 대장 이력(이 고객사로 이어진 티켓) '
-              '+ 고객사의 <b>SOBP 할당</b> <code>PC-153</code>. 고르면 Start Book · Book Size · Page Size · Code Type 이 채워지고 <b>발급 예정</b> 줄이 나온다.',
+              '+ 고객사의 <b>SOBP 할당</b> <code>PC-153</code>. 고르면 Start Book · Book Size · Page Size · Code Type 이 채워진다(「발급 예정」 요약 줄은 없다 <code>PC-318</code>).',
               fr(HK + F + kws.grid(LK, mid(G1, h=col_h(1300), grouped=False), nkey_form(picked=True, open_=True, hybrid=True)), 1300),
               [('발급 범위', '선택', 'S·O·B·P 칩', '없으면 <b>이 고객사에 할당된 SOBP 범위가 없습니다.</b> → <code>SOB-02</code>'),
                ('Valid Until Time', '무제한 / 날짜', '기본 무제한', ''),
@@ -409,7 +403,7 @@ def build():
               [('사용 고객사', '선택 (필수)', '범위 자동 지정', '<b>공통코드 회사입니다. 사용 고객사를 선택하세요.</b>')]))
 
     B.append(('S14', 'N Key 발급 — 범위 초과 · 검증 실패', '오류',
-              'Book 끝이 할당 범위를 넘으면 발급 예정 줄에 <b>⚠ 할당 범위(B{끝}) 초과</b>가 붙고, [N Key 발급] 때 검증에 걸린다. 검사는 순서대로 하고 하나라도 걸리면 멈춘다.',
+              'Book 끝이 할당 범위를 넘으면 버튼 앞에 <b>⚠ 할당 범위(B{끝}) 초과</b>가 뜨고, [N Key 발급] 때 검증에 걸린다. 검사는 순서대로 하고 하나라도 걸리면 멈춘다.',
               fr(HK + F + kws.grid(LK, mid(G1, h=col_h(1150), grouped=False),
                                    nkey_form(picked=True, over=True, err='Book Size는 1~4권이어야 합니다. (B8~B11)',
                                              warn='할당된 코드 타입(PDS3)과 다른 PDS2 를 골랐습니다. 할당 타입을 확인하세요.')), 1150),
@@ -492,7 +486,7 @@ def build():
     # 티켓 수정 — 보기에서 [티켓 수정]으로 수정 상태 `PC-201`
     B.append(('S21', '티켓 수정 — 수정 상태', '분기',
               '오른쪽 발급 상세는 <b>보기</b>(읽기 전용)로 열린다. <b>[티켓 수정]</b>을 누르면 App Key 관리처럼 <b>수정 상태</b>로 바뀐다 — 제목 <b>「티켓 수정」</b>, '
-              '파란 테두리, <b>수정 전</b> 발급 내용, 탭 숨김(입력에 집중). 수정 화면은 <b>발급과 같은 폼</b>(코드 범위 · 코드 구간 · 티켓 속성 · 기간 · 버전)을 그 티켓 값으로 채운 것 — App Key 와 같다 <code>PC-226</code>. '
+              '파란 테두리, 탭 숨김(입력에 집중) — 「수정 전」 박스는 없다 <code>PC-315</code>. 수정 화면은 <b>발급과 같은 폼</b>(코드 범위 · 코드 구간 · 티켓 속성 · 기간 · 버전)을 그 티켓 값으로 채운 것 — App Key 와 같다 <code>PC-226</code>. '
               '고객사 · 발급일은 고정, 폼에 없는 대장 항목은 <b>기타 항목</b>으로 그대로 둔다. <b>[수정 저장]</b>, <b>[취소]</b>면 고친 값을 버리고 보기로 돌아간다 <code>PC-201</code>. '
               '발급 기록은 지우지 않는다 <code>PC-192</code>.',
               fr(HK + F + kws.grid(LK, mid(G1, sel_no=36, h=col_h(1000), grouped=False), ticket_detail(editing=True)), 1000),

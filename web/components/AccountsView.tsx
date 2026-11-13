@@ -21,7 +21,7 @@ import { APPKEY_PERMS, normAppKeyPerms } from "@/lib/appKeyPerms";
 import { InfoTip, WsTabs } from "./KeyWorkspaceUI";
 import { SobpChips } from "./sobp";
 import { useTicketCustomers } from "@/lib/ticketCustomerStore";
-import { appKeyRangesOfCompany, companyOfAccount } from "@/lib/keyCompany";
+import { appKeyRangesOfCompany, companyOfAccount, scopeRanges, type RangeScope } from "@/lib/keyCompany";
 import type { Company } from "@/lib/customerData";
 import { CODE_KINDS, codeTypeRangeErr, kindsFor, patternOf, type CodeKind } from "@/lib/codeKind";
 import {
@@ -94,8 +94,9 @@ function AccTabs({ tab, onTab, badge, items = ACC_TABS }: { tab: AccTab; onTab: 
 function SecHead({ t, d, tip }: { t: string; d?: string; tip?: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-      {/* 설명은 본문에 늘어놓지 않고 **제목 툴팁**으로 둔다 `PC-070` */}
-      <b style={{ fontSize: 13, color: "#111827", ...(tip ? { cursor: "help", borderBottom: "1px dotted #c7cdd6" } : {}) }} title={tip}>{t}</b>
+      {/* 설명은 본문에 늘어놓지 않고 제목 옆 ⓘ 말풍선으로 둔다 `PC-070` `PC-315` */}
+      <b style={{ fontSize: 13, color: "#111827" }}>{t}</b>
+      {tip && <InfoTip title={`${t} 설명`} width={340}>{tip}</InfoTip>}
       {d && <span style={{ fontSize: 11.5, color: "#9ca3af" }}>{d}</span>}
     </div>
   );
@@ -350,7 +351,8 @@ export function AccountNewView({ embedded = false, fixedCompanyId = 0, onDone, o
 
 /* ── TKT-01 계정 상세 · 수정 ────────────────────────────────────── */
 // embedded — App Key 관리 3단 화면의 오른쪽 칸 `PC-146`
-export function AccountDetailView({ accountId, embedded = false, onDeleted }: { accountId: string; embedded?: boolean; onDeleted?: () => void }) {
+// rangeScope — 왼쪽에서 고른 줄: 단독(own) 이면 자기 범위만, 상위 밑 하위 줄이면 그 상위 공유 범위만 `PC-311`
+export function AccountDetailView({ accountId, embedded = false, onDeleted, rangeScope }: { accountId: string; embedded?: boolean; onDeleted?: () => void; rangeScope?: RangeScope }) {
   const router = useRouter();
   const me = currentUser(useAuth());
   const cast = useCaster();
@@ -402,7 +404,8 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
 
   const { companies } = useStore();
   const accCo = acc ? companyOfAccount(acc, companies) : undefined;   // 고객사 관리 고객사로 잇는다 `PC-153`
-  const ranges = useRanges(accCo);
+  const allRanges = useRanges(accCo);                       // 수정 중인 티켓의 테두리는 맥락과 상관없이 전체에서 찾는다
+  const ranges = scopeRanges(allRanges, rangeScope);        // 새 발급 — 단독이면 자기 범위만 · 하위 줄이면 공유 범위만 `PC-311`
   // 수정 중이면 그 티켓의 테두리 하나(옛 OID · PDS4 값도 그대로) / 새 발급은 PDS2 · PDS3 범위만 `PC-220`
   const formRanges = editRange ? [editRange.bound] : ranges.filter((r) => ["PDS2", "PDS3"].includes(CT_OF[r.pt] ?? r.pt));
   const range = formRanges[sobpIdx];
@@ -415,6 +418,11 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
   const rangeItems = tickets.map((r, i) => ({ k: myKey, r, i }));
   const selected = (selRange && rangeItems.find((x) => x.i === selRange.idx)) || rangeItems[0] || null;
   const nTodo = rangeItems.filter((x) => (x.r.billing ?? "미정") === "미정").length;   // 정산 미등록 티켓 수 `PC-178`
+  // 티켓 발급일 — 원장 티켓의 발급일 → 사용기간 시작 → 키 생성일. 대장 이력에는 날짜가 없어 비면 「—」 `PC-313`
+  const issuedAtOf = (k: typeof myKey, r: (typeof tickets)[number]) => {
+    const t = r.ticketId ? ticketById(r.ticketId) : undefined;
+    return [t?.at, r.since, k?.createdAt].map((x) => (x ?? "").slice(0, 10)).find((x) => /^\d{4}-\d{2}-\d{2}$/.test(x)) ?? "";
+  };
   // 티켓 원장 변경(범위 발급 등) 시 재렌더 — Key 정보는 선택한 범위에서 만든다 `PC-120`
   useTickets();
 
@@ -493,7 +501,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
     const r = tickets[i]; if (!r) return;
     const bs0 = r.bookStart ?? 0, be0 = r.bookEnd ?? (r.bookVol ? bs0 + r.bookVol - 1 : bs0);
     const ps0 = r.pageStart ?? 0, pe0 = r.pageEnd ?? ps0 + (r.pageVol ?? 512) - 1;
-    const own = ranges.find((x) => x.section === r.section && x.owner === r.owner && bs0 >= x.bookStart && bs0 <= x.bookEnd);
+    const own = allRanges.find((x) => x.section === r.section && x.owner === r.owner && bs0 >= x.bookStart && bs0 <= x.bookEnd);
     const lo = Math.min(own?.bookStart ?? bs0, bs0), hi = Math.max(own?.bookEnd ?? be0, be0);
     const bound: SobpRange = { pt: own?.pt ?? r.pt, section: r.section, owner: r.owner, bookStart: lo, bookEnd: hi,
       pageStart: Math.min(own?.pageStart ?? 0, ps0), pageEnd: Math.max(own?.pageEnd ?? pe0, pe0), bookCount: hi - lo + 1 };
@@ -646,17 +654,8 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
     <>
           {/* 코드 범위 발급 — 범위마다 사용기간을 함께 지정 `PC-118`. [티켓 수정]도 이 폼에서 고친다 `PC-193` */}
           <div id="ak-issue-form" />
-          {editRange && (() => {
-            const r = tickets[editRange.idx];
-            return (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, padding: "8px 12px", borderRadius: 9, border: "1px solid #93c5fd", background: "#f0f7ff", fontSize: 12.5 }}>
-                <b style={{ color: "#1d4ed8" }}>수정 전</b>
-                {r && <span style={{ fontFamily: "ui-monospace,monospace", color: "#374151" }}>{rangeText(r)} · {rangePeriod(myKey, r).since || "즉시"}~{rangePeriod(myKey, r).until}</span>}
-                <span style={{ color: "#6b7280" }}>· 할당 범위 B{editRange.bound.bookStart}~{editRange.bound.bookEnd} 안에서 고칩니다</span>
-              </div>
-            );
-          })()}
-          <Field label="발급 범위 * (Caster 대장 이력 · SOBP 할당 — 고르면 Section · Owner · Book · Code Type 이 채워집니다)">
+          {/* 「수정 전」 박스는 뺐다 — 폼이 그 티켓 값으로 채워지고 [취소]로 되돌린다 `PC-315` */}
+          <Field label="SOBP 발급 범위 *">{/* 칸 제목만 — 설명 문구는 뺐다 `PC-317` */}
           <SobpRangePicker company showType ranges={formRanges} value={sobpIdx} onSelect={(i) => { setSobpIdx(i); setBStart(null); setBVol(null); const r = formRanges[i]; if (r) setCtype(r.untyped ? (kindsFor(r.section, r.owner)[0] ?? "PDS3") : (CT_OF[r.pt] ?? "PDS3")); }} />
           </Field>
           {/* 구간 사용 현황 — 수정 중이면 자기 자신은 빼고 본다 `PC-195` */}
@@ -670,11 +669,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
           </FormSec>
           {attrFields}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 14, paddingTop: 12, borderTop: "1px solid #eef0f4" }}>
-            {range && (
-              <span style={{ fontSize: 11.5, color: "#6b7280", flex: 1, minWidth: 200 }}>
-                발급 범위 <b>{patternOf(ctype)} S{range.section}/O{range.owner}/B{keyBS}~{keyBS + keyVol - 1}</b> · {keyVol}권 · <b>P{pStart}~{pStart + keyPVol - 1}</b> · 기간 {since || "즉시"}~{untilVal()}
-              </span>
-            )}
+            {/* 버튼 앞 「발급 범위 … · 기간 …」 요약 줄은 뺐다 — 같은 값이 위 입력 칸에 있다 `PC-316` */}
             <span style={{ flex: 1 }} />
             {editRange ? (
               <>
@@ -741,12 +736,12 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
         {/* 티켓 발급 — 수정 중이면 제목 「티켓 수정」 · 파란 테두리 `PC-194` */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "ticket" ? "block" : "none", ...(editRange ? { borderColor: "#93c5fd", background: "#fbfdff" } : {}) }}>
           {editRange
-            ? <SecHead t="티켓 수정" d="· 발급된 티켓의 정보를 고칩니다 — 다른 발급분과 겹치지 않는 구간이면 저장됩니다" />
+            ? <SecHead t="티켓 수정" tip="발급된 티켓의 정보를 고칩니다 — 다른 발급분과 겹치지 않는 구간이면 저장됩니다." />
             : <SecHead t="티켓 발급" d={`· 계정 소속 · 발급된 티켓 ${tickets.length}개`} tip="티켓 = Code Type · Section · Owner · Book · Page · Info · Period. SOBP 가 바뀌면 App Key 대신 티켓을 더 발급합니다. 발급된 티켓은 지우지 않고 [수정]으로 고칩니다(PC-192)." />}
           {ticketBlock}
         </div>
 
-        {/* 티켓 내역 — 지금까지 발급한 티켓(코드 범위)을 표로 본다. 줄을 누르면 그 아래에 Key 정보 `PC-120` `PC-200` */}
+        {/* 티켓 내역 — 왼쪽 티켓 목록 · 오른쪽 고정 칸에 고른 티켓의 Key 정보 `PC-120` `PC-200` `PC-312` */}
         <div style={{ ...SEC, marginTop: 0, display: tab === "hist" ? "block" : "none" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10, fontSize: 12, color: "#6b7280" }}>
             <b style={{ fontSize: 13.5, color: "#111827" }}>티켓 내역</b>
@@ -759,13 +754,14 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
               발급한 티켓이 없습니다.<br />
               <button onClick={() => setTab(myKey ? "ticket" : "info")} style={{ ...S.linkBtn, fontSize: 12.5 }}>{myKey ? "티켓 발급으로" : "계정 정보에서 App Key 생성"}</button>
             </div>
-          ) : (
-            <div style={{ border: "1px solid #eef0f4", borderRadius: 10, overflow: "hidden" }}>
-              {rangeItems.map(({ k, r, i }, n) => {
+          ) : (() => {
+            // 고른 티켓의 Key 정보 — 오른쪽 고정 칸에 `PC-312`
+            let detail: React.ReactNode = null;
+            const rows = rangeItems.map(({ k, r, i }, n) => {
                 const isSel = !!selected && selected.i === i;
                 const p = rangePeriod(k, r);
                 const t = r.ticketId ? ticketById(r.ticketId) : undefined;
-                const at = [t?.at, r.since, k?.createdAt].map((x) => (x ?? "").slice(0, 10)).find((x) => /^\d{4}-\d{2}-\d{2}$/.test(x));
+                const at = issuedAtOf(k, r);
                 const ledger = t ? t.src === "ledger" : !!acc.seeded;   // 원장 티켓이 없으면 대장 시드분
                 // Owner — 범위가 아니면 1개(그 번호만) `PC-264`
                 const own = r.ownerEnd != null && r.ownerEnd !== r.owner ? `${r.owner}~${r.ownerEnd}` : `${r.owner}`;
@@ -776,7 +772,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
                 return (
                   <div key={i} style={{ borderTop: n ? "1px solid #f1f3f6" : "none" }}>
                     <div onClick={() => { if (isSel) setOpenKey((v) => !v); else { setSelRange({ keyId: 0, idx: i }); setOpenKey(true); } }}
-                      title="누르면 아래에 이 티켓의 Key 정보가 열립니다(다시 누르면 접힘)"
+                      title="누르면 오른쪽 칸에 이 티켓의 Key 정보가 보입니다"
                       style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", cursor: "pointer", background: isSel ? "#f0f7ff" : "#fff" }}>
                       <span style={{ width: 18, flex: "0 0 18px", paddingTop: 2, fontSize: 11.5, color: isSel ? "#2563eb" : "#9ca3af", fontWeight: 700 }}>{n + 1}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -789,7 +785,8 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
                           {ticketInfo(r) && <span style={{ fontSize: 11.5, color: "#374151" }} title="Info">{ticketInfo(r)}</span>}
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 5, fontSize: 11.5, color: "#6b7280" }}>
-                          {at ? <span style={{ fontFamily: "ui-monospace,monospace" }}>{at}</span> : null}
+                          {/* 발급일 — 날짜가 없으면(대장 이력) 「—」 `PC-313` */}
+                          <span>발급 <b style={{ fontFamily: "ui-monospace,monospace", color: "#374151", fontWeight: 400 }}>{at || "—"}</b></span>
                           {ledger && <span style={{ ...S.tag, background: "#f3f4f6", color: "#6b7280" }} title="개발팀 대장에서 들어온 발급분">대장</span>}
                           <span style={{ color: "#d1d5db" }}>·</span>
                           <span>{rangeBooks(r) != null ? `${rangeBooks(r)!.toLocaleString()}권` : "권수 —"}</span>
@@ -800,9 +797,9 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
                         </div>
                       </div>
                       <BillTag v={r} />
-                      <span style={{ fontSize: 10, color: "#9ca3af", paddingTop: 5, transform: isSel && openKey ? "rotate(90deg)" : "none", transition: "transform .15s" }}>▶</span>
+                      <span style={{ fontSize: 10, color: isSel && openKey ? "#2563eb" : "#9ca3af", paddingTop: 5 }}>▶</span>
                     </div>
-                    {isSel && openKey && (() => {
+                    {isSel && openKey && (detail = (() => {
                       // Key 정보 — App Key 관리 대장(Caster 계정 · 퍼미션 · 티켓)과 같은 순서 `PC-272`
                       //   계정(고객사 · 계정 · App Key) → 티켓(Code Type · Section · Owner · Book · Page) → 사용기간 → 메모
                       //   Ticket Version 은 App Key 에 없다 · Period 는 Valid Until Time(기한)으로 · 비어 있는 기한은 무제한
@@ -820,7 +817,12 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
                         Info: ticketInfo(r) || "-",
                       } as Record<string, string | number>;
                       return (
-                        <div style={{ padding: "10px 12px 12px", background: "#fbfdff", borderTop: "1px solid #e0ecff" }}>
+                        <div style={{ padding: "12px 14px 14px" }}>
+                          <div style={{ display: "flex", alignItems: "center", marginBottom: 2 }}>
+                            <span style={{ fontSize: 11.5, color: "#6b7280" }}>티켓 {n + 1}</span>
+                            <span style={{ flex: 1 }} />
+                            <button type="button" aria-label="Key 정보 닫기" onClick={() => setOpenKey(false)} style={{ ...S.linkBtn, fontSize: 15, color: "#6b7280" }}>✕</button>
+                          </div>
                           <KeyCard title="Key 정보" empty="" params={params} />
                           {/* [티켓 수정] — N Key · 서비스 티켓과 같은 자리: 상세(Key 정보) 아래 오른쪽 `PC-238`
                               발급된 티켓은 지우지 않고 [티켓 발급] 폼에서 고친다 `PC-192` `PC-193` */}
@@ -830,12 +832,21 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
                           </div>
                         </div>
                       );
-                    })()}
+                    })()) && null}
                   </div>
                 );
-              })}
-            </div>
-          )}
+              });
+            return (
+              // 2칸 — 왼쪽 티켓 목록(반) · 오른쪽 고정 상세(고른 티켓의 Key 정보). 떠 있는 창이 아니다 `PC-312`
+              //   오른쪽 칸은 목록을 스크롤해도 화면 위쪽에 붙어 있어 아래 티켓을 골라도 바로 보인다
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 12, alignItems: "start" }}>
+                <div style={{ border: "1px solid #eef0f4", borderRadius: 10, overflow: "hidden" }}>{rows}</div>
+                <div style={{ position: "sticky", top: 12, border: "1px solid #eef0f4", borderRadius: 10, background: "#fbfdff", maxHeight: "calc(100vh - 40px)", overflowY: "auto" }}>
+                  {detail ?? <div style={{ fontSize: 12.5, color: "#9ca3af", padding: "40px 12px", textAlign: "center" }}>왼쪽에서 티켓을 고르면<br />Key 정보가 여기에 보입니다.</div>}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* 권한 탭 — App Key 가 가지는 Caster 권한 20항목 true / false `PC-207` */}
@@ -853,15 +864,18 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted }: { 
             <div style={{ fontSize: 12, color: "#9ca3af", padding: "6px 0" }}>발급된 티켓이 없습니다. [티켓 발급] 탭에서 먼저 발급하세요.</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 4 }}>
-              {rangeItems.map(({ k, r, i }) => {
+              {rangeItems.map(({ k, r, i }, n) => {
                 const isSel = !!selected && selected.i === i;
                 const p = rangePeriod(k, r);
+                const at = issuedAtOf(k, r);
                 return (
                   <div key={i} onClick={() => setSelRange({ keyId: 0, idx: i })} title="선택하면 아래에서 이 티켓의 정산을 등록합니다"
                     style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", cursor: "pointer", fontSize: 11.5, color: "#6b7280",
                       border: `1px solid ${isSel ? "#93c5fd" : "#eef0f4"}`, background: isSel ? "#f0f7ff" : "#fff", borderRadius: 8, padding: "6px 8px" }}>
-                    <span style={{ color: isSel ? "#2563eb" : "#d1d5db", fontWeight: 700, fontSize: 11 }}>{isSel ? "▸" : "·"}</span>
+                    {/* INDEX — 티켓 내역과 같은 번호 `PC-313` */}
+                    <span style={{ width: 18, flex: "0 0 18px", fontSize: 11.5, color: isSel ? "#2563eb" : "#9ca3af", fontWeight: 700 }}>{n + 1}</span>
                     <span style={{ fontFamily: "ui-monospace,monospace", color: "#374151" }}>{rangeText(r)}</span>
+                    <span>발급 <span style={{ fontFamily: "ui-monospace,monospace", color: "#374151" }}>{at || "—"}</span></span>
                     <span>{p.since || "즉시"} ~ {p.until}</span>
                     <span style={{ flex: 1 }} />
                     <BillTag v={r} />

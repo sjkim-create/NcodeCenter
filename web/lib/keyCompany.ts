@@ -74,6 +74,15 @@ function keyAllocRangesOf(co: Company, projects: Project[]): TicketRange[] {
 const dedupe = (rs: TicketRange[]) =>
   rs.filter((r, i, arr) => arr.findIndex((x) => x.pt === r.pt && x.section === r.section && x.owner === r.owner && x.bookStart === r.bookStart && x.bookEnd === r.bookEnd) === i);
 
+/** 범위 맥락 — 왼쪽 목록에서 어느 줄로 골랐나 `PC-311`
+ *  own = 고객사 자기 줄(단독) → 자기 범위만 / { parent } = 상위 고객사 밑 하위 줄 → 그 상위의 공유 범위만 / 없음 = 둘 다(전체 보기) */
+export type RangeScope = "own" | { parent: string } | undefined;
+export function scopeRanges<T extends object>(rs: T[], scope: RangeScope): T[] {
+  if (!scope) return rs;
+  const parentOf = (r: T) => (r as T & { shared?: boolean; parent?: string }).shared ? (r as T & { parent?: string }).parent ?? "" : null;
+  return scope === "own" ? rs.filter((r) => parentOf(r) === null) : rs.filter((r) => parentOf(r) === scope.parent);
+}
+
 /** App Key 발급 범위 — Caster 대장 이력(그 고객사 계정들) + 고객사의 SOBP 할당 */
 export function appKeyRangesOfCompany(co: Company | undefined, projects: Project[]): TicketRange[] {
   if (!co) return [];

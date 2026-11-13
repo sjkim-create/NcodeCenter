@@ -195,11 +195,8 @@ def issue_form(sel=None, open_=False, new=False, ranges=RANGES):
                   fld('Code Type (발급 범위 따름)', 'PDS3' if r else '-', ro=True) +
                   fld('Owner Size', '1' if r else '-', ro=True) +
                   '<div style="grid-column:span 2">' + fld('Info (티켓 메모)', 'sample' if r else '예) sample · 2026 교재용', ph=not r) + '</div>', 'g4'))
-    summ = ('<div style="font-size:11.5px;color:#6b7280;margin-top:6px">발급 범위 <b>PDS3 S3/O291/B0~249</b> · 250권 · <b>P1~512</b> · 기간 즉시~무제한</div>'
-            if r else '')
-    lab = ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">발급 범위 (Caster 대장 이력 · SOBP 할당)%s '
-           '<span style="color:#9ca3af">(선택하면 Section·Owner·Book·Code Type 이 자동으로 채워집니다 · %s)</span></div>'
-           % ('' if new else ' *', '선택하지 않으면 계정만 등록합니다' if new else '사용기간을 함께 지정합니다'))
+    summ = ''   # 버튼 앞 「발급 범위 … · 기간 …」 요약 줄 없음 `PC-316`
+    lab = ('<div style="font-size:12px;color:#6b7280;margin-bottom:6px">SOBP 발급 범위%s</div>' % ('' if new else ' *'))   # 칸 제목만 `PC-317`
     usage = kws.usage_box('3', '291', ['250~299'], [('App Key', 'Study123', '0~249', '0~511')]) if r else ''   # 구간 사용 현황 `PC-195`
     return lab + kws.range_picker(open_, sel, ranges) + usage + fields + summ
 
@@ -213,8 +210,9 @@ TRAN = (('PDS3', '0', '305', '39', '0~511', '1권', '', kws.bill_tag('미정')),
 
 
 def hist_tab(rows=HIST, sel_idx=0, open_=False, key='', co='Study123', mail=None):
-    """발급 내역 탭 — 지금까지 발급한 티켓을 한 줄씩. 줄을 누르면 그 아래 Key 정보 `PC-120` `PC-200`"""
+    """발급 내역 탭 — 지금까지 발급한 티켓을 한 줄씩. 줄을 누르면 목록 위 오른쪽 레이어에 Key 정보 `PC-120` `PC-200` `PC-312`"""
     li = ''
+    layer = ''
     for i, (kd, s_, o, b, p_, vol, at, bill) in enumerate(rows):
         info = 'sample' if i == 0 else ''
         on = i == sel_idx
@@ -226,20 +224,28 @@ def hist_tab(rows=HIST, sel_idx=0, open_=False, key='', co='Study123', mail=None
                '%s%s<span style="color:#d1d5db">·</span><span>%s</span><span style="color:#d1d5db">·</span>'
                '<span>기한 <b style="font-family:ui-monospace,monospace;color:#374151">991231</b></span><span style="color:#d1d5db">·</span><span>즉시 ~ 무제한</span></div></div>'
                '%s'   # 줄의 [수정] 없음 — [티켓 수정]은 Key 정보 아래 오른쪽 `PC-238`
-               '<span style="font-size:10px;color:#9ca3af;padding-top:5px;%s">▶</span></div>'
+               '<span style="font-size:10px;padding-top:5px;%s">▶</span></div>'
                % ('border-top:1px solid #f1f3f6;' if i else '', 'background:#f0f7ff' if on else 'background:#fff',
                   '#2563eb' if on else '#9ca3af', i + 1, kd, kws.sobp_chips(kd, s_, o, b, p_),
                   ('<span style="font-size:11.5px;color:#374151">%s</span>' % info) if info else '',
                   ('<span style="%s">%s</span>' % (MONO, at)) if at else '', tg('대장', '#f3f4f6', '#6b7280', False) if not at else '',
-                  vol, bill, 'transform:rotate(90deg)' if (on and open_) else ''))
+                  vol, bill, 'color:#2563eb' if (on and open_) else 'color:#9ca3af'))
         if on and open_:
-            li += '<div style="padding:10px 12px 12px;background:#fbfdff;border-top:1px solid #e0ecff">' + key_info(i, co=co, mail=mail, row=rows[i]) + '<div style="display:flex;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid #eef0f4"><span class="btn pri">티켓 수정</span></div>' + '</div>'
+            # 오른쪽 고정 칸 — 고른 티켓의 Key 정보 `PC-312`
+            layer = ('<div style="padding:12px 14px 14px"><div style="display:flex;align-items:center;margin-bottom:2px"><span style="font-size:11.5px;color:#6b7280">티켓 %d</span>'
+                     '<span style="flex:1"></span><span style="color:#6b7280;font-size:15px">✕</span></div>' % (i + 1)
+                     + key_info(i, co=co, mail=mail, row=rows[i])
+                     + '<div style="display:flex;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid #eef0f4"><span class="btn pri">티켓 수정</span></div></div>')
     top = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;color:#6b7280">'
            '<b style="font-size:13.5px;color:#111827">발급 내역</b><span>티켓 <b style="color:#111827">%d</b>건</span>'
            '<span style="color:#dc2626">정산 미정 %d</span><span style="flex:1"></span>%s</div>'
            % (len(rows), sum(1 for x in rows if '미정' in x[7]),
               ('App Key <b style="%s;color:#374151">%s</b>' % (MONO, key)) if key else tg('App Key 미기재', '#fef3c7', '#92400e')))
-    return top + '<div style="border:1px solid #eef0f4;border-radius:10px;overflow:hidden">%s</div>' % li
+    empty = '<div style="font-size:12.5px;color:#9ca3af;padding:40px 12px;text-align:center">왼쪽에서 티켓을 고르면<br>Key 정보가 여기에 보입니다.</div>'
+    # 2칸 — 왼쪽 목록(반) · 오른쪽 고정 칸 `PC-312`
+    return top + ('<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">'
+                  '<div style="border:1px solid #eef0f4;border-radius:10px;overflow:hidden">%s</div>'
+                  '<div style="border:1px solid #eef0f4;border-radius:10px;background:#fbfdff">%s</div></div>' % (li, layer or empty))
 
 
 def key_info(sel_idx=0, co='Study123', mail=None, row=None):
@@ -261,14 +267,16 @@ def key_info(sel_idx=0, co='Study123', mail=None, row=None):
 
 def bill_tab(sel_idx=0):
     """정산 탭 — 티켓(코드 범위)을 고르고 그 정산을 등록한다 `PC-177` `PC-178`"""
-    rows = (('PDS3 S3/O291/B0~249/P0~511', kws.tg('유료 1,200,000원', '#dbeafe', '#1d4ed8')),
-            ('PDS3 S3/O942/B73/P0~512', kws.bill_tag('미정')))
+    # INDEX(티켓 내역과 같은 번호) · 코드 구간 · 발급일 · 사용기간 · 정산 `PC-313`
+    rows = (('PDS3 S3/O291/B0~249/P0~511', '2026-10-15', kws.tg('유료 1,200,000원', '#dbeafe', '#1d4ed8')),
+            ('PDS3 S3/O942/B73/P0~512', '—', kws.bill_tag('미정')))
     li = ''.join('<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:4px;border-radius:8px;'
-                 'border:1px solid %s;background:%s;font-size:12px"><span style="color:%s;font-weight:700">%s</span>'
-                 '<span style="%s;color:#374151">%s</span><span style="color:#6b7280">즉시 ~ 무제한</span><span style="flex:1"></span>%s</div>'
+                 'border:1px solid %s;background:%s;font-size:12px"><span style="width:18px;color:%s;font-weight:700">%d</span>'
+                 '<span style="%s;color:#374151">%s</span><span style="color:#6b7280">발급 <span style="%s;color:#374151">%s</span></span>'
+                 '<span style="color:#6b7280">즉시 ~ 무제한</span><span style="flex:1"></span>%s</div>'
                  % ('#93c5fd' if i == sel_idx else '#eef0f4', '#f0f7ff' if i == sel_idx else '#fff',
-                    '#2563eb' if i == sel_idx else '#d1d5db', '▸' if i == sel_idx else '·', MONO, t, b)
-                 for i, (t, b) in enumerate(rows))
+                    '#2563eb' if i == sel_idx else '#9ca3af', i + 1, MONO, t, MONO, d, b)
+                 for i, (t, d, b) in enumerate(rows))
     # 연간 라이선스는 오른쪽 칸 맨 위 탭으로 옮겼다 `PC-270`
     return (kws.sec_head('정산할 티켓', '· 티켓마다 등록 · 미정 1건') + li +
             (kws.billing_box() if sel_idx == 0 else kws.billing_box('미정', note='', last='—')))
@@ -363,7 +371,7 @@ def build():
               [('[발급 고객사] / [전체 고객사]', '클릭', '왼쪽 목록 전환', '전체 = 고객사 관리 전체 · S2'),
                ('상위 고객사 ▶', '클릭', '하위 고객사 접기 · 펼치기', '기본 접힘 · 검색 중이면 펼침 · S14 <code>PC-198</code>'),
                ('고객사', '클릭', '가운데 계정 · 오른쪽 첫 계정', '계정이 없으면 빈 안내'),
-               ('발급 내역 줄', '클릭', '그 아래 Key 정보 펼침 · 다시 누르면 접힘', 'S9 <code>PC-200</code>'),
+               ('발급 내역 줄', '클릭', '오른쪽 고정 칸에 Key 정보 · 같은 줄 · ✕ 로 비움', 'S9 <code>PC-200</code> <code>PC-312</code>'),
                ('계정 카드', '클릭', '오른쪽 계정 상세', '이름 · ID · App Key/미발급 · 코드 범위 수 · 대장 · 등록일'),
                ('[＋ 계정 추가]', '클릭', 'S4', '고른 고객사로 새 계정'),
                ('계정 정보 [저장] · [계정 삭제]', '클릭', '[계정 정보] 탭에서만', '<b>계정 정보가 저장되었습니다.</b> · 삭제는 S12 확인창 <code>PC-200</code>')]))
@@ -431,13 +439,13 @@ def build():
               [('App Key 줄', '—', '키마다 값 · [복사] · 생성일', '2개 이상이면 번호 · 「App Key (2개 · 이전 정책)」'),
                ('키 없는 옛 계정', '—', '[App Key 생성]', '키 1개 생성 — 그 뒤로는 1계정 1키')]))
 
-    B.append(('S9', '발급 내역 — 줄 펼침 → Key 정보', '분기',
+    B.append(('S9', '발급 내역 — 왼쪽 목록 · 오른쪽 Key 정보', '분기',
               '티켓은 <b>App Key 가 아니라 계정에 소속</b>된다 — 계정당 App Key 는 1개, 티켓은 여러 개(SOBP 가 바뀌어도 키 대신 티켓을 더 발급) <code>PC-206</code>. '
               '첫 탭 <b>[발급 내역]</b>은 지금까지 발급한 티켓을 한 줄씩 보인다 — 위 줄 <b>Code Type</b>(PDS2 · PDS3 · PDS4) · <b>Section · Owner · Book · Page</b> · <b>Info</b>, '
               '아래 줄 <b>발급일</b>(대장분은 「대장」) · <b>권수</b> · <b>기한</b>(YYMMDD · 무제한 = 991231) · <b>사용기간</b>, '
-              '오른쪽 <b>정산</b> · <b>[수정]</b>. 줄을 누르면 <b>그 아래에 Key 정보</b>가 열리고 다시 누르면 접힌다 <code>PC-120</code> <code>PC-200</code>.',
+              '오른쪽 <b>정산</b> · <b>[수정]</b>. 티켓 내역은 <b>2칸</b> — 왼쪽 반에 티켓 목록, <b>오른쪽 고정 칸</b>에 고른 티켓의 <b>Key 정보</b> <code>PC-312</code>. 떠 있는 창이 아니라 화면의 한 칸이다. 오른쪽 칸은 목록을 스크롤해도 위쪽에 붙어 있어 아래 티켓을 골라도 바로 보이고, 다른 줄을 누르면 내용이 바뀐다. 고르지 않았거나 ✕ 를 누르면 안내만 보인다 <code>PC-120</code> <code>PC-200</code>.',
               fr(H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)), detail('hist', sel_idx=1, open_=True)), 1000),
-              [('발급 내역 줄', '클릭', '그 아래 Key 정보', 'Company Name · Account Id · App Key · Code Type · S/O/B/P · 기간'),
+              [('발급 내역 줄', '클릭', '오른쪽 칸에 Key 정보', 'Company Name · Account Id · App Key · Code Type · S/O/B/P · 기간'),
                ('[수정]', '클릭', 'S11', '[티켓 발급] 탭의 폼이 그 티켓 값으로 채워진다 <code>PC-193</code> <code>PC-208</code>'),
                ('정산 배지', '—', '줄 오른쪽', '미정 · 유료(금액) · 무료 · 체험(D-day / 만료) <code>PC-177</code> · 입력은 S13 정산 탭'),
                ('발급분 없음', '—', '빈 안내', '<b>발급한 티켓이 없습니다.</b> · [티켓 발급으로] (키가 없으면 [App Key 발급으로])')]))
@@ -455,15 +463,13 @@ def build():
     ed = ('<div style="%s;padding:18px"><div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">'
           '<b style="font-size:15px">%s</b><span style="%s;font-size:12px;color:#6b7280">%s</span></div>%s'
           '<div style="border:1px solid #93c5fd;background:#fbfdff;border-radius:10px;padding:14px 16px">%s'
-          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 12px;border-radius:9px;border:1px solid #93c5fd;'
-          'background:#f0f7ff;font-size:12.5px"><b style="color:#1d4ed8">수정 전</b><span style="%s;color:#374151">PDS3 S3/O291/B0~249/P0~511 · 즉시~무제한</span>'
-          '<span style="color:#6b7280">· 할당 범위 B0~299 안에서 고칩니다</span></div>%s'
+          '%s'   # 「수정 전」 박스 없음 `PC-315`
           '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><span class="btn gho">취소</span><span class="btn pri">수정 저장</span></div></div></div>'
           % (kws.CARD, STUDY[0], MONO, STUDY[1], kws.tabs(ACC_TABS, 'ticket'),
-             kws.sec_head('티켓 수정', '· 발급된 티켓의 정보를 고칩니다 — 다른 발급분과 겹치지 않는 구간이면 저장됩니다'), MONO, issue_form(RANGES[0])))
+             kws.sec_head('티켓 수정 ' + '<span style="display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%%;color:#6b7280;font-size:12px;border:1px solid #d1d5db">i</span>'), issue_form(RANGES[0])))   # 설명은 ⓘ 말풍선 `PC-315`
     B.append(('S11', '티켓 수정', '분기',
               '발급된 티켓(코드 범위)은 <b>지우지 않고 정보를 고친다</b> <code>PC-192</code>. [티켓 수정]을 누르면 <b>위의 발급 입력 폼</b>이 그 티켓 값으로 채워지고 '
-              '제목이 <b>「티켓 수정」</b> 으로 바뀌고 <b>수정 전</b> 값이 보인다 — 아래에 별도 폼을 열지 않는다 <code>PC-193</code>. 입력에 집중하도록 <b>현재 App Key 줄 · 발급 내역 · Key 정보 · [계정 삭제] [저장]</b> 은 숨긴다 <code>PC-194</code>. 범위 목록은 그 티켓의 테두리(같은 S/O 의 할당 범위 ∪ 지금 쓰는 구간) 하나뿐이고, '
+              '제목이 <b>「티켓 수정」</b>(옆 ⓘ = 「발급된 티켓의 정보를 고칩니다 — 다른 발급분과 겹치지 않는 구간이면 저장됩니다.」)으로 바뀐다 — 「수정 전」 박스는 없다 <code>PC-315</code>, 아래에 별도 폼을 열지 않는다 <code>PC-193</code>. 입력에 집중하도록 <b>현재 App Key 줄 · 발급 내역 · Key 정보 · [계정 삭제] [저장]</b> 은 숨긴다 <code>PC-194</code>. 범위 목록은 그 티켓의 테두리(같은 S/O 의 할당 범위 ∪ 지금 쓰는 구간) 하나뿐이고, '
               '<b>다른 발급분과 겹치지 않으면</b>(자기 자신 제외) [수정 저장]. 원장 티켓의 Key 정보도 같은 값으로 고친다.',
               fr(H + kws.grid(left(h=col_h(1000)), mid(h=col_h(1000)), ed), 1000),
               [('[티켓 수정]', '클릭(Key 정보 아래 오른쪽 <code>PC-238</code>)', '위 발급 폼 채움', '칸 제목 「티켓 수정」 · 파란 테두리 · 다른 영역 숨김 · 화면이 폼으로 올라간다'),

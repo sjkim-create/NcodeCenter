@@ -17,7 +17,7 @@ import { BILLINGS_FILTER, type Billing } from "@/lib/ticketStore";
 import { AccountDetailView, AccountNewView } from "./AccountsView";
 import { useCaster, accountScope, accountTickets, type CasterAccount } from "@/lib/accountStore";
 import { useStore } from "@/lib/store";
-import { companyOfAccount } from "@/lib/keyCompany";
+import { companyOfAccount, type RangeScope } from "@/lib/keyCompany";
 import {
   WS_CARD as card, WS_HD as hd, WS_GRID, WS_EMPTY, WS_HEAD_BTN, wsTag as tag, wsItem,
   WsTitle, WsStats, WsCoHead, WsCoToggle, WsCoItem, WsFillScroll, WsCoGroup, useSubsOf, nestCompanies, type CoView, type WsFold,
@@ -49,6 +49,8 @@ export function AppKeyWorkspace() {
   };
 
   const [coId, setCoId] = useState(ALL);   // 기본 = 전체 `PC-269`
+  // 어느 줄로 골랐나 — 상위 밑 하위 줄이면 그 상위 이름(공유 범위만) · 자기 줄이면 null(자기 범위만) `PC-311`
+  const [via, setVia] = useState<string | null>(null);
   const [right, setRight] = useState<Right>({ kind: "none" });
   const [q, setQ] = useState("");
   const [view, setView] = useState<CoView>("issued");
@@ -103,8 +105,8 @@ export function AppKeyWorkspace() {
     .filter((c) => (filtered ? hitIds.has(c.id) || (subsOf.get(c.id) ?? []).some((id) => hitIds.has(id)) : true))
     .filter((c) => (q ? c.name.toLowerCase().includes(q.toLowerCase()) : true))
     .sort((a, b) => a.name.localeCompare(b.name, "ko"));
-  const pickCo = (id: number) => {
-    setCoId(id);
+  const pickCo = (id: number, parent: string | null = null) => {
+    setCoId(id); setVia(parent);
     if (id !== ALL) { setRight(defaultRight(id)); return; }
     const a = [...keyAccounts].sort(byNew).find(accHit);   // 전체 — 가장 최근 계정
     setRight(a ? { kind: "acc", id: a.id } : { kind: "none" });
@@ -124,8 +126,10 @@ export function AppKeyWorkspace() {
   }, [fBill, aq]);   // eslint-disable-line react-hooks/exhaustive-deps
   const nKeys = keyAccounts.filter((a) => cast.appKeys.some((k) => k.accountId === a.id)).length;
 
-  const coRow = (id: number, label: string, n: number, warn = false, sub = false, fold?: WsFold) =>
-    <WsCoItem key={id} label={label} n={n} on={id === coId} warn={warn} sub={sub} fold={fold} bold={id === ALL} title="App Key 계정" onClick={() => pickCo(id)} />;
+  // parent — 하위 줄이면 그 상위 고객사 이름(같은 고객사라도 단독 줄과 하위 줄을 따로 고른다) `PC-311`
+  const coRow = (id: number, label: string, n: number, warn = false, sub = false, fold?: WsFold, parent: string | null = null) =>
+    <WsCoItem key={`${parent ?? ""}|${id}`} label={label} n={n} on={id === coId && via === parent} warn={warn} sub={sub} fold={fold} bold={id === ALL} title="App Key 계정" onClick={() => pickCo(id, parent)} />;
+  const rangeScope: RangeScope = coId === ALL ? undefined : via ? { parent: via } : "own";
   // 목록 — 상위 고객사가 목록에 있으면 하위 고객사는 그 밑에(발급 고객사 보기에서도 보인다) `PC-196`
 
   return (
@@ -169,7 +173,7 @@ export function AppKeyWorkspace() {
               {nestCompanies(list, companies, subsOf, (x) => (q ? x.name.toLowerCase().includes(q.toLowerCase()) : true)).map(({ c, subs }) => (
                 <WsCoGroup key={c.id} n={subs.length} autoOpen={!!q}
                   head={(fold) => coRow(c.id, c.name, filtered ? hitN(c.id) : accountsOf(c.id).length, false, false, fold)}>
-                  {subs.filter((x) => !filtered || hitIds.has(x.id)).map((x) => coRow(x.id, x.name, filtered ? hitN(x.id) : accountsOf(x.id).length, false, true))}
+                  {subs.filter((x) => !filtered || hitIds.has(x.id)).map((x) => coRow(x.id, x.name, filtered ? hitN(x.id) : accountsOf(x.id).length, false, true, undefined, c.name))}
                 </WsCoGroup>
               ))}
               {list.length === 0 && (
@@ -254,7 +258,7 @@ export function AppKeyWorkspace() {
         <div style={{ minWidth: 0 }}>
           {co && accsAll.length > 0 && <LicenseSlide kind="APP" company={co} by={me?.name ?? ""} />}
           {right.kind === "acc" && (
-            <AccountDetailView key={right.id} accountId={right.id} embedded
+            <AccountDetailView key={`${right.id}|${via ?? ""}`} accountId={right.id} embedded rangeScope={rangeScope}
               onDeleted={() => { const rest = accs.filter((a) => a.id !== right.id); setRight(rest[0] ? { kind: "acc", id: rest[0].id } : { kind: "none" }); }} />
           )}
           {right.kind === "add" && co && (
