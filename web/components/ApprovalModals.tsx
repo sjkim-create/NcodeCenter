@@ -66,13 +66,14 @@ export function CompanyApprovalModal({ onClose }: { onClose: () => void }) {
       });
     }
     onboarding.approve(r.id, cid, me?.name);
-    logActivity("company", `온보딩 승인 · ${r.org} (${r.email})${existing ? " · 기존 고객사 연결" : " · 신규 등록"}`, me?.name);
+    // 직원이 처리한 기록으로 읽히게 — 고객이 NcodeCenter 에 온 것이 아니다 `PC-320`
+    logActivity("approval", `고객사 승인 요청 승인 — ${r.org} · ${onboardServiceLabel(r.service)} · ${r.email} → ${existing ? "기존 고객사 연결" : "고객사 신규 등록"}`, me?.name);
     setDone({ ok: true, org: r.org, companyId: cid, email: r.email });
   };
   const reject = (r: OnboardingRequest) => {
     if (!window.confirm(`${r.org} (${r.email}) 의 승인 요청을 거절할까요?`)) return;
     onboarding.reject(r.id, me?.name);
-    logActivity("company", `온보딩 거절 · ${r.org} (${r.email})`, me?.name);
+    logActivity("approval", `고객사 승인 요청 거절 — ${r.org} · ${onboardServiceLabel(r.service)} · ${r.email}`, me?.name);   // `PC-320`
     setDone({ ok: false, org: r.org });
   };
 

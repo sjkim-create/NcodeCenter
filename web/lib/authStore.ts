@@ -201,13 +201,13 @@ export const auth = {
       ? state.users.map((u) => (u.email === r.email ? { ...u, enabled: true, role: r.role, department: r.department, name: r.name } : u))
       : [{ id: r.email, email: r.email, name: r.name, department: r.department, role: r.role, enabled: true, password: r.email }, ...state.users];
     commit({ ...state, users, requests: state.requests.map((x) => (x.id === id ? { ...x, status: "APPROVED" } : x)) });
-    logActivity("access", `직원 승인 — ${r.name} · ${r.email}`, by);
+    logActivity("approval", `직원 승인 — ${r.name} · ${r.email}`, by);   // 종류 = 승인 `PC-321`
   },
   rejectRequest(id: number, by?: string) {
     const r = state.requests.find((x) => x.id === id);
     if (!r || r.status !== "PENDING") return;
     commit({ ...state, requests: state.requests.map((x) => (x.id === id ? { ...x, status: "REJECTED" } : x)) });
-    logActivity("access", `직원 승인 거절 — ${r.name} · ${r.email}`, by);
+    logActivity("approval", `직원 승인 거절 — ${r.name} · ${r.email}`, by);   // `PC-321`
   },
 };
 

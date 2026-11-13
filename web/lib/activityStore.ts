@@ -13,6 +13,7 @@ export type ActivityType =
   | "nkey"        // N Key — 티켓 발급 ▸ N Key 관리 (발급 · 수정 · 키 다운로드)
   | "svcTicket"   // 서비스 티켓 — 고객사 관리 ▸ 서비스 티켓 (지정 · 수정)
   | "billing"     // 정산 — 세 티켓 정산 · 연간 라이선스 비용
+  | "approval"    // 승인 — 고객사 · 직원 승인 요청의 승인 · 거절(직원이 처리한 일) `PC-321`
   | "access";     // 접속 — 로그인 · 로그아웃
 
 export type Activity = { id: number; type: ActivityType; actor: string; detail: string; at: string }; // at = ISO datetime
@@ -27,14 +28,17 @@ export const TYPE_META: Record<ActivityType, { label: string; color: string }> =
   nkey: { label: "N Key", color: "#EC4899" },         // 분홍
   svcTicket: { label: "서비스 티켓", color: "#22C55E" }, // 초록
   billing: { label: "정산", color: "#DC2626" },       // 빨강
+  approval: { label: "승인", color: "#4338CA" },      // 남색 `PC-321`
   access: { label: "접속", color: "#9CA3AF" },        // 회색
 };
 
 // 옛 종류 → 새 종류 — 남아 있는 기록(7일)을 옮긴다 `PC-248`
 //   옛 「티켓 발급」은 문구 앞머리로 가른다: 정산 → 정산 · 서비스 티켓 → 서비스 티켓 · N Key 가 들어가면 N Key · 그 밖(App Key · 계정 · 티켓 · 권한)은 App Key
 function migrateType(a: { type: string; detail: string }): ActivityType {
+  // 승인 · 거절 기록은 「승인」 — 예전에 고객사 · 접속으로 남은 것도 옮긴다 `PC-321`
+  if (/^(고객사 승인 요청 (승인|거절) —|온보딩 (승인|거절) ·|직원 승인( 거절)? —)/.test(a.detail)) return "approval";
   switch (a.type) {
-    case "company": case "alloc": case "edit": case "appkey": case "nkey": case "svcTicket": case "billing": case "access":
+    case "company": case "alloc": case "edit": case "appkey": case "nkey": case "svcTicket": case "billing": case "access": case "approval":
       return a.type;
     case "project": return "alloc";
     case "bookAdd": case "bookEdit": return "edit";
@@ -65,12 +69,22 @@ const subs = new Set<() => void>();
 let seq = 1;
 
 function persist() { if (typeof window !== "undefined") { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* */ } } }
+// 예전 문구 → 새 문구 `PC-320` — 「온보딩 승인 · 업체 (이메일) · 신규 등록」은 고객이 한 일처럼 읽혀
+//   직원이 처리한 기록으로 읽히게 바꾼다(예전 기록에는 서비스가 없어 빼고 적는다)
+function migrateDetail(d: string): string {
+  const ok = /^온보딩 승인 · (.+?) \(([^)]+)\)(?: · (기존 고객사 연결|신규 등록))?$/.exec(d);
+  if (ok) return `고객사 승인 요청 승인 — ${ok[1]} · ${ok[2]} → ${ok[3] === "기존 고객사 연결" ? "기존 고객사 연결" : "고객사 신규 등록"}`;
+  const no = /^온보딩 거절 · (.+?) \(([^)]+)\)$/.exec(d);
+  if (no) return `고객사 승인 요청 거절 — ${no[1]} · ${no[2]}`;
+  return d;
+}
+
 function hydrate() {
   if (hydrated || typeof window === "undefined") return;
   hydrated = true;
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { list = prune((JSON.parse(raw) as Activity[]).map((x) => ({ ...x, type: migrateType(x) }))); seq = Math.max(0, ...list.map((a) => a.id)) + 1; persist(); subs.forEach((f) => f()); }
+    if (raw) { list = prune((JSON.parse(raw) as Activity[]).map((x) => ({ ...x, type: migrateType(x), detail: migrateDetail(x.detail) }))); seq = Math.max(0, ...list.map((a) => a.id)) + 1; persist(); subs.forEach((f) => f()); }
   } catch { /* */ }
 }
 

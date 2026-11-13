@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useActivities, activityStore, TYPE_META, type ActivityType, type Activity } from "@/lib/activityStore";
 import { useAuth, currentUser } from "@/lib/authStore";
+import { WsFillScroll } from "./KeyWorkspaceUI";
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 const ymd = (iso: string) => iso.slice(0, 10);
@@ -220,8 +221,8 @@ export default function ActivityLogView() {
             <b style={{ fontSize: 15, color: "#111827" }}>{+day.slice(5, 7)}월 {+day.slice(8, 10)}일 ({WEEK[new Date(day + "T00:00:00Z").getUTCDay()]})</b>
             <span style={{ fontSize: 12, color: "#9ca3af" }}>{dayItems.length}건{type !== "__ALL__" ? ` · ${TYPE_META[type].label}` : ""}{actor !== "__ALL__" ? ` · ${actor}` : ""}</span>
           </div>
-          {/* 건수가 많으면 이 칸 안에서 스크롤 — 머리(날짜 · 건수)는 그대로 `PC-319` */}
-          <div style={{ maxHeight: "min(560px, calc(100vh - 280px))", overflowY: "auto" }}>
+          {/* 목록은 화면 아래 끝까지 채우고, 넘치면 이 칸 안에서 스크롤 — 머리(날짜 · 건수)는 그대로 `PC-319` */}
+          <WsFillScroll gap={34}>
           {dayItems.length === 0 ? (
             <div style={{ padding: "40px 12px", textAlign: "center", color: "#9ca3af", fontSize: 12.5 }}>이 날 활동이 없습니다.</div>
           ) : dayItems.map((a, i) => {
@@ -238,7 +239,7 @@ export default function ActivityLogView() {
               </div>
             );
           })}
-          </div>
+          </WsFillScroll>
         </div>
       </div>
     </div>
