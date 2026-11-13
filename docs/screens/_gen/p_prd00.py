@@ -23,7 +23,7 @@ def login_card(banner='', pw_val='', email_val='', msg='', mode='local', hot=Non
         form = ('<div class="btn pri%s" style="width:100%%;justify-content:center;padding:12px 16px;gap:10px">%s'
                 '회사 Google 계정으로 로그인</div>'
                 '<div style="font-size:11.5px;color:#9ca3af;margin-top:10px">@neolab.net 회사 Google 계정만 허용되며, '
-                '최초 로그인 시 자동으로 등록됩니다(승인 불필요).</div>'
+                '처음이면 [첫 방문 — 승인 요청] 후 관리자 승인을 받아야 합니다 <code>PC-299</code>.</div>'
                 % (' hot' if hot == 'sso' else '', GOOGLE_G))
     else:
         ev = email_val or '<span style="color:#9ca3af">name@neolab.net</span>'
@@ -34,8 +34,9 @@ def login_card(banner='', pw_val='', email_val='', msg='', mode='local', hot=Non
                 '<input type="checkbox" checked> 로그인 계정 기억</label>'
                 '<div class="btn pri%s" style="width:100%%;justify-content:center;margin-top:10px">로그인</div>%s'
                 '<div style="font-size:11.5px;color:#9ca3af;margin-top:10px">등록 계정의 초기 비밀번호는 '
-                '<b>이메일과 동일</b>합니다 (개인정보수정에서 변경). 신규 계정은 <b>회사 Google 계정</b> 인증으로 등록됩니다.</div>'
-                % (ev, pv, ' hot' if hot == 'login' else '', msg))
+                '<b>이메일과 동일</b>합니다 (개인정보수정에서 변경).</div>'
+                '<div style="text-align:center;margin-top:10px;font-size:12.5px;color:#2563eb%s">처음 방문하셨나요? 승인 요청 →</div>'
+                % (ev, pv, ' hot' if hot == 'login' else '', msg, ';outline:2px solid #f59e0b;border-radius:6px;padding:3px' if hot == 'join' else ''))
     return ('<div style="max-width:460px;margin:40px auto;padding:0 20px">'
             '<div class="card" style="padding:24px">'
             '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'
@@ -43,6 +44,23 @@ def login_card(banner='', pw_val='', email_val='', msg='', mode='local', hot=Non
             '<div style="font-weight:700;font-size:18px">Ncode<span style="color:#5f8ff0">Center</span> 로그인</div></div>'
             '<p style="color:#6b7280;font-size:12.5px;margin:0 0 16px">회사에 <b>등록된 계정</b>으로 로그인하세요. '
             '(내부 직원 전용 · <b>@neolab.net</b>)</p>%s%s</div></div>' % (b, form))
+
+
+# 첫 방문 — 승인 요청 입력 화면 `PC-299`
+def join_card(name='', email='', msg='', sent=False):
+    nv = name or '<span style="color:#9ca3af">홍길동</span>'
+    ev = email or '<span style="color:#9ca3af">name@neolab.net</span>'
+    lock = ';background:#f3f4f6;color:#9ca3af' if sent else ''
+    btn = '' if sent else '<div class="btn pri" style="width:100%;justify-content:center;margin-top:14px;padding:11px 16px">승인 요청</div>'
+    return ('<div style="max-width:460px;margin:40px auto;padding:0 20px"><div class="card" style="padding:24px">'
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">'
+            '<div class="bmark" style="width:30px;height:30px;flex:0 0 30px;font-size:15px">N</div>'
+            '<div style="font-weight:700;font-size:18px">첫 방문 — 승인 요청</div>'
+            '<span style="display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%%;color:#6b7280;font-size:12px;border:1px solid #d1d5db">i</span></div>'
+            '<div class="fld"><span class="lbl">이름</span><div class="inp" style="%s">%s</div></div>'
+            '<div class="fld" style="margin-top:10px"><span class="lbl">회사 이메일</span><div class="inp" style="%s">%s</div></div>'
+            '%s<div class="btn" style="width:100%%;justify-content:center;margin-top:8px">← 로그인으로</div>%s</div></div>'
+            % (lock, nv, lock, ev, btn, msg))
 
 
 DUMMY = ('<div class="g4" style="margin-bottom:14px">'
@@ -64,14 +82,16 @@ def build():
          ('비밀번호 입력', '입력 · Enter', '제출', '초기값 = 이메일. Enter로 제출'),
          ('로그인 계정 기억', '체크 토글', '—', '체크 시 다음 진입에 이메일 자동 채움'),
          ('[로그인]', '클릭', '<code>DSH-01</code>', '성공 시 <b>{이름}({역할})으로 로그인</b> 인라인 표시 후 이동'),
-         ('(비로그인 경로 접근)', '자동', '로그인 화면', '로그인 후 요청 화면으로 이동')]))
+         ('(비로그인 경로 접근)', '자동', '로그인 화면', '로그인 후 요청 화면으로 이동'),
+         ('[처음 방문하셨나요? 승인 요청 →]', '클릭', 'S15 승인 요청 화면', '처음 쓰는 직원 <code>PC-299</code>'),
+         ('미등록 · 승인 대기 계정 로그인', '클릭', '막음', '<b>등록되지 않은 계정입니다. [첫 방문 — 승인 요청]으로 먼저 요청하세요.</b> / <b>승인 대기 중인 계정입니다. 관리자가 승인하면 로그인할 수 있습니다.</b>')]))
 
     boards.append((
         'S2', '로그인 · 회사 Google 계정(SSO)', '분기',
         'SSO 자격증명이 설정된 환경. PRD §4.1 — 회사 Google Workspace 계정으로만 로그인한다.',
         bare(login_card(mode='sso', hot='sso'), 760),
         [('[회사 Google 계정으로 로그인]', '클릭', 'Google 인증 → <code>DSH-01</code>',
-          '@neolab.net 계정만 허용. 명단에 없어도 <b>STAFF로 자동 등록</b>(승인 불필요)'),
+          '@neolab.net 계정만 허용. 명단에 없으면 들이지 않는다 — <b>[첫 방문 — 승인 요청]</b> 후 ADMIN 승인 <code>PC-299</code>'),
          ('(인증 취소)', '자동', 'S1 유지', '세션당 1회만 자동 로그인 시도 — 취소 루프 방지')]))
 
     boards.append((
@@ -226,6 +246,19 @@ def build():
          ('«  ‹  ›  »', '클릭', '페이지 이동', '첫/마지막 페이지에서 해당 버튼 <b>비활성</b>'),
          ('필터·검색 변경', '자동', '1페이지로 복귀', ''),
          ('[초기화]', '클릭', '시드 상태로 복귀', '실행 전 <b>확인창</b>')]))
+
+    boards.append((
+        'S15', '첫 방문 — 승인 요청', '진입',
+        '로그인 화면 [처음 방문하셨나요? 승인 요청 →] 으로 여는 <b>따로 입력 화면</b> <code>PC-299</code>. '
+        '처음 쓰는 직원이 이름 · 회사 이메일로 요청하면 <code>MEM-03</code> 승인 요청과 좌측 메뉴 [직원 계정] 건수에 나타나고, ADMIN 이 승인하면 그 이메일로 로그인한다(초기 비밀번호 = 이메일).',
+        bare(join_card(name='정하늘', email='haneul.jung@neolab.net', sent=True,
+                       msg='<div class="inline-ok" style="font-size:12.5px;margin-top:12px">승인 요청을 보냈습니다. 관리자가 승인하면 로그인할 수 있습니다.</div>'), 760),
+        [('이름', '입력 · Enter', '제출', '필수 — 화면을 열면 이 칸에 커서 · 비우면 <b>이름을 입력하세요.</b>'),
+         ('회사 이메일', '입력 · Enter', '제출', '필수 · 비우면 <b>회사 이메일을 입력하세요.</b> · 형식 오류 <b>이메일 형식이 올바르지 않습니다.</b> · 회사 도메인 아님 <b>회사 계정(@neolab.net)만 요청할 수 있습니다.</b>'),
+         ('[승인 요청]', '클릭', '요청 대기', '이미 등록 <b>이미 등록된 계정입니다. 로그인하세요.</b> · 이미 대기 <b>이미 승인 요청한 계정입니다. 관리자 승인을 기다려 주세요.</b> · 보냄 <b>승인 요청을 보냈습니다. 관리자가 승인하면 로그인할 수 있습니다.</b>(두 칸 잠김 · 버튼 사라짐)'),
+         ('[← 로그인으로]', '클릭', 'S1', ''),
+         ('제목 ⓘ', '클릭', '말풍선', '승인 요청 절차 · 초기 비밀번호 안내'),
+         ('활동 로그', '자동 기록', '<code>LOG-01</code>', '<b>승인 요청 · 첫 방문 · {이메일}</b>')]))
 
     intro = ('모든 화면이 공유하는 <b>로그인 · 권한 · 셸 · 공통 패턴 · 메시지 규칙</b>. '
              '각 화면 정의서는 여기서 정의한 규칙을 반복하지 않고 참조한다. '

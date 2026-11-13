@@ -1,18 +1,19 @@
 "use client";
 
 // MEM-03 직원 계정 — 이 콘솔을 쓰는 내부 직원 · 역할(ADMIN/STAFF) · 사용 중지 `PC-297`
-//   직원은 회사 계정(@neolab.net)으로 처음 로그인하면 그 이메일로 **자동 등록**(STAFF)된다 — 여기서 손으로 등록하지 않는다 `PC-297`
+//   첫 방문 직원은 로그인 화면에서 이름 · 회사 이메일로 **승인 요청** → 여기서 ADMIN 이 승인하면 STAFF 로 등록 `PC-299`
+//   (회사 계정 첫 로그인 자동 등록 `PC-297` 은 폐기 — 손으로 등록하는 버튼은 여전히 없다)
 //   여기서는 이름(고칠 수 있음) · 부서 · 역할 · 사용 중지만. 이메일 = 로그인 계정이라 고칠 수 없다.
 //   계정은 지우지 않는다(활동 로그 · 담당자 기록이 이름을 쓴다) — 그만둔 직원은 「사용 중지」.
 //   ADMIN 전용 화면(활동 로그와 같은 차단).
 import { useEffect, useMemo, useState } from "react";
-import { S } from "./ui";
-import { auth, useAuth, currentUser, ALLOWED_DOMAINS, type Role, type User } from "@/lib/authStore";
+import { S, Modal, Field } from "./ui";
+import { auth, useAuth, currentUser, pendingRequests, ALLOWED_DOMAINS, DEPTS, type Role, type User } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
-import { WsStats, InfoTip } from "./KeyWorkspaceUI";
+import { InfoTip } from "./KeyWorkspaceUI";
+import { ApprovalButton, StaffApprovalModal } from "./ApprovalModals";
 
 const roleTag = (r: Role) => ({ background: r === "ADMIN" ? "#eef6ff" : "#f3f4f6", color: r === "ADMIN" ? "#2563eb" : "#475569" });
-const DEPTS = ["국내사업부", "해외사업부", "서비스기획팀", "SW개발팀", "펌웨어 팀"];
 type StatusFilter = "all" | "on" | "off";
 type SortKey = "name" | "dept" | "role" | "status";
 const deptOf = (u: User) => (u.department && u.department !== "-" ? u.department : "");
@@ -25,6 +26,8 @@ export default function UsersView() {
   const [st, setSt] = useState<StatusFilter>("all");
   const [names, setNames] = useState<Record<string, string>>({});   // 이름 고치는 중인 값
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
+  const [showApprove, setShowApprove] = useState(false);   // 승인 요청 모달 `PC-303`
+  const [showAdd, setShowAdd] = useState(false);   // 직원 직접 등록 모달 `PC-309`
   const flash = (ok: boolean, text: string) => { setToast({ ok, text }); setTimeout(() => setToast(null), 3000); };
 
   const users = s.users;
@@ -109,6 +112,8 @@ export default function UsersView() {
     border: `1px solid ${on ? "#93c5fd" : "#e5e7eb"}`, background: on ? "#eef6ff" : "#fff", color: on ? "#1d4ed8" : "#6b7280",
   });
   const nOff = users.filter((u) => !u.enabled).length;
+  // 첫 방문 승인 요청 — 머리의 [🔔 승인 요청 n건]을 누르면 모달 `PC-299` `PC-303`
+  const reqs = pendingRequests(s);
   // 정렬 머리 — 지금 정렬 중이면 ▲ / ▼, 아니면 흐린 ↕
   const sortTh = (label: string, key: SortKey, extra?: React.ReactNode) => {
     const on = sort.key === key;
@@ -125,19 +130,12 @@ export default function UsersView() {
 
   return (
     <div style={{ padding: "18px 20px" }}>
-      <WsStats items={[
-        ["직원", `${users.length}명`, "#111827"],
-        ["ADMIN", `${users.filter((u) => u.role === "ADMIN" && u.enabled).length}명`, "#2563eb"],
-        ["STAFF", `${users.filter((u) => u.role === "STAFF" && u.enabled).length}명`, "#475569"],
-        ["사용 중지", `${nOff}명`, nOff ? "#dc2626" : "#9ca3af"],
-      ]} />
-
       {/* overflow 를 자르지 않는다 — ⓘ 말풍선이 표가 짧아도 카드 밖으로 다 보이게 */}
       <div style={{ ...S.card, padding: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "10px 14px", borderBottom: "1px solid #eef0f4" }}>
           <b style={{ fontSize: 13.5 }}>직원 계정</b>
           <InfoTip title="직원 계정이란?" width={340}>
-            이 콘솔을 쓰는 내부 직원입니다. 회사 계정(@{ALLOWED_DOMAINS[0]})으로 처음 로그인하면 <b>그 이메일로 자동 등록</b>(STAFF)됩니다 — 따로 등록하지 않습니다.
+            이 콘솔을 쓰는 내부 직원입니다. 처음 쓰는 직원은 로그인 화면에서 이름과 회사 이메일(@{ALLOWED_DOMAINS[0]})로 <b>승인 요청</b>하고, 관리자(ADMIN)가 [🔔 승인 요청]에서 승인하면 STAFF 로 등록됩니다. 관리자가 [＋ 직원 등록]으로 바로 등록할 수도 있습니다.
             여기서는 이름 · 부서 · 역할 · 사용 여부를 정합니다. 그만둔 직원은 지우지 않고 「사용 중지」합니다(로그인할 수 없게 됩니다).
           </InfoTip>
           <span style={{ width: 8 }} />
@@ -146,6 +144,10 @@ export default function UsersView() {
           ))}
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="이름 · 이메일 · 부서 검색" aria-label="이름 · 이메일 · 부서 검색"
             style={{ ...S.input, width: 220, marginLeft: 4 }} />
+          <span style={{ flex: 1 }} />
+          <ApprovalButton n={reqs.length} onClick={() => setShowApprove(true)} />
+          {/* 직원 직접 등록 — 승인 요청 없이 ADMIN 이 바로 등록 `PC-309` */}
+          <button type="button" onClick={() => setShowAdd(true)} style={{ ...S.primary, padding: "6px 12px", fontSize: 12.5 }}>＋ 직원 등록</button>
         </div>
         <table style={{ ...S.table }}>
           <thead><tr>
@@ -200,7 +202,49 @@ export default function UsersView() {
         </table>
       </div>
       {toast && <div style={{ marginTop: 10, fontSize: 12.5, color: toast.ok ? "#047857" : "#dc2626", textAlign: "right" }}>{toast.text}</div>}
+      {showApprove && <StaffApprovalModal onClose={() => setShowApprove(false)} />}
+      {showAdd && <StaffRegisterModal by={me.name} onClose={() => setShowAdd(false)} onDone={(m) => { setShowAdd(false); flash(true, m); }} />}
 
     </div>
+  );
+}
+
+/** 직원 직접 등록 — 이름 · 회사 이메일 · 부서 · 역할. 등록하면 사용 중 · 초기 비밀번호 = 이메일 `PC-309` */
+function StaffRegisterModal({ by, onClose, onDone }: { by: string; onClose: () => void; onDone: (msg: string) => void }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [dept, setDept] = useState("");
+  const [role, setRole] = useState<Role>("STAFF");
+  const [err, setErr] = useState("");
+  const save = () => {
+    const r = auth.registerStaff({ name, email, department: dept, role }, by);
+    if (r.ok) onDone(r.msg); else setErr(r.msg);
+  };
+  const enter = (e: React.KeyboardEvent) => { if (e.key === "Enter") save(); };
+  return (
+    <Modal title="직원 등록" onClose={onClose}>
+      <div style={{ display: "grid", gap: 10 }}>
+        <Field label="이름 *"><input autoFocus value={name} onChange={(e) => { setName(e.target.value); setErr(""); }} onKeyDown={enter} placeholder="홍길동" style={S.input} /></Field>
+        <Field label="회사 이메일 (로그인 계정) *"><input value={email} onChange={(e) => { setEmail(e.target.value); setErr(""); }} onKeyDown={enter} placeholder={`name@${ALLOWED_DOMAINS[0]}`} style={S.input} /></Field>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <Field label="부서">
+            <select value={dept} onChange={(e) => setDept(e.target.value)} style={S.input}>
+              <option value="">- 미지정 -</option>
+              {DEPTS.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </Field>
+          <Field label="역할">
+            <select value={role} onChange={(e) => setRole(e.target.value as Role)} style={S.input}>
+              <option value="STAFF">STAFF</option><option value="ADMIN">ADMIN</option>
+            </select>
+          </Field>
+        </div>
+      </div>
+      {err && <div style={{ marginTop: 10, fontSize: 12.5, color: "#dc2626" }}>{err}</div>}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+        <button type="button" onClick={onClose} style={S.ghost}>취소</button>
+        <button type="button" onClick={save} style={S.primary}>등록</button>
+      </div>
+    </Modal>
   );
 }

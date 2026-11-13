@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { MENU, titleOf, type MenuItem } from "@/lib/menu";
-import { useAuth, currentUser, auth } from "@/lib/authStore";
+import { useAuth, currentUser, auth, pendingRequests } from "@/lib/authStore";
 import { useOnboarding } from "@/lib/onboardingStore";
 import { S as UIS, Modal, Field } from "./ui";
 
@@ -22,6 +22,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const me = currentUser(authState);
   const onbPending = useOnboarding().requests.filter((r) => r.status === "PENDING").length;   // 승인요청 배지 `PC-116`
   const isAdmin = me?.role === "ADMIN";   // 활동 로그 등 admin 전용 메뉴 노출 기준
+  const staffPending = isAdmin ? pendingRequests(authState).length : 0;   // 직원 승인 요청 배지 `PC-299`
 
   // 로그인 화면 도달 시 로그아웃 전환 화면 해제
   useEffect(() => { if (pathname === "/login") setLoggingOut(false); }, [pathname]);
@@ -80,7 +81,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             return (
               <div key={gi} style={{ marginBottom: 10 }}>
                 {grp.group && <div style={S.groupLabel}>{grp.group}</div>}
-                {renderItems(items, best, collapsed, toggleGroup, onbPending)}
+                {renderItems(items, best, collapsed, toggleGroup, onbPending, staffPending)}
               </div>
             );
           })}
@@ -108,7 +109,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div style={{ fontWeight: 700, fontSize: 16 }}>{titleOf(pathname)}</div>
           <div style={{ flex: 1 }} />
           {/* 알림 — 승인 대기 건수 `PC-116` · 누르면 고객사 관리로 */}
-          <button onClick={() => router.push("/companies")} title={onbPending > 0 ? `가입 승인 요청 ${onbPending}건` : "알림 없음"}
+          <button onClick={() => router.push("/companies")} title={onbPending > 0 ? `고객사 승인 요청 ${onbPending}건` : "알림 없음"}
             style={{ ...S.iconBtn, position: "relative", border: 0 }}>
             🔔
             {onbPending > 0 && (
@@ -158,7 +159,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
 // 헤더(그룹) + 하위메뉴 렌더 — 헤더를 누르면 하위 메뉴가 접혔다 펼쳐진다.
 // 기본은 펼침이며, 하위 화면에 있는 동안에는 접어도 강제로 펼친다(현재 위치를 잃지 않도록).
-function renderItems(items: MenuItem[], best: string, collapsed: Record<string, boolean>, toggleGroup: (label: string) => void, onbPending = 0) {
+function renderItems(items: MenuItem[], best: string, collapsed: Record<string, boolean>, toggleGroup: (label: string) => void, onbPending = 0, staffPending = 0) {
   const out: React.ReactNode[] = [];
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
@@ -198,6 +199,10 @@ function renderItems(items: MenuItem[], best: string, collapsed: Record<string, 
           {/* 고객사 관리 — 승인 대기 건수 배지 `PC-116` */}
           {it.path === "/companies" && onbPending > 0 && (
             <span style={{ ...(active ? S.badgeOn : S.badge) }}>{onbPending}</span>
+          )}
+          {/* 직원 계정 — 직원 승인 요청 건수 배지 `PC-299` */}
+          {it.path === "/staff" && staffPending > 0 && (
+            <span style={{ ...(active ? S.badgeOn : S.badge) }}>{staffPending}</span>
           )}
           {!it.ready && <span style={S.soon}>예정</span>}
         </Link>
