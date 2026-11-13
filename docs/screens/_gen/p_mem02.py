@@ -232,7 +232,7 @@ def nav(active='base', new=False, locked=False, dirty=()):
     return '<div style="' + CARD + ';padding:8px">' + out + '</div>'
 
 
-# 왼쪽 고객사 칸 — 진행중 · 상위 고객사 묶음(▶ 접힘) · [＋ 고객사 등록] `PC-204`
+# 왼쪽 고객사 칸 — 구분 셀렉트(전체 · 상위 · 하위 · 단독 · 진행중 · 사업 종료) · 상위 고객사 묶음(▶ 접힘) · [＋ 고객사 등록] `PC-204`
 LEFT = ('(주)투이아이앤씨', '21세기 북스', '가구소-1022', '대교', ('네오노트-0-27', 6), ('네오노트-1012', 31), '시원스쿨',
         '아들과딸', '엠베스트', CO, '크레버스', '한솔교육')
 
@@ -248,7 +248,10 @@ def left_col(adding=False):
             rows.append(kws.co_group(x[0], 0, False, x[1]))
         else:
             rows.append((x, 3 if x == CO else 0, (x == CO and not adding), 0, False))
-    return kws.co_col(rows, 820, view='issued', issued=535, total=536, issued_label='진행중',
+    # 보기 칩 대신 구분 셀렉트(건수) `PC-300`
+    sel = ('<div class="inp" style="margin-bottom:8px;display:flex;justify-content:space-between">전체 고객사 (536)'
+           '<span style="color:#9ca3af">▾</span></div>')
+    return kws.co_col(rows, 820, view='all', issued=535, total=536, chips=False, top=sel,
                       right='<span class="btn pri" style="padding:5px 10px;font-size:12px">＋ 고객사 등록</span>')
 
 

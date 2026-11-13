@@ -212,7 +212,7 @@ def sobp_chips(kind, s_, o, b, p_):
 
 
 def co_col(rows, height, view='issued', issued=14, total=536, count=None, search='', unlinked=None, empty='',
-           issued_label='발급 고객사', right=''):
+           issued_label='발급 고객사', right='', chips=True, top=''):
     """왼쪽 칸 — 고객사(고객사 관리) · [발급 고객사][전체 고객사] · 검색 · 목록 · 고객사 미연결
     rows: (라벨, 건수, 선택, 미정, 굵게) 또는 미리 그린 줄(co_group)"""
     li = ''.join(r if isinstance(r, str) else co_item(r[0], r[1], r[2], r[3], bold=r[4]) for r in rows)
@@ -227,24 +227,37 @@ def co_col(rows, height, view='issued', issued=14, total=536, count=None, search
             '<div style="%s"><b style="font-size:14px">고객사</b><span style="font-size:11.5px;color:#9ca3af">%s곳</span>'
             '<span style="flex:1"></span>%s</div>'
             '<div style="padding:10px;display:flex;flex-direction:column;flex:1;min-height:0">'
-            '<div style="display:flex;gap:4px;margin-bottom:8px">%s%s</div>%s'
+            '%s%s%s'
             '<div style="flex:1;overflow:hidden">%s</div></div></div>'
             % (CARD, height, HD, count if count is not None else (issued if view == 'issued' else total),
                right or '<span style="font-size:11px;color:#9ca3af">고객사 관리</span>',
-               chip('%s %d' % (issued_label, issued), view == 'issued'), chip('전체 고객사 %d' % total, view == 'all'),
-               srch, li))
+               ('<div style="display:flex;gap:4px;margin-bottom:8px">%s%s</div>'
+                % (chip('%s %d' % (issued_label, issued), view == 'issued'), chip('전체 고객사 %d' % total, view == 'all'))) if chips else '',
+               top, srch, li))
 
 
-def co_ws_head(view='ws', pending=3):
-    """고객사 관리 머리 — 제목 · 가입 승인 요청 · [3단 보기][표 보기] · 집계 6칸 (web/components/CompaniesWorkspace.tsx) `PC-204`"""
+def view_toggle(view='ws'):
+    """보기 전환 — 아이콘 버튼 한 묶음 ▦ 3단 보기 · ☰ 표 보기 (이름은 마우스를 올리면) `PC-306`"""
+    grid = ('<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="5" height="5" rx="1"/>'
+            '<rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>')
+    lst = ('<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="2" height="2" rx=".5"/>'
+           '<rect x="6" y="3.25" width="8" height="1.5" rx=".75"/><rect x="2" y="7" width="2" height="2" rx=".5"/><rect x="6" y="7.25" width="8" height="1.5" rx=".75"/>'
+           '<rect x="2" y="11" width="2" height="2" rx=".5"/><rect x="6" y="11.25" width="8" height="1.5" rx=".75"/></svg>')
+    def b(icon, on, left):
+        return ('<span style="width:36px;height:32px;display:grid;place-items:center;%sbackground:%s;color:%s">%s</span>'
+                % ('border-left:1px solid #d1d5db;' if left else '', '#e8f0fe' if on else '#fff', '#2563eb' if on else '#374151', icon))
+    return ('<div style="display:inline-flex;border:1px solid #d1d5db;border-radius:8px;overflow:hidden;background:#fff">%s%s</div>'
+            % (b(grid, view == 'ws', False), b(lst, view == 'table', True)))
+
+
+def co_ws_head(view='ws', pending=5):
+    """고객사 관리 머리 — 제목 · 승인 요청 · 보기 전환 아이콘(▦ 3단 · ☰ 표) (집계 카드 없음) (web/components/CompaniesWorkspace.tsx) `PC-204`"""
     pend = ('<span style="font-size:12.5px;padding:6px 12px;border-radius:8px;border:1px solid #fcd34d;background:#fffbeb;color:#92400e;font-weight:700">'
-            '🔔 가입 승인 요청 %d건</span>' % pending) if (pending and view == 'ws') else ''
+            '🔔 승인 요청 %d건</span>' % pending) if pending else ''   # 3단 · 표 보기 공통 · 누르면 승인 모달 `PC-303`
     return ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12.5px;color:#6b7280">'
             '<b style="font-size:15px;color:#111827">고객사 관리</b><span>· 업체(고객사) 마스터 · 사업자 / 계좌 / 서류 / 서비스 티켓 · 계정 / 업무 원장</span>'
-            '<span style="flex:1"></span>%s<div style="display:flex;gap:4px">%s%s</div></div>'
-            % (pend, chip('3단 보기', view == 'ws'), chip('표 보기', view == 'table')) +
-            stats([('고객사', '536곳', '#111827'), ('진행중', '535곳', '#047857'), ('사업 종료 ›', '1곳', '#9ca3af'),
-                   ('상위 고객사', '6곳', '#047857'), ('하위 고객사', '211곳', '#7e22ce'), ('코드 프로젝트', '511건', '#2563eb')]))
+            '<span style="flex:1"></span>%s%s</div>'
+            % (pend, view_toggle(view)))   # 집계 카드 없음 `PC-300`
 
 
 def mid_col(title_, count, btn, body, height, btn_off=False, sub=''):

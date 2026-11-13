@@ -49,6 +49,11 @@ const SEED: State = {
       provider: "google", service: "FORMSOLUTION", firstLoginAt: "2026-09-28 14:40:02", loginCount: 1, status: "PENDING" },
     { id: 3, email: "dev@pentalk.io", name: "Park J.", org: "펜톡", domain: "pentalk.io",
       provider: "google", service: "SDK", firstLoginAt: "2026-09-29 09:05:51", loginCount: 2, status: "PENDING" },
+    // 시험용 승인 요청 추가 — 승인 · 거절을 해 볼 수 있게 CasterN · 폼솔루션 1건씩 `PC-302`
+    { id: 4, email: "manager@yoonbooks.co.kr", name: "최윤서", org: "윤북스", domain: "yoonbooks.co.kr",
+      provider: "google", service: "CASTERN", firstLoginAt: "2026-11-12 16:20:07", loginCount: 2, status: "PENDING" },
+    { id: 5, email: "office@gaonacademy.kr", name: "정가온", org: "가온학원", domain: "gaonacademy.kr",
+      provider: "google", service: "FORMSOLUTION", firstLoginAt: "2026-11-13 09:41:15", loginCount: 1, status: "PENDING" },
   ],
 };
 
@@ -64,7 +69,17 @@ function hydrate() {
   hydrated = true;
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { state = JSON.parse(raw); }
+    if (raw) {
+      state = JSON.parse(raw);
+      // 시드에 새로 넣은 요청이 저장분에 없으면 채운다 — 이미 처리한 요청은 그대로 `PC-302`
+      const miss = SEED.requests.filter((r) => !state.requests.some((x) => x.email.toLowerCase() === r.email.toLowerCase()));
+      if (miss.length) {
+        const used = new Set(state.requests.map((r) => r.id));
+        let nid = Math.max(100, ...state.requests.map((r) => r.id)) + 1;
+        state = { requests: [...state.requests, ...miss.map((r) => (used.has(r.id) ? { ...r, id: nid++ } : r))] };
+        persist();
+      }
+    }
     seq = Math.max(seq, ...state.requests.map((r) => r.id)) + 1;
     subs.forEach((f) => f());
   } catch { /* */ }

@@ -10,8 +10,6 @@ import { S, Field, Modal, AutoTextarea } from "./ui";
 import { store, useStore } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
-import { onboarding, useOnboarding, onboardServiceToCompany, onboardServiceLabel,
-         type OnboardingRequest } from "@/lib/onboardingStore";
 import { Company, CompanyDoc, WorkKind, WorkLog, nextId,
          SERVICE, companyServices } from "@/lib/customerData";
 import { SOUND_ITEMS, PEN_ITEMS, rateMapOf, customRateCount, type RateItem } from "@/lib/pricing";
@@ -20,6 +18,7 @@ import { codesOfMember, addMember, removeMember, hydrateMembers, useCommonMember
 import { caster, useCaster, accountScope, isActive, type CasterAccount } from "@/lib/accountStore";
 import { CompanyAccountsPanel, type AccountOps } from "./CompanyAccountsPanel";
 import { CompanyServiceTickets } from "./CompanyServiceTickets";
+import { wsChip } from "./KeyWorkspaceUI";
 import { serviceTicketsOf, useServiceTickets } from "@/lib/serviceTicketStore";
 
 type Draft = Omit<Company, "id">;
@@ -50,10 +49,6 @@ export function CompaniesTable() {
   const router = useRouter();
   const { companies, projects, logs } = useStore();
   const me = currentUser(useAuth());
-  const onb = useOnboarding();                                     // 온보딩(승인요청) 피드 `PC-116`
-  const pending = onb.requests.filter((r) => r.status === "PENDING");
-  const [approved, setApproved] = useState<{ companyId: number; email: string; org: string } | null>(null);
-  const [showOnboard, setShowOnboard] = useState(false);   // 가입 승인 요청 모달 `PC-119`
   const [delTarget, setDelTarget] = useState<Company | null>(null);
   // 서비스 계정 열 `PC-135` — 고객사별 서비스 계정 수(명), 누르면 명단
   const cast = useCaster();
@@ -98,67 +93,11 @@ export function CompaniesTable() {
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(""), 4000); };
   const logCount = (cid: number) => logs.filter((l) => l.companyId === cid).length;
 
-  // ── 온보딩 승인요청 처리 `PC-116` ───────────────────────────────
-  // 승인 → 같은 이름 고객사가 있으면 연결, 없으면 신규 등록. 그 뒤 App Key 발급으로 안내.
-  const approveReq = (r: OnboardingRequest) => {
-    const svc = onboardServiceToCompany(r.service);
-    const existing = companies.find((c) => norm(c.name) === norm(r.org));
-    let cid: number;
-    if (existing) {
-      cid = existing.id;
-      if (svc && !(existing.services ?? []).includes(svc))
-        store.upsertCompany({ ...existing, services: [...(existing.services ?? []), svc] });
-    } else {
-      cid = store.upsertCompany({
-        id: 0, name: r.org, manager: r.name, contact: r.email, address: "", bizNo: "",
-        bankName: "", accountNo: "", taxEmail: r.email, docs: [], services: svc ? [svc] : [],
-      });
-    }
-    onboarding.approve(r.id, cid, me?.name);
-    logActivity("company", `온보딩 승인 · ${r.org} (${r.email})${existing ? " · 기존 고객사 연결" : " · 신규 등록"}`, me?.name);
-    setApproved({ companyId: cid, email: r.email, org: r.org });
-    flash(`승인됨 · ${r.org} ${existing ? "연결" : "고객사 등록"} · 고객사 상세에서 계정을 추가하세요`);
-  };
-  const rejectReq = (r: OnboardingRequest) => {
-    if (!confirm(`${r.org} (${r.email}) 의 가입 요청을 거절할까요?`)) return;
-    onboarding.reject(r.id, me?.name);
-    logActivity("company", `온보딩 거절 · ${r.org} (${r.email})`, me?.name);
-    flash(`거절됨 · ${r.org}`);
-  };
+  // 승인 요청(고객 가입) 처리는 머리의 [🔔 승인 요청 n건] 모달 — ApprovalModals `PC-303`
   return (
     <div>
-      {/* 가입 승인 요청 — **카드로 건수만** 표시, 클릭하면 모달로 목록·승인 `PC-119` */}
-      {pending.length > 0 && (
-        <button onClick={() => setShowOnboard(true)}
-          style={{ width: "100%", textAlign: "left", cursor: "pointer", border: "1px solid #fcd34d", background: "#fffbeb",
-            borderRadius: 12, padding: "13px 16px", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 16 }}>🔔</span>
-          <b style={{ fontSize: 13.5, color: "#92400e" }}>가입 승인 요청 {pending.length}건</b>
-          <span style={{ fontSize: 11.5, color: "#b45309" }}>· 새 고객이 우리 서비스에 SSO 로그인했습니다. 클릭하여 확인·승인하세요.</span>
-          <span style={{ flex: 1 }} />
-          <span style={{ ...S.primary, padding: "6px 14px", pointerEvents: "none" }}>확인·승인 →</span>
-        </button>
-      )}
-
-      {/* 승인 직후 — 그 고객사의 **계정 및 서비스 권한**에서 SSO 이메일로 계정을 추가한다 `PC-116` `PC-133` */}
-      {approved && (
-        <div style={{ border: "1px solid #a7f3d0", background: "#ecfdf5", borderRadius: 12, padding: "12px 16px", marginBottom: 14,
-          display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 15 }}>✅</span>
-          <b style={{ fontSize: 13, color: "#065f46" }}>{approved.org} 승인 완료</b>
-          <span style={{ fontSize: 12, color: "#047857" }}>고객사 상세의 계정 및 서비스 권한에서 이 이메일로 계정을 추가하세요.</span>
-          <span style={{ flex: 1 }} />
-          <Link href={`/companies/${approved.companyId}?email=${encodeURIComponent(approved.email)}`}
-            style={{ ...S.primary, textDecoration: "none", padding: "6px 14px" }}>계정 추가 →</Link>
-          <button onClick={() => setApproved(null)} style={{ ...S.ghost, padding: "6px 10px" }}>닫기</button>
-        </div>
-      )}
-
+      {/* 검색 · [＋ 고객사 등록] 은 왼쪽 · 설명글 없음 `PC-308` */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-        <p style={{ margin: 0, color: "#6b7280", fontSize: 13 }}>
-          업체(고객사) 마스터 · 사업자/계좌/서류/업무 원장. 행을 클릭하면 상세·수정 화면으로 이동합니다. 고객사 {companies.length}곳 · 프로젝트 {projects.length}건
-        </p>
-        <div style={{ flex: 1 }} />
         <div style={{ position: "relative" }}>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="업체명·담당자·사업자번호 검색"
             style={{ ...S.input, width: 240, paddingRight: 26 }} />
@@ -171,18 +110,17 @@ export function CompaniesTable() {
       <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
         {(q || classFilter || closedOnly) && <span>{q ? "검색 " : ""}<b style={{ color: "#111827" }}>{allRows.length.toLocaleString()}</b>건 · </span>}
         <span>구분 필터:</span>
+        {/* 필터 칩 — 다른 화면과 같은 모양(wsChip) `PC-307` */}
         {([
-          ["", "전체", companies.length, "#374151", "#eef6ff"],
-          ["holder", "상위 고객사", companies.filter((c) => isHolderCo(c.name)).length, "#047857", "#ecfdf5"],
-          ["member", "하위 고객사", companies.filter((c) => isMemberCo(c.name)).length, "#7e22ce", "#f3e8ff"],
-          ["solo", "단독 고객사", companies.filter((c) => !isHolderCo(c.name) && !isMemberCo(c.name)).length, "#6b7280", "#f3f4f6"],
-        ] as const).map(([v, label, n, fg, bg]) => {
+          ["", "전체", companies.length],
+          ["holder", "상위 고객사", companies.filter((c) => isHolderCo(c.name)).length],
+          ["member", "하위 고객사", companies.filter((c) => isMemberCo(c.name)).length],
+          ["solo", "단독 고객사", companies.filter((c) => !isHolderCo(c.name) && !isMemberCo(c.name)).length],
+        ] as const).map(([v, label, n]) => {
           const on = classFilter === v;
           return (
-            <button key={v} onClick={() => setClassFilter(v as typeof classFilter)}
-              style={{ fontSize: 11.5, fontWeight: 700, padding: "4px 10px", borderRadius: 999, cursor: "pointer",
-                border: `1px solid ${on ? fg : "#e5e7eb"}`, background: on ? bg : "#fff", color: on ? fg : "#6b7280" }}>
-              {label} <span style={{ fontWeight: 400 }}>{n.toLocaleString()}</span>
+            <button key={v} type="button" aria-pressed={on} onClick={() => setClassFilter(v as typeof classFilter)} style={wsChip(on)}>
+              {label} {n.toLocaleString()}
             </button>
           );
         })}
@@ -190,11 +128,10 @@ export function CompaniesTable() {
         {(() => {
           const cl = companies.filter((c) => c.closed);
           return (
-            <button onClick={() => setClosedOnly((v) => !v)}
+            <button type="button" aria-pressed={closedOnly} onClick={() => setClosedOnly((v) => !v)}
               title={cl.length ? `사업 종료 고객사\n${cl.map((c) => `· ${c.name}`).join("\n")}` : "사업 종료 고객사가 없습니다"}
-              style={{ fontSize: 11.5, fontWeight: 700, padding: "4px 10px", borderRadius: 999, cursor: "pointer",
-                border: `1px solid ${closedOnly ? "#6b7280" : "#e5e7eb"}`, background: closedOnly ? "#f3f4f6" : "#fff", color: closedOnly ? "#374151" : "#6b7280" }}>
-              사업 종료 <span style={{ fontWeight: 400 }}>{cl.length.toLocaleString()}</span>
+              style={wsChip(closedOnly)}>
+              사업 종료 {cl.length.toLocaleString()}
             </button>
           );
         })()}
@@ -297,38 +234,6 @@ export function CompaniesTable() {
           </div>
         )}
       </div>
-
-      {/* 가입 승인 요청 모달 `PC-119` — 카드 클릭 시 목록·승인 */}
-      {showOnboard && (
-        <Modal onClose={() => setShowOnboard(false)} title={`가입 승인 요청 ${pending.length}건`}>
-          <p style={{ fontSize: 12.5, color: "#6b7280", margin: "0 0 12px", lineHeight: 1.6 }}>
-            새 고객이 우리 서비스에 SSO 로그인한 기록입니다. 승인하면 고객사로 등록되고, 고객사 상세의 계정 및 서비스 권한에서 이 이메일로 계정을 추가할 수 있습니다.
-          </p>
-          {pending.length === 0 ? (
-            <div style={{ fontSize: 13, color: "#6b7280", padding: "18px 0", textAlign: "center" }}>대기 중인 요청이 없습니다. ✅</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 440, overflow: "auto" }}>
-              {pending.map((r) => (
-                <div key={r.id} style={{ border: "1px solid #fde68a", background: "#fffbeb", borderRadius: 10, padding: "10px 12px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
-                    <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>{onboardServiceLabel(r.service)}</span>
-                    <b style={{ fontSize: 13 }}>{r.org}</b>
-                    <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11.5, color: "#2563eb" }}>{r.email}</span>
-                  </div>
-                  <div style={{ fontSize: 11.5, color: "#9ca3af", marginBottom: 8 }}>{r.name} · {r.provider} SSO · 로그인 {r.loginCount}회 · {r.firstLoginAt}</div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => approveReq(r)} style={{ ...S.primary, padding: "6px 14px" }}>승인 → 고객사 등록</button>
-                    <button onClick={() => rejectReq(r)} style={{ ...S.ghost, padding: "6px 12px", color: "#dc2626", borderColor: "#fecaca" }}>거절</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
-            <button onClick={() => setShowOnboard(false)} style={S.ghost}>닫기</button>
-          </div>
-        </Modal>
-      )}
 
       {/* 서비스 계정 명단 `PC-135` — 이름 · 이메일 · 계정 상태 · 최근 접속일 */}
       {accTarget && (() => {

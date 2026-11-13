@@ -51,10 +51,7 @@ def toolbar(search='', filtered=None):
              'color:#9ca3af;font-size:15px">×</span>') if search else ''
     return ('<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;'
             'flex-wrap:wrap">'
-            '<p style="margin:0;color:#6b7280;font-size:13px">'
-            '업체(고객사) 마스터 · 사업자/계좌/서류/업무 원장. 행을 클릭하면 수정 화면으로 이동합니다. '
-            '고객사 536곳 · 프로젝트 511건</p>'
-            '<div style="flex:1"></div>'
+            # 설명글 없음 · 검색 · [＋ 고객사 등록] 왼쪽 `PC-308`
             '<div style="position:relative">'
             '<div style="width:240px;padding:8px 26px 8px 10px;border:1px solid #e5e7eb;'
             'border-radius:8px;font-size:13px;background:#fff">%s</div>%s</div>'
@@ -66,19 +63,12 @@ def tier_filter(active='', shown=None):
     pre = ''
     if shown is not None:
         pre = ('<span>검색 <b style="color:#111827">%s</b>건 · </span>' % shown)
-    pills = ''
-    for v, label, n, fg, bg in TIERS:
-        on = (v == active)
-        pills += ('<span style="font-size:11.5px;font-weight:700;padding:4px 10px;'
-                  'border-radius:999px;border:1px solid %s;background:%s;color:%s">%s '
-                  '<span style="font-weight:400">%s</span></span>'
-                  % (fg if on else '#e5e7eb', bg if on else '#fff', fg if on else '#6b7280',
-                     label, '{:,}'.format(n)))
+    # 필터 칩 — 다른 화면과 같은 모양(kws.chip) `PC-307`
+    pills = ''.join(kws.chip('%s %s' % (label, '{:,}'.format(n)), v == active) for v, label, n, fg, bg in TIERS)
     return ('<div style="font-size:12px;color:#6b7280;margin-bottom:8px;display:flex;'
             'align-items:center;gap:6px;flex-wrap:wrap">%s<span>구분 필터:</span>%s'
-            '<span style="margin-left:8px">상태:</span><span title="사업 종료 고객사 · humedical-28" style="font-size:11.5px;font-weight:700;padding:4px 10px;'
-            'border-radius:999px;border:1px solid #e5e7eb;background:#fff;color:#6b7280">사업 종료 <span style="font-weight:400">1</span></span></div>'   # 상태 필터 `PC-256`
-            % (pre, pills))
+            '<span style="margin-left:8px">상태:</span>%s</div>'   # 상태 필터 `PC-256`
+            % (pre, pills, kws.chip('사업 종료 1', False)))
 
 
 def common_cell(cc):
@@ -182,66 +172,41 @@ def table(rows, search=''):
             % (th, tb, foot))
 
 
-# ── 가입 승인 요청(온보딩) `PC-119` ─────────────────────────────────
+# ── 승인 요청(고객 가입 · 온보딩) `PC-119` `PC-303` ─────────────────────
 PEND = [
-    ('CasterN', '학원북스', 'kim@hakwonbooks.co.kr', '김대표', 'google', 3, '2026-09-27 10:12:33'),
-    ('폼솔루션', '스마트에듀', 'admin@smartedu.kr', '이지현', 'google', 1, '2026-09-28 14:40:02'),
-    ('SDK 연동', '펜톡', 'dev@pentalk.io', 'Park J.', 'google', 2, '2026-09-29 09:05:51'),
+    ('CasterN', '학원북스', 'kim@hakwonbooks.co.kr', '김대표', '2026-09-27 10:12'),
+    ('폼솔루션', '스마트에듀', 'admin@smartedu.kr', '이지현', '2026-09-28 14:40'),
+    ('SDK 연동', '펜톡', 'dev@pentalk.io', 'Park J.', '2026-09-29 09:05'),
+    ('CasterN', '윤북스', 'manager@yoonbooks.co.kr', '최윤서', '2026-11-12 16:20'),
+    ('폼솔루션', '가온학원', 'office@gaonacademy.kr', '정가온', '2026-11-13 09:41'),
 ]
 
 
-def onboard_card(n=3):
-    return ('<div style="width:100%%;border:1px solid #fcd34d;background:#fffbeb;border-radius:12px;'
-            'padding:13px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">'
-            '<span style="font-size:16px">🔔</span>'
-            '<b style="font-size:13.5px;color:#92400e">가입 승인 요청 %d건</b>'
-            '<span style="font-size:11.5px;color:#b45309">· 새 고객이 우리 서비스에 SSO 로그인했습니다. '
-            '클릭하여 확인·승인하세요.</span><span style="flex:1"></span>'
-            '<span style="background:#5f8ff0;color:#fff;border-radius:9px;padding:6px 14px;'
-            'font-size:13px;font-weight:600">확인·승인 →</span></div>' % n)
-
-
-def onboard_modal(rows=PEND):
-    items = ''
-    for svc, org, email, name, prov, cnt, at in rows:
-        items += ('<div style="border:1px solid #fde68a;background:#fffbeb;border-radius:10px;'
-                  'padding:10px 12px;margin-bottom:8px">'
-                  '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">'
-                  '<span class="tag b">%s</span><b style="font-size:13px">%s</b>'
-                  '<span style="font-family:ui-monospace,monospace;font-size:11.5px;color:#2563eb">%s</span></div>'
-                  '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:8px">%s · %s SSO · 로그인 %d회 · %s</div>'
-                  '<div style="display:flex;gap:8px">'
-                  '<span class="btn pri" style="padding:6px 14px">승인 → 고객사 등록</span>'
-                  '<span class="btn gho" style="padding:6px 12px;color:#dc2626;border-color:#fecaca">거절</span>'
-                  '</div></div>' % (svc, org, email, name, prov, cnt, at))
-    return ('<div class="ovl"><div class="mdl w"><div class="mh">'
-            '<div class="mt">가입 승인 요청 %d건</div><div class="mx">✕</div></div>'
-            '<div style="font-size:12.5px;color:#6b7280;margin-bottom:12px;line-height:1.6">'
-            '새 고객이 우리 서비스에 SSO 로그인한 기록입니다. 승인하면 고객사로 등록되고, '
-            '고객사 상세의 계정 및 서비스 권한에서 이 이메일로 계정을 추가할 수 있습니다.</div>%s'
-            '<div class="mf"><div class="btn gho">닫기</div></div></div></div>' % (len(rows), items))
-
-
-def approved_card(org='학원북스'):
-    return ('<div style="border:1px solid #a7f3d0;background:#ecfdf5;border-radius:12px;'
-            'padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-            '<span style="font-size:15px">✅</span>'
-            '<b style="font-size:13px;color:#065f46">%s 승인 완료</b>'
-            '<span style="font-size:12px;color:#047857">고객사 상세의 계정 및 서비스 권한에서 이 이메일로 계정을 추가하세요.</span>'
-            '<span style="flex:1"></span>'
-            '<span style="background:#5f8ff0;color:#fff;border-radius:9px;padding:6px 14px;'
-            'font-size:13px;font-weight:600">계정 추가 →</span>'
-            '<span class="btn gho" style="padding:6px 10px">닫기</span></div>' % org)
+def onboard_modal(rows=PEND, done=''):
+    """승인 요청 모달 — 한 줄 = 서비스 · 업체명 · 이메일 · 이름 · 요청 일시 · [승인][거절] `PC-303`"""
+    th = ''.join('<th style="text-align:%s;padding:8px 10px;font-size:11.5px;color:#6b7280;font-weight:600;background:#fafbfc">%s</th>'
+                 % ('right' if h == '처리' else 'left', h) for h in ('서비스', '업체명', '이메일', '이름', '요청 일시', '처리'))
+    tr = ''.join('<tr style="border-top:1px solid #eef0f4"><td style="padding:9px 10px"><span class="tag b">%s</span></td>'
+                 '<td style="padding:9px 10px;font-weight:700">%s</td>'
+                 '<td style="padding:9px 10px;font-family:ui-monospace,monospace;font-size:12px">%s</td>'
+                 '<td style="padding:9px 10px">%s</td>'
+                 '<td style="padding:9px 10px;font-family:ui-monospace,monospace;font-size:12px;color:#6b7280">%s</td>'
+                 '<td style="padding:9px 10px;text-align:right;white-space:nowrap"><span class="btn pri" style="padding:5px 12px">승인</span> '
+                 '<span class="btn gho" style="padding:5px 12px;color:#dc2626;border-color:#fecaca">거절</span></td></tr>'
+                 % r for r in rows)
+    ok = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12.5px;padding:8px 12px;border-radius:9px;'
+          'background:#ecfdf5;color:#047857">✅ <b>%s</b> 승인 — 고객사로 등록했습니다.<span style="flex:1"></span>'
+          '<b>계정 추가 →</b></div>' % done) if done else ''
+    return ('<div class="ovl"><div class="mdl" style="width:860px"><div class="mh">'
+            '<div class="mt">승인 요청 %d건</div><div class="mx">✕</div></div>%s'
+            '<div style="border:1px solid #eef0f4;border-radius:10px;overflow:hidden"><table style="width:100%%;border-collapse:collapse;font-size:12.5px">'
+            '<thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>'
+            '<div class="mf"><div class="btn gho">닫기</div></div></div></div>' % (len(rows), ok, th, tr))
 
 
 def content(rows=None, search='', tier='', shown=None, toast='', onboard=None, approved=None):
     rows = ROWS if rows is None else rows
-    top = ''
-    if onboard:
-        top += onboard_card(onboard)
-    if approved:
-        top += approved_card(approved)
-    return kws.co_ws_head('table') + top + toolbar(search) + tier_filter(tier, shown) + toast + table(rows, search)
+    return kws.co_ws_head('table', pending=onboard or 0) + toolbar(search) + tier_filter(tier, shown) + toast + table(rows, search)
 
 
 BASE = [
@@ -370,39 +335,34 @@ def build():
          ('코드 보유 현황', '좌측 메뉴', '<code>PRJ-01</code>', ''),
          ('편집 실적·정산', '좌측 메뉴', '<code>PRJ-02</code> → <code>PRJ-03</code>', '')]))
 
-    # ── 가입 승인 요청(온보딩) `PC-119` ─────────────────────────────
+    # ── 승인 요청(고객 가입 · 온보딩) `PC-119` `PC-303` ─────────────
     boards.append((
-        'S10', '가입 승인 요청 카드', '변형',
-        '<code>PC-119</code> — 새 고객이 우리 서비스(CasterN·폼솔루션 등)에 <b>SSO 로그인</b>하면 그 기록이 '
-        '<b>가입 승인 요청</b>으로 잡힌다. 목록 상단에 <b>건수만 담은 카드</b>가 뜨고(인라인 목록 아님), '
-        '<b>카드를 클릭하면 모달</b>로 확인·승인한다. 사이드바 [고객사 관리]와 상단 🔔에도 대기 건수 배지가 붙는다.',
-        frame('MEM-01', '고객사 관리', content(onboard=3), height=940),
-        [('가입 승인 요청 카드', '클릭', 'S11 (모달)', '노랑 카드 · 건수만 표시'),
-         ('사이드바 [고객사 관리] 배지 · 🔔', '표시', '—', '대기 건수 빨간 배지')]))
+        'S10', '승인 요청 버튼', '변형',
+        '<code>PC-116</code> — 새 고객이 우리 서비스(CasterN · 폼솔루션 · SDK 연동)에 <b>SSO 로 처음 로그인</b>하면 그 기록이 '
+        '<b>승인 요청</b>으로 잡힌다. 고객사 관리 머리에 <b>[🔔 승인 요청 n건]</b> 버튼이 뜨고(3단 · 표 보기 어디서나), '
+        '<b>누르면 바로 승인 모달</b>(S11) <code>PC-303</code>. 사이드바 [고객사 관리]와 상단 🔔에도 대기 건수 배지가 붙는다.',
+        frame('MEM-01', '고객사 관리', content(onboard=5), height=940),
+        [('[🔔 승인 요청 n건]', '클릭', 'S11 (모달)', '대기 요청이 있을 때만 · 3단 · 표 보기 머리 공통'),
+         ('사이드바 [고객사 관리] 배지 · 🔔', '표시', '—', '대기 건수 빨간 배지 · 🔔 말풍선 「고객사 승인 요청 n건」')]))
 
     boards.append((
-        'S11', '가입 승인 모달', '모달',
-        '카드를 누르면 모달로 <b>대기 요청 목록</b>이 뜬다. 각 건에 <b>서비스 · 회사 · SSO 이메일 · 로그인 정보</b>와 '
-        '<b>[승인 → 고객사 등록] / [거절]</b> 버튼. 승인하면 목록에서 사라지고 여러 건을 연속 처리한다.',
-        frame('MEM-01', '고객사 관리', content(onboard=3), overlay=onboard_modal(), height=940),
-        [('[승인 → 고객사 등록]', '클릭', 'S12 · 고객사 등록', '같은 이름 있으면 연결, 없으면 신규 등록'),
-         ('[거절]', '클릭', 'confirm 후 목록에서 제거', '거절로 기록'),
-         ('[닫기] · [✕]', '클릭', 'S10 복귀', '')]))
+        'S11', '승인 요청 모달', '모달',
+        '대기 요청을 <b>한 줄에 하나씩</b> 표로 보인다 — <b>서비스 · 업체명 · 이메일 · 이름 · 요청 일시(년월일 시:분) · [승인] [거절]</b> <code>PC-303</code>. '
+        '처리한 줄은 사라지고 여러 건을 이어서 처리한다. 대기가 없으면 <b>대기 중인 승인 요청이 없습니다.</b>',
+        frame('MEM-01', '고객사 관리', content(onboard=5), overlay=onboard_modal(), height=940),
+        [('[승인]', '클릭', 'S12 · 고객사 등록', '같은 이름 있으면 연결, 없으면 새로 등록'),
+         ('[거절]', '클릭', '확인창 후 목록에서 제거', '<b>{업체명} ({이메일}) 의 승인 요청을 거절할까요?</b>'),
+         ('[닫기] · [✕]', '클릭', '모달 닫힘', '')]))
 
     boards.append((
-        'S12', '승인 완료 · 최근 상단', '성공',
-        '승인하면 고객사로 등록되고 <b>최근 등록 고객사가 목록 최상단</b>에 온다(<code>PC-119</code> · createdAt 내림차순). '
-        '상단 초록 카드의 <b>[계정 추가 →]</b>로 그 고객사 상세의 <b>계정 및 서비스 권한</b>(<code>MEM-02</code> S17)으로 바로 간다 — '
-        'SSO 이메일이 ID 칸에 미리 들어간다. <code>PC-133</code>',
-        frame('MEM-01', '고객사 관리',
-              content(rows=[('학원북스', 'solo', '김대표', 'kim@hakwonbooks.co.kr', '—', '—', '—',
-                             None, 0, '—', 0, 0, False)] + ROWS,
-                      onboard=2, approved='학원북스'),
-              height=1020),
-        [('초록 완료 카드', '표시', '—', '<b>{org} 승인 완료</b>'),
+        'S12', '승인 완료', '성공',
+        '승인하면 고객사로 등록되고 모달 위에 초록 줄 <b>✅ {업체명} 승인 — 고객사로 등록했습니다.</b> + <b>[계정 추가 →]</b>가 뜬다 '
+        '— 그 고객사 상세의 <b>계정 및 서비스 권한</b>(<code>MEM-02</code> S17)으로 가고 SSO 이메일이 ID 칸에 미리 들어간다 <code>PC-133</code>. '
+        '새 고객사는 표 보기 최근순 맨 위.',
+        frame('MEM-01', '고객사 관리', content(onboard=4), overlay=onboard_modal(rows=PEND[:3] + PEND[4:], done='윤북스'), height=940),
+        [('초록 줄', '표시', '—', '<b>✅ {업체명} 승인 — 고객사로 등록했습니다.</b>'),
          ('[계정 추가 →]', '클릭', '<code>MEM-02</code> S17', 'SSO 이메일 미리 입력 (<code>/companies/{id}?email=</code>) <code>PC-133</code>'),
-         ('목록 최상단', '자동', '최근 고객사', 'createdAt 내림차순 기본 정렬'),
-         ('업체명 정렬 셀렉트', '선택', '최신순 · 오름차순 · 내림차순', '<code>PC-161</code>')]))
+         ('표 보기 목록', '자동', '최근 고객사 맨 위', 'createdAt 내림차순 기본 정렬')]))
 
     # 서비스 계정 명단 창 `PC-135` `PC-144`
     acc_rows = ''.join(
