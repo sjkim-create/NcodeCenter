@@ -700,8 +700,8 @@ def build():
     B.append(('S16', '계정 삭제 확인창', '확인창', '[계정 삭제]는 확인을 거친다. 연결된 App Key 도 함께 지워진다.',
               frame('MEM-01', FR, layout(H, nav('acc'), acc_section(acc_card_list(1), acc_detail('edit', ACCS[1], n=3, owner='other'))), overlay=dlg, height=1200),
               [('[삭제]', '클릭', '계정 제거', '사용 서비스 다시 계산 · <code>LOG-01</code>'), ('[취소] · ✕', '클릭', 'S11', '')]))
-    B.append(('S17', '가입 승인 후 계정 추가', '분기',
-              '<code>MEM-01</code> 가입 승인 카드의 <b>[계정 추가 →]</b>로 들어오면 서비스 계정 등록 폼이 열리고 SSO 이메일이 ID 칸에 들어가 있다 <code>PC-133</code>.',
+    B.append(('S17', '승인 후 계정 추가', '분기',
+              '<code>MEM-01</code> 승인 요청 모달의 <b>[계정 추가 →]</b>로 들어오면 서비스 계정 등록 폼이 열리고 SSO 이메일이 ID 칸에 들어가 있다 <code>PC-133</code>.',
               frame('MEM-01', FR, layout(H, nav('acc'), acc_section(acc_card_list(adding=True), acc_detail('new', id_val='teacher@newschool.kr', owner='other'))), height=1150),
               [('ID (이메일)', '자동', 'SSO 이메일', '<code>?email=</code>'), ('[계정 추가]', '클릭', '바로 저장', '')]))
 
