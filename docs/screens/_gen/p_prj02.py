@@ -90,14 +90,9 @@ def top(kind='전체', search=''):
 
 
 def left(sel_cust='웅진씽크빅', kind='전체', search='', empty=False):
-    ks = ''.join('<span style="flex:1;font-size:10.5px;padding:4px 2px;border-radius:7px;'
-                 'text-align:center;white-space:nowrap;border:1px solid %s;background:%s;'
-                 'color:%s;%s">%s</span>'
-                 % ('#93c5fd' if k == kind else '#e5e7eb',
-                    '#eef6ff' if k == kind else '#fff',
-                    '#2563eb' if k == kind else '#6b7280',
-                    'font-weight:700' if k == kind else '', k)
-                 for k in ('전체', 'PDS3', 'PDS2', 'PDS4', 'OID'))
+    # 코드 종류 셀렉트(건수) `PC-310`
+    ks = ('<div class="inp" style="display:flex;justify-content:space-between">%s<span style="color:#9ca3af">▾</span></div>'
+          % {'전체': '전체 코드 종류 (71)', 'PDS3(Ncode)': 'PDS3 (Ncode) (46)', 'PDS2(Gcode)': 'PDS2 (Gcode) (27)'}.get(kind, kind))
     sv = ('<div class="inp" style="padding-right:28px">%s'
           '<span style="position:absolute;right:6px;top:50%%;transform:translateY(-50%%);'
           'color:#9ca3af;font-size:16px">×</span></div>' % search) if search else \
@@ -151,7 +146,7 @@ def left(sel_cust='웅진씽크빅', kind='전체', search='', empty=False):
             '<div style="font-weight:700;font-size:13px;flex:1">고객사 선택</div>'
             '<span class="btn sm" style="background:#5f8ff0;color:#fff;border:0">'
             '＋ 고객사</span></div>'
-            '<div style="display:flex;gap:4px;margin-bottom:8px">%s</div>'
+            '<div style="margin-bottom:8px">%s</div>'
             '<div style="position:relative;margin-bottom:10px">%s</div>'
             '<div style="font-size:11px;color:#9ca3af;margin-bottom:6px">%s</div>%s'
             '</div></div>' % (ks, sv, cnt, body))

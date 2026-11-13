@@ -65,6 +65,14 @@ export default function ProjectsView() {
     (flag === "ALL" || (flag === "편집" ? isEditing(p) : !isEditing(p))) &&
     (svc === "ALL" || companyUsesService(companies.find((c) => c.id === p.companyId), svc));
   const projectsOf = (cid: number) => projects.filter((p) => p.companyId === cid && matchProject(p));
+  // 코드 종류 셀렉트 건수 — 그 종류(전체면 모든 종류)로 걸렀을 때 남는 고객사 수 `PC-301`
+  const coCountOf = (k: "ALL" | CodeKind) => {
+    const m = (p: Project) => (k === "ALL" || projKind(p) === k) &&
+      (flag === "ALL" || (flag === "편집" ? isEditing(p) : !isEditing(p))) &&
+      (svc === "ALL" || companyUsesService(companies.find((c) => c.id === p.companyId), svc));
+    return k === "ALL" && flag === "ALL" && svc === "ALL" ? companies.length
+      : new Set(projects.filter(m).map((p) => p.companyId)).size;
+  };
 
   const coList = companies
     .filter((c) => (pds === "ALL" && flag === "ALL" && svc === "ALL") || projectsOf(c.id).length > 0)
@@ -99,11 +107,11 @@ export default function ProjectsView() {
         {/* 고객사 카드 */}
         <div style={{ ...S.card, padding: 10 }}>
           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>고객사 선택</div>
-          <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-            {PDS_FILTERS.map((f) => (
-              <button key={f.v} onClick={() => { setPds(f.v); setSelP(null); }} style={pdsChip(pds === f.v)}>{f.label}</button>
-            ))}
-          </div>
+          {/* 코드 종류 셀렉트 — 항목마다 그 종류 코드를 가진 고객사 수(편집 여부 · 사용 서비스 거르기를 따른다) `PC-301` */}
+          <select value={pds} onChange={(e) => { setPds(e.target.value as "ALL" | CodeKind); setSelP(null); }} aria-label="코드 종류"
+            style={{ ...S.input, marginBottom: 8 }} title="코드 종류로 거르기">
+            {PDS_FILTERS.map((f) => <option key={f.v} value={f.v}>{f.v === "ALL" ? "전체 코드 종류" : f.label} ({coCountOf(f.v)})</option>)}
+          </select>
           <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
             {(["ALL", "편집", "코드발급"] as const).map((f) => (
               <button key={f} onClick={() => { setFlag(f); setSelP(null); }} style={pdsChip(flag === f)}>{f === "ALL" ? "전체" : f}</button>

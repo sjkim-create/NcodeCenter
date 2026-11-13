@@ -93,7 +93,8 @@ def col_cust(pds='전체', flag='전체', svc='사용 서비스 · 전체', sear
                          '#1d4ed8' if on else '#111827', nm, end, s, codes, kb))
     return ('<div class="card" style="align-self:start"><div style="padding:10px">'
             '<div style="font-weight:700;font-size:13px;margin-bottom:8px">고객사 선택</div>'
-            '<div class="row" style="gap:4px;margin-bottom:8px">%s</div>'
+            '<div class="inp" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">%s'
+            '<span style="color:#9ca3af;font-size:10px">▾</span></div>'
             '<div class="row" style="gap:4px;margin-bottom:8px">%s</div>'
             '<div class="inp" style="margin-bottom:8px;font-size:11.5px;padding:6px 8px;'
             'display:flex;align-items:center;justify-content:space-between">%s'
@@ -102,7 +103,7 @@ def col_cust(pds='전체', flag='전체', svc='사용 서비스 · 전체', sear
             '<div class="inp" style="padding-right:28px">%s</div>%s</div>'
             '<div style="max-height:560px;overflow:hidden">%s</div>'
             '</div></div>'
-            % (chips(['전체', 'PDS3', 'PDS2', 'PDS4', 'OID'], pds),
+            % ({'전체': '전체 코드 종류 (536)'}.get(pds, pds),   # 코드 종류 셀렉트(건수) `PC-301`
                chips(['전체', '편집', '코드발급'], flag), svc, sv, clear, items))
 
 
@@ -240,7 +241,7 @@ def build():
         '① <b>고객사 선택</b>(280px) ② <b>프로젝트</b>(250px) ③ <b>발급 구성</b>(나머지). '
         '상단은 KPI 카드가 아니라 <b>요약 한 줄</b>이며 우측에 [초기화]가 있다.',
         frame('PRJ-01', '코드 프로젝트', content(), height=1000),
-        [('코드 종류 칩', '클릭', '목록·집계 필터', '<b>전체 / PDS3 / PDS2 / PDS4(S-code) / OID</b> — 좌표 속성 기준 <code>PC-032</code> · 옛 IDS = OID 동일 <code>PC-035</code> · 선택 시 프로젝트 선택 해제'),
+        [('코드 종류 셀렉트', '선택', '목록·집계 필터', '<b>전체 코드 종류 / PDS2 / PDS3 / PDS4(S-code) / OID</b> — 항목마다 고객사 수 <code>PC-301</code> — 좌표 속성 기준 <code>PC-032</code> · 옛 IDS = OID 동일 <code>PC-035</code> · 선택 시 프로젝트 선택 해제'),
          ('유형 칩', '클릭', '목록·집계 필터', '<b>전체 / 편집 / 코드발급</b> — 편집 = casterN이거나 심볼 보유'),
          ('사용 서비스', '드롭다운 선택', '목록·집계 필터',
           '<b>사용 서비스 · 전체</b> 기본값 · <b>casterN / 폼솔루션</b> 2종 <code>PC-076</code> · '
@@ -270,9 +271,9 @@ def build():
         '필터는 <b>프로젝트 단위</b>로 적용되어 좌측 고객사 목록과 상단 집계가 함께 줄어든다. '
         '필터가 걸리면 요약 꼬리말이 <b>· 필터 적용 (전체 {n}곳 / {n}건)</b>으로 바뀐다.',
         frame('PRJ-01', '코드 프로젝트',
-              content(pds='PDS3(Ncode)', flag='편집', svc='casterN (편집툴)',
+              content(pds='PDS3 (Ncode) (12)', flag='편집', svc='casterN (편집툴)',
                       sel_cust='교원구몬-10', filtered=True, proj_empty=True), height=940),
-        [('PDS3(Ncode)', '클릭', 'PDS3 보유 고객사만', '프로젝트 선택 해제'),
+        [('코드 종류 셀렉트 · PDS3 (Ncode)', '선택', 'PDS3 보유 고객사만', '프로젝트 선택 해제 · 항목 옆 숫자 = 그 종류로 걸렀을 때 남는 고객사 수 <code>PC-301</code>'),
          ('[편집]', '클릭', '편집 프로젝트만', 'casterN 서비스이거나 심볼 보유'),
          ('사용 서비스', '선택', '해당 서비스만', ''),
          ('상단 요약', '자동', '재계산', '<b>· 필터 적용 (전체 {n}곳 / {n}건)</b>'),

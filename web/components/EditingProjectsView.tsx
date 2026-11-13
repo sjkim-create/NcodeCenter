@@ -12,7 +12,7 @@ import { clearOverridesOfCustomer } from "@/lib/editOverrides";
 import { EDIT_CUSTOMERS, EDIT_SUMMARY } from "@/lib/editingData";
 import { rateOf, settle, BASE_RATE, won } from "@/lib/pricing";
 import { Sc } from "./sobp";
-import { WS_CARD, WS_HEAD_BTN, WsCoHead, WsCoGroup, WsCoItem, WsFillScroll, wsChip } from "./KeyWorkspaceUI";
+import { WS_CARD, WS_HEAD_BTN, WsCoHead, WsCoGroup, WsCoItem, WsFillScroll } from "./KeyWorkspaceUI";
 import { allEditBooks, ownerOfBook } from "@/lib/bookOwnership";
 import { allServiceTickets, hydrateServiceTickets, useServiceTickets } from "@/lib/serviceTicketStore";
 import { isCommonCodeCompany } from "@/lib/commonCodes";
@@ -234,12 +234,12 @@ export default function EditingProjectsView() {
             <WsCoHead count={list.length}
               right={<button type="button" onClick={openAdd} style={{ ...WS_HEAD_BTN, padding: "5px 10px", fontSize: 12 }}>＋ 고객사</button>} />
             <div style={{ padding: 10 }}>
-              {/* 코드 종류 필터 */}
-              <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-                {([["ALL", "전체"] as const, ...CODE_KINDS.map((k) => [k.v, k.short] as const)]).map(([v, label]) => (
-                  <button key={v} type="button" aria-pressed={pds === v} onClick={() => setPds(v)} style={{ ...wsChip(pds === v), flex: 1, padding: "5px 2px", fontSize: 11.5, textAlign: "center" }}>{label}</button>
-                ))}
-              </div>
+              {/* 코드 종류 셀렉트 — 항목마다 그 종류 코드를 가진 고객사 수 `PC-310` (코드 프로젝트 `PC-301` 과 같은 방식) */}
+              <select value={pds} onChange={(e) => setPds(e.target.value as "ALL" | CodeKind)} aria-label="코드 종류"
+                style={{ width: "100%", padding: "8px 10px", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 13, marginBottom: 8, boxSizing: "border-box", background: "#fff" }}>
+                <option value="ALL">전체 코드 종류 ({all.length})</option>
+                {CODE_KINDS.map((k) => <option key={k.v} value={k.v}>{k.label} ({all.filter((c) => kindsOfCust(c as never).includes(k.v)).length})</option>)}
+              </select>
               <div style={{ position: "relative", marginBottom: 8 }}>
                 <input value={q} onChange={(e) => setQ(e.target.value)} aria-label="고객사 · owner 검색" placeholder="고객사 · owner 검색"
                   style={{ width: "100%", padding: "8px 28px 8px 10px", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 13, boxSizing: "border-box" }} />
