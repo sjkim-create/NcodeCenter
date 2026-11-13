@@ -62,6 +62,19 @@ export default function ActivityLogView() {
   const switchView = (v: "week" | "month") => { setView(v); setWeek(weekStartOf(day)); setMonth(monthStartOf(day)); };
   const dayItems = byDay.get(day) ?? [];
   const TYPES = Object.keys(TYPE_META) as ActivityType[];
+  // CSV 받기 — 지금 보는 기간(주 · 달)과 활동 종류 · 직원 거르기 그대로, 시간순 `PC-319`
+  //   열 = 일시 · 종류 · 내용 · 직원. 엑셀에서 한글이 깨지지 않게 BOM 을 붙인다
+  const downloadCsv = () => {
+    const q = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const rows = [...shown].sort((x, y) => (x.at < y.at ? -1 : 1))
+      .map((a) => [`${ymd(a.at)} ${a.at.slice(11, 19)}`, TYPE_META[a.type]?.label ?? a.type, a.detail, a.actor].map(q).join(","));
+    const csv = "\uFEFF" + [["일시", "종류", "내용", "직원"].map(q).join(","), ...rows].join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const el = document.createElement("a");
+    el.href = url; el.download = `활동로그_${from}_${to}.csv`;
+    document.body.appendChild(el); el.click(); el.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
   // 활동 로그는 ADMIN 전용 (예: sj.kim) — 모든 훅 선언 이후에 분기
   if (me?.role !== "ADMIN") {
@@ -82,6 +95,11 @@ export default function ActivityLogView() {
         <p style={{ color: "#6b7280", fontSize: 13, margin: 0, flex: 1 }}>
           내부 직원 활동을 <b>주 · 월 달력</b>으로 보고, 날짜를 누르면 오른쪽에 그날 활동이 나온다. 기록은 <b>한 달</b> 보관 · 전체 {all.length.toLocaleString()}건
         </p>
+        {/* CSV 받기 — 지금 보는 기간 · 거르기 그대로 `PC-319` */}
+        <button type="button" onClick={downloadCsv} disabled={shown.length === 0} title={`${from} ~ ${to} · ${shown.length}건을 CSV 로 받습니다`}
+          style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: shown.length ? "#374151" : "#c0c6d0", cursor: shown.length ? "pointer" : "default", whiteSpace: "nowrap" }}>
+          ⬇ CSV 받기 ({shown.length})
+        </button>
         <button
           onClick={() => { if (confirm("활동 로그를 전부 삭제하고 새로 기록하시겠습니까? (되돌릴 수 없습니다)")) activityStore.clear(); }}
           style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: "1px solid #fecaca", background: "#fff", color: "#dc2626", cursor: "pointer", whiteSpace: "nowrap" }}>
@@ -202,6 +220,8 @@ export default function ActivityLogView() {
             <b style={{ fontSize: 15, color: "#111827" }}>{+day.slice(5, 7)}월 {+day.slice(8, 10)}일 ({WEEK[new Date(day + "T00:00:00Z").getUTCDay()]})</b>
             <span style={{ fontSize: 12, color: "#9ca3af" }}>{dayItems.length}건{type !== "__ALL__" ? ` · ${TYPE_META[type].label}` : ""}{actor !== "__ALL__" ? ` · ${actor}` : ""}</span>
           </div>
+          {/* 건수가 많으면 이 칸 안에서 스크롤 — 머리(날짜 · 건수)는 그대로 `PC-319` */}
+          <div style={{ maxHeight: "min(560px, calc(100vh - 280px))", overflowY: "auto" }}>
           {dayItems.length === 0 ? (
             <div style={{ padding: "40px 12px", textAlign: "center", color: "#9ca3af", fontSize: 12.5 }}>이 날 활동이 없습니다.</div>
           ) : dayItems.map((a, i) => {
@@ -218,6 +238,7 @@ export default function ActivityLogView() {
               </div>
             );
           })}
+          </div>
         </div>
       </div>
     </div>

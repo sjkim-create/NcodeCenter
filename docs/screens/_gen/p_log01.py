@@ -196,9 +196,10 @@ def content(actor='직원 전체', kind='전체', data=None, sel_day='22', total
             '<div style="display:flex;align-items:center;gap:10px;margin:0 0 14px">'
             '<p style="color:#6b7280;font-size:13px;margin:0;flex:1">'
             '내부 직원 활동을 <b>주 · 월 달력</b>으로 보고, 날짜를 누르면 오른쪽에 그날 활동이 나온다. 기록은 <b>한 달</b> 보관 · 전체 %d건</p>'
+            '<span style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;color:#374151;white-space:nowrap">⬇ CSV 받기 (%d)</span>'   # `PC-319`
             '<span style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid #fecaca;background:#fff;color:#dc2626;white-space:nowrap">전체 삭제</span></div>'
             '%s<div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;margin-top:14px;align-items:start">%s%s</div></div>'
-            % (total, filters(actor, kind, data, view), (week_cal(shown, sel_day) if view == 'week' else month_cal(shown, sel_day)), detail(sel_day, shown.get(sel_day, []), ('' if kind == '전체' else ' · ' + kind))))
+            % (total, sum(len(v) for v in shown.values()), filters(actor, kind, data, view), (week_cal(shown, sel_day) if view == 'week' else month_cal(shown, sel_day)), detail(sel_day, shown.get(sel_day, []), ('' if kind == '전체' else ' · ' + kind))))
 
 
 def denied():
@@ -228,7 +229,8 @@ def build():
          ('활동 종류 칩', '클릭', 'S2 (필터 적용)', '색 점 + 라벨 + <b>이 주 기준 건수</b> · 8종 · 토글'),
          ('날짜 행', '클릭', '오른쪽 상세', '고른 날은 파란 테두리 · 오늘은 날짜에 파란 배경 · 앞날은 흐리게(고를 수 없음) · 날짜 글씨는 보통 굵기 <code>PC-254</code>'),
          ('색 막대 · 색 점', '표시', '—', '그날 활동 종류별 비율과 건수 — 색은 활동 종류 색(NEO UI 팔레트)'),
-         ('상세 행', '표시', '—', '시각 44 · 종류 84 · 내용(2줄) / 직원 — 열 너비 고정 <code>PC-073</code>'),
+         ('상세 행', '표시', '—', '시각 44 · 종류 84 · 내용(2줄) / 직원 — 열 너비 고정 <code>PC-073</code> · 많으면 상세 칸 안에서 스크롤(머리 고정) <code>PC-319</code>'),
+         ('[⬇ CSV 받기 (n)]', '클릭', 'CSV 파일', '지금 보는 기간(주 · 달) · 활동 종류 · 직원 거르기 그대로 · 시간순 · 열 = 일시 · 종류 · 내용 · 직원 · 파일명 활동로그_{시작}_{끝}.csv · 0건이면 흐리게 <code>PC-319</code>'),
          ('[전체 삭제]', '클릭', 'S4 확인창', '빨간 테두리 버튼 · 되돌릴 수 없음')]))
 
     boards.append((
