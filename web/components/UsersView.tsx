@@ -209,7 +209,7 @@ export default function UsersView() {
   );
 }
 
-/** 직원 직접 등록 — 이름 · 회사 이메일 · 부서 · 역할. 등록하면 사용 중 · 초기 비밀번호 = 이메일 `PC-309` */
+/** 직원 직접 등록 — 이름 · 회사 이메일 · 부서 · 역할. 등록하면 사용 중(비밀번호 없음 · 이메일로 로그인 `PC-322`) `PC-309` */
 function StaffRegisterModal({ by, onClose, onDone }: { by: string; onClose: () => void; onDone: (msg: string) => void }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");

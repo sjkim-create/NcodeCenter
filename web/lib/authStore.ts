@@ -12,7 +12,8 @@ export const ALLOWED_DOMAINS = (process.env.NEXT_PUBLIC_ALLOWED_DOMAINS ?? "neol
   .split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
 const domainOf = (email: string) => email.split("@")[1]?.toLowerCase() ?? "";
 export const isCompanyEmail = (email: string) => ALLOWED_DOMAINS.includes(domainOf(email));
-export type User = { id: string; email: string; name: string; department: string; role: Role; enabled: boolean; password: string };
+// 비밀번호 없음 — 승인된 회사 계정은 **이메일만**으로 로그인한다 `PC-322`
+export type User = { id: string; email: string; name: string; department: string; role: Role; enabled: boolean };
 export type PermReq = { id: number; name: string; email: string; department: string; role: Role; reason: string; status: "PENDING" | "APPROVED" | "REJECTED"; createdAt: string };
 export type AuthState = { users: User[]; requests: PermReq[]; currentEmail: string | null };
 
@@ -21,9 +22,9 @@ const KEY = "ncc-auth-v8";
 export const DEPTS = ["국내사업팀", "해외사업팀", "서비스기획팀", "SW개발팀", "펌웨어개발팀", "개발품질팀", "재무회계팀"];
 // 예전 부서 이름 → 새 이름(이미 저장된 직원 값을 맞춘다) `PC-305`
 const DEPT_RENAME: Record<string, string> = { "국내사업부": "국내사업팀", "해외사업부": "해외사업팀", "펌웨어 팀": "펌웨어개발팀" };
-// 초기 비밀번호 = 이메일과 동일. 부서는 명단(staffUsers)에 지정, 없으면 순번 배정
+// 부서는 명단(staffUsers)에 지정, 없으면 순번 배정. 비밀번호 없음 `PC-322`
 const SEED: AuthState = {
-  users: STAFF_USERS.map((u, i) => ({ id: u.id, email: u.id, name: u.name, department: u.department ?? DEPTS[i % DEPTS.length], role: u.role, enabled: true, password: u.id })),
+  users: STAFF_USERS.map((u, i) => ({ id: u.id, email: u.id, name: u.name, department: u.department ?? DEPTS[i % DEPTS.length], role: u.role, enabled: true })),
   // 첫 방문 승인 요청(시험용 1건) `PC-299`
   requests: [{ id: 1, name: "정하늘", email: "staff.jung@neolab.net", department: "-", role: "STAFF", reason: "", status: "PENDING", createdAt: "2026-11-13 10:05" }],
   currentEmail: null,
@@ -83,13 +84,12 @@ export const auth = {
   snapshot() { return state; },
   serverSnapshot() { return SEED; },
 
-  addUser(u: Omit<User, "id" | "enabled" | "password"> & { enabled?: boolean; password?: string }) {
+  addUser(u: Omit<User, "id" | "enabled"> & { enabled?: boolean }) {
     if (state.users.some((x) => x.email === u.email)) return false;
-    commit({ ...state, users: [{ ...u, id: u.email, enabled: u.enabled ?? true, password: u.password ?? u.email }, ...state.users] });
+    commit({ ...state, users: [{ ...u, id: u.email, enabled: u.enabled ?? true }, ...state.users] });
     return true;
   },
   updateUser(id: string, patch: Partial<User>) { commit({ ...state, users: state.users.map((u) => (u.id === id ? { ...u, ...patch } : u)) }); },
-  changePassword(id: string, password: string) { commit({ ...state, users: state.users.map((u) => (u.id === id ? { ...u, password } : u)) }); },
   deleteUser(id: string) { commit({ ...state, users: state.users.filter((u) => u.id !== id), currentEmail: state.currentEmail === id ? null : state.currentEmail }); },
 
   // 회사 계정(SSO) 세션 → 로컬 스토어 동기화. 명단에 없는 계정은 들이지 않는다 — 첫 방문은 승인 요청 후 관리자 승인 `PC-299`
@@ -123,10 +123,11 @@ export const auth = {
     if (!wasLoggedIn) logActivity("access", `로그인 · 회사 계정 접속 · ${s.email}`, s.name || s.email);
   },
 
-  login(email: string, password: string): { ok: boolean; msg: string } {
+  // 회사 계정 로그인 — **이메일만** 받는다(비밀번호 없음) `PC-322`.
+  //   관리자가 승인한(등록된) 계정만 로그인 가능. 첫 방문은 [첫 방문 — 승인 요청] `PC-299`
+  login(email: string): { ok: boolean; msg: string } {
     const em = email.trim();
     const u = state.users.find((x) => x.email.toLowerCase() === em.toLowerCase());
-    // 관리자가 승인한(등록된) 계정만 로그인 가능. 첫 방문은 [첫 방문 — 승인 요청] `PC-299`
     if (!u) {
       if (!isCompanyEmail(em)) return { ok: false, msg: `회사 계정(@${ALLOWED_DOMAINS[0]})만 로그인할 수 있습니다.` };
       return pendingOf(em)
@@ -134,12 +135,11 @@ export const auth = {
         : { ok: false, msg: "등록되지 않은 계정입니다. [첫 방문 — 승인 요청]으로 먼저 요청하세요." };
     }
     if (!u.enabled) return { ok: false, msg: "비활성화된 계정입니다. 관리자에게 문의하세요." };
-    if (u.password !== password) return { ok: false, msg: "비밀번호가 일치하지 않습니다. (초기 비밀번호 = 이메일)" };
     commit({ ...state, currentEmail: u.email });
     setActivityActor(u.name);
     setDemoCookie(true);   // 데모 세션 → 미들웨어(SSO 게이트) 통과 `PC-116`
     try { localStorage.setItem("ncc-last-email", u.email); } catch { /* */ }   // 재로그인 시 계정 기억
-    logActivity("access", `로그인 · 일반 접속 · ${u.email}`, u.name);
+    logActivity("access", `로그인 · 이메일 접속 · ${u.email}`, u.name);
     return { ok: true, msg: `${u.name}(${u.role})으로 로그인` };
   },
   // 프로토타입 데모 로그인 — Google/비밀번호 없이 즉시 입장(관리자 우선) `PC-116`.
@@ -176,7 +176,7 @@ export const auth = {
     return { ok: true, msg: "승인 요청을 보냈습니다. 관리자가 승인하면 로그인할 수 있습니다." };
   },
   // 직원 직접 등록 — ADMIN 이 직원 계정 화면에서 바로 등록(승인 요청 없이) `PC-309`
-  //   등록하면 사용 중 · 초기 비밀번호 = 이메일. 같은 이메일의 대기 승인 요청은 승인 처리로 닫는다
+  //   등록하면 사용 중(비밀번호 없음 — 이메일로 로그인 `PC-322`). 같은 이메일의 대기 승인 요청은 승인 처리로 닫는다
   registerStaff(p: { name: string; email: string; department: string; role: Role }, by?: string): { ok: boolean; msg: string } {
     const name = p.name.trim(), email = p.email.trim().toLowerCase();
     if (!name) return { ok: false, msg: "이름을 입력하세요." };
@@ -184,7 +184,7 @@ export const auth = {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, msg: "이메일 형식이 올바르지 않습니다." };
     if (!isCompanyEmail(email)) return { ok: false, msg: `회사 계정(@${ALLOWED_DOMAINS[0]})만 등록할 수 있습니다.` };
     if (state.users.some((u) => u.email.toLowerCase() === email)) return { ok: false, msg: "이미 등록된 직원입니다." };
-    const nu: User = { id: email, email, name, department: p.department || "-", role: p.role, enabled: true, password: email };
+    const nu: User = { id: email, email, name, department: p.department || "-", role: p.role, enabled: true };
     commit({ ...state, users: [nu, ...state.users],
       requests: state.requests.map((r) => (r.status === "PENDING" && r.email.toLowerCase() === email ? { ...r, status: "APPROVED" } : r)) });
     logActivity("access", `직원 등록 — ${name} · ${email} · ${p.role}`, by);
@@ -193,13 +193,13 @@ export const auth = {
   addRequest(r: Omit<PermReq, "id" | "status" | "createdAt">) {
     commit({ ...state, requests: [{ ...r, id: nid(), status: "PENDING", createdAt: today() }, ...state.requests] });
   },
-  // 승인 — 직원 명단에 STAFF · 사용 중으로 등록(초기 비밀번호 = 이메일) `PC-299`
+  // 승인 — 직원 명단에 STAFF · 사용 중으로 등록(비밀번호 없음 — 이메일 로그인 `PC-322`) `PC-299`
   approveRequest(id: number, by?: string) {
     const r = state.requests.find((x) => x.id === id);
     if (!r || r.status !== "PENDING") return;
     const users = state.users.some((u) => u.email === r.email)
       ? state.users.map((u) => (u.email === r.email ? { ...u, enabled: true, role: r.role, department: r.department, name: r.name } : u))
-      : [{ id: r.email, email: r.email, name: r.name, department: r.department, role: r.role, enabled: true, password: r.email }, ...state.users];
+      : [{ id: r.email, email: r.email, name: r.name, department: r.department, role: r.role, enabled: true }, ...state.users];
     commit({ ...state, users, requests: state.requests.map((x) => (x.id === id ? { ...x, status: "APPROVED" } : x)) });
     logActivity("approval", `직원 승인 — ${r.name} · ${r.email}`, by);   // 종류 = 승인 `PC-321`
   },

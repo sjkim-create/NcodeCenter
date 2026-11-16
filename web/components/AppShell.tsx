@@ -13,7 +13,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [open, setOpen] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [profile, setProfile] = useState<{ name: string; password: string } | null>(null);
+  const [profile, setProfile] = useState<{ name: string } | null>(null);   // 비밀번호 없음 `PC-322`
   const [loggingOut, setLoggingOut] = useState(false);
   // 하위 메뉴가 있는 그룹(예: CasterN 서비스 관리)의 접힘 상태 — 라벨 기준
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -35,7 +35,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const saveProfile = () => {
     if (!me || !profile) return;
     auth.updateUser(me.id, { name: profile.name.trim() || me.name });
-    if (profile.password.trim()) auth.changePassword(me.id, profile.password.trim());
     setProfile(null);
   };
 
@@ -131,7 +130,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </button>
             {menuOpen && me && (
               <div style={S.userMenu}>
-                <button onClick={() => { setMenuOpen(false); setProfile({ name: me.name, password: "" }); }} style={S.menuItem}>개인정보수정</button>
+                <button onClick={() => { setMenuOpen(false); setProfile({ name: me.name }); }} style={S.menuItem}>개인정보수정</button>
                 <button onClick={doLogout} style={{ ...S.menuItem, color: "#dc2626" }}>로그아웃</button>
               </div>
             )}
@@ -145,7 +144,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div style={{ display: "grid", gap: 12 }}>
             <Field label="이름"><input style={UIS.input} value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} /></Field>
             <Field label="이메일"><input style={{ ...UIS.input, background: "#f3f4f6", color: "#6b7280" }} value={me.email} readOnly /></Field>
-            <Field label="새 비밀번호"><input type="password" style={UIS.input} value={profile.password} onChange={(e) => setProfile({ ...profile, password: e.target.value })} placeholder="변경 시에만 입력" /></Field>
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
             <button onClick={() => setProfile(null)} style={UIS.ghost}>취소</button>

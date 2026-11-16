@@ -27,16 +27,14 @@ def login_card(banner='', pw_val='', email_val='', msg='', mode='local', hot=Non
                 % (' hot' if hot == 'sso' else '', GOOGLE_G))
     else:
         ev = email_val or '<span style="color:#9ca3af">name@neolab.net</span>'
-        pv = pw_val or '<span style="color:#9ca3af">비밀번호 (초기값 = 이메일)</span>'
-        form = ('<div class="fld"><span class="lbl">이메일</span><div class="inp">%s</div></div>'
-                '<div class="fld" style="margin-top:10px"><span class="lbl">비밀번호</span><div class="inp">%s</div></div>'
+        form = ('<div class="fld"><span class="lbl">회사 이메일</span><div class="inp">%s</div></div>'
                 '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6b7280;margin-top:10px">'
                 '<input type="checkbox" checked> 로그인 계정 기억</label>'
                 '<div class="btn pri%s" style="width:100%%;justify-content:center;margin-top:10px">로그인</div>%s'
-                '<div style="font-size:11.5px;color:#9ca3af;margin-top:10px">등록 계정의 초기 비밀번호는 '
-                '<b>이메일과 동일</b>합니다 (개인정보수정에서 변경).</div>'
+                '<div style="font-size:11.5px;color:#9ca3af;margin-top:10px">승인된 회사 계정은 '
+                '<b>비밀번호 없이 이메일만</b>으로 로그인합니다 <code>PC-322</code>.</div>'
                 '<div style="text-align:center;margin-top:10px;font-size:12.5px;color:#2563eb%s">처음 방문하셨나요? 승인 요청 →</div>'
-                % (ev, pv, ' hot' if hot == 'login' else '', msg, ';outline:2px solid #f59e0b;border-radius:6px;padding:3px' if hot == 'join' else ''))
+                % (ev, ' hot' if hot == 'login' else '', msg, ';outline:2px solid #f59e0b;border-radius:6px;padding:3px' if hot == 'join' else ''))
     return ('<div style="max-width:460px;margin:40px auto;padding:0 20px">'
             '<div class="card" style="padding:24px">'
             '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'
@@ -78,8 +76,7 @@ def build():
         '미로그인 상태로 화면 경로에 접근하면 이 화면으로 이동한다. PRD §4.1 · §2. '
         'SSO 미설정 환경의 <b>개발용 로컬 로그인</b> 형태이며, SSO 설정 시 S2로 대체된다.',
         bare(login_card(), 760),
-        [('이메일 입력', '입력 · Enter', '제출', '회사 도메인 계정 <b>name@neolab.net</b> 형식'),
-         ('비밀번호 입력', '입력 · Enter', '제출', '초기값 = 이메일. Enter로 제출'),
+        [('회사 이메일 입력', '입력 · Enter', '제출', '승인된 회사 계정은 <b>이메일만</b> 입력(비밀번호 없음) <code>PC-322</code> · <b>name@neolab.net</b> 형식'),
          ('로그인 계정 기억', '체크 토글', '—', '체크 시 다음 진입에 이메일 자동 채움'),
          ('[로그인]', '클릭', '<code>DSH-01</code>', '성공 시 <b>{이름}({역할})으로 로그인</b> 인라인 표시 후 이동'),
          ('(비로그인 경로 접근)', '자동', '로그인 화면', '로그인 후 요청 화면으로 이동'),
@@ -109,9 +106,9 @@ def build():
          ('[회사 Google 계정으로 로그인]', '클릭', '재시도', '')]))
 
     boards.append((
-        'S5', '로그인 · 로컬 로그인 성공', '성공',
-        'PRD §5.1 — 로컬 로그인 성공 시 인라인 메시지를 표시하고 곧바로 <code>DSH-01</code>로 이동한다.',
-        bare(login_card(email_val='soonjung@neolab.net', pw_val='••••••••••••••••••••',
+        'S5', '로그인 · 회사 계정 로그인 성공', '성공',
+        'PRD §5.1 — 이메일 로그인 성공 시 인라인 메시지를 표시하고 곧바로 <code>DSH-01</code>로 이동한다.',
+        bare(login_card(email_val='soonjung@neolab.net',
                         msg='<div class="inline-ok" style="font-size:12.5px;margin-top:10px">김순정(ADMIN)으로 로그인</div>'), 760),
         [('인라인 메시지', '표시', '<code>DSH-01</code>', '<b>{이름}({역할})으로 로그인</b>'),
          ('활동 로그', '자동 기록', '<code>LOG-01</code>', 'PRD §4.5 — 로그인 · 로그아웃은 자동 기록')]))
@@ -141,17 +138,14 @@ def build():
         '<div style="display:grid;gap:12px">'
         '<div class="fld"><span class="lbl">이름</span><div class="inp">김순정</div></div>'
         '<div class="fld"><span class="lbl">이메일</span><div class="inp ro">soonjung@neolab.net</div></div>'
-        '<div class="fld"><span class="lbl">새 비밀번호</span>'
-        '<div class="inp ph">변경 시에만 입력</div></div>'
         '</div><div class="mf"><div class="btn gho">취소</div><div class="btn pri">저장</div></div>'
         '</div></div>')
     boards.append((
         'S8', '개인정보 수정 모달', '모달',
-        'PRD §4.2 — 이메일은 <b>읽기 전용</b>. 새 비밀번호는 <b>변경할 때만</b> 입력하며 비워두면 기존 비밀번호가 유지된다.',
+        'PRD §4.2 — 이름만 수정한다. 이메일은 <b>읽기 전용</b>이고 <b>비밀번호 항목은 없다</b>(이메일 로그인) <code>PC-322</code>.',
         frame('DSH-01', '대시보드', DUMMY, overlay=profile_modal),
         [('이름', '입력 (필수)', '—', '표시 이름'),
          ('이메일', '읽기 전용', '—', '변경 불가'),
-         ('새 비밀번호', '입력 (선택)', '—', '비워두면 기존 비밀번호 유지'),
          ('[저장]', '클릭', '모달 닫힘 · <b>직전 화면 유지</b>', '화면 이동 없음 (PRD §4.2 · §6)'),
          ('[취소] · [✕] · 바깥 클릭', '클릭', '모달 닫힘', '변경 폐기')]))
 

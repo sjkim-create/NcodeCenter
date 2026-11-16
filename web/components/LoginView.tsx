@@ -15,7 +15,6 @@ export default function LoginView() {
   const s = useAuth();
   const me = currentUser(s);
   const [email, setEmail] = useState("");
-  const [pw, setPw] = useState("");
   const [remember, setRemember] = useState(true);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   // 첫 방문 승인 요청 — 로그인과 따로 입력 화면 `PC-299`
@@ -39,9 +38,9 @@ export default function LoginView() {
     if (r.ok) router.push("/companies");
   };
 
-  // 등록 계정 로그인 (이메일 + 비밀번호, 초기 비밀번호 = 이메일)
+  // 회사 계정 로그인 — 승인된 계정은 **이메일만** 입력 `PC-322`
   const doLogin = () => {
-    const r = auth.login(email.trim(), pw);
+    const r = auth.login(email.trim());
     setMsg({ ok: r.ok, text: r.msg });
     if (r.ok) {
       try { remember ? localStorage.setItem("ncc-last-email", email.trim()) : localStorage.removeItem("ncc-last-email"); } catch { /* */ }
@@ -68,7 +67,7 @@ export default function LoginView() {
           <img src="/logo-mark.svg" alt="NcodeCenter" width={30} height={30} />
           <div style={{ fontWeight: 700, fontSize: 18 }}>첫 방문 — 승인 요청</div>
           <InfoTip title="승인 요청이란?" width={320}>
-            처음 쓰는 내부 직원은 이름과 회사 이메일로 승인을 요청합니다. 관리자(ADMIN)가 [직원 계정]에서 승인하면 그 이메일로 로그인할 수 있습니다(초기 비밀번호 = 이메일).
+            처음 쓰는 내부 직원은 이름과 회사 이메일로 승인을 요청합니다. 관리자(ADMIN)가 [직원 계정]에서 승인하면 그 이메일로 로그인할 수 있습니다(비밀번호 없음 · 이메일만).
           </InfoTip>
         </div>
         <Field label="이름"><input style={S.input} value={jName} disabled={sent} autoFocus onChange={(e) => setJName(e.target.value)} placeholder="홍길동" onKeyDown={(e) => e.key === "Enter" && doJoin()} /></Field>
@@ -91,7 +90,7 @@ export default function LoginView() {
           <div style={{ fontWeight: 700, fontSize: 18 }}>Ncode<span style={{ color: "#5f8ff0" }}>Center</span> 로그인</div>
         </div>
         <p style={{ color: "#6b7280", fontSize: 12.5, margin: "0 0 16px" }}>
-          프로토타입 — <b>데모</b>로 바로 들어가거나, 등록된 계정으로 로그인하세요. (내부 직원 전용)
+          프로토타입 — <b>데모</b>로 바로 들어가거나, <b>회사 계정(이메일)</b>으로 로그인하세요. (내부 직원 전용)
         </p>
 
         {/* 데모 입장 — 기본 경로 */}
@@ -100,13 +99,10 @@ export default function LoginView() {
           Google 로그인 없이 관리자로 입장해 전체 화면을 시연합니다. (실제 데이터 아님 · 프로토타입 전용)
         </div>
 
-        {/* 등록 계정 로그인 (선택) */}
+        {/* 회사 계정 로그인 — 이메일만 `PC-322` */}
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e5e7eb" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 8 }}>등록 계정으로 로그인</div>
-          <Field label="이메일"><input style={S.input} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@neolab.net" onKeyDown={(e) => e.key === "Enter" && doLogin()} /></Field>
-          <div style={{ marginTop: 10 }}>
-            <Field label="비밀번호"><input type="password" style={S.input} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="비밀번호 (초기값 = 이메일)" onKeyDown={(e) => e.key === "Enter" && doLogin()} /></Field>
-          </div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 8 }}>회사 계정으로 로그인</div>
+          <Field label="회사 이메일"><input style={S.input} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@neolab.net" onKeyDown={(e) => e.key === "Enter" && doLogin()} /></Field>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#6b7280", marginTop: 10, cursor: "pointer" }}>
             <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> 로그인 계정 기억
           </label>
@@ -116,7 +112,7 @@ export default function LoginView() {
             처음 방문하셨나요? 승인 요청 →
           </button>
           <div style={{ fontSize: 11.5, color: "#9ca3af", marginTop: 10 }}>
-            초기 비밀번호 = 이메일. 예: {s.users.slice(0, 2).map((u) => u.email).join(" · ")}
+            승인된 회사 계정은 <b>비밀번호 없이 이메일만</b>으로 로그인합니다. 예: {s.users.slice(0, 2).map((u) => u.email).join(" · ")}
           </div>
         </div>
 
