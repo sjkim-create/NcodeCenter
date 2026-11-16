@@ -623,7 +623,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
 
   // 고객사 선택 시 발급 범위 — **대장 이력의 S/O/B** (Section/Owner/BookStart/PatternType/PageVolume 자동) `PC-123`
   //   · 공통코드 회사면 공통코드를 범위로 제공 (Book/Page = 섹션 정원)
-  const ranges = useMemo(() => {
+  const ranges = useMemo<SobpRange[]>(() => {
     if (edit) {   // 수정 — 그 티켓의 테두리 하나 `PC-226`
       const sp0 = spanOfParams(edit.params);
       const pt = (PT_OF[CT_PARAM(edit.params["Code Type"])] ?? "PDS3") as Pattern;
@@ -675,7 +675,7 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
     const prof: NkeyProfile = profileOk(profile, r.section) ? profile : profile === "LEGACY" ? "HYBRID" : "LEGACY";
     const t = secOk(prof, at, r.section) ? at : (NKEY_TYPES.find((x) => secOk(prof, x, r.section)) ?? "PDS3");
     setProfile(prof); setCtype(t as CodeKind);
-    setPageVolume(PAGE_CAP[r.pt]?.[r.section] ?? pageVolume);
+    setPageVolume(PAGE_CAP[r.pt as keyof typeof PAGE_CAP]?.[r.section] ?? pageVolume);
   };
   // 공통코드 회사: '사용 고객사' 선택 → 그 고객사가 쓰는 공통코드(타입·섹션·오너)를 자동으로 범위 지정
   const onCu = (i: number) => {
@@ -988,10 +988,10 @@ function NKeyForm({ me, companyId, setCompanyId, embedded = false, onIssued, onC
           </select>
         </Field>
         {/* 페이지 정원은 **회사에 할당된 SOB(코드 종류·Section)** 를 따른다 `PC-051` · HYBRID 면 8의 배수만 `PC-260` */}
-        <Field label={`Page Size ${range ? `· 최대 ${(PAGE_CAP[range.pt]?.[range.section] ?? 0).toLocaleString()}` : ""}${profile === "HYBRID" ? " · 8의 배수" : ""}`}>
-          <input type="number" min={profile === "HYBRID" ? 8 : 1} step={profile === "HYBRID" ? 8 : 1} max={range ? (PAGE_CAP[range.pt]?.[range.section] ?? undefined) : undefined}
+        <Field label={`Page Size ${range ? `· 최대 ${(PAGE_CAP[range.pt as keyof typeof PAGE_CAP]?.[range.section] ?? 0).toLocaleString()}` : ""}${profile === "HYBRID" ? " · 8의 배수" : ""}`}>
+          <input type="number" min={profile === "HYBRID" ? 8 : 1} step={profile === "HYBRID" ? 8 : 1} max={range ? (PAGE_CAP[range.pt as keyof typeof PAGE_CAP]?.[range.section] ?? undefined) : undefined}
             style={{ ...S.input, ...(page8Bad && range ? { border: "1px solid #f87171", background: "#fef2f2" } : {}) }} value={pageVolume}
-            onChange={(e) => { const cap = range ? (PAGE_CAP[range.pt]?.[range.section] ?? Infinity) : Infinity; setPageVolume(Math.max(1, Math.min(cap, +e.target.value))); }} disabled={!range} />
+            onChange={(e) => { const cap = range ? (PAGE_CAP[range.pt as keyof typeof PAGE_CAP]?.[range.section] ?? Infinity) : Infinity; setPageVolume(Math.max(1, Math.min(cap, +e.target.value))); }} disabled={!range} />
           {page8Bad && range && <div style={{ fontSize: 11.5, color: "#b91c1c", marginTop: 4 }}>8의 배수만 — {page8Lo === page8Hi ? page8Hi : `${page8Lo} 또는 ${page8Hi}`}</div>}
         </Field>
       </FormSec>
