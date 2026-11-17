@@ -40,9 +40,14 @@ export function AppKeyWorkspace() {
     for (const a of keyAccounts) m.set(a.id, companyOfAccount(a, companies)?.id ?? UNLINKED);
     return m;
   }, [keyAccounts, companies]);
-  const accountsOf = (id: number): CasterAccount[] => (id === ALL ? keyAccounts : keyAccounts.filter((a) => coOf.get(a.id) === id));
+  // 계정이 걸친 고객사 전부 — 본 고객사 + 함께 연결된 고객사(한 계정이 여러 고객사에) `PC-322`
+  const cosOf = (a: CasterAccount): number[] => {
+    const p = coOf.get(a.id) ?? UNLINKED;
+    return [p, ...(a.coRefs ?? []).filter((x) => x !== p && companies.some((c) => c.id === x))];
+  };
+  const accountsOf = (id: number): CasterAccount[] => (id === ALL ? keyAccounts : keyAccounts.filter((a) => cosOf(a).includes(id)));
   const unlinked = accountsOf(UNLINKED);
-  const issuedIds = new Set([...coOf.values()].filter((v) => v !== UNLINKED));
+  const issuedIds = new Set(keyAccounts.flatMap(cosOf).filter((v) => v !== UNLINKED));
   const defaultRight = (id: number): Right => {
     const a = id === ALL ? [...keyAccounts].sort((x, y) => (y.createdAt ?? "").localeCompare(x.createdAt ?? ""))[0] : accountsOf(id)[0];   // 전체 = 가장 최근 계정
     return a ? { kind: "acc", id: a.id } : { kind: "none" };
@@ -97,7 +102,7 @@ export function AppKeyWorkspace() {
     : [{ key: coId, as: accs }];
   const coName = (id: number) => (id === UNLINKED ? "고객사 미연결" : companies.find((c) => c.id === id)?.name ?? "고객사 미연결");
   const hitN = (id: number) => accountsOf(id).filter(accHit).length;
-  const hitIds = new Set(keyAccounts.filter(accHit).map((a) => coOf.get(a.id)!));
+  const hitIds = new Set(keyAccounts.filter(accHit).flatMap(cosOf));
   const list = companies
     // 발급 고객사 보기 — 하위 고객사가 발급받은 상위 고객사도 보여 하위 고객사를 고를 수 있게 `PC-196`
     .filter((c) => (view === "issued" ? issuedIds.has(c.id) || (subsOf.get(c.id) ?? []).some((id) => issuedIds.has(id)) : true))
@@ -244,6 +249,8 @@ export function AppKeyWorkspace() {
                     {key ? <span style={tag("#f5f3ff", "#6d28d9")}>App Key</span> : <span style={tag("#f3f4f6", "#9ca3af")}>미발급</span>}
                     {nRange > 0 && <span style={tag("#eef6ff", "#2563eb")}>티켓 {nRange}</span>}
                     {a.seeded && <span style={tag("#f3f4f6", "#9ca3af")} title="개발팀 Caster 대장에서 들어온 계정">대장</span>}
+                    {/* 여러 고객사에 걸친 계정 `PC-322` */}
+                    {cosOf(a).length > 1 && <span style={tag("#fff7ed", "#c2410c")} title={cosOf(a).map(coName).join(" · ")}>고객사 {cosOf(a).length}곳</span>}
                     <span style={{ marginLeft: "auto", fontSize: 11, color: "#9ca3af" }}>{a.createdAt ? a.createdAt.slice(0, 10) : ""}</span>
                   </div>
                 </div>
@@ -258,7 +265,8 @@ export function AppKeyWorkspace() {
         <div style={{ minWidth: 0 }}>
           {co && accsAll.length > 0 && <LicenseSlide kind="APP" company={co} by={me?.name ?? ""} />}
           {right.kind === "acc" && (
-            <AccountDetailView key={`${right.id}|${via ?? ""}`} accountId={right.id} embedded rangeScope={rangeScope}
+            <AccountDetailView key={`${right.id}|${via ?? ""}|${coId}`} accountId={right.id} embedded rangeScope={rangeScope}
+              viewCoId={coId > 0 ? coId : undefined}
               onDeleted={() => { const rest = accs.filter((a) => a.id !== right.id); setRight(rest[0] ? { kind: "acc", id: rest[0].id } : { kind: "none" }); }} />
           )}
           {right.kind === "add" && co && (

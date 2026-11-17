@@ -25,7 +25,7 @@ import { appKeyRangesOfCompany, companyOfAccount, scopeRanges, type RangeScope }
 import type { Company } from "@/lib/customerData";
 import { CODE_KINDS, codeTypeRangeErr, kindsFor, patternOf, type CodeKind } from "@/lib/codeKind";
 import {
-  caster, useCaster, genAppKey,
+  caster, useCaster, genAppKey, accountScope,
   accountTickets, periodCode, ticketInfo, appTicketName, rangeText, rangeBooks, rangePeriod, type KeyRange,
   type CasterAccount,
 } from "@/lib/accountStore";
@@ -245,7 +245,7 @@ export function AccountNewView({ embedded = false, fixedCompanyId = 0, onDone, o
 } = {}) {
   const router = useRouter();
   const me = currentUser(useAuth());
-  useCaster();
+  const castState = useCaster();
   useTicketCustomers();
   useEffect(() => { hydrateTickets(); }, []);   // App Key 발급분이 Key 발급 목록에 쌓이도록 원장 로드
 
@@ -270,9 +270,23 @@ export function AccountNewView({ embedded = false, fixedCompanyId = 0, onDone, o
 
   // 가입 승인(SSO) 계정은 고객사 관리의 계정 및 서비스 권한에서 추가한다 `PC-133` — 여기서 미리 채우지 않는다
 
+  // 이미 있는 App Key 계정(email) — 막지 않고 이 고객사에도 함께 등록한다(안내) `PC-322`
+  const dup = castState.accounts.find((a) => accountScope(a) === "key" && a.id.toLowerCase() === id.trim().toLowerCase());
+  const dupCos = dup ? [dup.company, ...(dup.coRefs ?? []).map((x) => companies.find((c) => c.id === x)?.name ?? "")].filter(Boolean) : [];
+  const dupHere = !!dup && !!company && (dup.coRef === company.id || dup.company === company.name || (dup.coRefs ?? []).includes(company.id));
+
   const submit = () => {
     if (!company) { setToast({ ok: false, text: "고객사를 선택하세요." }); return; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(id.trim())) { setToast({ ok: false, text: "ID 는 이메일 형식이어야 합니다." }); return; }
+    if (dup) {
+      if (dupHere) { setToast({ ok: false, text: "이미 이 고객사에 등록된 계정입니다." }); return; }
+      if (!window.confirm(`${dup.id} 은(는) 이미 ${dupCos.join(" · ")}에 등록된 계정입니다.
+${company.name}에도 함께 등록할까요? (비밀번호 · App Key 는 기존 계정 그대로)`)) return;
+      caster.linkCompany(dup.id, company.id);
+      logActivity("appkey", `계정 함께 등록 · ${company.name} · ${dup.id} (기존 ${dupCos.join(" · ")})`, me?.name);
+      if (onDone) { onDone(dup.id); return; }
+      router.push("/tickets/account"); return;
+    }
     if (!pwd.trim()) { setToast({ ok: false, text: "비밀번호가 필요합니다. (요청 없으면 [임의 생성])" }); return; }
 
     const acc: CasterAccount = {
@@ -315,7 +329,13 @@ export function AccountNewView({ embedded = false, fixedCompanyId = 0, onDone, o
               )}
           </Field>
           <Field label="NAME (담당자명)"><input style={S.input} value={name} onChange={(e) => setName(e.target.value)} /></Field>
-          <Field label="ID (이메일) *"><input style={S.input} value={id} onChange={(e) => setId(e.target.value)} placeholder="user@company.com" /></Field>
+          <Field label="ID (이메일) *">
+            <input style={S.input} value={id} onChange={(e) => setId(e.target.value)} placeholder="user@company.com" />
+            {/* 이미 있는 계정 — 다른 고객사에 등록돼 있음을 알린다(함께 등록 가능) `PC-322` */}
+            {dup && <div style={{ fontSize: 11.5, color: dupHere ? "#dc2626" : "#b45309", marginTop: 4 }}>
+              {dupHere ? "이미 이 고객사에 등록된 계정입니다." : `이미 ${dupCos.join(" · ")}에 등록된 계정 — [계정 추가]하면 이 고객사에도 함께 등록됩니다(비밀번호 · App Key 는 기존 그대로).`}
+            </div>}
+          </Field>
           <Field label="PWD (비밀번호) *">
             <div style={{ display: "flex", gap: 6 }}>
               <input style={S.input} value={pwd} onChange={(e) => setPwd(e.target.value)} placeholder="비밀번호 미요청 시 임의 생성" title="계정을 만든 뒤에는 바꿀 수 없습니다" />
@@ -352,7 +372,8 @@ export function AccountNewView({ embedded = false, fixedCompanyId = 0, onDone, o
 /* ── TKT-01 계정 상세 · 수정 ────────────────────────────────────── */
 // embedded — App Key 관리 3단 화면의 오른쪽 칸 `PC-146`
 // rangeScope — 왼쪽에서 고른 줄: 단독(own) 이면 자기 범위만, 상위 밑 하위 줄이면 그 상위 공유 범위만 `PC-311`
-export function AccountDetailView({ accountId, embedded = false, onDeleted, rangeScope }: { accountId: string; embedded?: boolean; onDeleted?: () => void; rangeScope?: RangeScope }) {
+// viewCoId — 왼쪽에서 고른 고객사. 여러 고객사에 걸친 계정이면 그 고객사 티켓만 보인다 `PC-322`
+export function AccountDetailView({ accountId, embedded = false, onDeleted, rangeScope, viewCoId }: { accountId: string; embedded?: boolean; onDeleted?: () => void; rangeScope?: RangeScope; viewCoId?: number }) {
   const router = useRouter();
   const me = currentUser(useAuth());
   const cast = useCaster();
@@ -404,7 +425,9 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted, rang
 
   const { companies } = useStore();
   const accCo = acc ? companyOfAccount(acc, companies) : undefined;   // 고객사 관리 고객사로 잇는다 `PC-153`
-  const allRanges = useRanges(accCo);                       // 수정 중인 티켓의 테두리는 맥락과 상관없이 전체에서 찾는다
+  // 함께 연결된 고객사에서 연 계정이면 발급 범위도 그 고객사 것 `PC-322`
+  const viewCo = viewCoId && acc?.coRefs?.includes(viewCoId) ? companies.find((c) => c.id === viewCoId) : undefined;
+  const allRanges = useRanges(viewCo ?? accCo);                       // 수정 중인 티켓의 테두리는 맥락과 상관없이 전체에서 찾는다
   const ranges = scopeRanges(allRanges, rangeScope);        // 새 발급 — 단독이면 자기 범위만 · 하위 줄이면 공유 범위만 `PC-311`
   // 수정 중이면 그 티켓의 테두리 하나(옛 OID · PDS4 값도 그대로) / 새 발급은 PDS2 · PDS3 범위만 `PC-220`
   const formRanges = editRange ? [editRange.bound] : ranges.filter((r) => ["PDS2", "PDS3"].includes(CT_OF[r.pt] ?? r.pt));
@@ -415,7 +438,10 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted, rang
   // 발급 내역 항목(=키의 각 코드 범위/티켓) — 선택하면 아래 Key 정보에 표시 `PC-120`
   // 티켓은 **계정 소속** `PC-206` — 계정당 여러 개. App Key(계정당 1개)는 티켓과 별개다
   const tickets = accountTickets(acc);
-  const rangeItems = tickets.map((r, i) => ({ k: myKey, r, i }));
+  // 여러 고객사에 걸친 계정 — 고른 고객사의 티켓만(티켓 고객사가 비면 본 고객사) · 번호(i)는 계정 전체 기준 그대로 `PC-322`
+  const multiCo = !!acc?.coRefs?.length;
+  const ticketCo = (r: KeyRange) => r.coRef ?? accCo?.id;
+  const rangeItems = tickets.map((r, i) => ({ k: myKey, r, i })).filter(({ r }) => !multiCo || !viewCoId || ticketCo(r) === viewCoId);
   const selected = (selRange && rangeItems.find((x) => x.i === selRange.idx)) || rangeItems[0] || null;
   const nTodo = rangeItems.filter((x) => (x.r.billing ?? "미정") === "미정").length;   // 정산 미등록 티켓 수 `PC-178`
   // 티켓 발급일 — 원장 티켓의 발급일 → 사용기간 시작 → 키 생성일. 대장 이력에는 날짜가 없어 비면 「—」 `PC-313`
@@ -475,7 +501,9 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted, rang
     if (clash) { setToast({ ok: false, text: clash }); return; }   // SOBP 무겹침 `PC-174`
     const untilStr = untilVal();
     const r: KeyRange = { pt: patternOf(ctype), section: range.section, owner: range.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, bookVol: keyVol,
-      pageStart: pStart, pageEnd: pStart + keyPVol - 1, pageVol: keyPVol, since, until: untilStr, info: info.trim() || undefined, name: ticketName };
+      pageStart: pStart, pageEnd: pStart + keyPVol - 1, pageVol: keyPVol, since, until: untilStr, info: info.trim() || undefined, name: ticketName,
+      // 다른 고객사에서 연 계정이면 그 고객사 티켓으로 `PC-322`
+      ...(viewCoId && viewCoId !== accCo?.id ? { coRef: viewCoId } : {}) };
     // 원장 티켓을 먼저 만들어 그 id 를 범위에 연결한다 `PC-119`·`PC-121`
     const t = addTicket({ kind: "APP", companyId: acc.companyId, company: acc.company, accountId: acc.id, by: me?.name ?? "",
       summary: `계정 ${acc.id} · ${rangeText(r)} · 기간 ${since || "즉시"}~${untilStr}`,

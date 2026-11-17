@@ -217,6 +217,59 @@ def main():
             d["id"] = ""                                 # 대장에 계정이 비어 있음
         accounts.append(d)
 
+    # ── 261116 App Key 계정 정보 반영 `PC-322`
+    #   ① N Key 만 받은 계정은 App Key 대장에서 뺀다(N Key 대장으로 옮김 — build_ticket_ledger.py)
+    #   ② 나머지 계정은 티켓마다 코드 소유 고객사(매칭 목록)를 달아 여러 고객사에 잇는다 — 대장에 없는 티켓은 더한다
+    import appkey_accounts_261116 as AK
+    ak = AK.rows()
+    def _until_of(a, r):   # 기한 — 대장 → 261116 만료일 → 계정 사용기간 끝
+        x = next((x for x in ak if x["id"].lower() == a["id"].lower() and x["area"]
+                  and x["area"]["section"] == r["section"] and x["area"]["owner"] == r["owner"]), None)
+        return r.get("until") or (x["until"] if x else "") or a["until"] or "무제한"
+    moved = [{"id": a["id"], "company": a["company"], "companyId": a["companyId"], "since": a["since"],
+              "ranges": [dict(r, until=_until_of(a, r)) for r in a["ranges"]]}
+             for a in accounts if a["id"].lower() in AK.NKEY_ONLY]
+    # 대장(Caster)에 없는 N Key 전용 계정은 261116 정보로 채운다(예: 호두랩스 sb.son)
+    for em in sorted(AK.NKEY_ONLY - {m["id"].lower() for m in moved}):
+        xs = [x for x in ak if x["id"].lower() == em and x["area"]]
+        if not xs: continue
+        co = by_nz.get(nz(xs[0]["company"]))
+        moved.append({"id": xs[0]["id"], "company": co["name"] if co else xs[0]["company"], "companyId": co["id"] if co else 0,
+                      "since": "", "ranges": [{"pt": PT_OF.get(x["pt"], x["pt"]), "section": x["area"]["section"], "owner": x["area"]["owner"],
+                                               "bookStart": x["area"]["bookStart"], "bookEnd": x["area"]["bookEnd"],
+                                               "pageStart": 0, "pageEnd": 511, "until": x["until"] or "무제한"} for x in xs]})
+    accounts = [a for a in accounts if a["id"].lower() not in AK.NKEY_ONLY]
+    companies = seed["companies"]
+    linked = []
+    for a in accounts:
+        mine = [x for x in ak if x["id"].lower() == a["id"].lower() and x["area"]
+                and not any(g in x["gubun"] for g in AK.SKIP_GUBUN)]
+        for x in mine:
+            ar = x["area"]
+            def hits(r):
+                if r["section"] != ar["section"] or r["owner"] != ar["owner"]:
+                    return False
+                if ar["bookStart"] is None or r.get("bookStart") is None:
+                    return True
+                return ar["bookStart"] <= (r.get("bookEnd") if r.get("bookEnd") is not None else r["bookStart"]) and ar["bookEnd"] >= r["bookStart"]
+            rng = next((r for r in a["ranges"] if hits(r)), None)
+            if rng is None:                                   # 대장에 없는 티켓 — 261116 정보로 더한다
+                rng = {"pt": PT_OF.get(x["pt"], x["pt"]), "section": ar["section"], "sectionEnd": None,
+                       "owner": ar["owner"], "ownerEnd": ar["ownerEnd"],
+                       "bookStart": ar["bookStart"] if ar["bookStart"] is not None else 0,
+                       "bookEnd": ar["bookEnd"] if ar["bookEnd"] is not None else 0,
+                       "pageStart": 0, "pageEnd": 511, "count": None, "note": "261116 App Key 계정 정보",
+                       "until": x["until"] or "무제한"}
+                a["ranges"].append(rng)
+            co = AK.resolve_company(companies, x["match"], ar["section"], ar["owner"])
+            if co and co["id"] != a["companyId"]:
+                rng["coRef"] = co["id"]; rng["coName"] = co["name"]
+            elif x["match"] and not co:
+                print("  매칭 고객사 없음:", a["id"], x["match"], ar)
+        a["coRefs"] = sorted({r["coRef"] for r in a["ranges"] if r.get("coRef")})
+        if a["coRefs"]:
+            linked.append((a["id"], a["company"], sorted({r["coName"] for r in a["ranges"] if r.get("coName")})))
+
     # 고객사 시트에만 나오는 권한(현대차 커스텀 익스포트)도 정의에 넣는다 — 기본값 없음(둘 다 X)
     known = {p["key"] for p in perms}
     for a in accounts:
@@ -227,7 +280,9 @@ def main():
                               "sound": False, "write": False})
 
     out = {"perms": perms, "accounts": accounts,
-           "source": "db/source/Caster_계정_퍼미션_티켓.xlsx", "note": "비밀번호는 저장하지 않는다 (PC-103)"}
+           "movedToNKey": moved,   # N Key 대장으로 옮긴 계정 — 이미 시드된 브라우저에서도 지운다 `PC-322`
+           "source": "db/source/Caster_계정_퍼미션_티켓.xlsx · db/source/261116_APP KEY 계정 정보.xlsx",
+           "note": "비밀번호는 저장하지 않는다 (PC-103)"}
     json.dump(out, open(os.path.join(WEB, "caster-ledger.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 
     print("권한 정의 %d종" % len(perms))
@@ -238,6 +293,9 @@ def main():
             "AppKey" if a["appKey"] else ""))
     miss = [a["sheet"] for a in accounts if not a["companyId"]]
     print("회사 미매칭:", miss)
+    print("N Key 대장으로 옮김:", [m["id"] for m in moved])
+    for i, co, extra in linked:
+        print("  여러 고객사:", i, "|", co, "+", extra)
 
 
 if __name__ == "__main__":

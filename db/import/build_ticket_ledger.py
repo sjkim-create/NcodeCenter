@@ -105,6 +105,23 @@ for row in ws.iter_rows(min_row=2, values_only=True):
         "", txt(g(9)), inum(g(3)), dstr(g(8)), period(g(7)),
         " · ".join(x for x in (txt(g(5)), txt(g(6))) if x))
 
+# ── App Key 대장에서 옮긴 N Key 전용 계정 `PC-322` ──
+#   Caster 사용에 필요한 N Key 만 받았고 SDK 를 쓰지 않아 App Key 이력이 없다(2026-11-16 확인)
+#   build_caster_ledger.py 가 caster-ledger.json 의 movedToNKey 로 넘겨 준다(먼저 실행)
+sys.path.insert(0, HERE)
+import appkey_accounts_261116 as AK
+_cl = os.path.join(WEB, "caster-ledger.json")
+_moved = json.load(open(_cl, encoding="utf-8")).get("movedToNKey", []) if os.path.exists(_cl) else []
+for m in _moved:
+    for r in m["ranges"]:
+        pt = {"PDS3": "Ncode_PDS3", "PDS2": "Ncode_PDS2", "PDS4": "Scode"}.get(r["pt"], r["pt"])
+        pages = (r["pageEnd"] - r["pageStart"] + 1) if r.get("pageEnd") is not None else 512
+        until = r.get("until") or "무제한"
+        add(r["section"], pt, r["owner"], r.get("bookStart"), r.get("bookEnd"), m["company"],
+            "App Key 대장에서 옮김", "", pages, m.get("since") or "",
+            "무제한" if until == "무제한" else "~" + until,
+            f"{AK.NKEY_ONLY_NOTE} · 계정 {m['id']}")
+
 json.dump(tickets, open(os.path.join(WEB, "ticket-ledger.json"), "w", encoding="utf-8"),
           ensure_ascii=False, indent=1)
 

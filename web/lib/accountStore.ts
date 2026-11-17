@@ -101,6 +101,9 @@ export type CasterAccount = {
   active?: boolean;
   lastLoginAt?: string;   // 최근 접속일시 — 서비스(CasterN 등) 로그인 기록. 없으면 「접속 기록 없음」 `PC-135`
   coRef?: number;      // 고객사 관리 고객사 id — App Key 관리에서 고객사를 불러와 만든 계정 `PC-153` (옛 대장 계정은 고객사명으로 잇는다)
+  // 함께 연결된 고객사 id — 한 계정(email)이 여러 고객사에 걸쳐 등록된다(옛 대장 · 261116 계정 정보) `PC-322`
+  //   본 고객사(coRef · company)는 넣지 않는다. 티켓마다 coRef 로 어느 고객사 티켓인지 가른다
+  coRefs?: number[];
   owner?: boolean;     // 고객사 OWNER 계정 — 서비스 계정 중 **고객사당 1명** `PC-159`
   seeded?: boolean;    // 개발팀 대장에서 들어온 계정 — 비밀번호는 저장하지 않았다(「대장 참조」) `PC-103`
   note?: string;       // 대장의 안내문(영업용 테스트 계정 등)
@@ -141,6 +144,7 @@ export type KeyRange = {
   since?: string;          // 사용기간 시작 (YYYY-MM-DD)
   until?: string;          // 사용기간 끝 (YYYY-MM-DD / "무제한")
   ticketId?: number;       // 원장(Key 발급 목록) 티켓 id — [티켓 삭제] 시 함께 제거 `PC-121`
+  coRef?: number;          // 이 티켓의 고객사(코드 소유 고객사) — 비면 계정의 본 고객사 `PC-322`
   note?: string;
   info?: string;           // 티켓 Info — 티켓 메모(예: sample) `PC-206`. 없으면 note(대장 안내)
   name?: string;           // 티켓 이름 — 비우면 {고객사}_{S}s_{O}o_{Book Size}b_{Page Size}p_{발급일} `PC-261` `PC-263`
@@ -288,7 +292,29 @@ const SEED_KEY = "ncc-caster-seeded-v1";
 type LedgerAccount = {
   sheet: string; company: string; companyId: number; id: string; name: string; since: string; until: string;
   appKey: string; perms: Record<string, boolean>; ranges: KeyRange[]; note: string; addr: string; phone: string; homepage: string;
+  coRefs?: number[];   // 함께 연결된 고객사 `PC-322`
 };
+// N Key 대장으로 옮긴 계정 — 이미 시드된 브라우저에서도 지운다 `PC-322`
+const MOVED_TO_NKEY = new Set(((casterLedger as { movedToNKey?: { id: string }[] }).movedToNKey ?? []).map((m) => m.id.toLowerCase()));
+const sameRange = (a: KeyRange, b: KeyRange) => a.section === b.section && a.owner === b.owner && (a.bookStart ?? 0) === (b.bookStart ?? 0);
+// 대장(261116 반영)을 이미 시드된 계정에 맞춘다 — 옮긴 계정 지우기 · 함께 연결된 고객사 · 티켓 고객사 · 빠진 티켓 `PC-322`
+function syncLedger(s: State): State {
+  const rows = casterLedger.accounts as LedgerAccount[];
+  const gone = new Set(s.accounts.filter((a) => a.seeded && MOVED_TO_NKEY.has(a.id.toLowerCase())).map((a) => a.id));
+  const accounts = s.accounts.filter((a) => !gone.has(a.id)).map((a) => {
+    const r = a.seeded ? rows.find((x) => (x.id || "").toLowerCase() === a.id.toLowerCase()) : undefined;
+    if (!r) return a;
+    const tickets = [...(a.tickets ?? [])];
+    for (const lr of r.ranges) {
+      const i = tickets.findIndex((t) => sameRange(t, lr));
+      if (i < 0) tickets.push({ ...lr, since: lr.since ?? r.since ?? "", until: lr.until ?? r.until ?? "무제한" });
+      else if (lr.coRef && tickets[i].coRef == null) tickets[i] = { ...tickets[i], coRef: lr.coRef };
+    }
+    const coRefs = [...new Set([...(a.coRefs ?? []), ...(r.coRefs ?? [])])];
+    return { ...a, tickets, ...(coRefs.length ? { coRefs } : {}) };
+  });
+  return { accounts, appKeys: s.appKeys.filter((k) => !gone.has(k.accountId)) };
+}
 function seedFromLedger(s: State): State {
   const rows = casterLedger.accounts as LedgerAccount[];
   const have = new Set(s.accounts.map((a) => a.id.toLowerCase()));
@@ -308,6 +334,7 @@ function seedFromLedger(s: State): State {
       pwd: "", name: r.name || "", companyId: r.companyId, company: r.company,
       addr: r.addr || "", homepage: r.homepage || "", phone: r.phone || "",
       seeded: true, note: r.note || "",   // 사용기간은 App Key(티켓)로 옮겼다 `PC-117`
+      ...(r.coRefs?.length ? { coRefs: r.coRefs } : {}),   // 함께 연결된 고객사 `PC-322`
       createdAt: r.since ? `${r.since} 00:00:00` : "대장",
       keyPerms: normAppKeyPerms(r.perms),   // App Key 권한 = 대장 값 `PC-207`
       tickets: r.ranges.map((x) => ({ ...x, since: x.since ?? r.since ?? "", until: x.until ?? r.until ?? "무제한" })),   // 티켓 = 계정 소속 `PC-206`
@@ -341,6 +368,8 @@ function hydrate() {
       seq = Math.max(0, ...state.appKeys.map((k) => k.id)) + 1;
       localStorage.setItem(SEED_KEY, "1");
     }
+    // 261116 계정 정보 반영 1회 `PC-322` — 매번 하면 고친 티켓(Book 시작 변경 등)을 대장 값으로 다시 더하게 된다
+    if (!localStorage.getItem("ncc-caster-sync-322")) { state = syncLedger(state); localStorage.setItem("ncc-caster-sync-322", "1"); }
     persist();
     subs.forEach((f) => f());
   } catch { /* */ }
@@ -351,6 +380,11 @@ export const caster = {
   snapshot() { return state; },
   serverSnapshot() { return EMPTY; },
 
+  // 이미 있는 계정을 다른 고객사에도 함께 등록 — 한 계정이 여러 고객사에 걸친다 `PC-322`
+  linkCompany(id: string, coId: number) {
+    commit({ ...state, accounts: state.accounts.map((a) => (a.id.toLowerCase() === id.toLowerCase()
+      ? { ...a, coRefs: [...new Set([...(a.coRefs ?? []), coId])] } : a)) });
+  },
   addAccount(a: Omit<CasterAccount, "createdAt">): { ok: boolean; msg: string } {
     if (state.accounts.some((x) => x.id.toLowerCase() === a.id.toLowerCase())) return { ok: false, msg: "이미 등록된 ID(email)입니다." };
     // 인증 서비스는 **0개도 정상** — 아무것도 고르지 않으면 SDK 연동(코드만 할당) `PC-076`

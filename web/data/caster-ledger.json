@@ -256,12 +256,13 @@
    "note": "",
    "addr": "",
    "phone": "",
-   "homepage": ""
+   "homepage": "",
+   "coRefs": []
   },
   {
    "sheet": "Xiom HealthCare",
    "company": "Xiom Healthcare-304",
-   "companyId": 222,
+   "companyId": 223,
    "id": "Xiomhealthcare",
    "name": "Xiom Healthcare LLC",
    "since": "",
@@ -293,7 +294,8 @@
    "note": "",
    "addr": "",
    "phone": "",
-   "homepage": ""
+   "homepage": "",
+   "coRefs": []
   },
   {
    "sheet": "Luginbühl & Cie SA",
@@ -317,18 +319,23 @@
      "pageStart": 0,
      "pageEnd": 511,
      "count": 239,
-     "note": ""
+     "note": "",
+     "coRef": 249,
+     "coName": "Luginbühl-450"
     }
    ],
    "note": "",
    "addr": "",
    "phone": "",
-   "homepage": ""
+   "homepage": "",
+   "coRefs": [
+    249
+   ]
   },
   {
    "sheet": "Liangshishu",
    "company": "Liangshishu-111",
-   "companyId": 115,
+   "companyId": 116,
    "id": "liangshishu.service@gmail.com",
    "name": "Liangshishu",
    "since": "2022-11-21",
@@ -368,7 +375,9 @@
      "pageStart": 0,
      "pageEnd": 511,
      "count": 1,
-     "note": ""
+     "note": "",
+     "coRef": 3,
+     "coName": "네오노트-3-27"
     },
     {
      "pt": "PDS3",
@@ -387,7 +396,10 @@
    "note": "",
    "addr": "",
    "phone": "",
-   "homepage": ""
+   "homepage": "",
+   "coRefs": [
+    3
+   ]
   },
   {
    "sheet": "tranwisdom",
@@ -411,7 +423,9 @@
      "pageStart": 0,
      "pageEnd": 511,
      "count": 1,
-     "note": ""
+     "note": "",
+     "coRef": 225,
+     "coName": "ezwrite-305"
     },
     {
      "pt": "PDS3",
@@ -424,7 +438,9 @@
      "pageStart": 0,
      "pageEnd": 511,
      "count": 7,
-     "note": ""
+     "note": "",
+     "coRef": 6,
+     "coName": "네오노트-1012"
     },
     {
      "pt": "PDS3",
@@ -437,7 +453,9 @@
      "pageStart": 0,
      "pageEnd": 511,
      "count": 32,
-     "note": ""
+     "note": "",
+     "coRef": 6,
+     "coName": "네오노트-1012"
     },
     {
      "pt": "PDS3",
@@ -450,7 +468,9 @@
      "pageStart": 0,
      "pageEnd": 511,
      "count": 100,
-     "note": ""
+     "note": "",
+     "coRef": 6,
+     "coName": "네오노트-1012"
     },
     {
      "pt": "PDS3",
@@ -469,7 +489,11 @@
    "note": "",
    "addr": "",
    "phone": "",
-   "homepage": ""
+   "homepage": "",
+   "coRefs": [
+    6,
+    225
+   ]
   },
   {
    "sheet": "유니메이션",
@@ -520,7 +544,8 @@
    "note": "",
    "addr": "",
    "phone": "",
-   "homepage": ""
+   "homepage": "",
+   "coRefs": []
   },
   {
    "sheet": "Study123",
@@ -563,7 +588,9 @@
      "pageStart": 0,
      "pageEnd": 511,
      "count": 250,
-     "note": ""
+     "note": "",
+     "coRef": 207,
+     "coName": "Solution-291"
     },
     {
      "pt": "PDS3",
@@ -576,113 +603,19 @@
      "pageStart": 0,
      "pageEnd": 512,
      "count": 1,
-     "note": ""
+     "note": "",
+     "coRef": 16,
+     "coName": "포코로-942"
     }
    ],
    "note": "",
    "addr": "",
    "phone": "",
-   "homepage": ""
-  },
-  {
-   "sheet": "맥컬리",
-   "company": "맥컬리",
-   "companyId": 447,
-   "id": "sungkyu.chun@mackerly.com",
-   "name": "천성규",
-   "since": "2020-03-16",
-   "until": "2023-03-15",
-   "appKey": "",
-   "perms": {
-    "Edit/Symbol/Enabled": true,
-    "Edit/Symbol/RectWithText/Create/Enabled": false,
-    "Edit/Resource/Add/Enabled": false,
-    "Edit/Resource/Delete/Enabled": false,
-    "Edit/Resource/DragDrop/Enabled": false,
-    "Export/NcodePDF/Enabled": true,
-    "Export/NCP/Enabled": false,
-    "Export/PackageForApp/Enabled": true,
-    "Export/NcodePDF/CustomExport4HyundaiMotor/Enabled": false,
-    "Settings/Ncode/Enabled": true,
-    "Settings/Project/Enabled": true,
-    "Settings/PageAttrForApp/Enabled": false,
-    "Settings/PageAlias/Import/Enabled": false,
-    "Settings/ActionTable/Import/Enabled": false,
-    "Settings/DrawingPreset/Configure/Enabled": false,
-    "ResourcesView/Tool/Enabled": true,
-    "Ncode/Mode/ExtendedBookCode/Enabled": false,
-    "Nproj/Writer/StartPageSideAttr/Enabled": false
-   },
-   "ranges": [
-    {
-     "pt": "PDS3",
-     "section": 3,
-     "sectionEnd": null,
-     "owner": 27,
-     "ownerEnd": null,
-     "bookStart": 231,
-     "bookEnd": 231,
-     "pageStart": 1,
-     "pageEnd": 512,
-     "count": 1,
-     "note": ""
-    }
-   ],
-   "note": "",
-   "addr": "서울시 금천구 가산디지털1로 30 7층 713호",
-   "phone": "010-3324-1483",
-   "homepage": "https://mackerly.com/"
-  },
-  {
-   "sheet": "스콜라스틱",
-   "company": "스콜라스틱",
-   "companyId": 341,
-   "id": "vsritharan@scholastic.asia",
-   "name": "",
-   "since": "",
-   "until": "",
-   "appKey": "",
-   "perms": {
-    "Project/New/Enabled": true,
-    "Project/Review/Enabled": true,
-    "Edit/Symbol/Enabled": true,
-    "Edit/Symbol/RectWithText/Create/Enabled": true,
-    "Edit/Resource/Add/Enabled": true,
-    "Edit/Resource/Delete/Enabled": true,
-    "Edit/Resource/DragDrop/Enabled": true,
-    "Export/NcodePDF/Enabled": true,
-    "Export/NCP/Enabled": true,
-    "Export/PackageForApp/Enabled": false,
-    "Export/NcodePDF/CustomExport4HyundaiMotor/Enabled": false,
-    "Settings/Ncode/Enabled": true,
-    "Settings/Project/Enabled": true,
-    "Settings/PageAttrForApp/Enabled": false,
-    "Settings/PageAlias/Import/Enabled": false,
-    "Settings/ActionTable/Import/Enabled": false,
-    "Settings/DrawingPreset/Configure/Enabled": false,
-    "ResourcesView/Tool/Enabled": true,
-    "Ncode/Mode/ExtendedBookCode/Enabled": false,
-    "Nproj/Writer/StartPageSideAttr/Enabled": false
-   },
-   "ranges": [
-    {
-     "pt": "PDS2",
-     "section": 3,
-     "sectionEnd": null,
-     "owner": 21,
-     "ownerEnd": null,
-     "bookStart": 900,
-     "bookEnd": 982,
-     "pageStart": 0,
-     "pageEnd": 2000,
-     "count": 82,
-     "note": "페이지 범위는 편집파트에서 권장하는 PDF 범위로 산정되었습니다."
-    }
-   ],
-   "note": "",
-   "addr": "",
-   "phone": "",
-   "homepage": ""
+   "homepage": "",
+   "coRefs": [
+    16,
+    207
+   ]
   },
   {
    "sheet": "(주)투이아이앤씨",
@@ -727,43 +660,209 @@
      "pageStart": 0,
      "pageEnd": 99,
      "count": 100,
-     "note": ""
+     "note": "",
+     "coRef": 166,
+     "coName": "Solution-250"
+    },
+    {
+     "pt": "PDS4",
+     "section": 44,
+     "sectionEnd": null,
+     "owner": 251,
+     "ownerEnd": null,
+     "bookStart": 0,
+     "bookEnd": 195,
+     "pageStart": 0,
+     "pageEnd": 511,
+     "count": null,
+     "note": "261116 App Key 계정 정보",
+     "until": "무제한"
+    },
+    {
+     "pt": "PDS3",
+     "section": 3,
+     "sectionEnd": null,
+     "owner": 350,
+     "ownerEnd": null,
+     "bookStart": 98,
+     "bookEnd": 117,
+     "pageStart": 0,
+     "pageEnd": 511,
+     "count": null,
+     "note": "261116 App Key 계정 정보",
+     "until": "무제한"
+    },
+    {
+     "pt": "PDS3",
+     "section": 3,
+     "sectionEnd": null,
+     "owner": 1012,
+     "ownerEnd": null,
+     "bookStart": 1084,
+     "bookEnd": 1085,
+     "pageStart": 0,
+     "pageEnd": 511,
+     "count": null,
+     "note": "261116 App Key 계정 정보",
+     "until": "2029-12-31",
+     "coRef": 6,
+     "coName": "네오노트-1012"
+    },
+    {
+     "pt": "PDS3",
+     "section": 3,
+     "sectionEnd": null,
+     "owner": 1012,
+     "ownerEnd": null,
+     "bookStart": 101,
+     "bookEnd": 120,
+     "pageStart": 0,
+     "pageEnd": 511,
+     "count": null,
+     "note": "261116 App Key 계정 정보",
+     "until": "2029-12-31",
+     "coRef": 6,
+     "coName": "네오노트-1012"
+    },
+    {
+     "pt": "PDS3",
+     "section": 3,
+     "sectionEnd": null,
+     "owner": 1012,
+     "ownerEnd": null,
+     "bookStart": 141,
+     "bookEnd": 148,
+     "pageStart": 0,
+     "pageEnd": 511,
+     "count": null,
+     "note": "261116 App Key 계정 정보",
+     "until": "2029-12-31",
+     "coRef": 6,
+     "coName": "네오노트-1012"
+    },
+    {
+     "pt": "PDS3",
+     "section": 3,
+     "sectionEnd": null,
+     "owner": 1012,
+     "ownerEnd": null,
+     "bookStart": 121,
+     "bookEnd": 136,
+     "pageStart": 0,
+     "pageEnd": 511,
+     "count": null,
+     "note": "261116 App Key 계정 정보",
+     "until": "2029-12-31",
+     "coRef": 6,
+     "coName": "네오노트-1012"
+    },
+    {
+     "pt": "PDS4",
+     "section": 44,
+     "sectionEnd": null,
+     "owner": 250,
+     "ownerEnd": null,
+     "bookStart": 0,
+     "bookEnd": 39,
+     "pageStart": 0,
+     "pageEnd": 511,
+     "count": null,
+     "note": "261116 App Key 계정 정보",
+     "until": "무제한"
+    },
+    {
+     "pt": "PDS3",
+     "section": 3,
+     "sectionEnd": null,
+     "owner": 1012,
+     "ownerEnd": null,
+     "bookStart": 1072,
+     "bookEnd": 1074,
+     "pageStart": 0,
+     "pageEnd": 511,
+     "count": null,
+     "note": "261116 App Key 계정 정보",
+     "until": "2029-12-31",
+     "coRef": 6,
+     "coName": "네오노트-1012"
+    },
+    {
+     "pt": "PDS3",
+     "section": 3,
+     "sectionEnd": null,
+     "owner": 1012,
+     "ownerEnd": null,
+     "bookStart": 1077,
+     "bookEnd": 1082,
+     "pageStart": 0,
+     "pageEnd": 511,
+     "count": null,
+     "note": "261116 App Key 계정 정보",
+     "until": "2029-12-31",
+     "coRef": 6,
+     "coName": "네오노트-1012"
     }
    ],
    "note": "",
    "addr": "",
    "phone": "",
-   "homepage": ""
+   "homepage": "",
+   "coRefs": [
+    6,
+    166
+   ]
+  }
+ ],
+ "movedToNKey": [
+  {
+   "id": "sungkyu.chun@mackerly.com",
+   "company": "맥컬리",
+   "companyId": 447,
+   "since": "2020-03-16",
+   "ranges": [
+    {
+     "pt": "PDS3",
+     "section": 3,
+     "sectionEnd": null,
+     "owner": 27,
+     "ownerEnd": null,
+     "bookStart": 231,
+     "bookEnd": 231,
+     "pageStart": 1,
+     "pageEnd": 512,
+     "count": 1,
+     "note": "",
+     "until": "2023-03-15"
+    }
+   ]
   },
   {
-   "sheet": "iuEdu",
+   "id": "vsritharan@scholastic.asia",
+   "company": "스콜라스틱",
+   "companyId": 341,
+   "since": "",
+   "ranges": [
+    {
+     "pt": "PDS2",
+     "section": 3,
+     "sectionEnd": null,
+     "owner": 21,
+     "ownerEnd": null,
+     "bookStart": 900,
+     "bookEnd": 982,
+     "pageStart": 0,
+     "pageEnd": 2000,
+     "count": 82,
+     "note": "페이지 범위는 편집파트에서 권장하는 PDF 범위로 산정되었습니다.",
+     "until": "2021-12-31"
+    }
+   ]
+  },
+  {
+   "id": "tuan.pham@iuedu.vn",
    "company": "iuEdu",
    "companyId": 423,
-   "id": "tuan.pham@iuedu.vn",
-   "name": "Tuan Pham",
    "since": "2020-05-25",
-   "until": "2020-08-31",
-   "appKey": "",
-   "perms": {
-    "Edit/Symbol/Enabled": true,
-    "Edit/Symbol/RectWithText/Create/Enabled": false,
-    "Edit/Resource/Add/Enabled": false,
-    "Edit/Resource/Delete/Enabled": false,
-    "Edit/Resource/DragDrop/Enabled": false,
-    "Export/NcodePDF/Enabled": true,
-    "Export/NCP/Enabled": false,
-    "Export/PackageForApp/Enabled": true,
-    "Export/NcodePDF/CustomExport4HyundaiMotor/Enabled": false,
-    "Settings/Ncode/Enabled": true,
-    "Settings/Project/Enabled": true,
-    "Settings/PageAttrForApp/Enabled": false,
-    "Settings/PageAlias/Import/Enabled": false,
-    "Settings/ActionTable/Import/Enabled": false,
-    "Settings/DrawingPreset/Configure/Enabled": false,
-    "ResourcesView/Tool/Enabled": false,
-    "Ncode/Mode/ExtendedBookCode/Enabled": false,
-    "Nproj/Writer/StartPageSideAttr/Enabled": false
-   },
    "ranges": [
     {
      "pt": "PDS3",
@@ -776,43 +875,16 @@
      "pageStart": 0,
      "pageEnd": 511,
      "count": 1,
-     "note": ""
+     "note": "",
+     "until": "2020-12-31"
     }
-   ],
-   "note": "",
-   "addr": "",
-   "phone": "",
-   "homepage": ""
+   ]
   },
   {
-   "sheet": "NHN EDU",
+   "id": "yeonwoong.jo@nhnedu.com",
    "company": "NHN EDU",
    "companyId": 536,
-   "id": "yeonwoong.jo@nhnedu.com",
-   "name": "조연웅",
    "since": "2020-10-28",
-   "until": "2021-10-27",
-   "appKey": "",
-   "perms": {
-    "Edit/Symbol/Enabled": true,
-    "Edit/Symbol/RectWithText/Create/Enabled": false,
-    "Edit/Resource/Add/Enabled": false,
-    "Edit/Resource/Delete/Enabled": false,
-    "Edit/Resource/DragDrop/Enabled": false,
-    "Export/NcodePDF/Enabled": true,
-    "Export/NCP/Enabled": false,
-    "Export/PackageForApp/Enabled": true,
-    "Export/NcodePDF/CustomExport4HyundaiMotor/Enabled": false,
-    "Settings/Ncode/Enabled": true,
-    "Settings/Project/Enabled": true,
-    "Settings/PageAttrForApp/Enabled": false,
-    "Settings/PageAlias/Import/Enabled": false,
-    "Settings/ActionTable/Import/Enabled": false,
-    "Settings/DrawingPreset/Configure/Enabled": false,
-    "ResourcesView/Tool/Enabled": false,
-    "Ncode/Mode/ExtendedBookCode/Enabled": false,
-    "Nproj/Writer/StartPageSideAttr/Enabled": false
-   },
    "ranges": [
     {
      "pt": "PDS3",
@@ -825,43 +897,16 @@
      "pageStart": 0,
      "pageEnd": 511,
      "count": 2,
-     "note": ""
+     "note": "",
+     "until": "2021-10-27"
     }
-   ],
-   "note": "",
-   "addr": "",
-   "phone": "",
-   "homepage": ""
+   ]
   },
   {
-   "sheet": "Copy of NHN EDU",
+   "id": "edupresso@gmail.com",
    "company": "에듀프레소",
    "companyId": 476,
-   "id": "edupresso@gmail.com",
-   "name": "이병선",
    "since": "2021-01-11",
-   "until": "2021-12-31",
-   "appKey": "",
-   "perms": {
-    "Edit/Symbol/Enabled": true,
-    "Edit/Symbol/RectWithText/Create/Enabled": false,
-    "Edit/Resource/Add/Enabled": false,
-    "Edit/Resource/Delete/Enabled": false,
-    "Edit/Resource/DragDrop/Enabled": false,
-    "Export/NcodePDF/Enabled": true,
-    "Export/NCP/Enabled": false,
-    "Export/PackageForApp/Enabled": true,
-    "Export/NcodePDF/CustomExport4HyundaiMotor/Enabled": false,
-    "Settings/Ncode/Enabled": true,
-    "Settings/Project/Enabled": true,
-    "Settings/PageAttrForApp/Enabled": false,
-    "Settings/PageAlias/Import/Enabled": false,
-    "Settings/ActionTable/Import/Enabled": false,
-    "Settings/DrawingPreset/Configure/Enabled": false,
-    "ResourcesView/Tool/Enabled": false,
-    "Ncode/Mode/ExtendedBookCode/Enabled": false,
-    "Nproj/Writer/StartPageSideAttr/Enabled": false
-   },
    "ranges": [
     {
      "pt": "PDS3",
@@ -874,43 +919,16 @@
      "pageStart": 0,
      "pageEnd": 511,
      "count": 10,
-     "note": ""
+     "note": "",
+     "until": "2021-12-31"
     }
-   ],
-   "note": "",
-   "addr": "",
-   "phone": "",
-   "homepage": ""
+   ]
   },
   {
-   "sheet": "영업용 테스트 코드",
+   "id": "neotest@neolab.net",
    "company": "영업용 테스트 코드",
    "companyId": 537,
-   "id": "neotest@neolab.net",
-   "name": "demo",
    "since": "2020-05-25",
-   "until": "2020-12-31",
-   "appKey": "",
-   "perms": {
-    "Edit/Symbol/Enabled": true,
-    "Edit/Symbol/RectWithText/Create/Enabled": false,
-    "Edit/Resource/Add/Enabled": true,
-    "Edit/Resource/Delete/Enabled": true,
-    "Edit/Resource/DragDrop/Enabled": true,
-    "Export/NcodePDF/Enabled": true,
-    "Export/NCP/Enabled": true,
-    "Export/PackageForApp/Enabled": true,
-    "Export/NcodePDF/CustomExport4HyundaiMotor/Enabled": false,
-    "Settings/Ncode/Enabled": true,
-    "Settings/Project/Enabled": true,
-    "Settings/PageAttrForApp/Enabled": true,
-    "Settings/PageAlias/Import/Enabled": true,
-    "Settings/ActionTable/Import/Enabled": false,
-    "Settings/DrawingPreset/Configure/Enabled": false,
-    "ResourcesView/Tool/Enabled": true,
-    "Ncode/Mode/ExtendedBookCode/Enabled": false,
-    "Nproj/Writer/StartPageSideAttr/Enabled": false
-   },
    "ranges": [
     {
      "pt": "PDS3",
@@ -923,15 +941,30 @@
      "pageStart": 0,
      "pageEnd": 10,
      "count": 1,
-     "note": ""
+     "note": "",
+     "until": "무제한"
     }
-   ],
-   "note": "영업용 데모 코드의 오남용을 방지하기 위하여 시연용으로 발급된 계정입니다.\n본 계정에서 추출할 수 있는 코드로는 테스트 이외의 목적으로 사용하는 것을 금합니다.\n테스트 후 실제로 판매될 수 있는 제품의 경우 별도로 코드를 요청해주시길 바랍니다.",
-   "addr": "",
-   "phone": "",
-   "homepage": ""
+   ]
+  },
+  {
+   "id": "sb.son@funcrews.com",
+   "company": "호두랩스",
+   "companyId": 370,
+   "since": "",
+   "ranges": [
+    {
+     "pt": "PDS2",
+     "section": 3,
+     "owner": 21,
+     "bookStart": 1005,
+     "bookEnd": 1111,
+     "pageStart": 0,
+     "pageEnd": 511,
+     "until": "2020-04-30"
+    }
+   ]
   }
  ],
- "source": "db/source/Caster_계정_퍼미션_티켓.xlsx",
+ "source": "db/source/Caster_계정_퍼미션_티켓.xlsx · db/source/261116_APP KEY 계정 정보.xlsx",
  "note": "비밀번호는 저장하지 않는다 (PC-103)"
 }
