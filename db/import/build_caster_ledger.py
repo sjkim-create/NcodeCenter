@@ -217,7 +217,7 @@ def main():
             d["id"] = ""                                 # 대장에 계정이 비어 있음
         accounts.append(d)
 
-    # ── 261116 App Key 계정 정보 반영 `PC-322`
+    # ── 261116 App Key 계정 정보 반영 `PC-323`
     #   ① N Key 만 받은 계정은 App Key 대장에서 뺀다(N Key 대장으로 옮김 — build_ticket_ledger.py)
     #   ② 나머지 계정은 티켓마다 코드 소유 고객사(매칭 목록)를 달아 여러 고객사에 잇는다 — 대장에 없는 티켓은 더한다
     import appkey_accounts_261116 as AK
@@ -280,7 +280,7 @@ def main():
                               "sound": False, "write": False})
 
     out = {"perms": perms, "accounts": accounts,
-           "movedToNKey": moved,   # N Key 대장으로 옮긴 계정 — 이미 시드된 브라우저에서도 지운다 `PC-322`
+           "movedToNKey": moved,   # N Key 대장으로 옮긴 계정 — 이미 시드된 브라우저에서도 지운다 `PC-323`
            "source": "db/source/Caster_계정_퍼미션_티켓.xlsx · db/source/261116_APP KEY 계정 정보.xlsx",
            "note": "비밀번호는 저장하지 않는다 (PC-103)"}
     json.dump(out, open(os.path.join(WEB, "caster-ledger.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)

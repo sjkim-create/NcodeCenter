@@ -270,7 +270,7 @@ export function AccountNewView({ embedded = false, fixedCompanyId = 0, onDone, o
 
   // 가입 승인(SSO) 계정은 고객사 관리의 계정 및 서비스 권한에서 추가한다 `PC-133` — 여기서 미리 채우지 않는다
 
-  // 이미 있는 App Key 계정(email) — 막지 않고 이 고객사에도 함께 등록한다(안내) `PC-322`
+  // 이미 있는 App Key 계정(email) — 막지 않고 이 고객사에도 함께 등록한다(안내) `PC-323`
   const dup = castState.accounts.find((a) => accountScope(a) === "key" && a.id.toLowerCase() === id.trim().toLowerCase());
   const dupCos = dup ? [dup.company, ...(dup.coRefs ?? []).map((x) => companies.find((c) => c.id === x)?.name ?? "")].filter(Boolean) : [];
   const dupHere = !!dup && !!company && (dup.coRef === company.id || dup.company === company.name || (dup.coRefs ?? []).includes(company.id));
@@ -331,7 +331,7 @@ ${company.name}에도 함께 등록할까요? (비밀번호 · App Key 는 기�
           <Field label="NAME (담당자명)"><input style={S.input} value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <Field label="ID (이메일) *">
             <input style={S.input} value={id} onChange={(e) => setId(e.target.value)} placeholder="user@company.com" />
-            {/* 이미 있는 계정 — 다른 고객사에 등록돼 있음을 알린다(함께 등록 가능) `PC-322` */}
+            {/* 이미 있는 계정 — 다른 고객사에 등록돼 있음을 알린다(함께 등록 가능) `PC-323` */}
             {dup && <div style={{ fontSize: 11.5, color: dupHere ? "#dc2626" : "#b45309", marginTop: 4 }}>
               {dupHere ? "이미 이 고객사에 등록된 계정입니다." : `이미 ${dupCos.join(" · ")}에 등록된 계정 — [계정 추가]하면 이 고객사에도 함께 등록됩니다(비밀번호 · App Key 는 기존 그대로).`}
             </div>}
@@ -372,7 +372,7 @@ ${company.name}에도 함께 등록할까요? (비밀번호 · App Key 는 기�
 /* ── TKT-01 계정 상세 · 수정 ────────────────────────────────────── */
 // embedded — App Key 관리 3단 화면의 오른쪽 칸 `PC-146`
 // rangeScope — 왼쪽에서 고른 줄: 단독(own) 이면 자기 범위만, 상위 밑 하위 줄이면 그 상위 공유 범위만 `PC-311`
-// viewCoId — 왼쪽에서 고른 고객사. 여러 고객사에 걸친 계정이면 그 고객사 티켓만 보인다 `PC-322`
+// viewCoId — 왼쪽에서 고른 고객사. 여러 고객사에 걸친 계정이면 그 고객사 티켓만 보인다 `PC-323`
 export function AccountDetailView({ accountId, embedded = false, onDeleted, rangeScope, viewCoId }: { accountId: string; embedded?: boolean; onDeleted?: () => void; rangeScope?: RangeScope; viewCoId?: number }) {
   const router = useRouter();
   const me = currentUser(useAuth());
@@ -425,7 +425,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted, rang
 
   const { companies } = useStore();
   const accCo = acc ? companyOfAccount(acc, companies) : undefined;   // 고객사 관리 고객사로 잇는다 `PC-153`
-  // 함께 연결된 고객사에서 연 계정이면 발급 범위도 그 고객사 것 `PC-322`
+  // 함께 연결된 고객사에서 연 계정이면 발급 범위도 그 고객사 것 `PC-323`
   const viewCo = viewCoId && acc?.coRefs?.includes(viewCoId) ? companies.find((c) => c.id === viewCoId) : undefined;
   const allRanges = useRanges(viewCo ?? accCo);                       // 수정 중인 티켓의 테두리는 맥락과 상관없이 전체에서 찾는다
   const ranges = scopeRanges(allRanges, rangeScope);        // 새 발급 — 단독이면 자기 범위만 · 하위 줄이면 공유 범위만 `PC-311`
@@ -438,7 +438,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted, rang
   // 발급 내역 항목(=키의 각 코드 범위/티켓) — 선택하면 아래 Key 정보에 표시 `PC-120`
   // 티켓은 **계정 소속** `PC-206` — 계정당 여러 개. App Key(계정당 1개)는 티켓과 별개다
   const tickets = accountTickets(acc);
-  // 여러 고객사에 걸친 계정 — 고른 고객사의 티켓만(티켓 고객사가 비면 본 고객사) · 번호(i)는 계정 전체 기준 그대로 `PC-322`
+  // 여러 고객사에 걸친 계정 — 고른 고객사의 티켓만(티켓 고객사가 비면 본 고객사) · 번호(i)는 계정 전체 기준 그대로 `PC-323`
   const multiCo = !!acc?.coRefs?.length;
   const ticketCo = (r: KeyRange) => r.coRef ?? accCo?.id;
   const rangeItems = tickets.map((r, i) => ({ k: myKey, r, i })).filter(({ r }) => !multiCo || !viewCoId || ticketCo(r) === viewCoId);
@@ -502,7 +502,7 @@ export function AccountDetailView({ accountId, embedded = false, onDeleted, rang
     const untilStr = untilVal();
     const r: KeyRange = { pt: patternOf(ctype), section: range.section, owner: range.owner, bookStart: keyBS, bookEnd: keyBS + keyVol - 1, bookVol: keyVol,
       pageStart: pStart, pageEnd: pStart + keyPVol - 1, pageVol: keyPVol, since, until: untilStr, info: info.trim() || undefined, name: ticketName,
-      // 다른 고객사에서 연 계정이면 그 고객사 티켓으로 `PC-322`
+      // 다른 고객사에서 연 계정이면 그 고객사 티켓으로 `PC-323`
       ...(viewCoId && viewCoId !== accCo?.id ? { coRef: viewCoId } : {}) };
     // 원장 티켓을 먼저 만들어 그 id 를 범위에 연결한다 `PC-119`·`PC-121`
     const t = addTicket({ kind: "APP", companyId: acc.companyId, company: acc.company, accountId: acc.id, by: me?.name ?? "",

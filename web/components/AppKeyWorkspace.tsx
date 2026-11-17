@@ -40,7 +40,7 @@ export function AppKeyWorkspace() {
     for (const a of keyAccounts) m.set(a.id, companyOfAccount(a, companies)?.id ?? UNLINKED);
     return m;
   }, [keyAccounts, companies]);
-  // 계정이 걸친 고객사 전부 — 본 고객사 + 함께 연결된 고객사(한 계정이 여러 고객사에) `PC-322`
+  // 계정이 걸친 고객사 전부 — 본 고객사 + 함께 연결된 고객사(한 계정이 여러 고객사에) `PC-323`
   const cosOf = (a: CasterAccount): number[] => {
     const p = coOf.get(a.id) ?? UNLINKED;
     return [p, ...(a.coRefs ?? []).filter((x) => x !== p && companies.some((c) => c.id === x))];
@@ -249,7 +249,7 @@ export function AppKeyWorkspace() {
                     {key ? <span style={tag("#f5f3ff", "#6d28d9")}>App Key</span> : <span style={tag("#f3f4f6", "#9ca3af")}>미발급</span>}
                     {nRange > 0 && <span style={tag("#eef6ff", "#2563eb")}>티켓 {nRange}</span>}
                     {a.seeded && <span style={tag("#f3f4f6", "#9ca3af")} title="개발팀 Caster 대장에서 들어온 계정">대장</span>}
-                    {/* 여러 고객사에 걸친 계정 `PC-322` */}
+                    {/* 여러 고객사에 걸친 계정 `PC-323` */}
                     {cosOf(a).length > 1 && <span style={tag("#fff7ed", "#c2410c")} title={cosOf(a).map(coName).join(" · ")}>고객사 {cosOf(a).length}곳</span>}
                     <span style={{ marginLeft: "auto", fontSize: 11, color: "#9ca3af" }}>{a.createdAt ? a.createdAt.slice(0, 10) : ""}</span>
                   </div>

@@ -8,7 +8,7 @@
 | `2_New_NSP_Ncode_List.xlsx` | 편집(소리펜) 원장 · 코드구분(N/G)·SOBP·페이지·심볼 | `web/data/editing-data.json`, `web/data/seed-customers.json` |
 | `(필기펜)NWP_Ncode_List.xlsx` | 오너코드 발급 리스트(예약/사용) | `web/data/ownership-data.json` |
 | `Caster_계정_퍼미션_티켓.xlsx` | App Key(Caster) 계정 · 권한 · 티켓 대장 | `web/data/caster-ledger.json` |
-| `261116_APP KEY 계정 정보.xlsx` | 계정별 티켓 · 코드 소유 고객사 매칭 — 한 계정 여러 고객사 · N Key 전용 계정 옮김 `PC-322` | `caster-ledger.json`(coRefs · movedToNKey) · `ticket-ledger.json`(No.62~68) |
+| `261116_APP KEY 계정 정보.xlsx` | 계정별 티켓 · 코드 소유 고객사 매칭 — 한 계정 여러 고객사 · N Key 전용 계정 옮김 `PC-323` | `caster-ledger.json`(coRefs · movedToNKey) · `ticket-ledger.json`(No.62~68) |
 | `nkey(HLP).xlsx` | N Key 발급 대장 | `web/data/ticket-ledger.json` |
 
 ## 재생성

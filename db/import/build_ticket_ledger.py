@@ -105,7 +105,7 @@ for row in ws.iter_rows(min_row=2, values_only=True):
         "", txt(g(9)), inum(g(3)), dstr(g(8)), period(g(7)),
         " · ".join(x for x in (txt(g(5)), txt(g(6))) if x))
 
-# ── App Key 대장에서 옮긴 N Key 전용 계정 `PC-322` ──
+# ── App Key 대장에서 옮긴 N Key 전용 계정 `PC-323` ──
 #   Caster 사용에 필요한 N Key 만 받았고 SDK 를 쓰지 않아 App Key 이력이 없다(2026-11-16 확인)
 #   build_caster_ledger.py 가 caster-ledger.json 의 movedToNKey 로 넘겨 준다(먼저 실행)
 sys.path.insert(0, HERE)

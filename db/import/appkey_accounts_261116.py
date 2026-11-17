@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""261116 App Key 계정 정보(계정별 티켓 · 코드 소유 고객사 매칭) — 두 대장 빌드가 함께 쓴다  `PC-322`
+"""261116 App Key 계정 정보(계정별 티켓 · 코드 소유 고객사 매칭) — 두 대장 빌드가 함께 쓴다  `PC-323`
 
 원본: db/source/261116_APP KEY 계정 정보.xlsx  시트 「계정별 티켓」
   열: 계정 | 고객사 | 티켓타입 | 티켓영역(S O B) | 만료일 | 오너코드 발급 리스트 매칭 목록 | 구분
@@ -21,7 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "..", "source", "261116_APP KEY 계정 정보.xlsx")
 
 # 확인 결과(2026-11-16) — Caster 사용에 필요한 N Key 만 받았고 SDK 를 쓰지 않아 App Key 발급 이력이 없다
-#   → App Key 관리에서 빼고 N Key 관리에 더한다 `PC-322`
+#   → App Key 관리에서 빼고 N Key 관리에 더한다 `PC-323`
 NKEY_ONLY = {
     "edupresso@gmail.com", "neotest@neolab.net", "sb.son@funcrews.com", "sungkyu.chun@mackerly.com",
     "tuan.pham@iuedu.vn", "vsritharan@scholastic.asia", "yeonwoong.jo@nhnedu.com",
