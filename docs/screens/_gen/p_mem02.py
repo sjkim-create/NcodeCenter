@@ -691,8 +691,8 @@ def build():
               [('폼솔루션 사용', '켬', '폼솔루션 서비스 관리에 나타남', '권한 항목 없음')]))
     B.append(('S15', '계정 추가 오류', '오류', 'ID 는 이메일 형식이고 전체에서 유일해야 한다(App Key 계정 포함). 비밀번호는 받지 않는다 <code>PC-159</code>.',
               frame('MEM-01', FR, layout(H, nav('acc'), acc_section(acc_card_list(adding=True),
-                    acc_detail('new', id_val='kim@wjthinkbig.com', err='이미 등록된 ID(email)입니다.', owner='other'))), height=1170),
-              [('ID 중복', '[계정 추가]', '<b>차단</b>', '<b>이미 등록된 ID(email)입니다.</b>'),
+                    acc_detail('new', id_val='kim@wjthinkbig.com', err='이미 웅진씽크빅에 등록된 서비스 계정입니다. 서비스 계정은 이메일당 고객사 하나만 등록할 수 있습니다.', owner='other'))), height=1170),
+              [('ID 중복', '[계정 추가]', '<b>차단</b>', '서비스 계정은 이메일당 고객사 하나 <code>PC-324</code> — <b>이미 {고객사}에 등록된 서비스 계정입니다. …</b> / App Key 계정 이메일이면 <b>이미 App Key 계정으로 등록된 이메일입니다({고객사}). …</b>'),
                ('ID 형식', '[계정 추가]', '<b>차단</b>', '<b>ID 는 이메일 형식이어야 합니다.</b>')]))
     dlg = ('<div class="ovl"><div class="mdl"><div class="mh"><div class="mt">계정 삭제</div><div class="mx">✕</div></div>'
            '<div style="font-size:13px;color:#374151;line-height:1.7">계정 edit01@wjthinkbig.com 을(를) 삭제할까요?</div>'

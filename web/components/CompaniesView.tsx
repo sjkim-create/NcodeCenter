@@ -15,7 +15,7 @@ import { Company, CompanyDoc, WorkKind, WorkLog, nextId,
 import { SOUND_ITEMS, PEN_ITEMS, rateMapOf, customRateCount, type RateItem } from "@/lib/pricing";
 import { COMMON_CODES, codeKey, codesOfCompany, isCommonCodeCompany, type CommonCode } from "@/lib/commonCodes";
 import { codesOfMember, addMember, removeMember, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
-import { caster, useCaster, accountScope, isActive, type CasterAccount } from "@/lib/accountStore";
+import { caster, useCaster, accountScope, isActive, dupAccountMsg, type CasterAccount } from "@/lib/accountStore";
 import { CompanyAccountsPanel, type AccountOps } from "./CompanyAccountsPanel";
 import { CompanyServiceTickets } from "./CompanyServiceTickets";
 import { wsChip } from "./KeyWorkspaceUI";
@@ -340,7 +340,7 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "",
   const accountOps: AccountOps = isNew ? {
     // 등록 화면에서 계정을 추가하면 **고객사와 계정을 함께 바로 등록**한다 — 「임시」 상태를 두지 않는다 `PC-142`
     add: (a) => {
-      if (dupId(a.id)) return { ok: false, msg: "이미 등록된 ID(email)입니다." };
+      if (dupId(a.id)) return { ok: false, msg: dupAccountMsg(a.id, drafts.map((d) => ({ ...d, company: form.name.trim() || "이 고객사", scope: "service" as const }))) || "이미 등록된 ID(email)입니다." };   // 서비스 계정 = 이메일당 고객사 하나 `PC-324`
       if (!form.name.trim()) return { ok: false, msg: "기본 정보(업체명)를 먼저 입력하세요." };
       save([a], "acc");
       return { ok: true, msg: "" };

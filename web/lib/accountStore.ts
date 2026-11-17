@@ -294,6 +294,21 @@ type LedgerAccount = {
   appKey: string; perms: Record<string, boolean>; ranges: KeyRange[]; note: string; addr: string; phone: string; homepage: string;
   coRefs?: number[];   // 함께 연결된 고객사 `PC-323`
 };
+// 계정 중복 안내 — 이메일(ID)은 계정 하나 `PC-324`
+//   · App Key 계정만 여러 고객사에 걸칠 수 있다(같은 계정을 함께 등록 — App Key 관리 [계정 추가])
+//   · 서비스 계정은 이메일당 고객사 하나 — 다른 고객사에 같은 이메일로 만들 수 없다
+export function dupAccountMsg(id: string, extra: { id: string; company?: string; scope?: AccountScope }[] = [], forScope: AccountScope = "service"): string {
+  const x = [...state.accounts, ...extra].find((a) => a.id.toLowerCase() === id.trim().toLowerCase());
+  if (!x) return "";
+  const xs = x.scope ?? "key", co = x.company || "다른 고객사";
+  if (xs === "service")
+    return forScope === "service"
+      ? `이미 ${co}에 등록된 서비스 계정입니다. 서비스 계정은 이메일당 고객사 하나만 등록할 수 있습니다.`
+      : `이미 ${co}의 서비스 계정 이메일입니다. App Key 계정은 다른 이메일로 등록하세요.`;
+  return forScope === "service"
+    ? `이미 App Key 계정으로 등록된 이메일입니다(${co}). 서비스 계정은 다른 이메일로 등록하세요.`
+    : `이미 등록된 App Key 계정입니다(${co}).`;   // App Key 관리 [계정 추가]는 함께 등록으로 처리한다
+}
 // N Key 대장으로 옮긴 계정 — 이미 시드된 브라우저에서도 지운다 `PC-323`
 const MOVED_TO_NKEY = new Set(((casterLedger as { movedToNKey?: { id: string }[] }).movedToNKey ?? []).map((m) => m.id.toLowerCase()));
 const sameRange = (a: KeyRange, b: KeyRange) => a.section === b.section && a.owner === b.owner && (a.bookStart ?? 0) === (b.bookStart ?? 0);
@@ -386,7 +401,8 @@ export const caster = {
       ? { ...a, coRefs: [...new Set([...(a.coRefs ?? []), coId])] } : a)) });
   },
   addAccount(a: Omit<CasterAccount, "createdAt">): { ok: boolean; msg: string } {
-    if (state.accounts.some((x) => x.id.toLowerCase() === a.id.toLowerCase())) return { ok: false, msg: "이미 등록된 ID(email)입니다." };
+    const m = dupAccountMsg(a.id, [], a.scope ?? "key");
+    if (m) return { ok: false, msg: m };
     // 인증 서비스는 **0개도 정상** — 아무것도 고르지 않으면 SDK 연동(코드만 할당) `PC-076`
     // App Key 권한 기본값 = 모두 false `PC-207`
     commit({ ...state, accounts: [{ ...a, keyPerms: normAppKeyPerms(a.keyPerms), createdAt: kstNow() }, ...state.accounts] });
