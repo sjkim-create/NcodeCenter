@@ -150,7 +150,7 @@ function ExtSlotPicker({ g, s, b, cur, onChange, takenBy, legacyOf }: {
         </button>
       </div>
       {open && (
-        <div style={{ position: "absolute", zIndex: 30, top: "calc(100% + 4px)", left: 0, width: "max(100%, 380px)",
+        <div style={{ position: "absolute", zIndex: 30, top: "calc(100% + 4px)", right: 0, width: "max(100%, 380px)", maxWidth: "calc(100vw - 32px)",   // 칸 오른쪽에 맞춰 왼쪽으로 펼친다 — 좁은 화면에서도 [닫기]가 보이게
           background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
           {/* 머리 — 스크롤과 상관없이 늘 위 · [닫기]는 오른쪽 */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px 6px 12px", borderBottom: "1px solid #eef0f4", background: "#fafbfc" }}>
