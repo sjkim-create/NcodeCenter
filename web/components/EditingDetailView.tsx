@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { S, Field, AutoTextarea } from "./ui";
 import { InfoTip } from "./KeyWorkspaceUI";
+import { langGroupOf, extLangText, type ExtSlot, type LangGroup } from "@/lib/langGroups";
+import { allEditBooks, alignLegacyServiceTickets } from "@/lib/bookOwnership";
 import { codeKind, codeTypeRangeErr, kindMeta, type CodeKind } from "@/lib/codeKind";
 import { SobpChips } from "./sobp";
 import type { WorkKind } from "@/lib/customerData";
@@ -14,7 +16,6 @@ import { assignedSOFor, editableBookNumbers, projectBooks, sameBookSpace, shared
 import { usePenModels, addPenModel } from "@/lib/penModels";
 import { hydrateShared, useSharedOwners, COMMON_LABEL, commonRangesText } from "@/lib/sharedOwners";
 import { hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
-import { alignLegacyServiceTickets } from "@/lib/bookOwnership";
 import { allServiceTickets, hydrateServiceTickets, useServiceTickets, ticketState, serviceTicketText, type ServiceTicket } from "@/lib/serviceTicketStore";
 import { setBookOverride } from "@/lib/editOverrides";
 import { logActivity } from "@/lib/activityStore";
@@ -39,6 +40,8 @@ type BR = {
   //   rs = 항목별 단가맵 · rsAt = 적용 시점(YYYY-MM-DD). 없는(구) 교재는 현재 고객사 단가로 계산.
   rs?: RateMap; rsAt?: string;
   cu?: string;   // 사용 고객사 — 공유 OWNER(레퍼런스 코드)일 때만 사용
+  // 확장 언어 슬롯 — 기본 코드(Common O21 · Cake O1009)의 같은 Book 을 확장 Owner 에서도 쓸 때(Owner 만 기록). 언어 심볼은 Compound n언어 칸에 넣는다 `PC-327`
+  ext?: ExtSlot[];
   _cust?: string;   // 전체 고객사 보기에서만 채워지는 보유 고객사명 `PC-040`
   nhist?: { date: string; movedAt: string; by: string }[];   // 완료→진행중 전환 시 보관하는 ncp2 최종수정 이력
   // 같은 코드(SOBP)에 작업물(ncp2)이 여럿인 교재 — wn=작업 번호 · wc=그 코드의 작업 수. 코드는 1개, 작업은 N행 `PC-110`
@@ -107,6 +110,78 @@ const BOOK_STEP = 100;   // Book 번호 노출 단위 `PC-046`
 
 // Book 선택기 — 목록을 **닫지 않고** 100개씩 이어 본다 `PC-057`
 //   네이티브 <select> 는 항목을 고르면 닫혀서 [＋더 보기] 를 넣을 수 없다.
+/** 확장 언어 슬롯 다중 선택 — 고른 슬롯은 배지, [+ 슬롯] 을 누르면 체크 목록이 열린 채로 여러 개를 고른다 `PC-327`
+ *  항목 = O{n} · 「5 베트남어 · 6 러시아어 …」(언어가 없으면 「지정된 언어 없음」) · (사용 중) 은 고를 수 없다 · (따로 등록됨) 은 알림만 */
+function ExtSlotPicker({ g, s, b, cur, onChange, takenBy, legacyOf }: {
+  g: LangGroup; s: number; b: number; cur: ExtSlot[]; onChange: (next: ExtSlot[]) => void;
+  takenBy: (o: number) => string; legacyOf: (o: number) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  // 바깥(다른 영역)을 누르면 닫는다 — 체크는 누를 때마다 바로 반영되므로 닫기만 하면 된다
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (ev: MouseEvent) => { if (box.current && !box.current.contains(ev.target as Node)) setOpen(false); };
+    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  const has = (o: number) => cur.some((e) => e.o === o);
+  const set = (next: ExtSlot[]) => onChange([...next].sort((x, y) => g.ext.indexOf(x.o) - g.ext.indexOf(y.o)));
+  const toggle = (o: number) => set(has(o) ? cur.filter((e) => e.o !== o) : [...cur, { o }]);
+  return (
+    <div ref={box} style={{ position: "relative" }}>
+      <div style={{ ...S.input, background: "#fff", display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", minHeight: 34, padding: "3px 6px" }}>
+        {cur.map((e) => {
+          const legacy = legacyOf(e.o);
+          return (
+            <span key={e.o} title={`S${s}/O${e.o}/B${b} — ${extLangText(g, e.o)}${legacy ? `\n같은 Book 이 따로 등록돼 있습니다 — ${legacy} (그대로 둡니다)` : ""}`}
+              style={{ ...S.tag, background: "#ecfeff", color: "#0e7490", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 3 }}>
+              🌐 O{e.o}{legacy && <span style={{ fontWeight: 400, color: "#b45309" }}>따로</span>}
+              <button type="button" aria-label={`O${e.o} 빼기`} onClick={() => toggle(e.o)}
+                style={{ border: 0, background: "none", color: "#0e7490", cursor: "pointer", padding: 0, fontSize: 11 }}>✕</button>
+            </span>
+          );
+        })}
+        <button type="button" aria-expanded={open} aria-label="확장 언어 슬롯 고르기" onClick={() => setOpen((v) => !v)}
+          style={{ border: 0, background: "transparent", fontSize: 12, color: "#6b7280", flex: 1, minWidth: 80, textAlign: "left", cursor: "pointer", padding: "2px 2px" }}>
+          {cur.length ? "+ 슬롯" : "+ 슬롯 선택 (없음)"} <span style={{ fontSize: 10, color: "#9ca3af" }}>{open ? "▲" : "▼"}</span>
+        </button>
+      </div>
+      {open && (
+        <div style={{ position: "absolute", zIndex: 30, top: "calc(100% + 4px)", left: 0, width: "max(100%, 380px)",
+          background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
+          {/* 머리 — 스크롤과 상관없이 늘 위 · [닫기]는 오른쪽 */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px 6px 12px", borderBottom: "1px solid #eef0f4", background: "#fafbfc" }}>
+            <span style={{ fontSize: 11.5, color: "#6b7280" }}>{g.label} 확장 언어 슬롯 · {cur.length}개 선택</span>
+            <span style={{ flex: 1 }} />
+            <button type="button" onClick={() => setOpen(false)} style={{ ...S.ghost, padding: "3px 10px", fontSize: 12 }}>닫기</button>
+          </div>
+          <div role="listbox" aria-multiselectable="true" style={{ maxHeight: 280, overflowY: "auto", padding: 4 }}>
+          {g.ext.map((o) => {
+            const on = has(o);
+            const taken = on ? "" : takenBy(o);
+            const legacy = legacyOf(o);
+            return (
+              <label key={o} title={taken ? `다른 고객사가 사용 중 — ${taken}` : legacy ? `같은 Book 이 따로 등록돼 있습니다 — ${legacy}` : undefined}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderRadius: 6, fontSize: 12, cursor: taken ? "not-allowed" : "pointer",
+                  background: on ? "#ecfeff" : "transparent", color: taken ? "#9ca3af" : "#374151" }}>
+                <input type="checkbox" checked={on} disabled={!!taken} onChange={() => toggle(o)} style={{ margin: 0 }} />
+                <b style={{ fontFamily: "ui-monospace,monospace", minWidth: 44, color: taken ? "#9ca3af" : on ? "#0e7490" : "#111827" }}>O{o}</b>
+                <span style={{ flex: 1, minWidth: 0, color: taken ? "#9ca3af" : "#4b5563" }}>{extLangText(g, o)}</span>
+                {taken && <span style={{ fontSize: 10.5 }}>사용 중</span>}
+                {!taken && legacy && <span style={{ fontSize: 10.5, color: "#b45309" }}>따로 등록됨</span>}
+              </label>
+            );
+          })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BookPicker({ value, list, more, step, onPick, onMore }: {
   value: number; list: number[]; more: boolean; step: number;
   onPick: (b: number) => void; onMore: () => void;
@@ -245,6 +320,26 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   // 이 고객사의 교재를 **로컬 저장분까지 읽었는지** `PC-092`
   //   첫 렌더의 rows 는 시드(base)라, 이 표시가 없으면 편집 폼이 **저장 전 값**으로 채워진다.
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
+
+  // 확장 언어 슬롯 — 그 Owner 의 같은 Book 을 **다른 편집 프로젝트 교재**가 이미 쓰는지 `PC-327`
+  //   (예: 「Common 추가 언어 슬롯-964」 에 따로 등록된 교재). 같은 기본 Book 의 다른 작업(복제)은 같은 슬롯을 함께 쓴다.
+  //   **같은 사용 고객사**가 그 슬롯 Book 을 따로 등록해 둔 교재(옛 방식 — 언어마다 교재 1개)는 막지 않고 「따로 등록됨」으로 알린다.
+  //   편집 데이터는 고치지 않는다 — 따로 등록된 교재는 그대로 둔다. 다른 고객사가 쓰는 Book 만 막는다.
+  const otherBooks = useMemo(() => (loadedKey === null ? [] : allEditBooks()), [loadedKey]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const slotIdx = useMemo(() => {
+    const m = new Map<string, typeof otherBooks>();
+    for (const x of otherBooks) { const key = `${codeKind(x.k, x.s)}/${x.s}/${x.o}/${x.b}`; m.set(key, [...(m.get(key) ?? []), x]); }
+    return m;
+  }, [otherBooks]);
+  const slotBooks = (k: string, s2: number, o: number, b: number) => slotIdx.get(`${codeKind(k, s2)}/${s2}/${o}/${b}`) ?? [];
+  // 다른 고객사가 쓰는 슬롯 Book — 있으면 「교재 프로젝트 · 교재명」, 없으면 ""
+  const extTakenBy = (k: string, s2: number, o: number, b: number, cu = ""): string => {
+    const hit = slotBooks(k, s2, o, b).find((x) => (x.cu ?? "") !== cu);
+    return hit ? `${hit.cust} · ${hit.t || "교재"}${hit.cu ? ` (${hit.cu})` : ""}` : "";
+  };
+  // 같은 사용 고객사가 따로 등록한 슬롯 교재
+  const extLegacy = (k: string, s2: number, o: number, b: number, cu = "") =>
+    slotBooks(k, s2, o, b).filter((x) => (x.cu ?? "") === cu);
 
   // 고객사(owner) 전환 시 해당 고객사 데이터로 재로드 (localStorage 우선, 없으면 시드)
   useEffect(() => {
@@ -520,6 +615,19 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
       if (ctErr) { alert(ctErr); return; }
     }
     // 공유 코드의 사용 고객사 필수 검사는 없앴다 — 사용 고객사는 서비스 티켓에서 자동으로 정해진다 `PC-289`
+    // 확장 언어 슬롯 — 기본 코드가 아니면 버리고, 같은 Book 을 다른 교재가 쓰는 슬롯이면 막는다 `PC-327`
+    let extRow = editing.row;
+    if ((editing.row.ext ?? []).length) {
+      if (!langGroupOf(editing.row.k, editing.row.s, editing.row.o)) extRow = { ...editing.row, ext: undefined };
+      else {
+        const cu0 = (editing.row.cu ?? "").trim();
+        const bad = (editing.row.ext ?? []).find((e) => extTakenBy(editing.row.k, editing.row.s, e.o, editing.row.b, cu0));
+        if (bad) {
+          alert(`S${editing.row.s}/O${bad.o}/B${editing.row.b} 은 이미 다른 고객사 교재가 쓰고 있습니다 — ${extTakenBy(editing.row.k, editing.row.s, bad.o, editing.row.b, cu0)}. 확장 언어 슬롯 체크를 빼거나 다른 Book 을 고르세요.`);
+          return;
+        }
+      }
+    }
     // 같은 코드(S/O/B) 교재는 [복제]로만 만든다 — 일반 추가에서 겹치면 막는다 `PC-112`
     //   Book 하나는 한 코드 타입만 — 다른 타입(PDS2 · PDS3)이 쓴 Book 도 막는다 `PC-281`
     if (editing.idx === -1 && editing.dupOf == null && rows.some((r) => sameBookSpace(r.k, editing.row.k) && r.s === editing.row.s && r.o === editing.row.o && r.b === editing.row.b)) {
@@ -529,11 +637,13 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     //   (옛 장부에 같은 파일명이 이미 110종 있어, 여기서 막으면 그 교재는 저장할 길이 없다. 중복은 casterN · 서버 매칭에서 다룬다)
     // 단가 스냅샷 — 신규 교재는 현재 고객사 단가로 고정한다.
     // 스냅샷이 없는 구 교재도 저장 시점에 현재 적용 단가로 고정해, 이후 단가 변경의 영향을 받지 않게 한다.
-    const r: BR = editing.row.rs ? editing.row : { ...editing.row, rs: { ...rateMap }, rsAt: today() };
+    const r: BR = extRow.rs ? extRow : { ...extRow, rs: { ...rateMap }, rsAt: today() };
     const next = editing.idx === -1 ? [r, ...rows] : rows.map((x, i) => (i === editing.idx ? r : x));
     commit(next);
     // 공유(커먼) 코드면 SOBP 맵에 사용 고객사·상태(편집)를 반영 (편집 프로젝트 등록 = 편집 관리 → ea=1)
     if (isSharedRow(r) && cuOf(r)) setBookOverride(r.k, r.s, r.o, r.b, { cu: cuOf(r), ea: 1 });   // 티켓의 고객사 `PC-289`
+    // 확장 언어 슬롯 Book 도 SOBP 맵에 편집 표시 `PC-327`
+    for (const e of r.ext ?? []) setBookOverride(r.k, r.s, e.o, r.b, { ...(cuOf(r) ? { cu: cuOf(r) } : {}), ea: 1 });
     if (editing.idx === -1) logActivity("edit", `교재 추가 · ${cust?.customer ?? owner} · S${editing.row.s}/O${editing.row.o}/B${editing.row.b} · ${editing.row.t || "교재"}`, me?.name);
     else logActivity("edit", `교재 작업 · ${cust?.customer ?? owner} · S${editing.row.s}/O${editing.row.o}/B${editing.row.b} · ${editing.row.t || "교재"}`, me?.name);
     setEditing(null);
@@ -819,7 +929,34 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   })()}
                 </td>
                 <td style={S.td}><span style={{ ...S.tag, background: kindMeta(codeKind(r.k, r.s)).bg, color: kindMeta(codeKind(r.k, r.s)).color, fontWeight: 700 }}>{kindMeta(codeKind(r.k, r.s)).short}</span></td>
-                <td style={S.td}><SobpChips s={r.s} o={r.o} b={r.b} small /></td>
+                <td style={S.td}>
+                  <SobpChips s={r.s} o={r.o} b={r.b} small />
+                  {/* 확장 언어 슬롯을 쓴 교재 — 같은 Book 을 쓰는 확장 Owner `PC-327` */}
+                  {(() => {
+                    const g = langGroupOf(r.k, r.s, r.o);
+                    if (!g) return null;
+                    const mine = (r.ext ?? []).map((e) => e.o);
+                    // 같은 사용 고객사가 그 슬롯 Book 을 따로 등록해 둔 교재(옛 방식) — 표시만 한다(데이터는 그대로)
+                    const legacy = g.ext.filter((o) => !mine.includes(o) && extLegacy(r.k, r.s, o, r.b, (r.cu ?? "").trim()).length > 0);
+                    if (!mine.length && !legacy.length) return null;
+                    return (
+                      <div style={{ marginTop: 3, display: "flex", gap: 3, flexWrap: "wrap" }}>
+                        {mine.length > 0 && (
+                          <span style={{ ...S.tag, fontSize: 10, background: "#ecfeff", color: "#0e7490", fontWeight: 700 }}
+                            title={`확장 언어 슬롯 ${mine.length}개 — ${mine.map((o) => `S${r.s}/O${o}/B${r.b}`).join(" · ")}`}>
+                            🌐 확장 {mine.join("·")}
+                          </span>
+                        )}
+                        {legacy.length > 0 && (
+                          <span style={{ ...S.tag, fontSize: 10, background: "#fff", color: "#0e7490", border: "1px dashed #67e8f9" }}
+                            title={`같은 Book 이 확장 슬롯에 따로 등록돼 있습니다 — ${legacy.map((o) => `S${r.s}/O${o}/B${r.b}`).join(" · ")}\n교재를 열어 확장 언어 슬롯을 체크하면 이 교재에 묶여 보입니다(따로 등록된 교재는 그대로)`}>
+                            🌐 {legacy.join("·")} 따로
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </td>
                 <td style={S.td}>{(() => { const st = typeof r.sp === "number" ? r.sp : 1; return `${st.toLocaleString()}~${(st + r.pg - 1).toLocaleString()}`; })()}<div style={{ fontSize: 10, color: "#9ca3af" }}>{r.pg.toLocaleString()}p</div></td>
                 {/* 심볼 개수 (합계) */}
                 <td style={{ ...S.td, fontWeight: 700, whiteSpace: "nowrap" }}>
@@ -932,7 +1069,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                     ? <span style={{ ...S.tag, background: "#a855f7", color: "#fff", fontWeight: 700 }} title={sh.note}>공유 코드 · 여러 고객사 사용</span>
                     : <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>전용 코드 · {cust.customer}</span>}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: sh || cuMode ? "1.3fr 0.9fr 0.9fr 1.1fr" : "1.3fr 0.9fr 0.9fr", gap: 10 }}>
+                {/* 한 줄 — 할당된 S/O · Book · 코드 종류 · (확장 언어 슬롯) · (사용 고객사) `PC-327` */}
+                <div style={{ display: "grid", gridTemplateColumns: ["1.3fr", "0.9fr", "0.9fr",
+                  ...(langGroupOf(editing.row.k, editing.row.s, editing.row.o) ? ["1.6fr"] : []), ...(sh || cuMode ? ["1.1fr"] : [])].join(" "), gap: 10, alignItems: "start" }}>
                   {/* 좌표만 고른다 `PC-083` — 종류는 뒤의 [코드 종류]에서 정한다 `PC-054` */}
                   <Field label={`할당된 S / O${editing.idx === -1 && editing.dupOf == null && assignedCoords.length > 0 ? " (선택)" : " (수정 불가)"}`}>
                     {editing.idx === -1 && editing.dupOf == null && assignedCoords.length > 0 ? (
@@ -999,6 +1138,21 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                           }}>
                           {opts.map((o) => <option key={o.v} value={o.v}>{kindMeta(o.v).short}</option>)}
                         </select>
+                      </Field>
+                    );
+                  })()}
+                  {/* 확장 언어 슬롯 — 코드 종류 뒤 한 칸. 고른 슬롯은 배지(✕ 로 빼기) · [+ 슬롯] 셀렉트로 더한다 `PC-327`
+                      기본 코드(Common O21 · Cake O1009)일 때만 · 같은 Book 을 확장 Owner 에서도 쓴다.
+                      다른 고객사 교재가 그 Book 을 쓰면 고를 수 없다(사용 중) · 같은 사용 고객사가 따로 등록한 슬롯은 「따로」로 알린다(데이터는 그대로) */}
+                  {(() => {
+                    const g = langGroupOf(editing.row.k, editing.row.s, editing.row.o);
+                    if (!g) return null;
+                    const cu0 = (editing.row.cu ?? "").trim();
+                    const legacyOf = (o: number) => extLegacy(editing.row.k, editing.row.s, o, editing.row.b, cu0).map((x) => `${x.cust} · ${x.t || "교재"}`).join(", ");
+                    return (
+                      <Field label={`확장 언어 슬롯 (${g.label} O${g.ext[0]}~${g.ext[g.ext.length - 1]})`}>
+                        <ExtSlotPicker g={g} s={editing.row.s} b={editing.row.b} cur={editing.row.ext ?? []} onChange={(next) => setF("ext", next)}
+                          takenBy={(o) => extTakenBy(editing.row.k, editing.row.s, o, editing.row.b, cu0)} legacyOf={legacyOf} />
                       </Field>
                     );
                   })()}
