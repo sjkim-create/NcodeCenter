@@ -40,10 +40,11 @@ export function PenChip({ pen, small }: { pen?: string; small?: boolean }) {
 }
 
 // 단일 값 칩 (S 3 / O 21 / B 0~10 / P 1~512 …)
-export function Sc({ k, v, c, name, small }: { k: string; v: React.ReactNode; c?: string; name?: string; small?: boolean }) {
+// dashed — 점선 테두리(참고 표시용, 예: 따로 등록된 확장 언어 슬롯 `PC-327`)
+export function Sc({ k, v, c, name, small, dashed }: { k: string; v: React.ReactNode; c?: string; name?: string; small?: boolean; dashed?: boolean }) {
   const color = c ?? SOBP_C[k] ?? "#94a3b8";
   return (
-    <span title={name} style={{ display: "inline-flex", alignItems: "center", gap: small ? 3 : 5, border: "1px solid #e5e7eb",
+    <span title={name} style={{ display: "inline-flex", alignItems: "center", gap: small ? 3 : 5, border: dashed ? `1px dashed ${color}` : "1px solid #e5e7eb",
       borderRadius: small ? 6 : 8, padding: small ? "1px 5px 1px 1px" : "2px 6px 2px 2px", background: "#fff", fontSize: small ? 10.5 : 12, whiteSpace: "nowrap" }}>
       <span style={{ background: color, color: "#fff", fontWeight: 700, fontSize: small ? 9 : 10.5, borderRadius: small ? 4 : 6,
         padding: small ? "1px 4px" : "2px 6px", minWidth: small ? 9 : 12, textAlign: "center" }}>{k}</span>

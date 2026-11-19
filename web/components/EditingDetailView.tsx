@@ -8,7 +8,7 @@ import { InfoTip } from "./KeyWorkspaceUI";
 import { langGroupOf, extLangText, type ExtSlot, type LangGroup } from "@/lib/langGroups";
 import { allEditBooks, alignLegacyServiceTickets } from "@/lib/bookOwnership";
 import { codeKind, codeTypeRangeErr, kindMeta, type CodeKind } from "@/lib/codeKind";
-import { SobpChips } from "./sobp";
+import { SobpChips, Sc } from "./sobp";
 import type { WorkKind } from "@/lib/customerData";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { useStore } from "@/lib/store";
@@ -825,7 +825,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
             <tr>{["No", "상태", ...(readOnly ? ["고객사"] : []), ...(cuMode ? ["사용 고객사"] : []), "프로젝트명", "교재명", "코드", "S/O/B", "페이지", "심볼 개수", "최초 등록일", "ncp2 최종수정", "메모", "정산 (청구액)", ...(readOnly ? [] : ["복제"])].map((h) => {
               const k = h === "교재명" ? "t" : h === "프로젝트명" ? "p" : h === "최초 등록일" ? "d" : null;   // 정렬 가능한 항목 — 옛 발급일 `PC-284`
               return (
-                <th key={h} style={{ ...S.th, textAlign: "center", cursor: k ? "pointer" : "default", userSelect: "none" }}
+                <th key={h} style={{ ...S.th, textAlign: h === "S/O/B" ? "left" : "center", cursor: k ? "pointer" : "default", userSelect: "none" }}
                   onClick={() => k && toggleSort(k)} title={k ? "클릭하면 오름차순 → 내림차순 → 해제" : undefined}>
                   {h}{k && <span style={{ marginLeft: 3, color: sort.key === k ? "#2563eb" : "#d1d5db" }}>{sort.key === k ? (sort.dir === 1 ? "▲" : "▼") : "↕"}</span>}
                 </th>
@@ -873,7 +873,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               {/* Book(B) 필터 — 낮은순 · 높은순 · 직접 입력 `PC-052` */}
               <th style={filterTh}>
                 {/* 입력칸을 눌러 **번호를 직접 치거나** 목록에서 정렬을 고른다 `PC-057` */}
-                <div style={{ display: "flex", gap: 4, alignItems: "center", justifyContent: "center" }}>
+                <div style={{ display: "flex", gap: 4, alignItems: "center", justifyContent: "flex-start" }}>
                   <input list="ncc-bfilter" value={bText} placeholder="B 전체" title="Book 번호를 입력하거나 낮은순·높은순을 고르세요"
                     onChange={(e) => {
                       const v = e.target.value.trim();
@@ -929,31 +929,27 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                   })()}
                 </td>
                 <td style={S.td}><span style={{ ...S.tag, background: kindMeta(codeKind(r.k, r.s)).bg, color: kindMeta(codeKind(r.k, r.s)).color, fontWeight: 700 }}>{kindMeta(codeKind(r.k, r.s)).short}</span></td>
-                <td style={S.td}>
-                  <SobpChips s={r.s} o={r.o} b={r.b} small />
-                  {/* 확장 언어 슬롯을 쓴 교재 — 같은 Book 을 쓰는 확장 Owner `PC-327` */}
+                <td style={{ ...S.td, textAlign: "left" }}>
+                  {/* S · O · B 칩 옆에 확장 언어 슬롯 칩 [확장] {o} — 같은 칩 모양으로 **한 줄에**(아래로 내리지 않는다) `PC-327`
+                      실선 = 이 교재에 고른 슬롯 · 점선 = 같은 사용 고객사가 그 슬롯 Book 을 따로 등록해 둔 교재(표시만 · 데이터는 그대로) */}
                   {(() => {
                     const g = langGroupOf(r.k, r.s, r.o);
-                    if (!g) return null;
                     const mine = (r.ext ?? []).map((e) => e.o);
-                    // 같은 사용 고객사가 그 슬롯 Book 을 따로 등록해 둔 교재(옛 방식) — 표시만 한다(데이터는 그대로)
-                    const legacy = g.ext.filter((o) => !mine.includes(o) && extLegacy(r.k, r.s, o, r.b, (r.cu ?? "").trim()).length > 0);
-                    if (!mine.length && !legacy.length) return null;
+                    const legacy = g ? g.ext.filter((o) => !mine.includes(o) && extLegacy(r.k, r.s, o, r.b, (r.cu ?? "").trim()).length > 0) : [];
                     return (
-                      <div style={{ marginTop: 3, display: "flex", gap: 3, flexWrap: "wrap" }}>
-                        {mine.length > 0 && (
-                          <span style={{ ...S.tag, fontSize: 10, background: "#ecfeff", color: "#0e7490", fontWeight: 700 }}
-                            title={`확장 언어 슬롯 ${mine.length}개 — ${mine.map((o) => `S${r.s}/O${o}/B${r.b}`).join(" · ")}`}>
-                            🌐 확장 {mine.join("·")}
-                          </span>
-                        )}
-                        {legacy.length > 0 && (
-                          <span style={{ ...S.tag, fontSize: 10, background: "#fff", color: "#0e7490", border: "1px dashed #67e8f9" }}
-                            title={`같은 Book 이 확장 슬롯에 따로 등록돼 있습니다 — ${legacy.map((o) => `S${r.s}/O${o}/B${r.b}`).join(" · ")}\n교재를 열어 확장 언어 슬롯을 체크하면 이 교재에 묶여 보입니다(따로 등록된 교재는 그대로)`}>
-                            🌐 {legacy.join("·")} 따로
-                          </span>
-                        )}
-                      </div>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "nowrap", whiteSpace: "nowrap" }}>
+                        {/* SobpChips 는 안에서 줄바꿈하므로 같은 칩(Sc)을 직접 늘어놓는다 */}
+                        <Sc k="S" v={r.s} name="Section" small />
+                        <Sc k="O" v={r.o} name="Owner" small />
+                        <Sc k="B" v={r.b} name="Book" small />
+                        {g && mine.map((o) => (
+                          <Sc key={`m${o}`} k="확장" v={o} c="#0891b2" small name={`확장 언어 슬롯 S${r.s}/O${o}/B${r.b} — ${extLangText(g, o)}`} />
+                        ))}
+                        {g && legacy.map((o) => (
+                          <Sc key={`l${o}`} k="확장" v={o} c="#0891b2" small dashed
+                            name={`같은 Book 이 확장 슬롯에 따로 등록돼 있습니다 — S${r.s}/O${o}/B${r.b} (${extLangText(g, o)})\n교재를 열어 확장 언어 슬롯을 고르면 이 교재에 묶여 보입니다(따로 등록된 교재는 그대로)`} />
+                        ))}
+                      </span>
                     );
                   })()}
                 </td>
