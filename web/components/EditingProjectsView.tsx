@@ -16,6 +16,7 @@ import { WS_CARD, WS_HEAD_BTN, WsCoHead, WsCoGroup, WsCoItem, WsFillScroll } fro
 import { allEditBooks, ownerOfBook } from "@/lib/bookOwnership";
 import { allServiceTickets, hydrateServiceTickets, useServiceTickets } from "@/lib/serviceTicketStore";
 import { isCommonCodeCompany } from "@/lib/commonCodes";
+import { groupOfCompany, groupOfOwner, groupOwners, hydrateLangGroups, useLangGroups } from "@/lib/langGroups";
 
 type Sub = { name: string; books: number; need: number };   // 하위 고객사 · 교재 수 · 그중 티켓 필요 수
 
@@ -81,7 +82,37 @@ export default function EditingProjectsView() {
   const isParent = (name: string) => isCommonCodeCompany(name);
   const subCount = useMemo(() => [...subsOf.values()].reduce((a, s) => a + s.length, 0), [subsOf]);
 
-  const all = useMemo(() => [...custom.map(toFull), ...D.customers], [custom]);
+  const allRaw = useMemo(() => [...custom.map(toFull), ...D.customers], [custom]);
+  // 옛 확장 슬롯 고객사(「Common 추가 언어 슬롯-965」 등) — 교재가 **모두** 다른 고객사 확장 언어 그룹의 확장 Owner 에 있으면
+  //   목록에서 따로 보이지 않고 그 그룹 고객사(Common-21 · Cake-1009) 아래 「🌐」 줄로 들어간다 `PC-344`
+  //   편집 데이터는 그대로 — 그 고객사를 고르면 자기 교재를 본다
+  const lgv = useLangGroups();
+  const slotParent = useMemo(() => {
+    const m = new Map<string, string>();   // 슬롯 고객사 uid → 그룹 고객사명
+    if (!mounted) return m;
+    hydrateLangGroups();
+    for (const c of allRaw) {
+      const rows = (c.bookRows ?? []) as { s?: number; o: number }[];
+      const pts = rows.length ? rows.map((r) => ({ s: r.s ?? -1, o: r.o })) : (c.owners ?? []).map((o) => ({ s: -1, o }));
+      if (!pts.length) continue;
+      let parent = "";
+      const ok = pts.every((x) => {
+        const r = x.s >= 0 ? groupOfOwner(x.s, x.o) : undefined;
+        if (!r || r.role !== "ext" || r.g.company === c.customer) return false;
+        if (parent && parent !== r.g.company) return false;
+        parent = r.g.company; return true;
+      });
+      if (ok && parent) m.set(uidOf(c), parent);
+    }
+    return m;
+  }, [allRaw, mounted, lgv]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const all = useMemo(() => allRaw.filter((c) => !slotParent.has(uidOf(c))), [allRaw, slotParent]);
+  const slotsOf = useMemo(() => {
+    const m = new Map<string, Cust[]>();
+    for (const c of allRaw) { const p2 = slotParent.get(uidOf(c)); if (p2) m.set(p2, [...(m.get(p2) ?? []), c]); }
+    m.forEach((v) => v.sort((a, b) => Number(a.owner) - Number(b.owner)));
+    return m;
+  }, [allRaw, slotParent]);
   const customOwners = useMemo(() => new Set(custom.map((c) => c.owner)), [custom]);
   // PDS 필터를 교재(행) 단위로 적용한 집계 — 요약·카드 수치가 필터를 따라간다
   // 심볼 합계 — 배열 0번은 [Ncode 적용] **페이지 수**라 심볼로 세지 않는다 `PC-085`
@@ -117,10 +148,11 @@ export default function EditingProjectsView() {
       .filter((c) => (pds === "ALL" ? true : kindsOfCust(c as never).includes(pds)))
       // 검색은 하위 고객사 이름도 찾는다 — 걸리면 그 상위 고객사가 남고 하위 목록이 펼쳐진다 `PC-293`
       .filter((c) => (q ? (c.customer + c.owner).toLowerCase().includes(q.toLowerCase())
-        || (subsOf.get(c.customer) ?? []).some((s) => s.name.toLowerCase().includes(q.toLowerCase())) : true))
+        || (subsOf.get(c.customer) ?? []).some((s) => s.name.toLowerCase().includes(q.toLowerCase()))
+        || (slotsOf.get(c.customer) ?? []).some((x) => (x.customer + x.owner).toLowerCase().includes(q.toLowerCase())) : true))
       .slice()
       .sort((a, b) => a.customer.localeCompare(b.customer, "ko")),   // 고객사명 오름차순
-    [q, all, pds, subsOf]
+    [q, all, pds, subsOf, slotsOf]
   );
   // 화면에 보이는 목록 기준 합계
   const agg = useMemo(() => list.reduce((a, c) => {
@@ -129,7 +161,7 @@ export default function EditingProjectsView() {
              listed: a.listed + st2.listed, cost: a.cost + st2.cost };
   }, { books: 0, pages: 0, symbols: 0, sizeMB: 0, listed: 0, cost: 0 }), [list, statOf]);
   const isFiltered = pds !== "ALL" || !!q;
-  const selCust = all.find((c) => uidOf(c) === sel) ?? all.find((c) => c.owner === sel);
+  const selCust = allRaw.find((c) => uidOf(c) === sel) ?? allRaw.find((c) => c.owner === sel);
 
   const openAdd = () => setAddForm({ companyId: 0, owner: "", kind: "N" });
   // 편집 대상 고객사 = **고객사 관리에 등록된 고객사 전부** `PC-187`
@@ -137,6 +169,7 @@ export default function EditingProjectsView() {
   //   서비스 계정의 casterN 체크(계정 권한)와 무관하다.
   const editCos = useMemo(() => st.companies.slice().sort((a, b) => a.name.localeCompare(b.name, "ko")), [st.companies]);
   // 선택한 고객사가 보유한 코드의 Owner 목록 (코드 프로젝트 발급 내역 기준)
+  useLangGroups();   // 확장 언어 그룹 칩 — 그룹이 바뀌면 다시 그린다 `PC-343`
   const ownerOptsOf = (companyId: number) => {
     const m = new Map<string, { owner: number; kind: "N" | "G"; section: number }>();
     st.projects.filter((p) => p.companyId === companyId).forEach((p) =>
@@ -255,12 +288,14 @@ export default function EditingProjectsView() {
                   const parentHit = !q || (c.customer + c.owner).toLowerCase().includes(ql);
                   const subs = parentHit ? subsAll : subsAll.filter((x) => x.name.toLowerCase().includes(ql));
                   const stc = statOf(c);
+                  const slots = slotsOf.get(c.customer) ?? [];   // 확장 언어 슬롯 고객사 `PC-344`
+                  const slotOn = slots.some((x) => uidOf(x) === sel);
                   const kindTags = kindsOfCust(c as never).map((k) => (
                     <span key={k} style={{ ...S.tag, fontSize: 9.5, padding: "0 5px", background: kindMeta(k).bg, color: kindMeta(k).color, fontWeight: 700 }}>{kindMeta(k).short}</span>
                   ));
                   return (
                     <div key={id} style={{ position: "relative" }}>
-                      <WsCoGroup n={subsAll.length} autoOpen={(!!q && !parentHit && subs.length > 0) || (id === sel && !!sub)}
+                      <WsCoGroup n={subsAll.length + slots.length} autoOpen={(!!q && !parentHit && (subs.length > 0 || slots.length > 0)) || (id === sel && !!sub) || slotOn}
                         head={(fold) => (
                           <WsCoItem label={c.customer} n={stc.books} on={id === sel && !sub} sub={false} fold={fold}
                             title={`${pds === "ALL" ? "교재" : kindMeta(pds).short} ${stc.books.toLocaleString()}권`}
@@ -268,6 +303,11 @@ export default function EditingProjectsView() {
                             tags={isCustom ? <span style={{ ...S.tag, fontSize: 9.5, padding: "0 5px", background: "#ecfdf5", color: "#047857" }}>신규</span> : undefined}
                             meta={kindTags.length ? <>{kindTags}</> : undefined} />   /* 심볼 수는 목록에 두지 않는다 — 고르면 오른쪽 집계에 나온다 `PC-294` */
                         )}>
+                        {slots.map((x) => (
+                          <WsCoItem key={uidOf(x)} label={`🌐 O${x.owner} · ${x.customer}`} n={statOf(x).books} on={uidOf(x) === sel} sub
+                            title={`확장 언어 슬롯 O${x.owner} — 따로 등록된 교재 ${statOf(x).books}권`}
+                            onClick={() => { setSel(uidOf(x)); setSub(""); }} />
+                        ))}
                         {subs.map((x) => (
                           <WsCoItem key={x.name} label={x.name} n={x.books} on={id === sel && sub === x.name} sub
                             title={x.need ? `${x.name} — 교재 ${x.books}권 중 ${x.need}권은 서비스 티켓이 없습니다` : `${x.name} — 교재 ${x.books}권`}
@@ -327,6 +367,16 @@ export default function EditingProjectsView() {
       {addForm && (() => {
         const opts = addForm.companyId ? ownerOptsOf(addForm.companyId) : [];
         const co = st.companies.find((c) => c.id === addForm.companyId);
+        // 확장 언어 그룹 고객사면 코드마다 기본 / 확장 언어 칩 — 역할은 고객사 관리에서 정한 값 `PC-343`
+        hydrateLangGroups();
+        const lg = co ? groupOfCompany(co.id) : undefined;
+        const roleOf = (o: { owner: number; section: number }) => {
+          if (!lg || (lg.section != null && lg.section !== o.section) || !groupOwners(lg).includes(o.owner)) return null;
+          if (lg.base === o.owner) return { t: "기본", bg: "#dbeafe", fg: "#1d4ed8", tip: "기본 Owner · 슬롯 1~4" };
+          const n = lg.ext.indexOf(o.owner) + 1;
+          if (n > 0) return { t: "확장 언어", bg: "#cffafe", fg: "#0e7490", tip: `확장 ${n} · 슬롯 ${n * 4 + 1}~${n * 4 + 4}` };
+          return { t: "역할 미지정", bg: "#fef3c7", fg: "#b45309", tip: "고객사 관리 ▸ 공통코드 · 확장 언어 에서 역할을 고르세요" };
+        };
         return (
           <Modal onClose={() => setAddForm(null)} title="편집 고객사 추가">
             {/* 고객사 관리에 **등록된 고객사 전부**가 후보다 — 서비스 계정의 casterN 체크와 무관 `PC-187` */}
@@ -362,6 +412,9 @@ export default function EditingProjectsView() {
                             background: o.kind === "N" ? "#2563eb" : "#d97706" }}>{o.kind === "N" ? "N(PDS3)" : "G(PDS2)"}</span>
                           <Sc k="S" c="#5f8ff0" v={o.section} />
                           <Sc k="O" c="#14b8a6" v={o.owner} />
+                          {(() => { const r = roleOf(o); return r && (
+                            <span title={r.tip} style={{ fontSize: 10, fontWeight: 700, borderRadius: 5, padding: "1px 6px", background: r.bg, color: r.fg, whiteSpace: "nowrap" }}>{r.t}</span>
+                          ); })()}
                         </button>
                       );
                     })}

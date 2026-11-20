@@ -180,6 +180,40 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
     const any = base != null || ext.length > 0 || pend.length > 0;
     return { ...x, base, ext, pending: pend, langs, section: pick ? (x.section ?? pick.s) : any ? x.section : null };
   });
+  // 코드 배당 — SOBP 에서 할당된 코드마다 역할(기본 · 확장 k)을 고른다 `PC-343`
+  //   빈 자리에 넣기 = assign · 이미 역할이 있는 코드끼리는 **맞바꾼다**(언어는 자리에 남는다)
+  const posOf = (x: Draft, o: number) => (x.base === o ? 0 : x.ext.indexOf(o) >= 0 ? x.ext.indexOf(o) + 1 : -1);
+  const setRole = (o: number, sec: number, t: number | null) => {
+    if (!d) return;
+    const p = posOf(d, o);
+    if (t === null) { if (p >= 0) assign(p, null); return; }
+    if (p === t) return;
+    setShownPos((sp) => [...new Set([...sp, t, ...(p >= 0 ? [p] : [])])]);
+    if (p < 0) { assign(t, { s: sec, o }); return; }
+    setD((x) => {
+      if (!x) return x;
+      let base = x.base; const ext = [...x.ext]; const langs = { ...x.langs };
+      const at = (pos: number) => (pos === 0 ? base : ext[pos - 1] ?? null);
+      const q = at(t);
+      const kP = String(o), kT = q != null ? String(q) : `#${t}`;
+      const lP = langs[kP], lT = langs[kT]; delete langs[kP]; delete langs[kT];
+      if (t === 0) base = o; else if (t - 1 < ext.length) ext[t - 1] = o; else ext.push(o);
+      let kBack = `#${p}`;
+      if (q != null) { if (p === 0) base = q; else ext[p - 1] = q; kBack = String(q); }
+      else if (p === 0) base = null;
+      else ext.splice(p - 1, 1);   // 빈 자리로 옮기기는 마지막 확장만 허용(번호가 비지 않게)
+      if (lT) langs[String(o)] = lT;
+      if (lP) langs[kBack] = lP;
+      return { ...x, base, ext, langs };
+    });
+  };
+  // 배당할 코드 — 그룹 Owner(기본 · 확장 · 역할 미지정) + 이 고객사가 할당받았지만 그룹 밖인 코드
+  const secOf = (o: number) => d?.section ?? allocated.find((a) => a.o === o)?.s ?? 0;
+  const roleCodes = d ? [
+    ...(d.base != null ? [{ s: secOf(d.base), o: d.base }] : []),
+    ...d.ext.map((o) => ({ s: secOf(o), o })),
+    ...cands.map((c) => ({ s: c.s, o: c.o })),
+  ] : [];
   const dropPending = (o: number) => setD((x) => (x ? { ...x, pending: (x.pending ?? []).filter((p) => p !== o), section: x.base != null || x.ext.length || (x.pending ?? []).some((p) => p !== o) ? x.section : null } : x));
 
   const save = () => {
@@ -241,6 +275,41 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
               <Link href="/ownership" style={{ fontSize: 12, color: "#2563eb", textDecoration: "none" }}
                 title="SOBP 맵에서 이 고객사에 Owner 를 할당하면 여기 역할 미지정으로 들어옵니다">SOBP 맵에서 영역 할당 →</Link>
             </div>
+            {/* 코드 배당 — 할당된 코드마다 기본 / 확장 k `PC-343` */}
+            <div style={{ marginTop: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginBottom: 6 }}>
+                <b style={{ color: "#374151" }}>코드 배당</b>
+                <InfoTip title="코드 배당" width={340}>
+                  SOBP 맵에서 이 고객사에 할당된 코드마다 <b>기본</b>(슬롯 1~4) 또는 <b>확장 1 · 확장 2 …</b>(슬롯 5~8 · 9~12 …)를 고릅니다.
+                  이미 역할이 있는 코드를 다른 역할로 고르면 두 코드의 역할이 맞바뀌고, 언어는 그 자리에 남습니다.
+                  확장 중간 자리는 비울 수 없습니다(뒤 번호가 당겨지지 않게).
+                </InfoTip>
+              </div>
+              {roleCodes.length === 0
+                ? <div style={{ fontSize: 12, color: "#9ca3af" }}>할당된 코드가 없습니다. <Link href="/ownership" style={{ color: "#2563eb" }}>SOBP 맵</Link>에서 먼저 할당하세요.</div>
+                : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 6 }}>
+                    {roleCodes.map(({ s: sec, o }) => {
+                      const pos = posOf(d, o);
+                      const lastExt = pos >= 1 && pos === d.ext.length;
+                      return (
+                        <div key={o} style={{ display: "flex", alignItems: "center", gap: 5, border: `1px solid ${pos === 0 ? "#bfdbfe" : pos > 0 ? "#a5f3fc" : "#fde68a"}`,
+                          background: pos === 0 ? "#f5f9ff" : pos > 0 ? "#f0fdff" : "#fffbeb", borderRadius: 9, padding: "5px 7px" }}>
+                          <Sc k="S" v={sec} small /><Sc k="O" v={o} small />
+                          <select aria-label={`S${sec}/O${o} 역할`} value={pos < 0 ? "" : String(pos)}
+                            onChange={(e) => setRole(o, sec, e.target.value === "" ? null : +e.target.value)}
+                            style={{ ...S.input, padding: "3px 6px", fontSize: 12, minWidth: 0, marginLeft: "auto", width: "auto" }}>
+                            <option value="" disabled={pos >= 1 && !lastExt}>{pos < 0 ? "역할 미지정" : "— 빼기"}</option>
+                            <option value="0">기본</option>
+                            {d.ext.map((_, i) => <option key={i} value={String(i + 1)}>확장 {i + 1}</option>)}
+                            {pos < 1 && <option value={String(d.ext.length + 1)}>확장 {d.ext.length + 1}</option>}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+            </div>
             {/* 등록한 언어 — 모든 줄의 언어를 슬롯 번호 순서로 한 줄에 `PC-334` */}
             <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", fontSize: 12 }}>
               <span style={{ color: "#374151", fontWeight: 700, marginRight: 2 }}>등록한 언어 {filled} / {d.langCount}</span>
@@ -266,26 +335,14 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
               {visible.map((r) => {
                 const o = r.owner;
                 const isBase = r.pos === 0;
-                // 확장 줄은 앞 줄부터 채운다 — 번호(슬롯) 순서가 비지 않게. 할당 전으로 되돌리기는 기본 · 마지막 확장만
-                const reach = isBase || r.pos - 1 <= d.ext.length;
-                const canClear = o != null && (isBase || r.pos === d.ext.length);
+                // Owner(역할)는 위 [코드 배당] 에서 정한다 — 여기서는 보기만 `PC-343`
                 return (
                   <div key={r.key} style={{ display: "grid", gridTemplateColumns: COLS, alignItems: "center", borderTop: "1px solid #eef0f4" }}>
                     <div style={{ padding: "6px 8px", display: "flex", alignItems: "center", gap: 5 }}>
                       <span style={{ ...S.tag, fontSize: 9.5, background: isBase ? "#eef6ff" : "#ecfeff", color: isBase ? "#2563eb" : "#0e7490", fontWeight: 700, flexShrink: 0 }}>{isBase ? "기본" : `확장 ${r.pos}`}</span>
-                      <select aria-label={`${isBase ? "기본" : `확장 ${r.pos}`} Owner`} disabled={!reach}
-                        title={!reach ? "앞 확장 줄부터 채웁니다" : undefined}
-                        value={o != null ? String(o) : ""}
-                        onChange={(e) => {
-                          if (e.target.value === "") { assign(r.pos, null); return; }
-                          const c = cands.find((x) => String(x.o) === e.target.value);
-                          if (c) assign(r.pos, c);
-                        }}
-                        style={{ ...S.input, padding: "4px 6px", fontSize: 12, minWidth: 0, color: o != null ? "#111827" : "#9ca3af" }}>
-                        <option value="" disabled={o != null && !canClear}>할당 전</option>
-                        {o != null && <option value={String(o)}>O{o}</option>}
-                        {cands.map((c) => <option key={c.o} value={String(c.o)}>O{c.o} · {c.tag}</option>)}
-                      </select>
+                      {o != null
+                        ? <Sc k="O" v={o} small />
+                        : <span style={{ fontSize: 11, color: "#9ca3af" }} title="위 [코드 배당] 에서 이 자리에 코드를 고르면 넣어 둔 언어가 그 코드로 옮겨집니다">할당 전</span>}
                     </div>
                     {four(d.langs[r.key]).map((v, i) => (
                       <div key={i} style={{ padding: "5px 6px", display: "flex", alignItems: "center", gap: 4 }}>
@@ -323,7 +380,7 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
                       style={{ border: 0, background: "none", color: "#9ca3af", cursor: "pointer", fontSize: 12, padding: "0 2px" }}>✕</button>
                   </span>
                 ))}
-                <span style={{ color: "#6b7280" }}>위 표에서 줄마다 Owner 를 고르면 역할이 정해집니다{rows.every((r) => r.owner != null) ? " · 줄이 모자라면 필요 언어 수를 늘리세요" : ""}</span>
+                <span style={{ color: "#6b7280" }}>위 [코드 배당] 에서 역할을 고르세요</span>
               </div>
             )}
           </div>

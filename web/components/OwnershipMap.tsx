@@ -487,13 +487,21 @@ export default function OwnershipMap() {
                     const lg = groupOfOwner(curS, o, codeKind(pds, curS));
                     if (!lg) return accts.length > 0 ? <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{accts.join(", ")}</div> : null;
                     const langs = extLangs(lg.g, o);
+                    // 회사명 옆 칩 — 기본 / 확장 언어(몇 번째) / 역할 미지정 `PC-343`
+                    const extN = lg.g.ext.indexOf(o) + 1;
+                    const chip = lg.role === "base" ? { t: "기본", bg: "#dbeafe", fg: "#1d4ed8", tip: "기본 Owner · 슬롯 1~4" }
+                      : lg.role === "ext" ? { t: "확장 언어", bg: "#cffafe", fg: "#0e7490", tip: `확장 ${extN} · 슬롯 ${extN * 4 + 1}~${extN * 4 + 4}` }
+                      : { t: "역할 미지정", bg: "#fef3c7", fg: "#b45309", tip: "고객사 관리 ▸ 공통코드 · 확장 언어 에서 역할을 고르세요" };
                     return (
                       <>
-                        <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                          title={accts.length ? `할당 기록: ${accts.join(", ")}` : undefined}>{lg.g.company}</div>
-                        <div style={{ fontSize: 9.5, color: "#0e7490", marginTop: 2, lineHeight: 1.4 }}
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, minWidth: 0 }}>
+                          <span style={{ fontSize: 10, color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                            title={accts.length ? `할당 기록: ${accts.join(", ")}` : undefined}>{lg.g.company}</span>
+                          <span title={chip.tip} style={{ fontSize: 9, fontWeight: 700, borderRadius: 4, padding: "0 4px", lineHeight: "14px", whiteSpace: "nowrap", flexShrink: 0, background: chip.bg, color: chip.fg }}>{chip.t}</span>
+                        </div>
+                        <div style={{ fontSize: 9.5, color: "#0e7490", marginTop: 2, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                           title={langs.length ? langs.join(" · ") : "지정된 언어 없음"}>
-                          🌐 {lg.role === "base" ? "기본" : lg.role === "ext" ? "확장 슬롯" : "역할 미지정"} · {langs.length ? `${langs[0]}${langs.length > 1 ? ` 외 ${langs.length - 1}` : ""}` : "지정된 언어 없음"}
+                          🌐 {langs.length ? `${langs[0]}${langs.length > 1 ? ` 외 ${langs.length - 1}` : ""}` : "지정된 언어 없음"}
                         </div>
                       </>
                     );

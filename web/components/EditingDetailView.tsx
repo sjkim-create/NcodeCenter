@@ -291,6 +291,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const [fSt, setFSt] = useState("");                  // 진행 상태 필터
   const [fCu, setFCu] = useState("");                  // 사용 고객사 필터 · CU_NONE = (미입력) `PC-109`
   const [fOwnerCust, setFOwnerCust] = useState("");    // 고객사 필터 — 전체 고객사 보기 `PC-040`
+  const [fExt, setFExt] = useState(false);             // 확장 언어 교재만 `PC-344`
   useSharedOwners();                                   // 공유 OWNER 변경 시 리렌더
   useEffect(() => { hydrateShared(); hydrateMembers(); }, []);
   useCommonMembers();
@@ -350,7 +351,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     catch { setRows(base); }
     setLoadedKey(key);
   }, [key, base]);   // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setPage(1); }, [ownerFilter, pdsLock, fS, fO, fB, fK, fSt, fCu, fOwnerCust]);
+  useEffect(() => { setPage(1); }, [ownerFilter, pdsLock, fS, fO, fB, fK, fSt, fCu, fOwnerCust, fExt]);
   const toggleSort = (k: "t" | "p" | "d") => { setSort((s2) => (s2.key === k ? (s2.dir === 1 ? { key: k, dir: -1 } : { key: null, dir: 1 }) : { key: k, dir: 1 })); setPage(1); };
   // 저장 실패(용량 초과) 시 다른 편집 캐시를 비우고 재시도 — 조용히 사라지지 않도록 경고
   const commit = (next: BR[]) => {
@@ -472,7 +473,16 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
       </span>
     );
   };
+  // 확장 언어 교재 — 확장 슬롯을 붙인 교재 + 같은 사용 고객사가 슬롯 Book 을 따로 등록해 둔 교재(옛 방식) `PC-344`
+  const hasExt = (r: BR) => {
+    if ((r.ext ?? []).length) return true;
+    const g = langGroupOf(r.k, r.s, r.o);
+    return !!g && g.ext.some((o) => extLegacy(r.k, r.s, o, r.b, (r.cu ?? "").trim()).length > 0);
+  };
+  const extGroup = !readOnly && rows.some((r) => !!langGroupOf(r.k, r.s, r.o));   // 이 고객사에 확장 언어 그룹이 있는가
+  const extCount = extGroup ? rows.filter(hasExt).length : 0;
   const filtered = rows.map((r, i) => [r, i] as const)
+    .filter(([r]) => (fExt ? hasExt(r) : true))
     .filter(([r]) => (pdsLock ? codeKind(r.k, r.s) === pdsLock : true))   // 목록에서 고른 코드 종류 강제
     .filter(([r]) => (ownerFilter == null ? true : r.o === ownerFilter))
     .filter(([r]) => (fS == null ? true : r.s === fS))
@@ -511,8 +521,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
              dcBooks: a.dcBooks + (discounted(r) ? 1 : 0) };
   }, { books: 0, pages: 0, sound: 0, pen: 0, sym: 0, bytes: 0, cost: 0, listed: 0, dc: 0, pageAmt: 0, symAmt: 0, dcBooks: 0 });
   const aggPct = agg.listed > 0 ? Math.round((agg.dc / agg.listed) * 1000) / 10 : 0;
-  const isFiltered = fS != null || fO != null || fB != null || !!fK || !!fSt || !!fCu || !!fOwnerCust || !!q;
-  const clearFilters = () => { setFS(null); setFO(null); setFB(null); setBText(""); setFK(""); setFSt(""); setFCu(""); setFOwnerCust(""); setQ(""); setSort({ key: null, dir: 1 }); setPage(1); };
+  const isFiltered = fS != null || fO != null || fB != null || !!fK || !!fSt || !!fCu || !!fOwnerCust || !!q || fExt;
+  const clearFilters = () => { setFS(null); setFO(null); setFB(null); setBText(""); setFK(""); setFSt(""); setFCu(""); setFOwnerCust(""); setQ(""); setFExt(false); setSort({ key: null, dir: 1 }); setPage(1); };
 
   // 할당된 S/O (수정 불가) — 편집 데이터 + 소유권 데이터 + 코드 프로젝트 발급 내역
   const allocBooks = useMemo(() => projectBooks(st.projects, st.companies), [st]);
@@ -694,6 +704,17 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
         <div style={{ fontSize: 18, fontWeight: 700 }}>{cust.customer}</div>
         <span style={{ ...S.tag, fontFamily: "ui-monospace,monospace" }}>owner {cust.owners && cust.owners.length ? cust.owners.join("·") : owner}</span>
         {[...new Set((cust.bookRows ?? []).map((r) => codeKind(r.k, r.s)))].map((k) => <span key={k} style={{ ...S.tag, background: kindMeta(k).bg, color: kindMeta(k).color, fontWeight: 700 }}>{kindMeta(k).short}</span>)}
+        {/* 확장 언어 그룹 고객사 — [전체] [🌐 확장 언어 n] 로 확장 언어 교재만 거른다 `PC-344` */}
+        {extGroup && !bookMode && (
+          <span style={{ display: "inline-flex", gap: 4 }}>
+            {([[false, "전체"], [true, `🌐 확장 언어 ${extCount}`]] as const).map(([v, lab]) => (
+              <button key={String(v)} type="button" aria-pressed={fExt === v} onClick={() => { setFExt(v); setPage(1); }}
+                title={v ? "확장 언어 슬롯을 붙인 교재 · 슬롯 Book 을 따로 등록해 둔 교재만" : undefined}
+                style={{ fontSize: 12, padding: "3px 10px", borderRadius: 999, cursor: "pointer", fontWeight: fExt === v ? 700 : 400,
+                  border: `1px solid ${fExt === v ? (v ? "#67e8f9" : "#93c5fd") : "#e5e7eb"}`, background: fExt === v ? (v ? "#ecfeff" : "#eef6ff") : "#fff", color: fExt === v ? (v ? "#0e7490" : "#1d4ed8") : "#374151" }}>{lab}</button>
+            ))}
+          </span>
+        )}
         {/* 목록용 버튼 — 교재 편집 화면에서는 숨긴다 `PC-054` · 줄이 좁으면 두 버튼이 함께 오른쪽 아래로 `PC-277` */}
         {!readOnly && !bookMode && (
           <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
