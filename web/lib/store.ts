@@ -12,7 +12,7 @@ import { isCasterExcluded } from "./ledgerExclude";
 
 export type State = { companies: Company[]; projects: Project[]; logs: WorkLog[] };
 
-const KEY = "ncc-store-v26";  // v26: 고객사에 **사용 서비스**(services) 추가 `PC-076` — 옛 캐시 폐기(시드에서 casterN 70곳 자동 지정)
+const KEY = "ncc-store-v27";  // v27: 할당 원장 Section 병합 칸 바로잡음(Common 965~983 · Cake 1009 S0→S3) `PC-340` · v26: 고객사에 **사용 서비스**(services) 추가 `PC-076` — 옛 캐시 폐기(시드에서 casterN 70곳 자동 지정)
 const SEED = seed as unknown as State;
 
 let state: State = SEED;

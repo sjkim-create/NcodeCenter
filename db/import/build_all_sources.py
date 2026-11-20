@@ -328,10 +328,20 @@ def parse_alloc_list():
     #   병합 아닌 빈 ACCOUNT 행은 예약/미배정이므로 제외한다. (셀 병합 기준으로만 이어받기)
     from openpyxl.utils import range_boundaries
     acct_top = {}                    # 병합 하위 행 → 상위(값 있는) 행 번호
+    sec_top = {}                     # Section(C열) 세로 병합 하위 행 → 상위 행 번호 `PC-340`
     for m in ws.merged_cells.ranges:
         c1, r1, c2, r2 = range_boundaries(str(m))
         if c1 == 2 and c2 == 2:
             for rr in range(r1 + 1, r2 + 1): acct_top[rr] = r1
+        if c1 == 3 and c2 == 3:
+            for rr in range(r1 + 1, r2 + 1): sec_top[rr] = r1
+    # Section 칸이 비어 있으면 C열 병합의 맨 윗값을 쓴다 — 엑셀은 병합 칸 값을 윗줄에만 저장한다
+    #   (예: Common 추가 언어 슬롯 O964~983 = C391:C410 「3」 · Cake 각인 서비스 · Cake 1009 = C436:C437) `PC-340`
+    def sec_of(ridx, r):
+        if txt(r[2]) != "": return int(num(r[2]))
+        top = sec_top.get(ridx)
+        if top is not None and txt(cv(top, 3)) != "": return int(num(cv(top, 3)))
+        return None
     cv = lambda row, col: ws.cell(row=row, column=col).value
     out = []
     for ridx, r in enumerate(ws.iter_rows(min_row=4, values_only=True), start=4):
@@ -341,11 +351,13 @@ def parse_alloc_list():
         if txt(r[3]) == "": continue            # 오너 없는 행 무시
         if raw:                                  # 이름 있는 행 = 새 고객사(할당)
             acct = raw; named = True
-            sec = int(num(r[2])) if txt(r[2]) != "" else 0
+            sec = sec_of(ridx, r)
+            if sec is None: sec = 0
         elif ridx in acct_top:                   # ACCOUNT 병합 하위 = 위 고객사 연속 할당
             top = acct_top[ridx]
             acct = txt(cv(top, 2)); named = False
-            sec = int(num(r[2])) if txt(r[2]) != "" else (int(num(cv(top, 3))) if txt(cv(top, 3)) != "" else 0)
+            sec = sec_of(ridx, r)
+            if sec is None: sec = int(num(cv(top, 3))) if txt(cv(top, 3)) != "" else 0
         else:
             continue                             # 병합 아닌 빈 ACCOUNT = 예약/미배정 → 제외
         if not acct: continue
