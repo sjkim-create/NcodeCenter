@@ -338,7 +338,8 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
                   }}
                   style={{ ...S.input, width: "auto", padding: "4px 8px", fontSize: 12 }}>
                   <option value="">코드 선택</option>
-                  {restCodes.map((r) => <option key={r.key} value={r.key}>S{r.s} · O{r.o}{r.pos >= 0 ? ` · ${roleText(r.pos)}` : ""}</option>)}
+                  {/* 코드만 보인다 — 역할은 옆 [역할] 셀렉트에서(이미 역할이 있으면 그 값이 미리 채워진다) `PC-355` */}
+                  {restCodes.map((r) => <option key={r.key} value={r.key}>S{r.s} · O{r.o}</option>)}
                 </select>
                 <select value={addRole == null ? "" : String(addRole)} aria-label="언어 등록할 역할" disabled={!addCode}
                   onChange={(e) => setAddRole(e.target.value === "" ? null : +e.target.value)}

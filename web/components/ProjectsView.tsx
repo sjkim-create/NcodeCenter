@@ -14,7 +14,7 @@ import {
 import { EDIT_BOOKS } from "@/lib/codeUsage";
 import { codesOfCompany, isCommonCodeCompany, type CommonCode } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
-import { groupOfOwner, hydrateLangGroups, useLangGroups } from "@/lib/langGroups";
+import { groupOfOwner, groupOfCompany, hydrateLangGroups, useLangGroups, isLangSlotCompany } from "@/lib/langGroups";
 
 // 고객사별 코드 종류 — 좌표(SOBP) 속성으로 판별 (PDS3 · PDS2 · PDS4 · OID). 옛 IDS(A) = OID 동일 `PC-035`
 const KIND_BY_NAME: Record<string, CodeKind[]> = EDIT_BOOKS.reduce((m, r) => {
@@ -69,17 +69,30 @@ export default function ProjectsView() {
     (pds === "ALL" || projKind(p) === pds) &&
     (flag === "ALL" || (flag === "편집" ? isEditing(p) : !isEditing(p))) &&
     (svc === "ALL" || companyUsesService(companies.find((c) => c.id === p.companyId), svc));
-  const projectsOf = (cid: number) => projects.filter((p) => p.companyId === cid && matchProject(p));
+  // 옛 확장 슬롯 고객사(「Common 추가 언어 슬롯-…」 · 「Cake-984~1003」) — 목록에서 숨기고, 그 프로젝트는 그룹 고객사(Common-21 · Cake-1009) 안에 보인다 `PC-351`
+  //   (고객사 관리 `PC-330` · 편집 프로젝트 `PC-344` 와 같은 기준 · 할당 데이터는 그대로)
+  const slotParent = new Map<number, number>();   // 슬롯 고객사 id → 그룹 고객사 id
+  if (lgReady) for (const c of companies) {
+    if (!isLangSlotCompany(c, projects)) continue;
+    const b = projects.find((p) => p.companyId === c.id && !p.keyCustomer)?.issued[0];
+    const g = b ? groupOfOwner(b.section, b.owner)?.g : undefined;
+    if (g) slotParent.set(c.id, g.companyId);
+  }
+  const homeOf = (p: Project) => slotParent.get(p.companyId) ?? p.companyId;   // 프로젝트가 보이는 고객사
+  const projectsOf = (cid: number) => projects.filter((p) => homeOf(p) === cid && matchProject(p));
+  // 슬롯 고객사 이름은 화면에 내지 않는다 — 그룹 고객사 이름으로 보인다(「Common-21 코드발급」 + [확장 k]) `PC-352`
+  const projTitle = (p: Project) => (slotParent.has(p.companyId) ? `${companyName(homeOf(p))} 코드발급` : stripSO(p.name));
   // 코드 종류 셀렉트 건수 — 그 종류(전체면 모든 종류)로 걸렀을 때 남는 고객사 수 `PC-301`
   const coCountOf = (k: "ALL" | CodeKind) => {
     const m = (p: Project) => (k === "ALL" || projKind(p) === k) &&
       (flag === "ALL" || (flag === "편집" ? isEditing(p) : !isEditing(p))) &&
       (svc === "ALL" || companyUsesService(companies.find((c) => c.id === p.companyId), svc));
-    return k === "ALL" && flag === "ALL" && svc === "ALL" ? companies.length
-      : new Set(projects.filter(m).map((p) => p.companyId)).size;
+    return k === "ALL" && flag === "ALL" && svc === "ALL" ? companies.length - slotParent.size
+      : new Set(projects.filter(m).map(homeOf)).size;
   };
 
   const coList = companies
+    .filter((c) => !slotParent.has(c.id))
     .filter((c) => (pds === "ALL" && flag === "ALL" && svc === "ALL") || projectsOf(c.id).length > 0)
     .filter((c) => (q ? c.name.toLowerCase().includes(q.toLowerCase()) : true))
     .slice()
@@ -91,9 +104,27 @@ export default function ProjectsView() {
   const totalUsed = shownProjects.reduce((s2, r) => s2 + projectUsed(r), 0);
   const isFiltered = pds !== "ALL" || flag !== "ALL" || svc !== "ALL" || !!q;
 
+  // 확장 언어 그룹 역할 칩 — [기본] / [확장 k] / [역할 미지정] `PC-350`
+  const roleChip = (sec: number, o: number) => {
+    if (!lgReady) return null;
+    const lg = groupOfOwner(sec, o);
+    if (!lg) return null;
+    const n = lg.g.ext.indexOf(o) + 1;
+    return lg.role === "base" ? { t: "기본", bg: "#dbeafe", fg: "#1d4ed8", tip: `${lg.g.company} 기본 Owner · 슬롯 1~4`, lg, n: 0 }
+      : lg.role === "ext" ? { t: `확장 ${n}`, bg: "#cffafe", fg: "#0e7490", tip: `${lg.g.company} 확장 언어 ${n} · 슬롯 ${n * 4 + 1}~${n * 4 + 4}`, lg, n }
+      : { t: "역할 미지정", bg: "#fef3c7", fg: "#b45309", tip: `${lg.g.company} — 고객사 관리에서 역할을 고르세요`, lg, n: 999 };
+  };
+  const chipEl = (c: ReturnType<typeof roleChip>) => c && (
+    <span title={c.tip} style={{ fontSize: 9, fontWeight: 700, borderRadius: 4, padding: "0 4px", lineHeight: "14px", whiteSpace: "nowrap", background: c.bg, color: c.fg }}>{c.t}</span>);
+  // 확장 언어 그룹의 확장 · 역할 미지정 코드인가 — 프로젝트 목록에는 **기본 코드만** 보인다 `PC-353`
+  const isExtProject = (p: Project) => { const a = soOf(p)[0]; const c = a ? roleChip(a.s, a.o) : null; return !!c && c.t !== "기본"; };
   // 프로젝트 목록 — Owner 오름차순(같으면 Section · 이름) · 발급 없는 프로젝트는 맨 뒤 `PC-350`
   const ownerKey = (p: Project) => { const a = soOf(p)[0]; return a ? [a.o, a.s] : [Infinity, Infinity]; };
-  const coProjects = projectsOf(curCo?.id ?? -1).slice().sort((a, b) => {
+  // 그룹 고객사(기본 코드가 정해진)면 **기본 코드 프로젝트만** — 나머지 코드는 모두 기본 코드의 발급 SOBP 내역에 모은다 `PC-354`
+  //   (확장 슬롯으로 아직 고르지 않은 코드도 「전용 코드인지 언어 확장 코드인지」 한곳에서 보이게)
+  const curGroup = lgReady && curCo ? groupOfCompany(curCo.id) : undefined;
+  const isBaseProject = (p: Project) => !!curGroup && curGroup.base != null && p.issued.some((b) => b.owner === curGroup.base && (curGroup.section == null || b.section === curGroup.section));
+  const coProjects = projectsOf(curCo?.id ?? -1).filter((p) => (curGroup && curGroup.base != null ? isBaseProject(p) || projKind(p) === "OID" : !isExtProject(p))).slice().sort((a, b) => {
     const [oa, sa] = ownerKey(a), [ob, sb] = ownerKey(b);
     return oa - ob || sa - sb || a.name.localeCompare(b.name, "ko");
   });
@@ -170,7 +201,7 @@ export default function ProjectsView() {
               const on = p.id === selP;
               return (
                 <button key={p.id} onClick={() => setSelP(p.id)} style={cardBtn(on)}>
-                  <div style={{ fontWeight: 700, fontSize: 12.5, color: on ? "#1d4ed8" : "#111827" }}>{stripSO(p.name)}</div>
+                  <div style={{ fontWeight: 700, fontSize: 12.5, color: on ? "#1d4ed8" : "#111827" }}>{projTitle(p)}</div>
                   {/* 코드 종류 + S/O 칩 */}
                   <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 4, flexWrap: "wrap" }}>
                     {soOf(p).slice(0, 4).map((a) => (
@@ -179,15 +210,7 @@ export default function ProjectsView() {
                         <Sc k="S" name="Section" v={a.s} c="#5f8ff0" small />
                         <Sc k="O" name="Owner" v={a.o} c="#14b8a6" small />
                         {/* 확장 언어 그룹 Owner 면 [기본] / [확장 k] / [역할 미지정] `PC-350` */}
-                        {lgReady && (() => {
-                          const lg = groupOfOwner(a.s, a.o);
-                          if (!lg) return null;
-                          const n = lg.g.ext.indexOf(a.o) + 1;
-                          const c = lg.role === "base" ? { t: "기본", bg: "#dbeafe", fg: "#1d4ed8", tip: `${lg.g.company} 기본 Owner · 슬롯 1~4` }
-                            : lg.role === "ext" ? { t: `확장 ${n}`, bg: "#cffafe", fg: "#0e7490", tip: `${lg.g.company} 확장 언어 ${n} · 슬롯 ${n * 4 + 1}~${n * 4 + 4}` }
-                            : { t: "역할 미지정", bg: "#fef3c7", fg: "#b45309", tip: `${lg.g.company} — 고객사 관리에서 역할을 고르세요` };
-                          return <span title={c.tip} style={{ fontSize: 9, fontWeight: 700, borderRadius: 4, padding: "0 4px", lineHeight: "14px", whiteSpace: "nowrap", background: c.bg, color: c.fg }}>{c.t}</span>;
-                        })()}
+                        {chipEl(roleChip(a.s, a.o))}
                       </span>
                     ))}
                     {soOf(p).length > 4 && <span style={{ fontSize: 10, color: "#9ca3af" }}>+{soOf(p).length - 4}</span>}
@@ -222,8 +245,8 @@ export default function ProjectsView() {
                 </div>
               )}
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <div style={{ fontSize: 15, fontWeight: 700 }}>{stripSO(proj.name)}</div>
-                <span style={{ ...S.tag }}>{companyName(proj.companyId)}</span>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>{projTitle(proj)}</div>
+                <span style={{ ...S.tag }}>{companyName(homeOf(proj))}</span>
                 {curCo?.closed && <span style={{ ...S.tag, background: "#f3f4f6", color: "#6b7280", fontWeight: 700 }}>종료</span>}
                 {/* 코드 종류 + S/O 칩 */}
                 {soOf(proj).map((a) => (
@@ -265,10 +288,22 @@ export default function ProjectsView() {
                 <div style={emptyBox}>발급 내역이 없습니다. (미발급)</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 380, overflowY: "auto", marginBottom: 12 }}>
-                  {proj.issued.slice().sort((a, b) => (a.date > b.date ? 1 : -1)).map((b, i) => (
-                    <div key={b.id ?? i} style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid #eef0f4", borderRadius: 10, padding: "9px 11px", background: "#fafbfc", flexWrap: "wrap" }}>
+                  {(() => {
+                    // 기본 코드를 고르면 그 그룹의 확장 언어 코드 블록도 [확장 k] 칩과 함께 이어서 보인다(확장 순서) `PC-353`
+                    const own = proj.issued.slice().sort((a, b) => (a.date > b.date ? 1 : -1));
+                    const c0 = own[0] ? roleChip(own[0].section, own[0].owner) : null;
+                    // 그룹의 기본 코드 프로젝트면 그 고객사(슬롯 고객사 포함)의 **나머지 코드 전부** — 확장 k 순 → 역할 없는 코드는 Owner 순 `PC-354`
+                    const ext = c0 && c0.t === "기본" && projKind(proj) !== "OID"
+                      ? projectsOf(homeOf(proj)).filter((p2) => p2.id !== proj.id && projKind(p2) !== "OID" && !p2.issued.some((b) => b.owner === c0.lg.g.base))
+                        .flatMap((p2) => p2.issued)
+                        .sort((x, y) => (roleChip(x.section, x.owner)?.n ?? 1000) - (roleChip(y.section, y.owner)?.n ?? 1000) || x.owner - y.owner)
+                      : [];
+                    return [...own, ...ext];
+                  })().map((b, i) => (
+                    <div key={`${b.owner}-${b.id ?? i}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid #eef0f4", borderRadius: 10, padding: "9px 11px", background: "#fafbfc", flexWrap: "wrap" }}>
                       <span style={{ fontSize: 11, color: "#9ca3af", fontFamily: "ui-monospace,monospace", minWidth: 18 }}>{i + 1}</span>
                       <SobpChipRow b={b} />
+                      {(() => { const c = roleChip(b.section, b.owner); return c && c.t !== "역할 미지정" ? chipEl(c) : null; })()}
                       <span style={{ flex: 1 }} />
                       <span style={{ fontSize: 11, color: "#9ca3af", fontFamily: "ui-monospace,monospace" }}>{b.date}</span>
                       <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb" }}>
