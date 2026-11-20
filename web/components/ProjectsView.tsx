@@ -14,6 +14,7 @@ import {
 import { EDIT_BOOKS } from "@/lib/codeUsage";
 import { codesOfCompany, isCommonCodeCompany, type CommonCode } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
+import { groupOfOwner, hydrateLangGroups, useLangGroups } from "@/lib/langGroups";
 
 // 고객사별 코드 종류 — 좌표(SOBP) 속성으로 판별 (PDS3 · PDS2 · PDS4 · OID). 옛 IDS(A) = OID 동일 `PC-035`
 const KIND_BY_NAME: Record<string, CodeKind[]> = EDIT_BOOKS.reduce((m, r) => {
@@ -31,6 +32,10 @@ const shortSvc = (v: string) => SHORT_SVC[v] ?? serviceLabel(v as ServiceType);
 export default function ProjectsView() {
   const { companies, projects } = useStore();
   useEffect(() => { hydrateMembers(); }, []);
+  // 확장 언어 그룹 — 카드의 Owner 옆 [기본] / [확장 k] 칩 · 브라우저 저장분이라 마운트 뒤에 그린다 `PC-350`
+  useLangGroups();
+  const [lgReady, setLgReady] = useState(false);
+  useEffect(() => { hydrateLangGroups(); setLgReady(true); }, []);
   useCommonMembers();   // 공통코드 사용 고객사(하위) 변경 시 재렌더
   // 조회 전용 — 프로젝트 수정·삭제 없음 `PC-164`
   const [selCo, setSelCo] = useState<number>(0);
@@ -86,7 +91,12 @@ export default function ProjectsView() {
   const totalUsed = shownProjects.reduce((s2, r) => s2 + projectUsed(r), 0);
   const isFiltered = pds !== "ALL" || flag !== "ALL" || svc !== "ALL" || !!q;
 
-  const coProjects = projectsOf(curCo?.id ?? -1);
+  // 프로젝트 목록 — Owner 오름차순(같으면 Section · 이름) · 발급 없는 프로젝트는 맨 뒤 `PC-350`
+  const ownerKey = (p: Project) => { const a = soOf(p)[0]; return a ? [a.o, a.s] : [Infinity, Infinity]; };
+  const coProjects = projectsOf(curCo?.id ?? -1).slice().sort((a, b) => {
+    const [oa, sa] = ownerKey(a), [ob, sb] = ownerKey(b);
+    return oa - ob || sa - sb || a.name.localeCompare(b.name, "ko");
+  });
   const proj = coProjects.find((p) => p.id === selP) ?? null;
 
   return (
@@ -168,6 +178,16 @@ export default function ProjectsView() {
                         <KindChip k={a.k} sec={a.s} small />
                         <Sc k="S" name="Section" v={a.s} c="#5f8ff0" small />
                         <Sc k="O" name="Owner" v={a.o} c="#14b8a6" small />
+                        {/* 확장 언어 그룹 Owner 면 [기본] / [확장 k] / [역할 미지정] `PC-350` */}
+                        {lgReady && (() => {
+                          const lg = groupOfOwner(a.s, a.o);
+                          if (!lg) return null;
+                          const n = lg.g.ext.indexOf(a.o) + 1;
+                          const c = lg.role === "base" ? { t: "기본", bg: "#dbeafe", fg: "#1d4ed8", tip: `${lg.g.company} 기본 Owner · 슬롯 1~4` }
+                            : lg.role === "ext" ? { t: `확장 ${n}`, bg: "#cffafe", fg: "#0e7490", tip: `${lg.g.company} 확장 언어 ${n} · 슬롯 ${n * 4 + 1}~${n * 4 + 4}` }
+                            : { t: "역할 미지정", bg: "#fef3c7", fg: "#b45309", tip: `${lg.g.company} — 고객사 관리에서 역할을 고르세요` };
+                          return <span title={c.tip} style={{ fontSize: 9, fontWeight: 700, borderRadius: 4, padding: "0 4px", lineHeight: "14px", whiteSpace: "nowrap", background: c.bg, color: c.fg }}>{c.t}</span>;
+                        })()}
                       </span>
                     ))}
                     {soOf(p).length > 4 && <span style={{ fontSize: 10, color: "#9ca3af" }}>+{soOf(p).length - 4}</span>}
