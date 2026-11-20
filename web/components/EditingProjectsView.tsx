@@ -16,7 +16,7 @@ import { WS_CARD, WS_HEAD_BTN, WsCoHead, WsCoGroup, WsCoItem, WsFillScroll } fro
 import { allEditBooks, ownerOfBook } from "@/lib/bookOwnership";
 import { allServiceTickets, hydrateServiceTickets, useServiceTickets } from "@/lib/serviceTicketStore";
 import { isCommonCodeCompany } from "@/lib/commonCodes";
-import { groupOfCompany, groupOfOwner, groupOwners, hydrateLangGroups, useLangGroups } from "@/lib/langGroups";
+import { groupOfCompany, groupOfOwner, groupOwners, hydrateLangGroups, useLangGroups, isLangSlotCompany } from "@/lib/langGroups";
 
 type Sub = { name: string; books: number; need: number };   // 하위 고객사 · 교재 수 · 그중 티켓 필요 수
 
@@ -167,7 +167,9 @@ export default function EditingProjectsView() {
   // 편집 대상 고객사 = **고객사 관리에 등록된 고객사 전부** `PC-187`
   //   편집 프로젝트는 casterN 마스터 계정으로 고객사 프로젝트를 대신 편집 · 취합하는 것이라,
   //   서비스 계정의 casterN 체크(계정 권한)와 무관하다.
-  const editCos = useMemo(() => st.companies.slice().sort((a, b) => a.name.localeCompare(b.name, "ko")), [st.companies]);
+  // 옛 확장 슬롯 고객사(「Common 추가 언어 슬롯-965」 등)는 빼고 그룹 고객사(Common-21)만 — 고객사 관리 목록과 같은 기준 `PC-345`
+  const editCos = useMemo(() => (mounted ? st.companies.filter((c) => !isLangSlotCompany(c, st.projects)) : st.companies)
+    .slice().sort((a, b) => a.name.localeCompare(b.name, "ko")), [st.companies, st.projects, mounted, lgv]);   // eslint-disable-line react-hooks/exhaustive-deps
   // 선택한 고객사가 보유한 코드의 Owner 목록 (코드 프로젝트 발급 내역 기준)
   useLangGroups();   // 확장 언어 그룹 칩 — 그룹이 바뀌면 다시 그린다 `PC-343`
   const ownerOptsOf = (companyId: number) => {
@@ -375,7 +377,7 @@ export default function EditingProjectsView() {
           if (lg.base === o.owner) return { t: "기본", bg: "#dbeafe", fg: "#1d4ed8", tip: "기본 Owner · 슬롯 1~4" };
           const n = lg.ext.indexOf(o.owner) + 1;
           if (n > 0) return { t: "확장 언어", bg: "#cffafe", fg: "#0e7490", tip: `확장 ${n} · 슬롯 ${n * 4 + 1}~${n * 4 + 4}` };
-          return { t: "역할 미지정", bg: "#fef3c7", fg: "#b45309", tip: "고객사 관리 ▸ 공통코드 · 확장 언어 에서 역할을 고르세요" };
+          return null;   // 역할을 아직 안 정한 코드는 칩 없음 — 기본 · 확장 언어만 보인다 `PC-346`
         };
         return (
           <Modal onClose={() => setAddForm(null)} title="편집 고객사 추가">

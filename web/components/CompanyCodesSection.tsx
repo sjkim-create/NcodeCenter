@@ -124,96 +124,70 @@ function HolderCard({ company, allocated, me }: { company: Company; allocated: {
 
 /* ── ② 확장 언어 그룹 ───────────────────────────────────── */
 // 역할(기본 · 확장 슬롯)과 언어는 **여기서만** 정한다 `PC-335`
-// SOBP 맵에서는 영역(Owner)만 할당 → 그룹에 「역할 미지정」으로 들어온다 → 줄마다 Owner 를 골라 역할을 준다.
-// 줄의 언어는 그 줄(자리)에 붙어 있다 — Owner 를 바꿔도 언어는 그 줄에 남는다.
+// SOBP 맵에서는 영역(Owner)만 할당 → 그룹에 「역할 미지정」으로 들어온다 → 한 표에서 코드마다 역할을 고르고 언어를 넣는다 `PC-346`
 function LangGroupCard({ company, allocated, me }: { company: Company; allocated: { s: number; o: number; k?: string }[]; me: string }) {
   const g = groupOfCompany(company.id);
   const blank = (): Draft => ({ companyId: company.id, company: company.name, kind: "PDS2", section: null, base: null, langCount: 4, ext: [], pending: [], langs: {} });
   const [d, setD] = useState<Draft | null>(g ? { ...g } : null);
   const dirty = !!d && JSON.stringify(d) !== JSON.stringify(g ? { ...g } : null);
   const pending = d?.pending ?? [];
-  // 언어 줄 — 필요한 Owner 수만큼(할당 전 자리 포함) `PC-334`
+  // 한 표에서 역할과 언어를 함께 — 줄 = 코드 하나(역할 셀렉트 + 언어 4칸) `PC-346`
+  //   역할이 있는 코드 → 자리 순서(기본 · 확장 1 · 2 …) · 할당 전 자리(코드 없이 언어만 넣어 둔 자리) · 역할 미지정 코드는 맨 아래
+  //   언어는 **코드를 따라간다** — 역할을 바꾸면 그 코드의 언어가 새 슬롯 번호로 옮겨진다. 할당 전 자리의 언어는 처음 들어오는 코드로.
   const rows = d ? langRows(d) : [];
-  // 표에는 **언어를 등록한 줄만** 보인다 — 언어가 없는 줄(지정된 언어 없음)은 감추고, [＋ 언어 등록] 에서 골라 꺼낸다 `PC-338`
-  // 꺼낸 줄은 이 화면에서 계속 보이고, 언어를 넣고 저장하면 목록에 남는다(언어 없이 저장하면 다시 감춰진다)
-  const [shownPos, setShownPos] = useState<number[]>([]);
+  const inGroup = new Set(d ? [...(d.base != null ? [d.base] : []), ...d.ext] : []);
+  const secOf = (o: number) => d?.section ?? allocated.find((a) => a.o === o)?.s ?? 0;
+  const posOf = (x: Draft, o: number) => (x.base === o ? 0 : x.ext.indexOf(o) >= 0 ? x.ext.indexOf(o) + 1 : -1);
+  type TRow = { key: string; o: number | null; s: number; pos: number; tag?: "pending" | "outside" };
+  const outside = d ? allocated.filter((a) => (d.section == null || a.s === d.section) && !inGroup.has(a.o) && !pending.includes(a.o)) : [];
+  const trows: TRow[] = d ? [
+    ...rows.map((r) => ({ key: r.key, o: r.owner, s: r.owner != null ? secOf(r.owner) : d.section ?? 0, pos: r.pos })),
+    ...pending.map((o) => ({ key: String(o), o, s: secOf(o), pos: -1, tag: "pending" as const })),
+    ...outside.map((a) => ({ key: String(a.o), o: a.o, s: a.s, pos: -1, tag: "outside" as const })),
+  ] : [];
+  // 표 = **코드 기준** — 「S0 · O4 · 기본」 처럼 코드와 역할만 보인다 `PC-347`
+  //   보이는 줄: 언어를 등록한 코드 · [＋ 언어 등록] 으로 추가한 코드 · 코드 없이 언어만 들어 있는 자리(그 줄에서 코드를 고른다)
+  const [shown, setShown] = useState<string[]>([]);
   const hasLang = (key: string) => !!d && four(d.langs[key]).some((x) => x.trim());
-  const visible = rows.filter((r) => hasLang(r.key) || shownPos.includes(r.pos));
-  const hiddenRows = rows.filter((r) => !visible.includes(r));
-  const rowLabel = (r: { pos: number; owner: number | null }) => `${r.pos === 0 ? "기본" : `확장 ${r.pos}`} · ${r.owner != null ? `O${r.owner}` : "할당 전"} · 슬롯 ${r.pos * 4 + 1}~${r.pos * 4 + 4}`;
+  const visible = trows.filter((r) => (r.o == null ? hasLang(r.key) : hasLang(r.key) || shown.includes(r.key)));
+  const roleText = (pos: number) => (pos === 0 ? "기본" : pos > 0 ? `확장 ${pos}` : "역할 선택");
+  // 아직 표에 없는 코드 — [＋ 언어 등록] 에서 코드와 역할을 함께 골라 넣는다
+  const restCodes = trows.filter((r) => r.o != null && !visible.includes(r));
+  const firstFree = d ? (d.base == null ? 0 : d.ext.length + 1) : 0;
+  const [addCode, setAddCode] = useState("");
+  const [addRole, setAddRole] = useState<number | null>(null);
   // 등록한 언어 전체 — 슬롯 번호 순서로 한 줄에 모아 본다 `PC-334`
   const allLangs = d ? rows.flatMap((r) => four(d.langs[r.key]).map((l, i) => ({ slot: r.start + i, lang: l.trim(), owner: r.owner }))).filter((x) => x.lang) : [];
   const filled = allLangs.length;
-  // 줄에 고를 수 있는 Owner — 역할 미지정 + 이 고객사가 할당받았지만 그룹 밖인 Owner(Section 이 정해졌으면 그 Section 만)
-  const inGroup = new Set(d ? [...(d.base != null ? [d.base] : []), ...d.ext] : []);
-  const cands = d ? [
-    ...pending.map((o) => ({ s: d.section ?? allocated.find((a) => a.o === o)?.s ?? 0, o, tag: "역할 미지정" })),
-    ...allocated.filter((a) => (d.section == null || a.s === d.section) && !inGroup.has(a.o) && !pending.includes(a.o)).map((a) => ({ s: a.s, o: a.o, tag: "그룹 밖" })),
-  ] : [];
 
   const setLang = (key: string, i: number, v: string) => setD((x) => {
     if (!x) return x;
     const row = four(x.langs[key]); row[i] = v;
     return { ...x, langs: { ...x.langs, [key]: row } };
   });
-  // 줄(pos)의 Owner 바꾸기 — null = 할당 전으로. 원래 Owner 는 역할 미지정으로 돌아가고, 언어는 줄에 남는다
-  const assign = (pos: number, pick: { s: number; o: number } | null) => setD((x) => {
-    if (!x) return x;
-    const ext = [...x.ext];
-    let base = x.base;
-    const pend = [...(x.pending ?? [])];
-    const langs = { ...x.langs };
-    const old = pos === 0 ? base : ext[pos - 1] ?? null;
-    const oldKey = old != null ? String(old) : `#${pos}`;
-    const rowLangs = langs[oldKey]; delete langs[oldKey];
-    if (old != null && !pend.includes(old)) pend.push(old);
-    let newKey = `#${pos}`;
-    if (pick) {
-      const i = pend.indexOf(pick.o); if (i >= 0) pend.splice(i, 1);
-      if (pos === 0) base = pick.o;
-      else if (pos - 1 < ext.length) ext[pos - 1] = pick.o;
-      else ext.push(pick.o);
-      newKey = String(pick.o);
-    } else if (pos === 0) base = null;
-    else ext.splice(pos - 1, 1);
-    if (rowLangs) langs[newKey] = rowLangs;
-    const any = base != null || ext.length > 0 || pend.length > 0;
-    return { ...x, base, ext, pending: pend, langs, section: pick ? (x.section ?? pick.s) : any ? x.section : null };
-  });
-  // 코드 배당 — SOBP 에서 할당된 코드마다 역할(기본 · 확장 k)을 고른다 `PC-343`
-  //   빈 자리에 넣기 = assign · 이미 역할이 있는 코드끼리는 **맞바꾼다**(언어는 자리에 남는다)
-  const posOf = (x: Draft, o: number) => (x.base === o ? 0 : x.ext.indexOf(o) >= 0 ? x.ext.indexOf(o) + 1 : -1);
+  // 코드의 역할 바꾸기 — t = null(역할 미지정) · 0(기본) · k(확장 k). 그 자리 코드와는 맞바꾸고, 빈 자리면 그 자리로 `PC-343` `PC-346`
   const setRole = (o: number, sec: number, t: number | null) => {
-    if (!d) return;
-    const p = posOf(d, o);
-    if (t === null) { if (p >= 0) assign(p, null); return; }
-    if (p === t) return;
-    setShownPos((sp) => [...new Set([...sp, t, ...(p >= 0 ? [p] : [])])]);
-    if (p < 0) { assign(t, { s: sec, o }); return; }
+    setShown((sh) => [...new Set([...sh, String(o)])]);
     setD((x) => {
       if (!x) return x;
-      let base = x.base; const ext = [...x.ext]; const langs = { ...x.langs };
-      const at = (pos: number) => (pos === 0 ? base : ext[pos - 1] ?? null);
-      const q = at(t);
-      const kP = String(o), kT = q != null ? String(q) : `#${t}`;
-      const lP = langs[kP], lT = langs[kT]; delete langs[kP]; delete langs[kT];
-      if (t === 0) base = o; else if (t - 1 < ext.length) ext[t - 1] = o; else ext.push(o);
-      let kBack = `#${p}`;
-      if (q != null) { if (p === 0) base = q; else ext[p - 1] = q; kBack = String(q); }
-      else if (p === 0) base = null;
-      else ext.splice(p - 1, 1);   // 빈 자리로 옮기기는 마지막 확장만 허용(번호가 비지 않게)
-      if (lT) langs[String(o)] = lT;
-      if (lP) langs[kBack] = lP;
-      return { ...x, base, ext, langs };
+      let base = x.base; const ext = [...x.ext]; let pend = [...(x.pending ?? [])]; const langs = { ...x.langs };
+      const p = posOf(x, o);
+      if (t === null) {
+        if (p === 0) base = null; else if (p > 0) ext.splice(p - 1, 1);
+        if (!pend.includes(o)) pend.push(o);
+      } else if (p !== t) {
+        const q = t === 0 ? base : ext[t - 1] ?? null;
+        pend = pend.filter((v) => v !== o);
+        if (t === 0) base = o; else if (t - 1 < ext.length) ext[t - 1] = o; else ext.push(o);
+        if (q != null) { if (p === 0) base = q; else if (p > 0) ext[p - 1] = q; else if (!pend.includes(q)) pend.push(q); }
+        else if (p === 0) base = null; else if (p > 0) ext.splice(p - 1, 1);
+        const ph = langs[`#${t}`];   // 할당 전 자리에 넣어 둔 언어 → 이 코드에 언어가 없으면 옮긴다
+        if (ph && !four(langs[String(o)]).some((v) => v.trim())) { langs[String(o)] = ph; delete langs[`#${t}`]; }
+      }
+      const any = base != null || ext.length > 0 || pend.length > 0;
+      return { ...x, base, ext, pending: pend, langs, section: t !== null ? (x.section ?? sec) : any ? x.section : null };
     });
   };
-  // 배당할 코드 — 그룹 Owner(기본 · 확장 · 역할 미지정) + 이 고객사가 할당받았지만 그룹 밖인 코드
-  const secOf = (o: number) => d?.section ?? allocated.find((a) => a.o === o)?.s ?? 0;
-  const roleCodes = d ? [
-    ...(d.base != null ? [{ s: secOf(d.base), o: d.base }] : []),
-    ...d.ext.map((o) => ({ s: secOf(o), o })),
-    ...cands.map((c) => ({ s: c.s, o: c.o })),
-  ] : [];
   const dropPending = (o: number) => setD((x) => (x ? { ...x, pending: (x.pending ?? []).filter((p) => p !== o), section: x.base != null || x.ext.length || (x.pending ?? []).some((p) => p !== o) ? x.section : null } : x));
 
   const save = () => {
@@ -229,7 +203,7 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
     logActivity("company", `확장 언어 그룹 삭제 · ${company.name}`, me);
     setD(null);
   };
-  const COLS = "150px repeat(4, minmax(64px, 1fr))";
+  const COLS = "190px repeat(4, minmax(64px, 1fr))";
 
   return (
     <div style={card}>
@@ -241,7 +215,7 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
         <InfoTip title="확장 언어 그룹" width={380}>
           Owner 하나에 언어 슬롯 4개입니다. 기본 Owner 가 슬롯 1~4, 확장 Owner 는 순서대로 5~8 · 9~12 … 입니다.
           <b> SOBP 맵</b>에서는 이 고객사에 영역(Owner)만 할당하고, 할당한 Owner 는 여기 <b>역할 미지정</b>으로 들어옵니다.
-          아래 표에서 줄마다 Owner 를 골라 <b>기본 / 확장</b> 역할을 정하고 언어를 넣습니다. 언어는 할당 전에도 미리 넣을 수 있습니다.
+          아래 표에서 코드마다 <b>기본 / 확장</b> 역할을 고르고 언어를 넣습니다. 언어는 할당 전에도 미리 넣을 수 있습니다.
         </InfoTip>
         <span style={{ flex: 1 }} />
         {!d && <button type="button" onClick={() => setD(blank())} style={{ ...S.primary, padding: "5px 12px", fontSize: 12 }}>＋ 확장 언어 그룹 만들기</button>}
@@ -275,42 +249,7 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
               <Link href="/ownership" style={{ fontSize: 12, color: "#2563eb", textDecoration: "none" }}
                 title="SOBP 맵에서 이 고객사에 Owner 를 할당하면 여기 역할 미지정으로 들어옵니다">SOBP 맵에서 영역 할당 →</Link>
             </div>
-            {/* 코드 배당 — 할당된 코드마다 기본 / 확장 k `PC-343` */}
-            <div style={{ marginTop: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginBottom: 6 }}>
-                <b style={{ color: "#374151" }}>코드 배당</b>
-                <InfoTip title="코드 배당" width={340}>
-                  SOBP 맵에서 이 고객사에 할당된 코드마다 <b>기본</b>(슬롯 1~4) 또는 <b>확장 1 · 확장 2 …</b>(슬롯 5~8 · 9~12 …)를 고릅니다.
-                  이미 역할이 있는 코드를 다른 역할로 고르면 두 코드의 역할이 맞바뀌고, 언어는 그 자리에 남습니다.
-                  확장 중간 자리는 비울 수 없습니다(뒤 번호가 당겨지지 않게).
-                </InfoTip>
-              </div>
-              {roleCodes.length === 0
-                ? <div style={{ fontSize: 12, color: "#9ca3af" }}>할당된 코드가 없습니다. <Link href="/ownership" style={{ color: "#2563eb" }}>SOBP 맵</Link>에서 먼저 할당하세요.</div>
-                : (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 6 }}>
-                    {roleCodes.map(({ s: sec, o }) => {
-                      const pos = posOf(d, o);
-                      const lastExt = pos >= 1 && pos === d.ext.length;
-                      return (
-                        <div key={o} style={{ display: "flex", alignItems: "center", gap: 5, border: `1px solid ${pos === 0 ? "#bfdbfe" : pos > 0 ? "#a5f3fc" : "#fde68a"}`,
-                          background: pos === 0 ? "#f5f9ff" : pos > 0 ? "#f0fdff" : "#fffbeb", borderRadius: 9, padding: "5px 7px" }}>
-                          <Sc k="S" v={sec} small /><Sc k="O" v={o} small />
-                          <select aria-label={`S${sec}/O${o} 역할`} value={pos < 0 ? "" : String(pos)}
-                            onChange={(e) => setRole(o, sec, e.target.value === "" ? null : +e.target.value)}
-                            style={{ ...S.input, padding: "3px 6px", fontSize: 12, minWidth: 0, marginLeft: "auto", width: "auto" }}>
-                            <option value="" disabled={pos >= 1 && !lastExt}>{pos < 0 ? "역할 미지정" : "— 빼기"}</option>
-                            <option value="0">기본</option>
-                            {d.ext.map((_, i) => <option key={i} value={String(i + 1)}>확장 {i + 1}</option>)}
-                            {pos < 1 && <option value={String(d.ext.length + 1)}>확장 {d.ext.length + 1}</option>}
-                          </select>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-            </div>
-            {/* 등록한 언어 — 모든 줄의 언어를 슬롯 번호 순서로 한 줄에 `PC-334` */}
+            {/* 등록한 언어 — 모든 자리의 언어를 슬롯 번호 순서로 한 줄에 `PC-334` */}
             <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", fontSize: 12 }}>
               <span style={{ color: "#374151", fontWeight: 700, marginRight: 2 }}>등록한 언어 {filled} / {d.langCount}</span>
               {allLangs.length === 0 && <span style={{ color: "#9ca3af" }}>아직 없음</span>}
@@ -321,33 +260,65 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
                 </span>
               ))}
             </div>
-            {/* 줄마다 Owner(역할) + 슬롯 4칸 — 필요한 Owner 수만큼 */}
+            {/* 코드 · 역할 · 언어 — 한 표 `PC-346` */}
             <div style={{ marginTop: 12, border: "1px solid #eef0f4", borderRadius: 10, overflow: "hidden" }}>
               <div style={{ display: "grid", gridTemplateColumns: COLS, background: "#fafbfc", fontSize: 11.5, color: "#6b7280", fontWeight: 600 }}>
-                <div style={{ padding: "7px 10px" }}>역할 · Owner</div>
+                <div style={{ padding: "7px 10px", display: "flex", alignItems: "center", gap: 4 }}>
+                  코드 · 역할
+                  <InfoTip title="코드 · 역할 · 언어" width={360}>
+                    SOBP 맵에서 이 고객사에 할당된 코드마다 <b>역할</b>(기본 = 슬롯 1~4 · 확장 1 = 5~8 · 확장 2 = 9~12 …)을 고르고 언어를 넣습니다.
+                    이미 역할이 있는 코드를 다른 역할로 고르면 두 코드의 역할이 맞바뀌고, <b>언어는 코드를 따라갑니다</b>.
+                    확장 중간 자리는 비울 수 없습니다(뒤 번호가 당겨지지 않게). 코드 없이 자리에 언어만 넣어 둘 수도 있습니다(할당 전).
+                  </InfoTip>
+                </div>
                 {[1, 2, 3, 4].map((i) => <div key={i} style={{ padding: "7px 6px" }}>슬롯 {i}</div>)}
               </div>
               {visible.length === 0 && (
                 <div style={{ padding: "12px", fontSize: 12, color: "#9ca3af", borderTop: "1px solid #eef0f4" }}>
-                  등록한 언어가 없습니다. 아래 [＋ 언어 등록] 에서 자리를 골라 언어를 넣으세요.
+                  {trows.some((r) => r.o != null) ? "등록한 언어가 없습니다. 아래 [＋ 언어 등록] 에서 코드를 골라 역할과 언어를 넣으세요." : <>할당된 코드가 없습니다. <Link href="/ownership" style={{ color: "#2563eb" }}>SOBP 맵</Link>에서 먼저 할당하세요.</>}
                 </div>
               )}
               {visible.map((r) => {
-                const o = r.owner;
-                const isBase = r.pos === 0;
-                // Owner(역할)는 위 [코드 배당] 에서 정한다 — 여기서는 보기만 `PC-343`
+                const o = r.o;
+                const lastExt = r.pos >= 1 && r.pos === d.ext.length;
+                const tone = r.pos === 0 ? { bg: "#eef6ff", fg: "#2563eb" } : r.pos > 0 ? { bg: "#ecfeff", fg: "#0e7490" } : { bg: "#fffbeb", fg: "#b45309" };
                 return (
-                  <div key={r.key} style={{ display: "grid", gridTemplateColumns: COLS, alignItems: "center", borderTop: "1px solid #eef0f4" }}>
-                    <div style={{ padding: "6px 8px", display: "flex", alignItems: "center", gap: 5 }}>
-                      <span style={{ ...S.tag, fontSize: 9.5, background: isBase ? "#eef6ff" : "#ecfeff", color: isBase ? "#2563eb" : "#0e7490", fontWeight: 700, flexShrink: 0 }}>{isBase ? "기본" : `확장 ${r.pos}`}</span>
-                      {o != null
-                        ? <Sc k="O" v={o} small />
-                        : <span style={{ fontSize: 11, color: "#9ca3af" }} title="위 [코드 배당] 에서 이 자리에 코드를 고르면 넣어 둔 언어가 그 코드로 옮겨집니다">할당 전</span>}
+                  <div key={r.key} style={{ display: "grid", gridTemplateColumns: COLS, alignItems: "center", borderTop: "1px solid #eef0f4", background: r.pos < 0 ? "#fffdf5" : undefined }}>
+                    <div style={{ padding: "6px 8px", display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+                      {o != null ? (
+                        <>
+                          {/* 코드 기준 — S · O · 역할 `PC-347` */}
+                          <Sc k="S" v={r.s} small /><Sc k="O" v={o} small />
+                          <select aria-label={`S${r.s}/O${o} 역할`} value={r.pos < 0 ? "" : String(r.pos)}
+                            onChange={(e) => setRole(o, r.s, e.target.value === "" ? null : +e.target.value)}
+                            style={{ ...S.input, padding: "3px 6px", fontSize: 12, minWidth: 0, flex: 1, background: tone.bg, color: tone.fg, fontWeight: 700 }}>
+                            <option value="" disabled={r.pos >= 1 && !lastExt}>{r.pos < 0 ? "역할 선택" : "— 빼기"}</option>
+                            <option value="0">기본</option>
+                            {d.ext.map((_, i) => <option key={i} value={String(i + 1)}>확장 {i + 1}</option>)}
+                            {r.pos < 1 && <option value={String(d.ext.length + 1)}>확장 {d.ext.length + 1}</option>}
+                          </select>
+                          {r.tag === "pending" && (
+                            <button type="button" title="그룹에서 빼기(SOBP 할당은 그대로)" aria-label={`O${o} 그룹에서 빼기`} onClick={() => dropPending(o)}
+                              style={{ border: 0, background: "none", color: "#9ca3af", cursor: "pointer", fontSize: 12, padding: "0 2px", flexShrink: 0 }}>✕</button>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {/* 코드 없이 언어만 들어 있는 자리 — 여기서 코드를 고르면 그 코드의 언어가 된다 */}
+                          <select aria-label={`${roleText(r.pos)} 코드 선택`} value=""
+                            onChange={(e) => { const c = trows.find((x) => x.o != null && String(x.o) === e.target.value); if (c && c.o != null) setRole(c.o, c.s, r.pos); }}
+                            style={{ ...S.input, padding: "3px 6px", fontSize: 12, minWidth: 0, flex: 1, color: "#b45309", borderColor: "#fde68a" }}>
+                            <option value="">코드 선택</option>
+                            {trows.filter((x) => x.o != null && x.pos < 0).map((x) => <option key={x.key} value={String(x.o)}>S{x.s} · O{x.o}</option>)}
+                          </select>
+                          <span style={{ ...S.tag, fontSize: 9.5, background: tone.bg, color: tone.fg, fontWeight: 700, flexShrink: 0 }}>{roleText(r.pos)}</span>
+                        </>
+                      )}
                     </div>
                     {four(d.langs[r.key]).map((v, i) => (
                       <div key={i} style={{ padding: "5px 6px", display: "flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ fontSize: 10.5, color: "#9ca3af", fontFamily: "ui-monospace,monospace", minWidth: 16, textAlign: "right" }}>{r.start + i}</span>
-                        <input value={v} placeholder="지정된 언어 없음" aria-label={`${o != null ? `O${o}` : `${isBase ? "기본" : `확장 ${r.pos}`}(할당 전)`} 슬롯 ${r.start + i} 언어`}
+                        <span style={{ fontSize: 10.5, color: "#9ca3af", fontFamily: "ui-monospace,monospace", minWidth: 16, textAlign: "right" }}>{r.pos >= 0 ? r.pos * 4 + 1 + i : "–"}</span>
+                        <input value={v} placeholder="지정된 언어 없음" aria-label={`${o != null ? `S${r.s}/O${o}` : roleText(r.pos)} 슬롯 ${r.pos >= 0 ? r.pos * 4 + 1 + i : i + 1} 언어`}
                           onChange={(e) => setLang(r.key, i, e.target.value)} style={{ ...S.input, padding: "5px 7px", fontSize: 12 }} />
                       </div>
                     ))}
@@ -355,32 +326,41 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
                 );
               })}
             </div>
-            {/* ＋ 언어 등록 — 감춰진 줄(언어 없음) 중 하나를 골라 표에 꺼낸다 `PC-338` */}
-            {hiddenRows.length > 0 && (
+            {/* ＋ 언어 등록 — 표에 없는 코드를 골라 역할과 함께 넣는다(S · O → 확장 2 등) `PC-338` `PC-347` */}
+            {restCodes.length > 0 && (
               <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 12 }}>
-                <select value="" aria-label="언어 등록할 자리"
-                  onChange={(e) => { if (e.target.value !== "") setShownPos((p) => [...p, +e.target.value]); }}
+                <b style={{ color: "#374151" }}>＋ 언어 등록</b>
+                <select value={addCode} aria-label="언어 등록할 코드"
+                  onChange={(e) => {
+                    setAddCode(e.target.value);
+                    const c = restCodes.find((x) => x.key === e.target.value);
+                    setAddRole(c ? (c.pos >= 0 ? c.pos : firstFree) : null);
+                  }}
                   style={{ ...S.input, width: "auto", padding: "4px 8px", fontSize: 12 }}>
-                  <option value="">＋ 언어 등록</option>
-                  {hiddenRows.map((r) => <option key={r.key} value={r.pos}>{rowLabel(r)}</option>)}
+                  <option value="">코드 선택</option>
+                  {restCodes.map((r) => <option key={r.key} value={r.key}>S{r.s} · O{r.o}{r.pos >= 0 ? ` · ${roleText(r.pos)}` : ""}</option>)}
                 </select>
+                <select value={addRole == null ? "" : String(addRole)} aria-label="언어 등록할 역할" disabled={!addCode}
+                  onChange={(e) => setAddRole(e.target.value === "" ? null : +e.target.value)}
+                  style={{ ...S.input, width: "auto", padding: "4px 8px", fontSize: 12 }}>
+                  <option value="">역할</option>
+                  <option value="0">기본</option>
+                  {d.ext.map((_, i) => <option key={i} value={String(i + 1)}>확장 {i + 1}</option>)}
+                  <option value={String(d.ext.length + 1)}>확장 {d.ext.length + 1}</option>
+                </select>
+                <button type="button" disabled={!addCode || addRole == null}
+                  onClick={() => {
+                    const c = restCodes.find((x) => x.key === addCode);
+                    if (!c || c.o == null || addRole == null) return;
+                    setShown((sh) => [...new Set([...sh, c.key])]);
+                    if (c.pos !== addRole) setRole(c.o, c.s, addRole);
+                    setAddCode(""); setAddRole(null);
+                  }}
+                  style={{ ...S.primary, padding: "4px 12px", fontSize: 12, ...(!addCode || addRole == null ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>추가</button>
                 <InfoTip title="언어 등록" width={320}>
-                  표에는 언어를 등록한 자리만 보입니다. 언어가 없는 자리(지정된 언어 없음)는 여기서 골라 표에 꺼낸 뒤 언어를 넣고 저장하면 목록에 남습니다.
+                  표에는 언어를 등록한 코드만 보입니다. 남은 코드는 여기서 <b>코드(S · O)와 역할</b>(기본 · 확장 k)을 골라 [추가] 한 뒤 언어를 넣고 저장하세요.
+                  이미 다른 코드가 있는 역할을 고르면 두 코드의 역할이 맞바뀝니다.
                 </InfoTip>
-              </div>
-            )}
-            {/* 역할 미지정 — SOBP 맵에서 할당만 하고 아직 줄에 안 넣은 Owner */}
-            {pending.length > 0 && (
-              <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 12 }}>
-                <span style={{ color: "#b45309", fontWeight: 700 }}>역할 미지정</span>
-                {pending.map((p) => (
-                  <span key={p} style={{ display: "inline-flex", alignItems: "center", gap: 4, border: "1px solid #fde68a", background: "#fffbeb", borderRadius: 6, padding: "2px 4px 2px 6px" }}>
-                    <Sc k="O" v={p} small />
-                    <button type="button" title="그룹에서 빼기(SOBP 할당은 그대로)" aria-label={`O${p} 그룹에서 빼기`} onClick={() => dropPending(p)}
-                      style={{ border: 0, background: "none", color: "#9ca3af", cursor: "pointer", fontSize: 12, padding: "0 2px" }}>✕</button>
-                  </span>
-                ))}
-                <span style={{ color: "#6b7280" }}>위 [코드 배당] 에서 역할을 고르세요</span>
               </div>
             )}
           </div>
