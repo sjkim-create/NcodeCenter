@@ -9,9 +9,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
+import { isLangSlotCompany, useLangGroups, groupOfCompany } from "@/lib/langGroups";
+import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { useCaster, accountScope } from "@/lib/accountStore";
 import { useOnboarding } from "@/lib/onboardingStore";
-import { isCommonCodeCompany } from "@/lib/commonCodes";
+import { isCommonCodeCompany, COMMON_CODES } from "@/lib/commonCodes";
 import { CompaniesTable, CompanyFormView } from "./CompaniesView";
 import { ApprovalButton, CompanyApprovalModal } from "./ApprovalModals";
 import {
@@ -27,7 +29,10 @@ const FILTER_LABEL: Record<CoFilter, string> = { all: "전체 고객사", holder
 export function CompaniesWorkspace({ companyId = 0, isNew = false, prefillEmail = "", initialSec = "", initialView = "ws" }: {
   companyId?: number; isNew?: boolean; prefillEmail?: string; initialSec?: string; initialView?: View;
 }) {
-  const { companies } = useStore();
+  // 옛 방식으로 확장 언어 슬롯 Owner 만 받은 고객사(「Common 추가 언어 슬롯-964」 등)는 목록에서 숨긴다 — 그룹 고객사 아래에서 보인다 `PC-330`
+  const { companies: allCos, projects } = useStore();
+  const lgv = useLangGroups();
+  const companies = useMemo(() => allCos.filter((c) => !isLangSlotCompany(c, projects)), [allCos, projects, lgv]);   // eslint-disable-line react-hooks/exhaustive-deps
   const cast = useCaster();
   const onb = useOnboarding();
   const pending = onb.requests.filter((r) => r.status === "PENDING").length;
@@ -69,9 +74,33 @@ export function CompaniesWorkspace({ companyId = 0, isNew = false, prefillEmail 
   const list = companies.filter(inFilter)
     .filter((c) => (q ? c.name.toLowerCase().includes(q.toLowerCase()) : true))
     .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  // 이름 옆 표시 — 상위 고객사면 「하위 n」(공통코드 사용 고객사 수), 확장 언어 그룹이 있으면 「확장 언어」 `PC-342`
+  //   브라우저 저장분(하위 등록 · 그룹)을 읽으므로 마운트 뒤에 그린다(첫 화면과 서버 화면을 맞춘다)
+  useCommonMembers();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { hydrateMembers(); setMounted(true); }, []);
+  const holderSubs = (name: string) => {
+    const set = new Set<string>();
+    for (const c of COMMON_CODES) if (c.company === name && !c.historyOnly) for (const m of membersOf(c.k, c.s, c.o)) set.add(m.name);
+    return set.size;
+  };
+  const tagSt: React.CSSProperties = { fontSize: 10, borderRadius: 5, padding: "0 5px", fontWeight: 700, whiteSpace: "nowrap", lineHeight: "16px" };
+  const coTags = (id: number, name: string, fold?: WsFold) => {
+    if (!mounted) return undefined;
+    const holder = isCommonCodeCompany(name);
+    const subN = holder && !fold ? holderSubs(name) : 0;   // 묶음(▶)이 있으면 WsCoItem 이 이미 「하위 n」을 보인다
+    const lg = groupOfCompany(id);
+    if (!holder && !lg) return undefined;
+    return (
+      <>
+        {holder && !fold && <span style={{ ...tagSt, background: "#ecfdf5", color: "#047857" }} title="공통코드 사용 고객사(하위) 수">하위 {subN}</span>}
+        {lg && <span style={{ ...tagSt, background: "#ecfeff", color: "#0e7490" }} title={`확장 언어 그룹 · 언어 ${lg.langCount}개`}>확장 언어</span>}
+      </>
+    );
+  };
   const coRow = (id: number, label: string, closed: boolean, sub = false, fold?: WsFold) =>
     <WsCoItem key={id} label={closed ? `${label} (사업 종료)` : label} n={svcN(id)} on={!adding && id === selId} warn={false} sub={sub} fold={fold}
-      title="서비스 계정" onClick={() => pick(id)} />;
+      tags={coTags(id, label, fold)} title="서비스 계정" onClick={() => pick(id)} />;
 
   return (
     <div style={{ padding: "16px 20px", maxWidth: 1680 }}>

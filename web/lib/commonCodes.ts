@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 // ── 공통(커먼) 코드 레지스트리 — 단일 정본 ──────────────────────────────
 // 코드 식별 = (타입 k, section s, owner o). 대표 회사(holder company)가 이 코드를 보유하고,
 // 사용 고객사(cu)는 lib/commonMembers 의 중앙 멤버십으로 관리한다.
@@ -39,3 +40,50 @@ export const codesOfCompany = (companyName: string): CommonCode[] =>
 
 export const isCommonCodeCompany = (companyName: string): boolean =>
   COMMON_CODES.some((c) => c.company === companyName);
+
+// ── 화면에서 지정한 공통코드(상위 고객사) `PC-330` ─────────────────────────
+// 고객사 관리 ▸ 공통코드 · 확장 언어 에서 그 고객사가 할당받은 S/O 를 [공통코드로 지정] 하면 여기 들어간다.
+// 위 COMMON_CODES(기본 등록분)에 덧붙여 모든 화면(하위 등록 목록 · 키 발급 · SOBP 맵 …)이 같은 목록을 본다.
+// 기본 등록분은 화면에서 지우지 않는다 — 지정 해제는 화면에서 지정한 것만.
+const CUSTOM_KEY = "ncc-common-codes-custom-v1";
+let custom: CommonCode[] = [];
+let ccHydrated = false;
+let ccVersion = 0;
+const ccSubs = new Set<() => void>();
+const ccNotify = () => { ccVersion++; ccSubs.forEach((f) => f()); };
+const ccPersist = () => { try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(custom)); } catch { /* */ } };
+
+export function hydrateCommonCodes() {
+  if (ccHydrated || typeof window === "undefined") return;
+  ccHydrated = true;
+  try { custom = JSON.parse(localStorage.getItem(CUSTOM_KEY) ?? "[]") as CommonCode[]; } catch { custom = []; }
+  for (const c of custom) if (!COMMON_CODES.some((x) => codeKey(x) === codeKey(c))) COMMON_CODES.push(c);
+  ccNotify();
+}
+export const useCommonCodes = () =>
+  useSyncExternalStore((f) => { ccSubs.add(f); return () => { ccSubs.delete(f); }; }, () => ccVersion, () => 0);
+/** 화면에서 지정한 공통코드인가(지정 해제 가능) */
+export const isCustomCommonCode = (c: { k: string; s: number; o: number }) => custom.some((x) => codeKey(x) === codeKey(c));
+
+/** 고객사의 S/O 를 공통코드로 지정 — k = N(PDS3) · G(PDS2) */
+export function addCommonCode(company: string, k: "N" | "G", s: number, o: number): CommonCode | null {
+  hydrateCommonCodes();
+  if (COMMON_CODES.some((x) => x.k === k && x.s === s && x.o === o)) return null;
+  const label = `${k === "G" ? "PDS2" : "PDS3"} · S${s}/O${o}`;
+  const mine = COMMON_CODES.filter((x) => x.company === company).length;
+  const rec: CommonCode = { k, s, o, name: mine ? `${company} · S${s}/O${o}` : company, holder: company, company, label };
+  custom = [...custom, rec];
+  COMMON_CODES.push(rec);
+  ccPersist(); ccNotify();
+  return rec;
+}
+/** 화면에서 지정한 공통코드 해제 */
+export function removeCommonCode(k: string, s: number, o: number) {
+  hydrateCommonCodes();
+  const key = codeKey({ k, s, o });
+  if (!custom.some((x) => codeKey(x) === key)) return;
+  custom = custom.filter((x) => codeKey(x) !== key);
+  const i = COMMON_CODES.findIndex((x) => codeKey(x) === key);
+  if (i >= 0) COMMON_CODES.splice(i, 1);
+  ccPersist(); ccNotify();
+}

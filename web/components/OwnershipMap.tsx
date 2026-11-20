@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { S, Field, Modal } from "./ui";
+import { InfoTip } from "./KeyWorkspaceUI";
 import { store, useStore, persistError } from "@/lib/store";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { logActivity } from "@/lib/activityStore";
@@ -12,7 +13,7 @@ import { isExcluded, type Pds } from "@/lib/sobpRecommend";
 import { hydrateShared, markShared, useSharedOwners, customShared, BUILT_IN } from "@/lib/sharedOwners";
 import { commonCodeOf } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
-import { langLabelOfOwner, isLangOwner, LANG_PDS, LANG_SECTION } from "@/lib/languageSlots";
+import { groupOfCompany, groupOfOwner, needExtOwners, extLangs, useLangGroups, groupOwners, addPendingOwners } from "@/lib/langGroups";
 import { hydrateOverrides, overrideOf, useBookOverrides } from "@/lib/editOverrides";
 import { Sc, SobpChips, KindChip, PenChip } from "./sobp";
 import { allocSpan, codeKind, CODE_KINDS, kindMeta, type CodeKind } from "@/lib/codeKind";
@@ -171,7 +172,9 @@ export default function OwnershipMap() {
   const recoPds: Pds = kind === "PDS2" ? "G" : "N";
   const recoTarget = kind === "PDS3" || kind === "PDS2" || kind === "ALL";
   // 사용 서비스는 **고객사 속성**이라 이 창에서 다루지 않는다 `PC-076`
-  const [alloc, setAlloc] = useState<{ company: string; newCompany: string; bookStart: number; books: number; pages: number; mode: "코드발급" | "편집"; shared: boolean } | null>(null);
+  const [alloc, setAlloc] = useState<{ company: string; newCompany: string; bookStart: number; books: number; pages: number; mode: "코드발급" | "편집"; shared: boolean;
+    more?: number; dir?: 1 | -1; from?: number; manual?: boolean } | null>(null);   // 확장 언어 그룹 — 확장 Owner 개수 · 방향 · 범위 시작 · 직접 입력 `PC-330` `PC-335` `PC-337`
+  const lgv = useLangGroups();   // 확장 언어 그룹 — OWNER 카드 🌐 · 할당 창 그룹 연결 `PC-330`
   const [selS, setSelS] = useState(0);
   const [selO, setSelO] = useState(1);
   const [selB, setSelB] = useState(0);
@@ -416,7 +419,7 @@ export default function OwnershipMap() {
               setKind(codeKind(hit.k, hit.sec)); setSelS(hit.sec); setSelO(hit.owner); setSelB(hit.book); setOFrom(""); setBFrom("");
             }
           }}
-          placeholder="고객사 검색 · 비우면 전체" title="비우면 전체, 입력하면 해당 고객사만" style={{ ...S.input, width: 180, marginLeft: "auto" }} />
+          placeholder="고객사 검색 · 비우면 전체" title="비우면 전체, 입력하면 해당 고객사만" style={{ ...S.input, width: 200 }} />{/* 직접 입력 검색은 필터 바로 옆(왼쪽) — 다른 메뉴와 같은 자리 `PC-333` */}
         <datalist id="ncc-acct-list">{accounts.map((a) => <option key={a} value={a} />)}</datalist>
         <span style={{ display: "inline-flex", gap: 10, fontSize: 12, width: "100%", paddingTop: 2, borderTop: "1px dashed #eef0f4", marginTop: 2 }}>{(["코드발급", "편집", "사용가능", "공유", "미사용"] as const).map((k) => <Lg key={k} c={ST_C[k]} t={stLabel(k)} />)}</span>
       </div>
@@ -478,10 +481,23 @@ export default function OwnershipMap() {
                     {/* 이 owner 좌표가 어떤 코드 종류로 쓰이는지 — 용도 표시 `PC-039` */}
                     {ownerKinds.get(o)?.map((kd) => <KindChip key={kd} kind={kd} small />)}
                   </div>
-                  {accts.length > 0 && <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{accts.join(", ")}</div>}
-                  {pds === LANG_PDS && curS === LANG_SECTION && isLangOwner(o) && (
-                    <div style={{ fontSize: 9.5, color: "#7e22ce", marginTop: 2, lineHeight: 1.4 }} title="언어 슬롯 (db에서 직접 관리)">🌐 {langLabelOfOwner(o)}</div>
-                  )}
+                  {(() => {
+                    // 확장 언어 그룹의 Owner — 보유 고객사 대신 **그룹 고객사**로 보이고, 기본 / 확장 · 언어를 붙인다 `PC-330`
+                    //   (옛 방식으로 슬롯 고객사에 따로 할당된 Owner 도 그룹 고객사 아래로 보인다 — 할당 데이터는 그대로)
+                    const lg = groupOfOwner(curS, o, codeKind(pds, curS));
+                    if (!lg) return accts.length > 0 ? <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{accts.join(", ")}</div> : null;
+                    const langs = extLangs(lg.g, o);
+                    return (
+                      <>
+                        <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          title={accts.length ? `할당 기록: ${accts.join(", ")}` : undefined}>{lg.g.company}</div>
+                        <div style={{ fontSize: 9.5, color: "#0e7490", marginTop: 2, lineHeight: 1.4 }}
+                          title={langs.length ? langs.join(" · ") : "지정된 언어 없음"}>
+                          🌐 {lg.role === "base" ? "기본" : lg.role === "ext" ? "확장 슬롯" : "역할 미지정"} · {langs.length ? `${langs[0]}${langs.length > 1 ? ` 외 ${langs.length - 1}` : ""}` : "지정된 언어 없음"}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </button>
               );
             })}
@@ -601,7 +617,9 @@ export default function OwnershipMap() {
         // (K) = 티켓 고객사(nkey(HLP) 대장 · 키 발급 대상) — 고객사 관리와 별개로 할당한다 `PC-125`
         const isKey = isKeyLabel(name);
         const keyCo = isKey ? ticketCustomerByName(keyNameOf(name), "nkey") : undefined;
-        const myCo = isKey ? undefined : companies.find((c) => nzc(c.name) === nzc(name));
+        // 이미 쓰는 좌표(조회 전용)는 고객사 입력칸이 없다 — 보유 고객사가 한 곳이면 그 고객사로 본다(확장 언어 그룹 연결용) `PC-330`
+        const coName = !name && usedSO && holders.length === 1 ? holders[0] : name;
+        const myCo = isKey ? undefined : companies.find((c) => nzc(c.name) === nzc(coName));
         // 이 고객사의 **사용 서비스** — 고객사 관리에서 정한 값을 읽기만 한다 `PC-076`
         const coSvcs: ServiceType[] = companyServices(myCo);
         const myAlloc = (isKey ? (keyCo ? projects.filter((p) => p.keyCustomer && custKey(p.keyCustomer) === custKey(keyCo.name)) : [])
@@ -610,6 +628,65 @@ export default function OwnershipMap() {
             bs: b.bookStart, be: b.bookEnd, ps: b.pageStart, pe: b.pageEnd, codes: b.codes })))
           .sort((a, b) => a.s - b.s || a.o - b.o);
 
+        // 확장 언어 그룹 — 선택 고객사에 그룹이 있고 같은 Section 이면 **영역만** 할당한다 `PC-330` `PC-335`
+        //   역할(기본 · 확장 슬롯)은 여기서 정하지 않는다 — 할당한 Owner 는 그룹에 「역할 미지정」으로 들어가고,
+        //   역할과 언어는 고객사 관리 ▸ 공통코드 · 확장 언어 에서 정한다(고치는 곳 한 곳).
+        //   [Owner 함께 할당] — 이 S/O 다음 번호부터(방향 선택) n개를 같은 고객사에 함께 할당한다.
+        const grp = myCo ? groupOfCompany(myCo.id) : undefined;
+        const grpOn = !!grp && (grp.section == null || grp.section === curS) && !isKey;   // Section 미정 그룹은 처음 연결하는 Section 으로 정해진다 `PC-333`
+        // 이 S/O 가 이미 어느 그룹의 기본 · 확장 Owner 인가(보유 고객사와 상관없이)
+        const inGrp = isKey ? undefined : groupOfOwner(curS, curO, kind === "ALL" ? undefined : kind);
+        const grpAll = grp ? groupOwners(grp) : [];
+        const alreadyIn = grpOn && grpAll.includes(curO);   // 이 좌표가 이미 그룹 Owner 인가
+        const needTotal = grp ? needExtOwners(grp.langCount) + 1 : 0;   // 필요한 Owner 수 = 기본 1 + 필요 확장
+        // 확장 Owner — 이 O 와 붙어 있지 않아도 된다(O21 → O964~ · O1009 → O1003~ 처럼) `PC-337`
+        //   개수 n · 방향(이 O 이전 / 이후) → 그 방향에서 **빈 연속 범위(n개)** 를 가까운 순으로 보여 주고 고른다. 직접 입력(시작 O)도 된다.
+        const moreN = Math.max(0, alloc.more ?? Math.max(0, needTotal - grpAll.length - (alreadyIn ? 0 : 1)));
+        const dirN: 1 | -1 = alloc.dir ?? (grp && grp.ext.length >= 2 && grp.ext[1] < grp.ext[0] ? -1 : 1);
+        const ownerOf = (o2: number) => {
+          const hs = ownerHolders(pds, curS, o2, allocBooks);
+          const oth = hs.filter((h) => nzn(h) !== nzn(coName));
+          return { o: o2, ok: oth.length === 0 && o2 !== curO && !grpAll.includes(o2), mine: hs.length > 0 && oth.length === 0, who: oth.join(", ") || (o2 === curO ? "이 좌표" : grpAll.includes(o2) ? "이미 그룹" : "") };
+        };
+        const blockAt = (start: number) => Array.from({ length: moreN }, (_, i) => start + dirN * i);
+        // 그 방향의 빈 연속 범위 — 가까운 것부터 최대 8개(겹치지 않게)
+        const ranges: number[] = [];
+        if (grpOn && moreN > 0) {
+          let run: number[] = [];
+          for (let i = 1, steps = 0; ranges.length < 8 && steps < 20000; i++, steps++) {
+            const o2 = curO + dirN * i;
+            if (o2 < 0 || o2 >= scale.o) break;
+            const r = ownerOf(o2);
+            if (r.ok) { run.push(o2); if (run.length === moreN) { ranges.push(run[0]); run = []; } } else run = [];
+          }
+        }
+        const fromN = alloc.manual ? (alloc.from ?? null) : (alloc.from != null && ranges.includes(alloc.from) ? alloc.from : ranges[0] ?? null);
+        const extras: { o: number; ok: boolean; mine: boolean; who: string }[] = [];
+        if (grpOn && moreN > 0 && fromN != null) {
+          for (const o2 of blockAt(fromN)) {
+            if (o2 < 0 || o2 >= scale.o) { extras.push({ o: o2, ok: false, mine: false, who: "범위 밖" }); continue; }
+            extras.push(ownerOf(o2));
+          }
+        }
+        const rangeTxt = (st: number) => { const b = blockAt(st); return b.length > 1 ? `O${b[0]}~O${b[b.length - 1]}` : `O${b[0]}`; };
+        const extraBlock = extras.find((e) => !e.ok);
+        const linkOnly = () => {
+          if (!grpOn || !myCo) return;
+          if (extraBlock) { alert(`확장 Owner O${extraBlock.o} 는 쓸 수 없습니다(${extraBlock.who}) — 범위를 바꾸세요.`); return; }
+          for (const e of extras) {
+            if (e.mine) continue;
+            const span2 = allocSpan(curS, e.o) ?? { bookEnd: scale.b - 1, pageEnd: scale.p - 1 };
+            store.upsertProject({
+              id: 0, name: `${myCo.name} 코드발급 · S${curS}/O${e.o}`, companyId: myCo.id,
+              service: coSvcs[0] ?? "NONE", services: coSvcs, grade: "", editing: false, editingOwner: e.o, symbols: 0,
+              issued: [{ id: 1, date: new Date().toISOString().slice(0, 10), codes: 0, by: me?.name ?? "", section: curS, owner: e.o, bookStart: 0, bookEnd: span2.bookEnd, pageStart: 0, pageEnd: span2.pageEnd }],
+            });
+          }
+          const add = [...(alreadyIn ? [] : [curO]), ...extras.map((e) => e.o)];
+          addPendingOwners(grp!.id, curS, add);
+          logActivity("alloc", `${myCo.name} · 확장 언어 그룹에 넣기(역할 미지정) · S${curS} · ${add.map((o) => `O${o}`).join("·")}`, me?.name);
+          setAlloc(null);
+        };
         // 좌표 상태 한 줄 — 셀렉트 없이 상태만 보여 준다 `PC-046`
         const stLabel2 = locked ? `🔒 전용 · 추가 발급 불가`
           : shared ? "공유 OWNER · Book 만 배타"
@@ -619,11 +696,13 @@ export default function OwnershipMap() {
         const stFg = locked ? "#991b1b" : shared ? "#6b21a8" : soKinds.length ? "#0f766e" : "#2563eb";
         const blockMsg = locked ? `“${others.join(", ")}” 전용으로 추가 발급이 불가`
           : commonBlock ? `${name} 는 공유 코드 ${cCode!.name} 의 사용 고객사가 아닙니다 — [고객사 관리] 에서 하위 등록하세요.`
+          : extraBlock ? `확장 Owner O${extraBlock.o} 는 쓸 수 없습니다(${extraBlock.who}) — 범위를 바꾸세요.`
           : "";
         const save = () => {
           if (!name) { alert("고객사를 선택하세요. (신규 고객사는 고객사 관리에서 등록)"); return; }
           if (locked) { alert(blockMsg); return; }
           if (commonBlock) { alert(blockMsg); return; }
+          if (extraBlock) { alert(blockMsg); return; }
           // 할당 범위 = 코드 타입 중 넓은 쪽(Book · Page 전체) — 타입은 편집 · 키 발급에서 정한다 `PC-279`
           const span = allocSpan(curS, curO) ?? { bookEnd: scale.b - 1, pageEnd: scale.p - 1 };
           const issued0 = { id: 1, date: new Date().toISOString().slice(0, 10), codes: 0,
@@ -659,6 +738,20 @@ export default function OwnershipMap() {
           // 저장 실패(용량 초과 등) 시 사라진 것처럼 보이지 않도록 즉시 경고
           if (persistError()) { alert(`⚠ 할당이 저장되지 않았습니다.\n${persistError()}`); return; }
           logActivity("alloc", `${co.name} · S${curS}/O${curO} · SO 점유(코드 종류 미정) · 사용 서비스 ${companyServiceText(co)}`, me?.name);
+          // 확장 언어 그룹 — 함께 할당할 Owner 를 같은 고객사에 할당하고, 이 S/O 와 함께 그룹에 「역할 미지정」으로 넣는다 `PC-335`
+          if (grpOn) {
+            for (const e of extras) {
+              if (e.mine) continue;   // 이미 이 고객사가 가진 Owner 는 연결만
+              store.upsertProject({
+                id: 0, name: `${co.name} 코드발급 · S${curS}/O${e.o}`, companyId,
+                service: coSvcs[0] ?? "NONE", services: coSvcs, grade: "", editing: false, editingOwner: e.o, symbols: 0,
+                issued: [{ ...issued0, owner: e.o, ...(allocSpan(curS, e.o) ? { bookEnd: allocSpan(curS, e.o)!.bookEnd, pageEnd: allocSpan(curS, e.o)!.pageEnd } : {}) }],
+              });
+            }
+            const add = [curO, ...extras.map((e) => e.o)];
+            addPendingOwners(grp!.id, curS, add);
+            logActivity("alloc", `${co.name} · 확장 언어 그룹에 넣기(역할 미지정) · S${curS} · ${add.map((o) => `O${o}`).join("·")}`, me?.name);
+          }
           setSelB(0); setAlloc(null);
         };
         return (
@@ -721,6 +814,90 @@ export default function OwnershipMap() {
               </div>
             </div>
 
+            {/* 2-1. 확장 언어 그룹 — 고객사 관리에서 그룹을 켠 고객사일 때만 `PC-330` */}
+            {/* 그룹이 없거나 Section 이 다르면 안내만 — 그룹은 고객사 관리에서 먼저 켠다(그룹 먼저) `PC-330` */}
+            {/* 이미 어느 그룹에 들어 있는 Owner(예전 슬롯 고객사가 가진 좌표 포함) — 소속만 보여준다 */}
+            {!isKey && inGrp && !grpOn && (
+              <div style={{ marginTop: 10, fontSize: 12, color: "#0e7490", background: "#f0fdff", border: "1px solid #a5f3fc", borderRadius: 8, padding: "7px 10px" }}>
+                🌐 확장 언어 그룹 <b>{inGrp.g.label}</b> · {inGrp.role === "base" ? "기본 Owner" : inGrp.role === "ext" ? "확장 슬롯" : "역할 미지정"} · {inGrp.role === "pending" ? "역할 · 언어는 고객사 관리에서 정합니다" : extLangs(inGrp.g, curO).filter((l) => l.trim()).join(" · ") || "지정된 언어 없음"}
+              </div>
+            )}
+            {myCo && !isKey && !inGrp && (!grp || (grp.section != null && grp.section !== curS)) && (
+              <div style={{ marginTop: 10, fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <span>🌐 확장 언어 그룹 {grp ? `· S${grp.section} 그룹이라 이 Section(S${curS})에서는 연결하지 않습니다` : "없음"}</span>
+                {!grp && <Link href={`/companies/${myCo.id}`} style={{ color: "#2563eb", textDecoration: "none" }}>언어 확장이 필요하면 고객사 관리 ▸ 공통코드 · 확장 언어 에서 먼저 켜세요 →</Link>}
+              </div>
+            )}
+            {grpOn && (!usedSO || holders.length === 1) && (
+              <div style={{ marginTop: 10, border: "1px solid #a5f3fc", background: "#f0fdff", borderRadius: 10, padding: "11px 13px" }}>
+                {/* ① 그룹 안내 — 고객사 · 코드 종류 · 언어 수 · 필요한 Owner 수 `PC-336` */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12 }}>
+                  <b style={{ color: "#0e7490" }}>🌐 확장 언어 그룹</b>
+                  <span style={{ color: "#111827", fontWeight: 700 }}>{grp!.company}</span>
+                  <span style={{ color: "#374151" }}>{grp!.kind} · 언어 {grp!.langCount}개 · <b>Owner {needTotal}개 이상 필요</b></span>
+                  {grpAll.length > 0 && <span style={{ color: "#6b7280" }}>· 그룹 Owner {grpAll.length}개{(grp!.pending ?? []).length ? ` (역할 미지정 ${(grp!.pending ?? []).length})` : ""}</span>}
+                  <span style={{ flex: 1 }} />
+                  <Link href={`/companies/${grp!.companyId}`} style={{ fontSize: 11.5, color: "#2563eb", textDecoration: "none" }}
+                    title="기본 · 확장 슬롯 역할과 언어는 고객사 관리 ▸ 공통코드 · 확장 언어 에서 정합니다">역할 · 언어는 고객사 관리에서 →</Link>
+                </div>
+                {/* ② 확장 Owner — 개수 · 방향 · 범위(빈 연속 범위를 가까운 순으로 · 직접 입력) `PC-336` `PC-337` */}
+                {(
+                  <div style={{ marginTop: 9 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 12 }}>
+                      <span style={{ color: "#6b7280", fontWeight: 700 }}>확장 Owner</span>
+                      <input type="number" min={0} max={40} value={moreN} aria-label="확장 Owner 개수"
+                        onChange={(e) => setAlloc({ ...alloc, more: Math.max(0, Math.min(40, Math.round(+e.target.value))), from: alloc.manual ? alloc.from : undefined })}
+                        style={{ ...S.input, width: 60, padding: "4px 8px" }} />
+                      <span style={{ color: "#6b7280" }}>개</span>
+                      <select value={dirN} onChange={(e) => setAlloc({ ...alloc, dir: (+e.target.value === -1 ? -1 : 1), from: undefined, manual: false })} aria-label="번호 방향"
+                        style={{ ...S.input, width: "auto", padding: "4px 8px" }}>
+                        <option value={-1}>O{curO} 이전 번호</option>
+                        <option value={1}>O{curO} 이후 번호</option>
+                      </select>
+                      {moreN > 0 && (
+                        <select value={alloc.manual ? "manual" : fromN != null ? String(fromN) : ""} aria-label="확장 Owner 범위"
+                          onChange={(e) => e.target.value === "manual"
+                            ? setAlloc({ ...alloc, manual: true, from: fromN ?? curO + dirN })
+                            : setAlloc({ ...alloc, manual: false, from: +e.target.value })}
+                          style={{ ...S.input, width: "auto", padding: "4px 8px" }}>
+                          {ranges.length === 0 && <option value="">할당할 수 있는 범위 없음</option>}
+                          {ranges.map((st) => <option key={st} value={String(st)}>{rangeTxt(st)} ({moreN}개)</option>)}
+                          <option value="manual">직접 입력</option>
+                        </select>
+                      )}
+                      {moreN > 0 && alloc.manual && (
+                        <>
+                          <span style={{ color: "#6b7280" }}>시작 O</span>
+                          <input type="number" min={0} max={scale.o - 1} value={alloc.from ?? ""} aria-label="확장 Owner 시작 번호"
+                            onChange={(e) => setAlloc({ ...alloc, from: e.target.value === "" ? undefined : Math.max(0, Math.round(+e.target.value)) })}
+                            style={{ ...S.input, width: 90, padding: "4px 8px" }} />
+                        </>
+                      )}
+                      <InfoTip title="확장 Owner 범위" width={340}>
+                        확장 Owner 는 O{curO} 와 붙어 있지 않아도 됩니다. 개수와 방향(O{curO} 이전 / 이후)을 고르면 그 방향에서 비어 있는 <b>연속 범위</b>를 가까운 순으로 보여 줍니다.
+                        목록에 없으면 [직접 입력] 으로 시작 번호를 넣으세요. 필요한 수보다 많이 할당해도 됩니다. 역할(기본 · 확장)은 고객사 관리에서 정합니다.
+                      </InfoTip>
+                    </div>
+                    {(extras.length > 0 || !alreadyIn) && (
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 7 }}>
+                        {!alreadyIn && (
+                          <span title="이 좌표" style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, borderRadius: 6, padding: "2px 7px",
+                            border: "1px solid #67e8f9", background: "#ecfeff", color: "#0e7490", fontWeight: 700 }}>O{curO} ✓</span>
+                        )}
+                        {extras.map((e) => (
+                          <span key={e.o} title={e.ok ? (e.mine ? "이미 이 고객사가 보유 — 그룹에 넣기만" : "새로 할당") : `쓸 수 없음: ${e.who}`}
+                            style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, borderRadius: 6, padding: "2px 7px",
+                              border: `1px ${e.ok ? "solid #a5f3fc" : "solid #fecaca"}`, background: e.ok ? "#fff" : "#fef2f2", color: e.ok ? "#0e7490" : "#b91c1c" }}>
+                            O{e.o} {e.ok ? (e.mine ? "보유" : "✓") : "✕"}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* 3. 선택 고객사가 이미 가진 코드 — 클릭하면 그 좌표로 이동 */}
             {name && myAlloc.length > 0 && (
               <div style={{ marginTop: 10 }}>
@@ -749,6 +926,10 @@ export default function OwnershipMap() {
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
               <button onClick={() => setAlloc(null)} style={S.ghost}>취소</button>
               {/* 이미 쓰는 좌표는 **조회 전용** — 서비스도 코드 종류도 이 창에서 바꾸지 않는다 `PC-076` */}
+              {usedSO && grpOn && (!alreadyIn || extras.length > 0) && (
+                <button onClick={linkOnly} disabled={!!extraBlock}
+                  style={{ ...S.primary, ...(extraBlock ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>그룹에 넣기</button>
+              )}
               {!usedSO && (
                 <button onClick={save} disabled={locked || !name || commonBlock}
                   style={{ ...S.primary, ...(locked || !name || commonBlock ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>할당</button>

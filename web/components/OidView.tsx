@@ -62,7 +62,7 @@ export default function OidView({ embedded }: { embedded?: boolean } = {}) {
             <button key={v} onClick={() => setFIdx(v)} style={chip(fIdx === v)}>{label}</button>
           ))}
         </div>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="업체 · 교재 · index 검색" style={{ ...S.input, width: 240, marginLeft: "auto" }} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="업체 · 교재 · index 검색" style={{ ...S.input, width: 240 }} />
         <span style={{ color: "#9ca3af" }}>{list.length}업체</span>
       </div>
 

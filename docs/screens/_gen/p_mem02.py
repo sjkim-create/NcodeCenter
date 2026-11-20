@@ -173,7 +173,7 @@ def tg(text, bg, fg, bold=True):
 
 
 def header(new=False, closed=False, popover=False, name=CO, n_acc=3, n_on=2, svc='casterN'):
-    """머리말 — 업체명 · 구분 · 요약 · 진행중/사업 종료 · ⋯(또는 [취소][등록])"""
+    """머리말 — 업체명 · 구분 · 요약 · 진행중/사업 종료 · ⋯ (등록 화면의 [취소][등록]은 섹션 아래 한 곳 `PC-331`)"""
     nm = (name or '새 고객사')
     cls = tg('하위 고객사', '#f3e8ff', '#7e22ce') if name else ''
     newtag = tg('등록 중', '#fff7ed', '#c2410c') if new else ''
@@ -198,8 +198,7 @@ def header(new=False, closed=False, popover=False, name=CO, n_acc=3, n_on=2, svc
                '<div class="inp">스마트펜 사업 정리 · 엠베스트-28로 코드 이관</div>'
                '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">'
                '<span class="btn gho">취소</span><span class="btn dan">사업 종료</span></div></div>')
-    right = ('<span class="btn gho">취소</span><span class="btn pri">등록</span>' if new
-             else '<span class="btn gho" style="padding:5px 11px">⋯</span>')
+    right = ('' if new else '<span class="btn gho" style="padding:5px 11px">⋯</span>')   # 등록 버튼은 섹션 아래에만 `PC-331`
     return ('<div style="' + CARD + ';padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:12px">'
             '<span class="btn gho" style="padding:5px 11px">←</span>'
             '<div style="font-size:20px;font-weight:800;color:%s">%s</div>%s%s%s'
@@ -443,7 +442,7 @@ def acc_detail(mode='edit', acc=ACCS[0], cast_on=True, n=6, tab='CASTERN', err='
             ('<b style="font-size:14px">%s</b><span style="font-size:11.5px;color:#9ca3af;font-family:ui-monospace,monospace">%s</span>' % (nm, mail)))
     ft_left = ('' if isnew else '<span class="btn gho" style="color:#dc2626;border-color:#fecaca">계정 삭제</span>')
     ft_left += ('<span style="font-size:12px;color:#b45309">● 저장하지 않은 변경이 있습니다</span>' if dirty else '')
-    ft_left += ('<span style="font-size:11.5px;color:#9ca3af">계정을 추가하면 고객사가 함께 등록됩니다 · 계정 없이 등록하려면 위 [등록]</span>' if (isnew and new_draft) else '')
+    ft_left += ('<span style="font-size:11.5px;color:#9ca3af">계정을 추가하면 고객사가 함께 등록됩니다 · 계정 없이 등록하려면 아래 [등록]</span>' if (isnew and new_draft) else '')
     ft_right = ('<span class="btn gho">취소</span><span class="btn pri">계정 추가</span>' if isnew
                 else '<span class="btn gho"%s>취소</span><span class="btn pri">저장</span>' % ('' if dirty else ' style="opacity:.5"'))
     return ('<div style="' + CARD + '"><div style="padding:13px 16px;border-bottom:1px solid #eef0f4;display:flex;align-items:center;gap:8px">'
@@ -601,8 +600,8 @@ def build():
                                           base_section(new=True)), height=1200),
               [('업체명', '입력 (필수)', '—', '코드·프로젝트가 이 이름으로 연결된다'),
                ('서비스 계정 (메뉴)', '클릭', '<b>잠김</b>', '<b>기본 정보(업체명)를 먼저 입력하세요.</b> · 기본 정보로 돌아간다'),
-               ('머리말 [등록]', '클릭', '고객사만 등록 → 상세(기본 정보)', '<b>서비스 계정 없이도 등록</b> <code>PC-159</code> · 입력한 모든 섹션 함께 저장 · <code>LOG-01</code>'),
-               ('머리말 [취소]', '클릭', '<code>MEM-01</code>', '아무것도 저장되지 않는다'),
+               ('섹션 아래 [등록]', '클릭', '고객사만 등록 → 상세(기본 정보)', '<b>서비스 계정 없이도 등록</b> <code>PC-159</code> · 입력한 모든 섹션 함께 저장 · <code>LOG-01</code>'),
+               ('섹션 아래 [취소]', '클릭', '<code>MEM-01</code>', '아무것도 저장되지 않는다 · 머리말에는 버튼이 없다 <code>PC-331</code>'),
                ('진행중 / 사업 종료', '선택', '—', '등록 때 함께 저장')]))
     B.append(('S2', '등록 — 업체명 미입력', '오류',
               '업체명 없이 [등록]하면 막는다. 입력란에도 오류를 표시한다.',
@@ -785,7 +784,7 @@ def build():
 
     intro = ('고객사를 <b>등록</b>하고 <b>상세·수정</b>하는 화면이다. 「<b>머리말 + 섹션 메뉴 | 본문</b>」 구조이며 '
              '섹션은 고객사 정보(기본 정보 · 편집 단가 · 관련 서류 · <b>서비스 티켓</b>)와 운영(서비스 계정 · 업무 메모)이다 <code>PC-136</code> <code>PC-173</code>. '
-             '<b>등록</b>은 한 번 — 머리말 [등록] 또는 서비스 계정 [계정 추가](고객사 함께 등록). 그 뒤는 <b>섹션·계정 단위로 저장</b>한다(PRD §4.8). '
+             '<b>등록</b>은 한 번 — 섹션 아래 [등록] 또는 서비스 계정 [계정 추가](고객사 함께 등록). 그 뒤는 <b>섹션·계정 단위로 저장</b>한다(PRD §4.8). '
              '진행 상태는 머리말 오른쪽 진행중/사업 종료 <code>PC-139</code>, 사용 서비스는 <b>서비스 계정의 서비스</b> <code>PC-138</code>, '
              '서비스 계정은 「카드 목록 | 상세」와 서비스 권한 탭 <code>PC-140</code> — <b>선택</b>이고, 비밀번호는 받지 않으며 <b>OWNER 는 1명</b> <code>PC-159</code>.')
     return page(CODE, NAME, PRD, intro, B)

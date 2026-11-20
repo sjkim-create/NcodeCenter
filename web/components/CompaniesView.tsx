@@ -15,6 +15,9 @@ import { Company, CompanyDoc, WorkKind, WorkLog, nextId,
 import { SOUND_ITEMS, PEN_ITEMS, rateMapOf, customRateCount, type RateItem } from "@/lib/pricing";
 import { COMMON_CODES, codeKey, codesOfCompany, isCommonCodeCompany, type CommonCode } from "@/lib/commonCodes";
 import { codesOfMember, addMember, removeMember, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
+import { langGroupOf, extSlotLangs, extLangText, groupOfCompany, useLangGroups } from "@/lib/langGroups";
+import { useCommonCodes, hydrateCommonCodes } from "@/lib/commonCodes";
+import { CompanyCodesSection } from "./CompanyCodesSection";
 import { caster, useCaster, accountScope, isActive, dupAccountMsg, type CasterAccount } from "@/lib/accountStore";
 import { CompanyAccountsPanel, type AccountOps } from "./CompanyAccountsPanel";
 import { CompanyServiceTickets } from "./CompanyServiceTickets";
@@ -28,7 +31,7 @@ const KIND_FG: Record<string, string> = { 요청: "#92400e", 처리: "#166534", 
 
 type LogDraft = { id: number | null; kind: WorkKind; content: string; projectId: number | null };
 // 고객사 상세 섹션 `PC-136`
-type Sec = "base" | "rate" | "docs" | "acc" | "ticket" | "memo";
+type Sec = "base" | "rate" | "docs" | "codes" | "acc" | "ticket" | "memo";
 type FormSec = "base" | "rate" | "docs";
 const SEC_KEYS: Record<FormSec, (keyof Draft)[]> = {
   base: ["name", "manager", "contact", "bizNo", "address", "bankName", "accountNo", "taxEmail"],
@@ -62,6 +65,8 @@ export function CompaniesTable() {
   const [sortDir, setSortDir] = useState<0 | 1 | -1>(0);
   useEffect(() => { hydrateMembers(); }, []);
   useCommonMembers();   // 멤버십(하위 귀속) 변경 시 재렌더
+  useCommonCodes(); useLangGroups();   // 화면에서 지정한 공통코드 · 확장 언어 그룹 `PC-330`
+  useEffect(() => { hydrateCommonCodes(); }, []);
 
   // 업체명·담당자·연락처·사업자번호·주소로 검색
   const norm = (s: string) => s.toLowerCase().replace(/\s+/g, "");
@@ -293,7 +298,8 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "",
   const { companies, projects, logs } = useStore();
   const me = currentUser(useAuth());
   useEffect(() => { hydrateMembers(); }, []);
-  useCommonMembers();
+  useCommonMembers(); useCommonCodes(); useLangGroups();   // 공통코드 지정 · 확장 언어 그룹 변경 시 하위 등록 목록 갱신 `PC-330`
+  useEffect(() => { hydrateCommonCodes(); }, []);
 
   const isNew = !companyId;
   const company = isNew ? null : companies.find((c) => c.id === companyId);
@@ -376,7 +382,7 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "",
     JSON.stringify(SEC_KEYS[sc].map((k) => (o as Record<string, unknown> | null | undefined)?.[k] ?? null));
   const sameSet = (a: Set<string>, b: Set<string>) => a.size === b.size && [...a].every((x) => b.has(x));
   const isDirty = (sc: Sec): boolean => {
-    if (isNew || !company || sc === "memo" || sc === "acc" || sc === "ticket") return false;
+    if (isNew || !company || sc === "memo" || sc === "acc" || sc === "ticket" || sc === "codes") return false;   // codes 는 자체 [저장] `PC-330`
     return pickKeys(form, sc) !== pickKeys(company, sc) || (sc === "base" && !sameSet(memberCodes, memberInit));
   };
   const syncMembers = (name: string) => {
@@ -486,6 +492,8 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "",
     { v: "base", label: "기본 정보", grp: "고객사 정보" },
     { v: "rate", label: "편집 단가", badge: nRate ? `전용 ${nRate}` : undefined },
     { v: "docs", label: "관련 서류", badge: form.docs.length ? String(form.docs.length) : undefined },
+    // 공통코드(상위 고객사) 지정 · 확장 언어 그룹 — 할당받은 코드가 있어야 하므로 등록된 고객사에만 `PC-330`
+    { v: "codes", label: "공통코드 · 확장 언어", badge: mounted && company ? [isHolderCo(company.name) ? "상위" : "", groupOfCompany(company.id) ? "🌐" : ""].filter(Boolean).join(" ") || undefined : undefined },
     // 서비스 티켓 — 고객사별 지정이라 **고객사 정보** 묶음 끝(서비스 계정 위)에 둔다 `PC-173` `PC-180`
     { v: "ticket", label: "서비스 티켓", badge: isNew || !company ? undefined : String(nTickets) },
     { v: "acc", label: "서비스 계정", badge: `${svcList.length ? svcList.map((x) => (x === "CASTERN" ? "casterN" : "폼솔루션")).join("·") + " · " : ""}${svcAccounts.length}`, grp: "운영" },
@@ -561,11 +569,8 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "",
             </div>
           </>)}
         </div>
-        {/* 등록 화면 — 어느 섹션에서든 [등록] 한 번으로 고객사 + 서비스 계정을 저장한다 `PC-136` */}
-        {isNew && (<>
-          <Link href="/companies" style={{ ...S.ghost, textDecoration: "none" }}>취소</Link>
-          <button onClick={() => save()} style={S.primary}>등록</button>
-        </>)}
+        {/* 등록 화면의 [취소][등록]은 머리말에 두지 않는다 — 다른 메뉴처럼 **섹션 카드 아래 한 곳**에만 둔다 `PC-331`
+            (어느 섹션에서든 [등록] 한 번으로 고객사 + 서비스 계정을 저장한다 `PC-136`) */}
         {!isNew && (
           <div style={{ position: "relative" }}>
             <button onClick={() => setMoreOpen((o) => !o)} style={{ ...S.ghost, padding: "5px 11px" }} title="더 보기">⋯</button>
@@ -589,7 +594,7 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "",
             const on = sec === n.v;
             const dirty = isDirty(n.v);
             const locked = (n.v === "acc" && !form.name.trim())   // 기본 정보가 먼저 `PC-139`
-              || (n.v === "ticket" && (isNew || !company));          // 서비스 티켓은 등록된 고객사에만 `PC-173`
+              || ((n.v === "ticket" || n.v === "codes") && (isNew || !company));          // 서비스 티켓 · 공통코드는 등록된 고객사에만 `PC-173` `PC-330`
             return (
               <div key={n.v}>
                 {n.grp && <div style={{ fontSize: 10.5, color: "#9ca3af", padding: n.v === "base" ? "6px 12px 2px" : "10px 12px 2px", borderTop: n.v === "base" ? "none" : "1px solid #eef0f4", marginTop: n.v === "base" ? 0 : 6 }}>{n.grp}</div>}
@@ -642,6 +647,19 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "",
                                       <b style={{ color: own ? "#9ca3af" : cOn ? "#1e3a8a" : "#374151" }}>{c.name}</b>
                                       {own && <span style={{ ...S.tag, marginLeft: 6, fontSize: 9.5, background: "#e5e7eb", color: "#6b7280", fontWeight: 700 }}>대표(자기) 코드</span>}
                                       <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{c.label}</div>
+                                      {/* 이 공통코드에 그룹으로 묶인 확장 언어 슬롯 — 범위만 보인다(사용 슬롯 나열은 하지 않는다) `PC-329`
+                                          툴팁에는 언어가 지정된 슬롯 · 언어 */}
+                                      {(() => {
+                                        const g = langGroupOf(c.k, c.s, c.o);
+                                        if (!g) return null;
+                                        const used = g.ext.filter((o) => extSlotLangs(g, o).length > 0);
+                                        return (
+                                          <div style={{ fontSize: 11, color: "#0e7490", marginTop: 3, lineHeight: 1.6 }}
+                                            title={used.map((o) => `S${g.section ?? "-"}/O${o} — ${extLangText(g, o)}`).join(" / ") || "언어가 지정된 슬롯 없음"}>
+                                            🌐 확장 언어 슬롯 S{g.section ?? "-"}/O{Math.min(...g.ext)}~{Math.max(...g.ext)}
+                                          </div>
+                                        );
+                                      })()}
                                     </span>
                                   </label>
                                 );
@@ -760,10 +778,21 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "",
             <CompanyAccountsPanel accounts={svcAccounts} ops={accountOps} draft={isNew} initialId={prefillEmail}
               companyName={form.name.trim()} companyServices={svcList}
               appKeyOf={(id) => cast.appKeys.find((k) => k.accountId === id)?.key} />
+            {/* 등록 화면 — 서비스 계정 섹션에도 다른 섹션과 같은 자리(카드 아래)에 [취소][등록] `PC-331` */}
+            {isNew && (
+              <div style={{ ...secCard, flexDirection: "row" }}>
+                <div style={{ ...secFt, borderTop: 0, flex: 1 }}>
+                  <span style={{ flex: 1 }} />
+                  <Link href="/companies" style={{ ...S.ghost, textDecoration: "none" }}>취소</Link>
+                  <button onClick={() => save()} style={S.primary}>등록</button>
+                </div>
+              </div>
+            )}
           </div>)}
 
           {/* 서비스 티켓 — 할당 범위 · 티켓 목록 | 상세 / 지정 `PC-173` */}
           {sec === "ticket" && company && !isNew && <CompanyServiceTickets company={company} accountCount={svcAccounts.length} />}
+          {sec === "codes" && company && !isNew && <CompanyCodesSection company={company} />}
 
           {sec === "memo" && (
             <div style={secCard}>

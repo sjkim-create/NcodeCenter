@@ -168,7 +168,7 @@ def toolbar(pds='전체', fstat='전체', acct=''):
             'font-size:12.5px;background:#fff">'
             '<b style="font-size:13px">SOBP 맵</b>'
             '%s%s'
-            '<div style="width:180px;margin-left:auto;padding:8px 10px;border:1px solid #e5e7eb;'
+            '<div style="width:200px;padding:8px 10px;border:1px solid #e5e7eb;'
             'border-radius:8px;font-size:13px;background:#fff" '
             'title="비우면 전체, 입력하면 해당 고객사만">%s</div>'
             '<span style="display:inline-flex;gap:10px;font-size:12px;width:100%%;padding-top:2px;'
@@ -483,7 +483,7 @@ def build():
         '<b>종류 칩</b>으로 가른다. 좌표는 유일하므로 중복은 성립하지 않는다. '
         '<b>옛 IDS(A코드) 표기는 OID 와 같은 것</b>으로 함께 본다 <code>PC-035</code>.<br>'
         '상단은 <b>「코드」 필터(전체 · PDS2 · PDS3 · PDS4 · OID)</b> 와 '
-        '<b>「상태」 필터</b> 두 묶음이고, 오른쪽에 고객사 검색이 붙는다 <code>PC-039</code>. '
+        '<b>「상태」 필터</b> 두 묶음이고, 바로 옆에 고객사 검색이 붙는다(오른쪽 끝으로 밀지 않는다 <code>PC-333</code>) <code>PC-039</code>. '
         '처음 연 상태 = 코드 <b>전체</b> · 상태 <b>전체</b> · 고객사 비움이며, '
         '전체 보기의 Section 정원은 그 섹션을 쓰는 <b>종류들의 최대치</b>다.',
         frame('SOB-01', 'SOBP 맵', content(pds='전체'), height=1180),
