@@ -177,8 +177,14 @@ export default function EditingProjectsView() {
     st.projects.filter((p) => p.companyId === companyId).forEach((p) =>
       p.issued.forEach((b) => m.set(`${b.kind ?? "N"}/${b.section}/${b.owner}`,
         { owner: b.owner, kind: (b.kind ?? "N") as "N" | "G", section: b.section })));
-    return [...m.values()].sort((a, b) => a.section - b.section || a.owner - b.owner);
+    const all2 = [...m.values()].sort((a, b) => a.section - b.section || a.owner - b.owner);
+    // 확장 언어 그룹 고객사는 **기본 코드만** — 확장 · 역할 미지정 코드는 교재가 아니라 언어 슬롯이다 `PC-349`
+    hydrateLangGroups();
+    const lg2 = groupOfCompany(companyId);
+    return lg2 ? all2.filter((o) => o.owner === lg2.base && (lg2.section == null || lg2.section === o.section)) : all2;
   };
+  // 그룹 고객사인데 기본 코드를 아직 정하지 않았는가(안내용)
+  const baseMissing = (companyId: number) => { const lg2 = groupOfCompany(companyId); return !!lg2 && lg2.base == null; };
   const onPickCompany = (companyId: number) => {
     const opts = ownerOptsOf(companyId);
     setAddForm({ companyId, owner: opts.length === 1 ? String(opts[0].owner) : "", kind: opts[0]?.kind ?? "N" });
@@ -427,6 +433,13 @@ export default function EditingProjectsView() {
                 </div>
               ) : (
                 // 코드 할당은 **SOBP 맵에서만** 한다 — 여기서 Owner/코드 종류를 직접 입력하지 않는다 `PC-045`
+                baseMissing(addForm.companyId) ? (
+                  <div style={{ marginTop: 12, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 9, padding: "11px 13px", fontSize: 12.5, color: "#92400e", lineHeight: 1.7 }}>
+                    <b>{co?.name}</b> 는 확장 언어 그룹 고객사입니다. <b>기본 코드</b>를 아직 정하지 않았습니다.
+                    <div style={{ marginTop: 4 }}>고객사 관리 ▸ 공통코드 · 확장 언어 에서 코드 하나를 <b>기본</b>으로 정하고 저장한 뒤 다시 추가하세요.</div>
+                    <a href={`/companies/${addForm.companyId}`} style={{ display: "inline-block", marginTop: 8, fontSize: 12, fontWeight: 700, color: "#b45309" }}>고객사 관리로 이동 →</a>
+                  </div>
+                ) :
                 <div style={{ marginTop: 12 }}>
                   <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: "11px 13px", fontSize: 12.5, color: "#991b1b", lineHeight: 1.7 }}>
                     🚫 <b>{co?.name}</b> 는 아직 <b>할당된 코드가 없습니다.</b>

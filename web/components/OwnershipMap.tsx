@@ -484,13 +484,14 @@ export default function OwnershipMap() {
                   {(() => {
                     // 확장 언어 그룹의 Owner — 보유 고객사 대신 **그룹 고객사**로 보이고, 기본 / 확장 · 언어를 붙인다 `PC-330`
                     //   (옛 방식으로 슬롯 고객사에 따로 할당된 Owner 도 그룹 고객사 아래로 보인다 — 할당 데이터는 그대로)
-                    const lg = groupOfOwner(curS, o, codeKind(pds, curS));
+                    // 코드 종류는 따지지 않는다 — 그룹의 코드 종류 기본값(PDS2)과 할당 코드(PDS3)가 달라도 역할을 보인다 `PC-348`
+                    const lg = groupOfOwner(curS, o);
                     if (!lg) return accts.length > 0 ? <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{accts.join(", ")}</div> : null;
                     const langs = extLangs(lg.g, o);
                     // 회사명 옆 칩 — 기본 / 확장 언어(몇 번째) / 역할 미지정 `PC-343`
                     const extN = lg.g.ext.indexOf(o) + 1;
                     const chip = lg.role === "base" ? { t: "기본", bg: "#dbeafe", fg: "#1d4ed8", tip: "기본 Owner · 슬롯 1~4" }
-                      : lg.role === "ext" ? { t: "확장 언어", bg: "#cffafe", fg: "#0e7490", tip: `확장 ${extN} · 슬롯 ${extN * 4 + 1}~${extN * 4 + 4}` }
+                      : lg.role === "ext" ? { t: `확장 ${extN}`, bg: "#cffafe", fg: "#0e7490", tip: `확장 언어 ${extN} · 슬롯 ${extN * 4 + 1}~${extN * 4 + 4}` }
                       : { t: "역할 미지정", bg: "#fef3c7", fg: "#b45309", tip: "고객사 관리 ▸ 공통코드 · 확장 언어 에서 역할을 고르세요" };
                     return (
                       <>
