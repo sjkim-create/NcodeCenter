@@ -24,19 +24,29 @@ def sc(k, c, v):
             % (c, k, v))
 
 
-def code_btn(kind, section, owner, on=False):
+def code_btn(kind, section, owner, on=False, role=None):
+    # role — 확장 언어 그룹 고객사의 역할 칩 [기본] / [확장 언어] `PC-343` `PC-346`
     label = 'N(PDS3)' if kind == 'N' else 'G(PDS2)'
+    chip = ''
+    if role:
+        bg, fg, tip = (('#dbeafe', '#1d4ed8', '기본 Owner · 슬롯 1~4') if role == '기본'
+                       else ('#cffafe', '#0e7490', '확장 1 · 슬롯 5~8'))
+        chip = ('<span title="%s" style="font-size:10px;font-weight:700;border-radius:5px;'
+                'padding:1px 6px;background:%s;color:%s;white-space:nowrap">%s</span>'
+                % (tip, bg, fg, role))
     return ('<span style="display:inline-flex;align-items:center;gap:5px;border:1px solid %s;'
             'background:%s;border-radius:9px;padding:5px 8px">'
             '<span style="font-size:9px;font-weight:700;color:#fff;border-radius:5px;'
-            'padding:1px 5px;background:%s">%s</span>%s%s</span>'
+            'padding:1px 5px;background:%s">%s</span>%s%s%s</span>'
             % ('#93c5fd' if on else '#e5e7eb', '#eef6ff' if on else '#fff',
                '#2563eb' if kind == 'N' else '#d97706', label,
-               sc('S', '#5f8ff0', section), sc('O', '#14b8a6', owner)))
+               sc('S', '#5f8ff0', section), sc('O', '#14b8a6', owner), chip))
 
 
 def owner_block(picked=None, opts=OPTS):
-    btns = ''.join(code_btn(k, s, o, on=(picked == o)) for k, s, o in opts)
+    # opts 항목 = (코드 종류, Section, Owner[, 역할 칩])
+    btns = ''.join(code_btn(x[0], x[1], x[2], on=(picked == x[2]), role=(x[3] if len(x) > 3 else None))
+                   for x in opts)
     more = ('<span style="color:#9ca3af"> · %d개 중 선택</span>' % len(opts)) if len(opts) > 1 else ''
     return ('<div style="margin-top:12px">'
             '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">Owner 코드 *%s</div>'
@@ -55,6 +65,17 @@ def manual_block(co='크레버스'):
             '먼저 SOBP 맵에서 이 고객사에 코드를 할당한 뒤 다시 추가하세요.</div>'
             '<div style="margin-top:8px;font-size:12px;font-weight:700;color:#b91c1c">'
             'SOBP 맵으로 이동 →</div></div></div>' % co)
+
+
+def base_missing_block(co='(유한)언어테스트'):
+    # 확장 언어 그룹 고객사인데 기본 코드를 아직 정하지 않았다 — 고객사 관리로 안내 `PC-349`
+    return ('<div style="margin-top:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;'
+            'padding:11px 13px;font-size:12.5px;color:#92400e;line-height:1.7">'
+            '<b>%s</b> 는 확장 언어 그룹 고객사입니다. <b>기본 코드</b>를 아직 정하지 않았습니다.'
+            '<div style="margin-top:4px">고객사 관리 ▸ 공통코드 · 확장 언어 에서 코드 하나를 '
+            '<b>기본</b>으로 정하고 저장한 뒤 다시 추가하세요.</div>'
+            '<div style="margin-top:8px;font-size:12px;font-weight:700;color:#b45309">'
+            '고객사 관리로 이동 →</div></div>' % co)
 
 
 def modal(company='- 고객사 선택 -', body='', ok=False):
@@ -95,7 +116,9 @@ def build():
         '<b>[추가]</b> 가 눌리지 않는다.',
         F(modal()),
         [('등록된 고객사', '선택', 'Owner 코드 목록',
-          '고객사 관리에 <b>등록된 고객사 전부</b> · 가나다순 · 사업 종료면 「(사업 종료)」 표시 <code>PC-187</code>'),
+          '고객사 관리에 <b>등록된 고객사 전부</b> · 가나다순 · 사업 종료면 「(사업 종료)」 표시 <code>PC-187</code> · '
+          '옛 확장 언어 슬롯 고객사(「Common 추가 언어 슬롯-…」 · 「Cake-984~1003」)는 빼고 '
+          '<b>그룹 고객사(Common-21 · Cake-1009)만</b> <code>PC-345</code>'),
          ('후보에 없을 때', '—', '<code>MEM-01</code>',
           '고객사 관리에 <b>등록</b>하면 후보가 된다. 서비스 계정의 casterN 체크(계정 권한)와는 무관하다 <code>PC-187</code>'),
          ('[추가]', '—', '<b>비활성</b>', '고객사·Owner 가 모두 정해져야 눌린다'),
@@ -111,6 +134,7 @@ def build():
         '<b>Section → Owner</b> 순으로 정렬된다. 목록 만드는 규칙은 PRD §4.5(가).',
         F(modal('웅진씽크빅', owner_block(picked=212), ok=True)),
         [('Owner 코드 버튼', '클릭', '선택', '코드 종류 · S · O 를 함께 표시'),
+         ('그룹이 없는 고객사', '—', '그대로', '할당 코드 <b>전부</b> · 역할 칩 없음 — 그룹 고객사는 S5 <code>PC-349</code>'),
          ('개수 표기', '표시', '—', '여러 개면 <b>{n}개 중 선택</b>'),
          ('정렬', '—', 'Section → Owner', '오름차순'),
          ('선택 안내', '표시', '—',
@@ -143,6 +167,36 @@ def build():
          ('코드 종류 선택', '—', '<b>없음</b>', '좌표 종류는 할당된 코드를 따른다'),
          ('[추가]', '—', '<b>비활성</b>', 'Owner 가 선택되지 않아 누를 수 없다'),
          ('SOBP 맵으로 이동 →', '클릭', '<code>SOB-01</code>', '코드 할당 후 다시 시도')] + NAV))
+
+    B.append((
+        'S5', '확장 언어 그룹 고객사 — 기본 코드만', '분기',
+        '<code>PC-349</code> — 확장 언어 그룹 고객사를 고르면 <b>기본 코드만</b> 버튼으로 나온다. '
+        '확장 · 역할 미지정 코드는 교재를 올리는 코드가 아니라 <b>언어 슬롯</b>이라 뺀다'
+        '(그룹 Section 이 정해졌으면 그 Section 만). 버튼 끝에 역할 칩 <b>[기본]</b> <code>PC-343</code> '
+        '— 역할 미지정 칩은 없다 <code>PC-346</code>. 기본 코드 하나뿐이라 <b>자동으로 선택</b>된다(S3). '
+        '예: (유한)언어테스트 — 할당 S0/O4~O7 중 기본 O4 만.',
+        F(modal('(유한)언어테스트', owner_block(picked=4, opts=(('N', 0, 4, '기본'),)), ok=True)),
+        [('고객사 셀렉트', '—', '그룹 고객사만',
+          '옛 슬롯 고객사는 나오지 않는다(고객사 관리 목록과 같은 기준) <code>PC-345</code>'),
+         ('Owner 코드 버튼', '표시', '<b>기본 코드만</b>',
+          '예: <b>N(PDS3) S0 O4 [기본]</b> · 확장(O5~O7)은 나오지 않는다 <code>PC-349</code>'),
+         ('[기본]', 'hover', '툴팁', '<b>기본 Owner · 슬롯 1~4</b> — 역할은 <code>MEM-02</code> §4.12 에서 정한 값'),
+         ('자동 선택', '자동', '선택됨', '기본 코드 하나뿐이라 바로 <b>[추가]</b> 를 누를 수 있다'),
+         ('[추가]', '클릭', '<code>PRJ-02</code>', '그룹 고객사가 목록에 올라간다 — 확장 슬롯은 교재 편집에서 고른다')] + NAV))
+
+    B.append((
+        'S6', '기본 코드 미정 — 안내', '차단',
+        '<code>PC-349</code> — 확장 언어 그룹 고객사인데 <b>기본 코드를 아직 정하지 않았으면</b> 코드 버튼 대신 '
+        '노란 안내와 <b>[고객사 관리로 이동 →]</b> 이 나온다. <b>[추가]</b> 는 눌리지 않는다. '
+        '예: 그룹을 만들고 역할을 아직 배당하지 않은 (유한)언어테스트.',
+        F(modal('(유한)언어테스트', base_missing_block(), ok=False)),
+        [('안내', '표시', '—',
+          '<b>{고객사} 는 확장 언어 그룹 고객사입니다. 기본 코드를 아직 정하지 않았습니다. '
+          '고객사 관리 ▸ 공통코드 · 확장 언어 에서 코드 하나를 기본으로 정하고 저장한 뒤 다시 추가하세요.</b>'),
+         ('고객사 관리로 이동 →', '클릭', '<code>MEM-02</code>', '그 고객사의 공통코드 · 확장 언어 §4.12'),
+         ('Owner 코드 버튼', '—', '<b>없음</b>', '확장 · 역할 미지정 코드도 보이지 않는다'),
+         ('[추가]', '—', '<b>비활성</b>', 'Owner 가 선택되지 않아 누를 수 없다'),
+         ('할당 코드 자체가 없을 때', '—', 'S4', '그룹이 아니면 기존 차단 안내(SOBP 맵)')] + NAV))
 
     intro = ('이미 코드를 받은 고객사를 <b>편집 관리 대상으로 올리는</b> 창이다. '
              '<b>고객사를 새로 만들거나 코드를 새로 할당하지 않는다</b> — 이미 할당된 코드 중 '

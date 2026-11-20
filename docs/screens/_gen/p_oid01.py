@@ -79,7 +79,7 @@ def kpis():
 
 
 def bar(fidx='전체', q='', n=8):
-    srch = ('<div class="inp' + ('' if q else ' ph') + '" style="width:240px;margin-left:auto">'
+    srch = ('<div class="inp' + ('' if q else ' ph') + '" style="width:240px">'   # 필터 바로 옆 — 오른쪽 끝으로 밀지 않는다 `PC-333`
             + (q or '업체 · 교재 · index 검색') + '</div>')
     chips = ''.join(chip(l, l == fidx) for l in ('전체', 'index 관리(book)', '미분할(업체 단위)'))
     return ('<div class="card" style="padding:10px 12px;margin-bottom:10px;display:flex;'
@@ -206,7 +206,7 @@ def build():
             memo='S3/O21 · B195~235', items=ITEMS_CM),
         [('index 관리(book)', '클릭', '해당 업체만', '웅진 · Common 처럼 book 으로 나눈 업체'),
          ('미분할(업체 단위)', '클릭', '해당 업체만', '한솔 · 잉글리시에그 등'),
-         ('검색', '입력', '업체·항목 동시 필터', '업체 목록과 오른쪽 표에 함께 적용'),
+         ('검색', '입력', '업체·항목 동시 필터', '업체 목록과 오른쪽 표에 함께 적용 · 입력란은 <b>필터 칩 바로 옆</b>(오른쪽 끝으로 밀지 않는다) <code>PC-333</code>'),
          ('사용 고객사', '표시', '—', '공유(커먼) 코드에서 실제 사용 고객사(예: LG U+)')] + NAV))
 
     B.append((

@@ -207,6 +207,35 @@ def sec_col(pds='N', sel=0):
 
 
 # ── OWNER ───────────────────────────────────────────────────────
+# 확장 언어 그룹 Owner 의 역할 칩 — 기본 / 확장 k / 역할 미지정 `PC-343` `PC-348`
+ROLE_CHIP = {'base': ('기본', '#dbeafe', '#1d4ed8', '기본 Owner · 슬롯 1~4'),
+             'pending': ('역할 미지정', '#fef3c7', '#b45309',
+                         '고객사 관리 ▸ 공통코드 · 확장 언어 에서 역할을 고르세요')}
+
+
+def lang_lines(company, role, langs):
+    """그룹 Owner 카드 두 줄 — ① 그룹 고객사명 + [역할 칩] ② 🌐 {첫 언어} 외 {n} / 지정된 언어 없음.
+    role: 'base' | 'pending' | 정수 k(확장 k)"""
+    if isinstance(role, int):
+        t, bg, fg, tip = ('확장 %d' % role, '#cffafe', '#0e7490',
+                          '확장 언어 %d · 슬롯 %d~%d' % (role, role * 4 + 1, role * 4 + 4))
+    else:
+        t, bg, fg, tip = ROLE_CHIP[role]
+    if langs:
+        lt = langs[0] + (' 외 %d' % (len(langs) - 1) if len(langs) > 1 else '')
+        ltip = ' · '.join(langs)
+    else:
+        lt = ltip = '지정된 언어 없음'
+    return ('<div style="display:flex;align-items:center;gap:4px;margin-top:2px;min-width:0">'
+            '<span style="font-size:10px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;'
+            'white-space:nowrap">%s</span>'
+            '<span title="%s" style="font-size:9px;font-weight:700;border-radius:4px;padding:0 4px;'
+            'line-height:14px;white-space:nowrap;flex-shrink:0;background:%s;color:%s">%s</span></div>'
+            '<div title="%s" style="font-size:9.5px;color:#0e7490;margin-top:2px;line-height:1.4;'
+            'overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🌐 %s</div>'
+            % (company, tip, bg, fg, t, ltip, lt))
+
+
 # (owner, 상태, accts, 배지종류)  배지종류: None | 'shared' | 'blocked'
 OWN_S0 = ((0, '미사용', '', None), (1, '코드발급', 'neoa-1', None),
           (2, '코드발급', 'neotest-2', None), (3, '코드발급', 'neo1024-3', None),
@@ -249,10 +278,10 @@ def own_col(rows=None, sel=10, mx='1,023', ofrom='', empty=None, flabel=None, mo
             sub = ('<div style="font-size:10px;color:#6b7280;margin-top:2px;overflow:hidden;'
                    'text-overflow:ellipsis;white-space:nowrap">%s</div>' % accts)
         lang = ''
-        if kind == 'lang':
+        if isinstance(kind, tuple) and kind[0] == 'lang':
+            # 확장 언어 그룹 Owner — 보유 고객사 대신 그룹 고객사명 + 역할 칩, 다음 줄 🌐 언어 `PC-343` `PC-348`
             badge = st_badge(st)
-            lang = ('<div style="font-size:9.5px;color:#7e22ce;margin-top:2px;line-height:1.4" '
-                    'title="언어 슬롯 (db에서 직접 관리)">🌐 Common 확장 · 베트남어</div>')
+            sub = lang_lines(*kind[1:])
         out += cardbtn('<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;'
                        'row-gap:3px">%s%s</div>%s%s' % (sc('O', o), badge, sub, lang), o == sel)
     tail = more_btn(more) if more else ''
@@ -623,13 +652,15 @@ def build():
         'S12', 'Owner 배지 — 공유 / 🚫 / 언어 슬롯', '변형',
         'Owner 배지는 <b>우선순위 3단</b> 이다 — ① 공유로 지정된 Owner 는 발급 여부와 무관하게 '
         '항상 <b>공유</b> ② 반대 코드 종류가 선점했고 아직 미발급이면 <b>🚫 영역 할당됨</b> '
-        '③ 그 외에는 코드 상태 배지. 언어 슬롯 줄(🌐)은 <b>PDS2 의 S3</b> 에서만 붙는다.',
+        '③ 그 외에는 코드 상태 배지. 확장 언어 그룹 Owner 는 그룹 고객사명 · 역할 칩 · 🌐 언어 두 줄이 '
+        '붙는다(자세히는 S20).',
         frame('SOB-01', 'SOBP 맵',
               content(pds='G', sel_s=3, sel_o=21,
                       own_rows=((17, '편집', '웅진씽크빅', None),
                                 (21, '사용가능', 'NeoLAB', 'shared'),
                                 (26, '미사용', '', 'blocked'),
-                                (964, '사용가능', 'NeoLAB', 'lang')),
+                                (964, '사용가능', 'NeoLAB',
+                                 ('lang', 'Common-21', 1, ['베트남어']))),
                       own_more='4,075', book_more='4,087', book_shared=True,
                       book_rows=((0, '편집', '한국뉴베리', False),
                                  (1, '편집', '아들과딸', False),
@@ -642,7 +673,9 @@ def build():
          ('🚫 영역 할당됨', 'hover', '툴팁',
           '(폐지) 예전의 <b>🚫 영역 할당됨</b> 배지는 없앴다 — 종류는 배타가 아니라 '
           '<b>용도 표시</b>다 <code>PC-039</code>'),
-         ('🌐 언어 슬롯', '표시', '—', '<b>db에서 직접 관리</b> · PDS2 S3 에서만'),
+         ('🌐 확장 언어 그룹 Owner', '표시', 'S20',
+          '그룹 고객사명 옆 <b>역할 칩</b> + 다음 줄 <b>🌐 {첫 언어} 외 {n}</b> '
+          '<code>PC-343</code> <code>PC-348</code>'),
          ('공유 Owner의 Book 라벨', '표시', '—', '<b>보라 굵게</b> = 실사용 고객사'),
          ('일반 Owner의 Book 라벨', '표시', '—', '회색 = 프로젝트/교재명')]))
 
@@ -773,6 +806,44 @@ def build():
          ('IDS 표기', '—', '통합', '옛 <b>IDS(A코드)</b> 는 OID 와 <b>같은 것</b>으로 함께 나온다'),
          ('업체·index 목록', '조회', '<code>INF-04</code>',
           '코드 관리 정보 ▸ OID 관리대장 탭 (book 미분할 업체 포함)')] + NAV))
+
+    LT = '(유한)언어테스트'
+    B.append((
+        'S20', '확장 언어 그룹 Owner — 역할 칩', '변형',
+        '<code>PC-330</code> <code>PC-343</code> <code>PC-348</code> — 고객사 관리에서 '
+        '<b>확장 언어 그룹</b>에 넣은 Owner 는 보유 고객사 대신 <b>그룹 고객사명</b>으로 보이고 '
+        '두 줄이 붙는다. ① 고객사명 옆 칩 <b>[기본]</b> / <b>[확장 1]</b> · <b>[확장 2]</b> … / '
+        '<b>[역할 미지정]</b> ② <b>🌐 {첫 언어} 외 {n}</b> (언어가 없으면 <b>🌐 지정된 언어 없음</b>). '
+        '그룹의 코드 종류(PDS2 / PDS3)가 할당 코드와 달라도 칩을 보인다 <code>PC-348</code>.',
+        frame('SOB-01', 'SOBP 맵',
+              content(pds='N', sel_s=3, sel_o=4, sel_b=0,
+                      own_rows=((3, '미사용', '', None),
+                                (4, '코드발급', LT,
+                                 ('lang', LT, 'base', ['한국어', '영어', '중국어', '일본어'])),
+                                (5, '코드발급', LT, ('lang', LT, 1, ['필리핀'])),
+                                (6, '코드발급', LT, ('lang', LT, 2, [])),
+                                (7, '코드발급', LT, ('lang', LT, 'pending', []))),
+                      own_more='1,016',
+                      book_rows=((0, '사용가능', LT, False),),
+                      book_more='8,191',
+                      page_kw=dict(cust=LT, proj='%s 코드발급' % LT, total=0, pmax=512,
+                                   sec=3, own=4)),
+              height=1120),
+        [('그룹 고객사명', '표시', '—',
+          '보유 고객사 대신 <b>그룹 고객사</b> — 옛 방식으로 슬롯 고객사에 따로 할당된 Owner 도 '
+          '그룹 고객사로 보인다(할당 기록은 툴팁)'),
+         ('[기본]', 'hover', '툴팁', '<b>기본 Owner · 슬롯 1~4</b>'),
+         ('[확장 {k}]', 'hover', '툴팁',
+          '<b>확장 언어 {k} · 슬롯 {a}~{b}</b> — 확장 순서대로 1 · 2 … <code>PC-348</code>'),
+         ('[역할 미지정]', 'hover', '툴팁',
+          '<b>고객사 관리 ▸ 공통코드 · 확장 언어 에서 역할을 고르세요</b> — '
+          '코드 할당 창에서 할당한 Owner 는 이 상태로 들어온다 <code>PC-335</code>'),
+         ('🌐 언어 줄', 'hover', '툴팁',
+          '<b>🌐 {첫 언어} 외 {n}</b> · 툴팁에 언어 전체 · 언어가 없으면 <b>🌐 지정된 언어 없음</b>'),
+         ('코드 종류', '참고', '—',
+          '그룹의 코드 종류와 할당 코드 종류가 달라도 칩을 보인다 <code>PC-348</code>'),
+         ('역할 · 언어 변경', '이동', '<code>MEM-02</code>',
+          '이 화면에서는 보기만 한다 — 역할 · 언어는 고객사 관리 ▸ 공통코드 · 확장 언어 에서')]))
 
     intro = ('<b>Section → Owner → Book → Page</b> 드릴다운 코드 지도. 조회 전용이며 저장 동작이 없다. '
              '상태는 <b>실제 화면에서 갈라지는 것</b>만 담았다.<br>'

@@ -254,8 +254,13 @@ def basis_box(filtered=False, base_price=False, discount=True):
 
 
 def summary(filtered=False, base_price=False, discount=True, basis=False,
-            unfilter=False, search='', share=False):
-    if filtered:
+            unfilter=False, search='', share=False, nums=None):
+    if nums:
+        # 다른 고객사 예시(Common-21 전체 · 확장 언어 필터) 수치 `PC-344`
+        bk, pg, s_sym, p_sym, sym = nums['bk'], nums['pg'], nums['s'], nums['p'], nums['sym']
+        apply_amt, sym_amt, cost, dc = nums['apply'], nums['symamt'], nums['cost'], None
+        listed, dcp = cost, '0'
+    elif filtered:
         bk, pg, s_sym, p_sym, sym = '5', '220', '3,408', '726', '4,134'
         apply_amt, sym_amt, cost, dc = '₩110,000', '₩4,134,000', '₩4,085,500', '₩158,500'
         listed, dcp = '₩4,244,000', '3.7'
@@ -264,7 +269,7 @@ def summary(filtered=False, base_price=False, discount=True, basis=False,
         apply_amt, sym_amt, cost, dc = ('₩7,705,000', '₩18,482,000', '₩25,087,000',
                                         '₩1,100,000')
         listed, dcp = '₩26,187,000', '4.2'
-    if not discount:
+    if not discount and not nums:
         cost, dc = listed, None
     edit = kpi_group('편집량', (
         ('교재(책)·필터' if filtered else '교재(책)', bk, ''),
@@ -304,7 +309,8 @@ def summary(filtered=False, base_price=False, discount=True, basis=False,
                 basis_box(filtered, base_price, discount) if basis else ''))
     if unfilter:
         tags += ('<span class="btn sm" style="margin-left:auto;color:#2563eb;'
-                 'white-space:nowrap">필터 해제 (5/114)</span>')
+                 'white-space:nowrap">%s</span>'
+                 % (unfilter if isinstance(unfilter, str) else '필터 해제 (5/114)'))
     sv = ('<div class="inp" style="width:%dpx;padding-right:26px">%s'
           '<span style="position:absolute;right:6px;top:50%%;transform:translateY(-50%%);'
           'color:#9ca3af;font-size:14px">×</span></div>'
@@ -334,22 +340,31 @@ def proj_of(fn):
     return fn[:-5] + '.nproj' if fn.endswith('.ncp2') else fn + '.nproj'
 
 
-def sob(s, o, b):
+def sob(s, o, b, ext=None):
+    # ext = (실선 슬롯들, 점선 슬롯들) — S · O · B 칩 옆에 같은 칩 모양 [확장] {o} 를 **한 줄에** `PC-327`
+    #   실선 = 이 교재에 고른 확장 언어 슬롯 · 점선 = 같은 사용 고객사가 그 슬롯 Book 을 따로 등록한 교재(옛 방식)
+    chips = [('S', s, '#5f8ff0', False), ('O', o, '#14b8a6', False), ('B', b, '#8b5cf6', False)]
+    if ext:
+        chips += [('확장', x, '#0891b2', False) for x in ext[0]]
+        chips += [('확장', x, '#0891b2', True) for x in ext[1]]
     out = ''
-    for k, v, c in (('S', s, '#5f8ff0'), ('O', o, '#14b8a6'), ('B', b, '#8b5cf6')):
+    for k, v, c, dash in chips:
         out += ('<span style="display:inline-flex;align-items:center;gap:3px;'
-                'border:1px solid #e5e7eb;border-radius:6px;padding:1px 5px 1px 1px;'
+                'border:1px %s %s;border-radius:6px;padding:1px 5px 1px 1px;'
                 'background:#fff;font-size:10.5px;margin-right:2px">'
                 '<span style="background:%s;color:#fff;font-weight:700;font-size:9px;'
                 'border-radius:4px;padding:1px 4px">%s</span>'
                 '<span style="font-family:ui-monospace,monospace">%s</span></span>'
-                % (c, k, v))
-    return out
+                % ('dashed' if dash else 'solid', '#67e8f9' if dash else '#e5e7eb',
+                   '#a5d8e2' if dash else c, k, v))
+    return ('<span style="display:inline-flex;align-items:center;white-space:nowrap">%s</span>'
+            % out)
 
 
 def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
-              hf=False, page=True, dup=False, work=None):
+              hf=False, page=True, dup=False, work=None, extmap=None, total=114):
     # dup — 행 맨 끝 [복제] 열(조회 전용에는 없다) · work — {No: (n, N)} 「작업 n/N」 배지 `PC-112`
+    # extmap — {No: (실선 슬롯, 점선 슬롯)} S/O/B 칸의 [확장] 칩 `PC-327` · total — 페이지네이션 전체 건수
     cols = list(HEAD3)
     if share:
         cols.insert(2, '사용 고객사')
@@ -435,7 +450,7 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                      '<td style="font-weight:600;text-align:left;max-width:200px">%s%s</td>'
                      '<td><span style="font-size:11px;background:%s;color:%s;border-radius:5px;'
                      'padding:2px 7px">%s</span></td>'
-                     '<td>%s</td>'
+                     '<td style="text-align:left">%s</td>'
                      '<td>%s<div style="font-size:10px;color:#9ca3af">%dp</div></td>'
                      '<td style="font-weight:700;white-space:nowrap">%s</td>'
                      '<td style="font-size:11;color:#6b7280">%s</td>'
@@ -452,7 +467,8 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                         if fn and fn != '—' else '',
                         t, wbadge,
                         '#eef6ff' if k == 'N' else '#fef3c7',
-                        '#2563eb' if k == 'N' else '#92400e', k, sob(s, o, b),
+                        '#2563eb' if k == 'N' else '#92400e', k,
+                        sob(s, o, b, (extmap or {}).get(no)),
                         prange, pg, '{:,}'.format(sym), d,
                         '#374151' if nmod != '—' else '#d1d5db', nmod,
                         ('<span style="font-size:11px;background:#eef6ff;color:#2563eb;'
@@ -461,15 +477,16 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                         amt, dcv, cell_dup))
     pgn = ''
     if page and not empty:
+        npg = max(1, (total + 49) // 50)
         nums = ''.join('<span style="min-width:24px;text-align:center;font-size:11.5px;'
                        'padding:3px 6px;border-radius:6px;border:1px solid %s;background:%s;'
                        'color:%s">%d</span>'
                        % ('#93c5fd' if n == 1 else '#e5e7eb', '#eef6ff' if n == 1 else '#fff',
-                          '#2563eb' if n == 1 else '#6b7280', n) for n in (1, 2, 3))
+                          '#2563eb' if n == 1 else '#6b7280', n) for n in range(1, min(3, npg) + 1))
         pgn = ('<div style="display:flex;align-items:center;justify-content:space-between;'
                'gap:10px;padding:10px 14px;border-top:1px solid #eef0f4;flex-wrap:wrap">'
                '<div style="font-size:12px;color:#6b7280">전체 '
-               '<b style="color:#111827">114</b>건 중 1~50 표시'
+               '<b style="color:#111827">%s</b>건 중 1~%d 표시'
                '<span class="inp" style="display:inline-flex;align-items:center;'
                'margin-left:8px;font-size:12px;padding:3px 6px;width:auto">50건씩 '
                '<span style="color:#9ca3af;font-size:9px;margin-left:4px">▾</span></span></div>'
@@ -479,39 +496,67 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                '<span style="font-size:11.5px;padding:3px 7px;border-radius:6px;'
                'border:1px solid #e5e7eb;color:#d1d5db">‹</span>%s'
                '<span style="font-size:11.5px;padding:3px 7px;border-radius:6px;'
-               'border:1px solid #e5e7eb;color:#6b7280">›</span>'
+               'border:1px solid #e5e7eb;color:%s">›</span>'
                '<span style="font-size:11.5px;padding:3px 7px;border-radius:6px;'
-               'border:1px solid #e5e7eb;color:#6b7280">»</span>'
-               '<span style="font-size:11.5px;color:#9ca3af;margin-left:6px">1 / 3</span>'
-               '</div></div>' % nums)
+               'border:1px solid #e5e7eb;color:%s">»</span>'
+               '<span style="font-size:11.5px;color:#9ca3af;margin-left:6px">1 / %d</span>'
+               '</div></div>'
+               % ('{:,}'.format(total), min(50, total), nums,
+                  '#6b7280' if npg > 1 else '#d1d5db', '#6b7280' if npg > 1 else '#d1d5db',
+                  npg))
     return ('<div class="card" style="padding:0;overflow:auto">'
             '<table style="text-align:center;min-width:1120px">%s%s%s</table>%s</div>'
             % ('<tr>' + th + '</tr>', fr, body, pgn))
 
 
+def ext_chips(on=False, n=16):
+    # 확장 언어 그룹 고객사 머리 — [전체] [🌐 확장 언어 n] `PC-344`
+    def chip(lab, act, ext):
+        if act:
+            bd, bg, fg = ('#67e8f9', '#ecfeff', '#0e7490') if ext else ('#93c5fd', '#eef6ff', '#1d4ed8')
+        else:
+            bd, bg, fg = '#e5e7eb', '#fff', '#374151'
+        return ('<span style="font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid %s;'
+                'background:%s;color:%s;font-weight:%s;white-space:nowrap">%s</span>'
+                % (bd, bg, fg, '700' if act else '400', lab))
+    return ('<span style="display:inline-flex;gap:4px">%s%s</span>'
+            % (chip('전체', not on, False), chip('🌐 확장 언어 %d' % n, on, True)))
+
+
 def detail(empty=False, share=False, filtered=False, base_price=False, discount=True,
            list_empty=False, basis=False, unfilter=False, search='', sort=None,
-           hf=False, toast3='', dup=False, work=None, rows=None):
+           hf=False, toast3='', dup=False, work=None, rows=None, who=None, ext=None,
+           nums=None, extmap=None, total=114):
+    # who — (고객사, owner, (코드 종류 …)) · ext — None / 'all' / 'ext' (확장 언어 칩) `PC-344`
     if empty:
         return ('<div class="card"><div class="bd"><div class="empty" style="padding:90px 10px">'
                 '<span class="em">✏️</span>좌측에서 고객사를 선택하세요.</div></div></div>')
-    head = ('<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
-            '<div style="font-size:18px;font-weight:700">웅진씽크빅</div>'
+    if who:
+        name, own, kinds = who
+        ktags = ''.join('<span style="font-size:11px;background:%s;color:%s;border-radius:5px;'
+                        'padding:2px 7px;font-weight:700">%s</span>'
+                        % (KIND_C2[k][0], KIND_C2[k][1], k) for k in kinds)
+    else:
+        name, own = '웅진씽크빅', 17
+        ktags = ('<span style="font-size:11px;background:%s;color:%s;border-radius:5px;'
+                 'padding:2px 7px">%s</span>'
+                 % ('#eef6ff' if share else '#fef3c7', '#2563eb' if share else '#92400e',
+                    'N' if share else 'G'))
+    head = ('<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">'
+            '<div style="font-size:18px;font-weight:700">%s</div>'
             '<span style="font-size:11px;background:#eef2f7;color:#475569;border-radius:5px;'
-            'padding:2px 7px;font-family:ui-monospace,monospace">owner 17</span>'
-            '<span style="font-size:11px;background:%s;color:%s;border-radius:5px;'
-            'padding:2px 7px">%s</span>'
+            'padding:2px 7px;font-family:ui-monospace,monospace">owner %s</span>%s%s'
             '<div style="flex:1"></div>'
             '<span class="btn gho" style="margin-right:8px">초기화</span>'
             '<span class="btn pri">＋ 교재(책) 추가</span></div>'
-            % ('#eef6ff' if share else '#fef3c7', '#2563eb' if share else '#92400e',
-               'N' if share else 'G'))
+            % (name, own, ktags, ext_chips(ext == 'ext') if ext else ''))
     ts = ('<div class="toast" style="margin-bottom:10px">%s</div>' % toast3) if toast3 else ''
     return ('<div>%s%s%s%s</div>'
             % (head, ts, summary(filtered, base_price, discount, basis, unfilter,
-                                 search, share),
+                                 search, share, nums),
                book_list(rows=rows, share=share, filtered=filtered, empty=list_empty,
-                         sort=sort, hf=hf, page=not list_empty, dup=dup, work=work)))
+                         sort=sort, hf=hf, page=not list_empty, dup=dup, work=work,
+                         extmap=extmap, total=total)))
 
 
 # 첫 화면 — 특정 고객사가 아니라 전체 고객사 요약 표 (PC-038)
@@ -554,20 +599,150 @@ def all_customers(kind='전체', n=71):
             + body + '</table></div>')
 
 
+# ── 확장 언어 그룹 고객사(Common-21) 예시 — `PC-344` `PC-327` ─────────────────────
+#   옛 슬롯 고객사 「Common 추가 언어 슬롯-964」(16권) · 「-965」(12권) 는 목록에 따로 나오지 않고
+#   Common-21 ▶ 아래 🌐 줄로 들어간다. 하위 고객사 50곳 + 슬롯 2줄 = 「하위 52」.
+#   (편집 데이터 기준: Common-21 396권 · 확장 언어 교재 16권)
+COMMON_WHO = ('Common-21', 21, ('PDS2', 'OID'))
+COMMON_ALL = dict(bk='396', pg='71,124', s='413,595', p='0', sym='413,595',
+                  apply='₩35,562,000', symamt='₩413,595,000', cost='₩449,157,000')
+COMMON_EXT = dict(bk='16', pg='2,003', s='33,946', p='0', sym='33,946',
+                  apply='₩1,001,500', symamt='₩33,946,000', cost='₩34,947,500')
+
+
+def _cb(no, cu, t, fn, b, pg, sym, d, nmod, logs=0):
+    amt = '{:,}'.format(pg * 500 + sym * 1000)
+    return (no, '완료', cu, t, fn, 'G', '소리펜', (3, 21, b), '1~%d' % pg, pg, sym, '기본',
+            d, nmod, logs, 0, amt, None)
+
+
+CB = {
+    1: _cb(1, '한국뉴베리', '루하의명작 (1-40권)', 'Luha_classic_01-40', 1, 1636, 1276,
+           '2013-10-24', '2014-02-12', 1),
+    14: _cb(14, '방교영 교수', '병원에서 통하는 러시아어 의료회화 데모',
+            'Russian_medical_conversation_1', 27, 8, 214, '2026-02-10', '2026-02-13'),
+    102: _cb(102, '전북교육청', '톡톡 누르면 배움이 쏙쏙 1', 'TOKTOK_Korean_Book_1-1', 262,
+             106, 2310, '2025-04-30', '2025-07-22'),
+    103: _cb(103, '전북교육청', '톡톡 누르면 배움이 쏙쏙 2', 'TOKTOK_Korean_Book_2-1', 263,
+             98, 2118, '2025-04-30', '2025-07-22'),
+    105: _cb(105, '전북교육청', '톡톡 누르면 배움이 쏙쏙 4', 'TOKTOK_Korean_Book_4-1', 265,
+             132, 2846, '2025-04-30', '2025-07-22', 2),
+    115: _cb(115, '에듀윈드', '영재쌤과 함께하는 쉬운 한국어_학교생활편', 'yjkor01_1', 275,
+             113, 1902, '2025-08-12', '2025-09-25'),
+    160: _cb(160, '현대미포조선', '외국인근로자용 한국어 안전교육교재', 'HD_SafetytrainingBook', 511,
+             157, 3120, '2025-01-02', '2025-02-06'),
+    170: _cb(170, '충남교육청', '어서와 한국 학교는 처음이지', 'CNE_KOREAN', 602,
+             200, 2654, '2021-11-25', '2021-12-10'),
+}
+# 전체 보기 — 확장 언어 교재와 아닌 교재가 섞여 있다(목록 일부)
+COMMON_ROWS_ALL = (CB[1], CB[14], CB[102], CB[105])
+# 확장 언어만 — 16권 중 일부
+COMMON_ROWS_EXT = (CB[14], CB[102], CB[103], CB[105], CB[115], CB[160], CB[170])
+# No → (실선 = 교재에 고른 슬롯, 점선 = 같은 사용 고객사가 슬롯 Book 을 따로 등록) `PC-327`
+#   B265 는 교재 편집(PRJ-04)에서 O964 · O965 를 골라 묶은 예 · 나머지는 옛 방식(따로 등록)
+COMMON_EXTMAP = {14: ((), (964,)), 102: ((), (964, 965)), 103: ((), (964, 965)),
+                 105: ((964, 965), ()), 115: ((), (964, 965)), 160: ((), (964, 965)),
+                 170: ((), (964,))}
+
+# 줄 목록 — (고객사, 권수, 코드 종류, 하위 수) · 가나다순(영문 먼저) · 슬롯 고객사 3곳은 빠진다
+TOP_ROWS = (('Cake-1009', 52, ('PDS3',), 1), ('Common-21', 396, ('PDS2', 'OID'), 52),
+            ('가쿠쇼-1022', 73, ('PDS3',), 0), ('교원구몬-10', 186, ('PDS2', 'PDS3'), 0),
+            ('웅진씽크빅-17', 1014, ('PDS2', 'OID'), 0))
+COMMON_SLOTS = (('🌐 O964 · Common 추가 언어 슬롯-964', 16),
+                ('🌐 O965 · Common 추가 언어 슬롯-965', 12))
+COMMON_SUBS = (('EBS', 1), ('LG U+', 50), ('NeoLAB', 49), ('The M', 1), ('Tranwisdom', 1),
+               ('YBM', 6))
+
+
+def co_item(label, n, on=False, sub=False, fold=None, sub_n=0, kinds=(), slot=False):
+    """고객사 관리 · App Key 관리와 같은 줄 — ▶ · 이름 · 하위 n · 권수 배지 / 둘째 줄 코드 종류 `PC-294`"""
+    arrow = ('<span style="width:12px;color:#6b7280;font-size:10px">%s</span>' % fold) if fold else \
+        ('' if sub else '<span style="width:12px"></span>')
+    subb = ('<span style="font-size:10px;background:#f3f4f6;color:#6b7280;border-radius:5px;'
+            'padding:1px 6px;white-space:nowrap">하위 %d</span>' % sub_n) if sub_n else ''
+    kt = ''.join('<span style="font-size:9.5px;background:%s;color:%s;font-weight:700;'
+                 'border-radius:5px;padding:0 5px;margin-right:3px">%s</span>'
+                 % (KIND_C2[k][0], KIND_C2[k][1], k) for k in kinds)
+    line2 = ('<div style="margin:3px 0 0 18px">%s</div>' % kt) if kt else ''
+    return ('<div style="padding:%s;border-radius:8px;background:%s;margin-bottom:2px"%s>'
+            '<div style="display:flex;align-items:center;gap:5px">%s'
+            '<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;'
+            'text-overflow:ellipsis;font-size:%s;font-weight:%s;color:%s">%s</span>%s'
+            '<span style="font-size:10.5px;background:%s;color:%s;border-radius:999px;'
+            'padding:1px 7px;font-family:ui-monospace,monospace">%s</span></div>%s</div>'
+            % ('5px 8px' if sub else '7px 8px', '#eef6ff' if on else 'transparent',
+               (' title="확장 언어 슬롯 O%s — 따로 등록된 교재 %d권"'
+                % (label.split(' · ')[0].replace('🌐 O', ''), n)) if slot else '',
+               arrow, '12px' if sub else '13px', '700' if (on or not sub) else '400',
+               '#1d4ed8' if on else ('#0e7490' if slot else '#111827'), label, subb,
+               '#dbeafe' if on else '#f3f4f6', '#1d4ed8' if on else '#6b7280',
+               '{:,}'.format(n), line2))
+
+
+def left_rows(search='', open_common=True, sel='Common-21'):
+    """줄 목록 왼쪽 — 확장 언어 슬롯 고객사는 그룹 고객사 ▶ 아래 🌐 줄(하위 고객사 줄보다 위) `PC-344`"""
+    sv = ('<div class="inp" style="padding-right:28px">%s'
+          '<span style="position:absolute;right:6px;top:50%%;transform:translateY(-50%%);'
+          'color:#9ca3af;font-size:16px">×</span></div>' % search) if search else \
+         '<div class="inp ph">고객사 · owner 검색</div>'
+    rows = TOP_ROWS
+    if search:
+        rows = tuple(r for r in rows if search.lower() in r[0].lower())
+    body = ''
+    for nm, bk, kinds, subn in rows:
+        opened = open_common and nm == 'Common-21'
+        body += co_item(nm, bk, on=(nm == sel), fold=('▼' if opened else '▶') if subn else None,
+                        sub_n=subn, kinds=kinds)
+        if opened:
+            kids = ''.join(co_item(l, n, sub=True, slot=True) for l, n in COMMON_SLOTS)
+            kids += ''.join(co_item(l, n, sub=True) for l, n in COMMON_SUBS)
+            kids += ('<div style="font-size:11px;color:#9ca3af;padding:3px 8px">'
+                     '⋯ 하위 고객사 44곳 더 (가나다순)</div>')
+            body += ('<div style="margin:0 0 4px 14px;border-left:2px solid #e5e7eb;'
+                     'padding-left:6px">%s</div>' % kids)
+    n = len(rows) if search else 69
+    return ('<div class="card" style="align-self:start"><div class="bd" style="padding:12px">'
+            '<div style="display:flex;align-items:center;margin-bottom:8px">'
+            '<div style="font-weight:700;font-size:13px;flex:1">고객사 선택 '
+            '<span style="color:#9ca3af;font-weight:400">(%d)</span></div>'
+            '<span class="btn sm" style="background:#5f8ff0;color:#fff;border:0">'
+            '＋ 고객사</span></div>'
+            '<div style="margin-bottom:8px"><div class="inp" style="display:flex;'
+            'justify-content:space-between">전체 코드 종류 (69)<span style="color:#9ca3af">▾</span>'
+            '</div></div>'
+            '<div style="position:relative;margin-bottom:8px">%s</div>'
+            '<div style="font-size:11px;color:#6b7280;margin:0 0 6px 4px">%d곳 표시</div>%s'
+            '</div></div>' % (n, sv, n, body))
+
+
+def common_view(ext='all', search='', left_open=True):
+    """Common-21 을 고른 화면 — ext: 'all' [전체] / 'ext' [🌐 확장 언어 16] `PC-344`"""
+    on = (ext == 'ext')
+    return content(left_html=left_rows(search, left_open), who=COMMON_WHO, ext=ext,
+                   share=True, base_price=True, discount=False, filtered=on,
+                   unfilter='필터 해제 (16/396)' if on else False,
+                   nums=COMMON_EXT if on else COMMON_ALL,
+                   rows=COMMON_ROWS_EXT if on else COMMON_ROWS_ALL,
+                   extmap=COMMON_EXTMAP, total=16 if on else 396)
+
+
 def content(sel_cust='웅진씽크빅', kind='전체', search='', left_empty=False, all_view=False,
             empty_detail=False, share=False, filtered=False, base_price=False,
             discount=True, list_empty=False, toast='', top_row=True,
             basis=False, unfilter=False, bsearch='', sort=None, hf=False, toast3='',
-            dup=False, work=None, rows=None):
+            dup=False, work=None, rows=None, left_html=None, who=None, ext=None,
+            nums=None, extmap=None, total=114):
+    # left_html — 줄 목록(상위 ▶ 하위 · 🌐 확장 언어 슬롯)으로 그린 왼쪽 `PC-294` `PC-344`
     head = top(kind, search) if top_row else ''
     return (toast + head
             + '<div style="display:flex;gap:16px;align-items:flex-start">'
               '<div style="width:280px;flex-shrink:0">%s</div>'
               '<div style="flex:1;min-width:0">%s</div></div>'
-            % (left('' if all_view else sel_cust, kind, search, left_empty),
+            % (left_html or left('' if all_view else sel_cust, kind, search, left_empty),
                all_customers(kind) if all_view else
                detail(empty_detail, share, filtered, base_price, discount, list_empty,
-                      basis, unfilter, bsearch, sort, hf, toast3, dup, work, rows)))
+                      basis, unfilter, bsearch, sort, hf, toast3, dup, work, rows,
+                      who, ext, nums, extmap, total)))
 
 
 OWNER_OPTS = (('N', 3, 306), ('N', 3, 307), ('G', 0, 88))
@@ -813,6 +988,38 @@ def build2():
          ('[취소]', '클릭', '<code>PRJ-02</code>', '변경 없음'),
          ('장부 데이터', '—', '<b>삭제 불가</b>', '이 화면에서 추가한 항목만 지울 수 있다')]))
 
+    B.append((
+        'S12', '확장 언어 슬롯 고객사 — 그룹 고객사 ▶ 아래 🌐 줄', '분기',
+        '<code>PC-344</code> — 교재가 <b>모두</b> 다른 고객사 확장 언어 그룹의 확장 Owner 에 있는 '
+        '<b>옛 슬롯 고객사</b>(「Common 추가 언어 슬롯-964」 16권 · 「-965」 12권 · 「Cake-1003」)는 '
+        '목록 맨 위 줄로 <b>따로 나오지 않는다</b>. 그룹 고객사(Common-21 · Cake-1009)의 <b>▶</b> 를 펼치면 '
+        '<b>하위 고객사 줄보다 위</b>에 <b>🌐 O{n} · {고객사}</b> 줄과 권수 배지로 들어간다. '
+        '묶음의 <b>「하위 52」</b> 는 하위 고객사 50곳 + 슬롯 2줄이다. '
+        '왼쪽 목록은 고객사 관리 · App Key 관리와 같은 <b>줄 목록</b>이다 <code>PC-294</code>.',
+        frame('PRJ-02', '편집 프로젝트', common_view('all'), height=H2 + 40),
+        [('🌐 O{n} · {고객사}', '표시', '—',
+          '그룹 고객사 ▶ 안 · <b>하위 고객사 줄보다 위</b> · 오른쪽 권수 배지 <code>PC-344</code>'),
+         ('🌐 줄', 'hover', '툴팁', '<b>확장 언어 슬롯 O{n} — 따로 등록된 교재 {n}권</b>'),
+         ('🌐 줄', '클릭', '그 슬롯 고객사 교재', '편집 데이터는 그대로 — 옛 방식으로 따로 등록된 교재를 본다'),
+         ('하위 {n}', '표시', '—', '하위 고객사 수 + <b>🌐 슬롯 줄 수</b>를 함께 센다(예: 50 + 2 = <b>하위 52</b>)'),
+         ('▶ / ▼', '클릭', '접기 · 펴기', '슬롯 줄을 고른 상태면 저절로 펼친다'),
+         ('{n}곳 표시', '자동', '—', '슬롯 고객사는 세지 않는다'),
+         ('우측 상세', '자동', '<code>PRJ-03</code> S14',
+          '그룹 고객사 머리에 <b>[전체] [🌐 확장 언어 16]</b> 칩')] + NAV2))
+
+    B.append((
+        'S13', '검색 「common」 — 그룹 고객사만', '필터',
+        '<code>PC-344</code> — 검색은 <b>그룹 고객사 이름</b>으로 찾는다. 「common」 을 치면 '
+        '<b>Common-21 한 줄만</b> 남고 「Common 추가 언어 슬롯-…」 은 따로 걸리지 않는다. '
+        '슬롯 고객사 이름 · owner(예: 964)로 찾으면 <b>그룹 고객사가 남고 펼쳐진다</b>.',
+        frame('PRJ-02', '편집 프로젝트', common_view('all', search='common', left_open=False),
+              height=H2 - 120),
+        [('검색 「common」', '입력', '<b>Common-21 만</b>', '<b>1곳 표시</b> · 슬롯 고객사는 맨 위 줄로 나오지 않는다'),
+         ('검색 「964」 · 슬롯 이름', '입력', '그룹 고객사 펼침',
+          'Common-21 이 남고 ▶ 가 저절로 펼쳐져 <b>🌐 O964</b> 줄이 보인다'),
+         ('하위 고객사 이름', '입력', '그룹 고객사 펼침', '맞는 하위 고객사만 펼쳐진다 <code>PC-293</code>'),
+         ('×', '클릭', '검색 해제', 'S12 로 복귀')] + NAV2))
+
     intro = ('편집(casterN) 대상 고객사를 왼쪽에서 고르고 <b>같은 화면 오른쪽</b>에서 '
              '그 고객사의 편집 내역·정산(<code>PRJ-03</code>)을 본다. '
              '<b>사용 서비스 = casterN</b> 으로 할당된 코드가 이 화면의 관리 대상이다 '
@@ -1044,6 +1251,39 @@ def build3():
           '복제본의 프로젝트명 · ncp2 는 비어 있다가 casterN 에서 새 작업을 저장하면 채워진다 '
           '<code>PC-282</code> (저장 때 ncp2 파일명 중복 검사는 폐지)'),
          ('전체 보기', '참고', '조회 전용', '[복제] 열이 없다 <code>PC-040</code>')] + NAV3))
+
+    B.append((
+        'S14', '확장 언어 그룹 고객사 — [전체] [🌐 확장 언어 16] · S/O/B 확장 칩', '분기',
+        '<code>PC-344</code> — 교재 코드가 확장 언어 그룹의 기본 코드인 고객사(Common-21 · Cake-1009)면 '
+        '머리의 코드 종류 배지(PDS2 · OID) 뒤에 <b>[전체] [🌐 확장 언어 {n}]</b> 칩이 붙는다. '
+        '{n} = 확장 언어 교재 수 — 확장 언어 슬롯을 붙인 교재(<code>PRJ-04</code> §4.2.1) + '
+        '같은 사용 고객사가 그 슬롯 Book 을 따로 등록해 둔 교재(옛 방식). '
+        '목록의 <b>S/O/B 칸</b>에는 S · O · B 칩 옆에 같은 칩 모양 <b>[확장] {o}</b> 가 한 줄로 붙는다 '
+        '<code>PC-327</code> — <b>실선</b> = 교재에 고른 슬롯, <b>점선</b> = 따로 등록된 슬롯.',
+        frame('PRJ-02', '편집 프로젝트', common_view('all'), height=H3 + 60),
+        [('[전체] [🌐 확장 언어 {n}]', '표시', '—',
+          '코드 종류 배지 뒤 · 확장 언어 그룹 고객사만 · 교재 편집 화면 · 전체 고객사 보기에는 없다'),
+         ('[🌐 확장 언어 {n}]', 'hover', '툴팁', '<b>확장 언어 슬롯을 붙인 교재 · 슬롯 Book 을 따로 등록해 둔 교재만</b>'),
+         ('[🌐 확장 언어 {n}]', '클릭', 'S15', '확장 언어 교재만 남는다'),
+         ('[확장] {o} 실선', '표시', '—',
+          '교재에 고른 확장 언어 슬롯 · 툴팁 <b>확장 언어 슬롯 S{s}/O{o}/B{b} — 5 베트남어 · …</b>'),
+         ('[확장] {o} 점선', '표시', '—',
+          '같은 사용 고객사가 그 슬롯 Book 을 따로 등록한 교재 · 툴팁 <b>같은 Book 이 확장 슬롯에 따로 등록돼 있습니다 — '
+          'S{s}/O{o}/B{b} ({언어}) / 교재를 열어 확장 언어 슬롯을 고르면 이 교재에 묶여 보입니다(따로 등록된 교재는 그대로)</b>'),
+         ('S/O/B 칸', '—', '<b>왼쪽 정렬 · 한 줄</b>', '확장 칩도 아래로 내리지 않는다 <code>PC-327</code>')]
+        + NAV3))
+
+    B.append((
+        'S15', '확장 언어 필터 — 16 / 396', '필터',
+        '<code>PC-344</code> — <b>[🌐 확장 언어 16]</b> 을 누르면 396권 중 <b>확장 언어 교재 16권만</b> 남는다. '
+        '편집량 · 정산 지표도 <b>걸러진 교재 기준</b>으로 다시 계산되고(교재(책)·필터), '
+        '단가 줄 끝에 <b>필터 해제 (16/396)</b> 이 나타난다. 누르면 이 칩도 <b>[전체]</b> 로 함께 풀린다.',
+        frame('PRJ-02', '편집 프로젝트', common_view('ext'), height=H3),
+        [('[🌐 확장 언어 16]', '선택', '목록 · 지표 재계산', '1페이지로 돌아간다'),
+         ('지표', '자동', '걸러진 16권 기준', '<b>교재(책)·필터</b> · TOTAL PAGE · 심볼 · 적용비 · 편집·기능비 · 청구액'),
+         ('[필터 해제 (16/396)]', '클릭', 'S14', '확장 언어 칩을 포함해 모든 필터가 풀린다'),
+         ('[전체]', '클릭', 'S14', '확장 언어 필터만 푼다'),
+         ('다른 필터', '참고', '함께 걸림', '상태 · 사용 고객사 · Book · 검색과 겹쳐 걸 수 있다')] + NAV3))
 
     intro = ('한 고객사의 <b>편집 내역과 정산</b>을 보는 화면. '
              '<code>PRJ-02</code> 목록에서 고객사를 고르면 <b>같은 화면 오른쪽</b>에 열린다.<br>'

@@ -145,8 +145,16 @@ def owned(cust='웅진씽크빅', rows=None):
     return '<div style="margin-top:10px">%s%s</div>' % (head, body)
 
 
-def detail(cust='웅진씽크빅', sec=3, own=17, locked=None, cross=False, kind='PDS3', shared=False):
-    """발급 대상 — 좌표는 지도에서 고른다. 모달에서는 상태만 보여 준다 `PC-046`"""
+def detail(cust='웅진씽크빅', sec=3, own=17, locked=None, cross=False, kind='PDS3', shared=False,
+           block=None):
+    """발급 대상 — 좌표는 지도에서 고른다. 모달에서는 상태만 보여 준다 `PC-046`
+    block: 막힘 사유 한 줄(확장 Owner 막힘 등) — 상태 배지는 그대로, 상자만 빨강 `PC-337`"""
+    if block and not locked:
+        h = detail(cust, sec, own, None, cross, kind, shared)
+        h = h.replace('border:1px solid #e5e7eb;background:#fafbfc', 'border:1px solid #fecaca;background:#fef2f2', 1)
+        return (h[:-len('</div>')]
+                + '<div style="margin-top:7px;font-size:12px;color:#b91c1c;font-weight:700">%s</div></div>'
+                % block)
     lk = bool(locked)
     st = ('🔒 전용 · 추가 발급 불가', '#fee2e2', '#991b1b') if lk else (
          ('공유 OWNER · Book 만 배타', '#f3e8ff', '#6b21a8') if shared else (
@@ -164,12 +172,117 @@ def detail(cust='웅진씽크빅', sec=3, own=17, locked=None, cross=False, kind
             % ('#fecaca' if lk else '#e5e7eb', '#fef2f2' if lk else '#fafbfc', bar, msg))
 
 
-def modal(title, body, save_off=False, save='할당'):
-    return ('<div class="ovl"><div class="mdl xw">'
+def mdl(title, body, save_off=False, save='할당'):
+    btn = ('<div class="btn pri"%s>%s</div>' % (' style="opacity:.5"' if save_off else '', save)
+           if save else '')
+    return ('<div class="mdl xw">'
             '<div class="mh"><div class="mt">%s</div><div class="mx">✕</div></div>'
-            '%s<div class="mf"><div class="btn gho">취소</div>'
-            '<div class="btn pri"%s>%s</div></div></div></div>'
-            % (title, body, ' style="opacity:.5"' if save_off else '', save))
+            '%s<div class="mf"><div class="btn gho">취소</div>%s</div></div>'
+            % (title, body, btn))
+
+
+def modal(title, body, save_off=False, save='할당'):
+    return '<div class="ovl">%s</div>' % mdl(title, body, save_off, save)
+
+
+def modal2(*parts):
+    """정의서 전용 — 한 상태에 갈래 두 개를 위아래로 겹쳐 보여 준다. parts = (캡션, mdl html) …"""
+    out = ''
+    for cap, m in parts:
+        out += ('<div style="width:900px;max-width:94%%;color:#fff;font-size:12px;font-weight:700;'
+                'margin:10px 0 6px">%s</div>%s' % (cap, m))
+    return '<div class="ovl" style="align-content:center">%s</div>' % out
+
+
+# ── 확장 언어 그룹 칸 `PC-330` `PC-332` `PC-335` `PC-336` `PC-337` ─────────
+def info_i(t=''):
+    return ('<span title="%s" style="display:inline-flex;align-items:center;justify-content:center;'
+            'width:15px;height:15px;border-radius:50%%;border:1px solid #cbd5e1;color:#64748b;'
+            'font-size:10px;flex:none">ⓘ</span>' % t)
+
+
+def gsel(v):
+    return ('<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid #e5e7eb;'
+            'border-radius:8px;padding:4px 8px;background:#fff;font-size:12px;color:#111827">'
+            '%s<span style="color:#9ca3af;font-size:10px">▾</span></span>' % v)
+
+
+def ginp(v, w=60):
+    return ('<span style="display:inline-block;width:%dpx;box-sizing:border-box;border:1px solid #e5e7eb;'
+            'border-radius:8px;padding:4px 8px;background:#fff;font-size:12px;'
+            'font-family:ui-monospace,monospace;color:#111827">%s</span>' % (w, v))
+
+
+def gchip(o, kind='ok'):
+    """미리보기 칩 — here: 이 좌표 / ok: 새로 할당 / mine: 이미 보유 / no: 쓸 수 없음"""
+    st = {'here': ('#67e8f9', '#ecfeff', '#0e7490', '✓', '이 좌표', '700'),
+          'ok': ('#a5f3fc', '#fff', '#0e7490', '✓', '새로 할당', '400'),
+          'mine': ('#a5f3fc', '#fff', '#0e7490', '보유', '이미 이 고객사가 보유 — 그룹에 넣기만', '400'),
+          'no': ('#fecaca', '#fef2f2', '#b91c1c', '✕', '쓸 수 없음: 다른 고객사', '400')}[kind]
+    return ('<span title="%s" style="display:inline-flex;align-items:center;gap:3px;font-size:11px;'
+            'border-radius:6px;padding:2px 7px;border:1px solid %s;background:%s;color:%s;'
+            'font-weight:%s">O%d %s</span>' % (st[4], st[0], st[1], st[2], st[5], o, st[3]))
+
+
+GRP_INFO = ('확장 Owner 는 O{o} 와 붙어 있지 않아도 됩니다. 개수와 방향(O{o} 이전 / 이후)을 고르면 '
+            '그 방향에서 비어 있는 연속 범위를 가까운 순으로 보여 줍니다. 목록에 없으면 [직접 입력] 으로 '
+            '시작 번호를 넣으세요. 필요한 수보다 많이 할당해도 됩니다. 역할(기본 · 확장)은 고객사 관리에서 정합니다.')
+
+
+def grp_panel(company='Common-21', kind='PDS2', langs=10, need=3, grp_n=21, pending=0,
+              cur=0, n=2, dir_='이후', rng='O1~O2 (2개)', start=None, chips=(), opts=None):
+    """🌐 확장 언어 그룹 칸 — ① 안내 ② 확장 Owner 개수 · 방향 · 범위(또는 직접 입력) · 미리보기 칩.
+    역할 버튼은 없다 `PC-335`. opts: 범위 셀렉트를 펼친 모습(정의서 전용)"""
+    l1 = ('<b style="color:#0e7490">🌐 확장 언어 그룹</b>'
+          '<span style="color:#111827;font-weight:700">%s</span>'
+          '<span style="color:#374151">%s · 언어 %d개 · <b>Owner %d개 이상 필요</b></span>'
+          % (company, kind, langs, need))
+    if grp_n:
+        l1 += ('<span style="color:#6b7280">· 그룹 Owner %d개%s</span>'
+               % (grp_n, (' (역할 미지정 %d)' % pending) if pending else ''))
+    l1 += ('<span style="flex:1"></span><span style="font-size:11.5px;color:#2563eb" '
+           'title="기본 · 확장 슬롯 역할과 언어는 고객사 관리 ▸ 공통코드 · 확장 언어 에서 정합니다">'
+           '역할 · 언어는 고객사 관리에서 &rarr;</span>')
+    l2 = ('<span style="color:#6b7280;font-weight:700">확장 Owner</span>%s'
+          '<span style="color:#6b7280">개</span>%s' % (ginp(n), gsel('O%d %s 번호' % (cur, dir_))))
+    if n > 0:
+        l2 += gsel('직접 입력' if start is not None else rng)
+        if start is not None:
+            l2 += '<span style="color:#6b7280">시작 O</span>' + ginp(start, 90)
+    l2 += info_i(GRP_INFO.format(o=cur))
+    drop = ''
+    if opts:
+        drop = ('<div style="margin:4px 0 0 236px;width:170px;border:1px solid #e5e7eb;border-radius:8px;'
+                'background:#fff;box-shadow:0 6px 18px rgba(0,0,0,.12);padding:4px 0;font-size:12px">%s</div>'
+                % ''.join('<div style="padding:4px 10px;%s">%s</div>'
+                          % ('background:#eef6ff;color:#2563eb;font-weight:700' if i == 0 else
+                             ('border-top:1px solid #f1f5f9;color:#2563eb' if o == '직접 입력' else 'color:#111827'),
+                             o) for i, o in enumerate(opts)))
+    ch = ''
+    if chips:
+        ch = ('<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:7px">%s</div>'
+              % ''.join(gchip(o, k) for o, k in chips))
+    return ('<div style="margin-top:10px;border:1px solid #a5f3fc;background:#f0fdff;border-radius:10px;'
+            'padding:11px 13px">'
+            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px">%s</div>'
+            '<div style="margin-top:9px"><div style="display:flex;align-items:center;gap:6px;'
+            'flex-wrap:wrap;font-size:12px">%s</div>%s%s</div></div>' % (l1, l2, drop, ch))
+
+
+def grp_none():
+    """고른 고객사에 그룹이 없음 `PC-332`"""
+    return ('<div style="margin-top:10px;font-size:12px;color:#6b7280;display:flex;align-items:center;'
+            'gap:6px;flex-wrap:wrap"><span>🌐 확장 언어 그룹 없음</span>'
+            '<span style="color:#2563eb">언어 확장이 필요하면 고객사 관리 ▸ 공통코드 · 확장 언어 에서 '
+            '먼저 켜세요 &rarr;</span></div>')
+
+
+def grp_in(label='Common-21', role='확장 슬롯', langs='베트남어 · 러시아어 · …'):
+    """이 S/O 가 이미 어느 그룹의 Owner — 소속 한 줄(보기만) `PC-332`"""
+    tail = '역할 · 언어는 고객사 관리에서 정합니다' if role == '역할 미지정' else langs
+    return ('<div style="margin-top:10px;font-size:12px;color:#0e7490;background:#f0fdff;'
+            'border:1px solid #a5f3fc;border-radius:8px;padding:7px 10px">'
+            '🌐 확장 언어 그룹 <b>%s</b> · %s · %s</div>' % (label, role, tail))
 
 
 T = '코드 할당'
@@ -181,6 +294,19 @@ CLOSE = [('[취소] · ✕', '클릭', '<code>SOB-01</code>', '변경 없이 복
 def scr(overlay, h=1180):
     return frame('SOB-01', 'SOBP 맵',
                  p_sob01.content(pds='N', sel_s=3, sel_o=17),
+                 overlay=overlay, height=h)
+
+
+# 확장 언어 그룹 상태 — 지도 뒤판은 S3/O0 · 앞쪽 Owner 가 비어 있는 모습
+FREE_O = tuple((o, '미사용', '', None) for o in range(0, 11))
+
+
+def scr_free(overlay, h=1180):
+    return frame('SOB-01', 'SOBP 맵',
+                 p_sob01.content(pds='N', sel_s=3, sel_o=0, own_rows=FREE_O, own_more='1,013',
+                                 book_rows=tuple((b, '미사용', '', False) for b in range(4)),
+                                 book_more='8,188',
+                                 page_kw=dict(in_use=False, total=0, pmax=512, sec=3, own=0)),
                  overlay=overlay, height=h)
 
 
@@ -352,6 +478,134 @@ def build():
          ('발급 결과', '자동', '<code>LOG-01</code>', '<b>코드 할당(등록)</b> 으로 기록'),
          ('할당 취소·회수', '—', '<b>없음</b>',
           '할당(고객사 매핑)은 <b>되돌리지 않는다</b> — 서비스에 회수 기능이 없다 <code>PC-165</code>')]))
+
+    # ── 확장 언어 그룹 `PC-330` `PC-332` `PC-335` `PC-336` `PC-337` ──────────
+    GC = 'Common-21'
+    RANGES = ['O%d~O%d (2개)' % (a, a + 1) for a in range(1, 17, 2)] + ['직접 입력']
+    B.append((
+        'S11', '확장 언어 그룹 — 확장 Owner 범위', '분기',
+        '<code>PC-330</code> — 고른 고객사에 <b>확장 언어 그룹</b>(<code>MEM-02</code> §4.12)이 있고 '
+        '같은 Section 이면(그룹 Section 이 미정이면 어느 Section 이든 <code>PC-333</code>) '
+        '발급 정보 아래에 <b>🌐 확장 언어 그룹</b> 칸이 생긴다. '
+        '① 안내 한 줄 <b>{고객사} · {종류} · 언어 {n}개 · Owner {k}개 이상 필요 · 그룹 Owner {m}개</b> + '
+        '오른쪽 <b>[역할 · 언어는 고객사 관리에서 →]</b> <code>PC-336</code> '
+        '② <b>확장 Owner [n]개 · [O{n} 이전 / 이후 번호] · [범위]</b> — 확장 Owner 는 이 O 와 '
+        '<b>붙어 있지 않아도 된다</b>. 범위 셀렉트는 그 방향의 <b>빈 연속 범위</b>를 가까운 순으로 '
+        '<b>최대 8개</b> + <b>직접 입력</b> <code>PC-337</code>. '
+        '<b>역할 버튼은 없다</b> — 할당한 Owner 는 그룹에 <b>역할 미지정</b>으로 들어가고 '
+        '역할 · 언어는 고객사 관리에서 정한다 <code>PC-335</code>. '
+        '(정의서에서는 범위 셀렉트를 펼친 모습을 함께 보인다.)',
+        scr_free(modal(T, detail(GC, sec=3, own=0) + cust_svc(GC, 'NONE')
+                       + grp_panel(GC, 'PDS2', 10, 3, 21, cur=0, n=2, dir_='이후',
+                                   rng='O1~O2 (2개)', opts=RANGES,
+                                   chips=((0, 'here'), (1, 'ok'), (2, 'ok')))
+                       + owned(GC, []))),
+        [('🌐 확장 언어 그룹 칸', '자동', '표시',
+          '고른 고객사에 그룹이 있고 같은 Section(또는 그룹 Section 미정)일 때만 · (K) 티켓 고객사에는 없다'),
+         ('① 안내', '—', '한 줄',
+          '<b>{고객사} · {PDS2/PDS3} · 언어 {n}개 · Owner {k}개 이상 필요</b>(기본 1 + 필요 확장) · '
+          '그룹에 Owner 가 있으면 <b>· 그룹 Owner {m}개 (역할 미지정 {p})</b> <code>PC-336</code>'),
+         ('[역할 · 언어는 고객사 관리에서 →]', '클릭', '<code>MEM-02</code>',
+          '그 고객사 상세 ▸ 공통코드 · 확장 언어 — 역할 · 언어는 거기서만 정한다 <code>PC-335</code>'),
+         ('확장 Owner 개수', '입력', '0 ~ 40',
+          '이 O 는 <b>빼고</b> 센다(이 O 는 늘 할당) · 기본값 = 필요한 Owner 수 − 그룹 Owner 수 − 이 O(그룹에 없으면 1), '
+          '0 이상 · <b>0 이면 범위 셀렉트를 감춘다</b>'),
+         ('방향', '선택', '<b>O{n} 이전 번호 / O{n} 이후 번호</b>',
+          '바꾸면 범위가 다시 계산된다 <code>PC-336</code>'),
+         ('범위', '선택', '<b>O{a}~O{b} ({n}개)</b>',
+          '그 방향의 빈 연속 범위를 가까운 순으로 최대 8개(겹치지 않게) + <b>직접 입력</b> · '
+          '기본값 = 가장 가까운 범위 · 없으면 <b>할당할 수 있는 범위 없음</b> <code>PC-337</code>'),
+         ('빈 번호 기준', '참고', '—',
+          '다른 고객사 보유 없음 · 이 좌표 아님 · 그룹에 없음(이 고객사가 이미 가진 Owner 는 포함) · '
+          '이전 번호면 번호가 줄어드는 순서로 잇는다'),
+         ('ⓘ', '클릭', '말풍선',
+          '<b>확장 Owner 는 O{n} 와 붙어 있지 않아도 됩니다. … 역할(기본 · 확장)은 고객사 관리에서 정합니다.</b>'),
+         ('미리보기 칩', '표시', '—',
+          '<b>O{n} ✓</b>(이 좌표 — 맨 앞) · <b>O{n} ✓</b>(새로 할당) · <b>O{n} 보유</b>(이 고객사가 이미 보유) · '
+          '<b>O{n} ✕</b>(쓸 수 없음)'),
+         ('역할 버튼', '—', '<b>없음</b>',
+          '옛 [일반 할당] [기본 Owner] [확장 슬롯] 폐지 <code>PC-335</code>'),
+         ('[할당]', '성공', '<code>LOG-01</code>',
+          '이 S/O + 확장 Owner 를 같은 고객사에 할당하고 그룹에 <b>역할 미지정</b>으로 넣는다 · '
+          '<b>{고객사} · 확장 언어 그룹에 넣기(역할 미지정) · S{s} · O{n}·O{n}</b>')] + CLOSE))
+
+    B.append((
+        'S12', '확장 언어 그룹 — 직접 입력 · 막힘', '차단',
+        '<code>PC-337</code> — 범위 셀렉트에서 <b>직접 입력</b>을 고르면 옆에 <b>시작 O [ ]</b> 칸이 생기고, '
+        '시작 번호부터 방향대로 n개를 잡는다. 그중 <b>쓸 수 없는 번호</b>(다른 고객사 보유 · 이 좌표 · '
+        '이미 그룹 · 범위 밖)는 칩이 빨강 <b>O{n} ✕</b> 가 되고, 발급 대상 상자가 빨강으로 바뀌며 '
+        '<b>확장 Owner O{n} 는 쓸 수 없습니다({이유}) — 범위를 바꾸세요.</b> 한 줄이 나온다. '
+        '이 상태에서 [할당] 을 누르면 같은 문구의 확인창을 띄우고 멈춘다.',
+        scr_free(modal(T, detail(GC, sec=3, own=0,
+                                 block='확장 Owner O983 는 쓸 수 없습니다(NeoLAB) — 범위를 바꾸세요.')
+                       + cust_svc(GC, 'NONE')
+                       + grp_panel(GC, 'PDS2', 10, 3, 21, cur=0, n=2, dir_='이후', start=982,
+                                   chips=((0, 'here'), (982, 'ok'), (983, 'no')))
+                       + owned(GC, []))),
+        [('범위 셀렉트 [직접 입력]', '선택', '<b>시작 O [ ]</b> 칸 표시',
+          '처음 값은 지금 고른 범위의 시작(없으면 이 O 다음 번호)'),
+         ('시작 O', '숫자 입력', '미리보기 갱신', '시작 번호부터 방향대로 n개'),
+         ('쓸 수 없는 번호', '자동', '칩 <b>O{n} ✕</b>',
+          '툴팁 <b>쓸 수 없음: {고객사 · 이 좌표 · 이미 그룹 · 범위 밖}</b>'),
+         ('막힘 한 줄', '자동', '발급 대상 상자',
+          '<b>확장 Owner O{n} 는 쓸 수 없습니다({이유}) — 범위를 바꾸세요.</b>'),
+         ('[할당] · [그룹에 넣기]', '클릭', '확인창 · 중단', '같은 문구 — 창은 닫히지 않는다'),
+         ('범위 셀렉트로 되돌림', '선택', '막힘 해제', '목록의 범위는 모두 빈 번호라 막히지 않는다')] + CLOSE))
+
+    B.append((
+        'S13', '확장 언어 그룹 없음 · 이미 그룹 Owner', '분기',
+        '<code>PC-332</code> — 그룹 칸이 안 나오는 경우에도 <b>한 줄</b>로 이유를 보여 준다. '
+        '① 고른 고객사에 그룹이 없으면 <b>🌐 확장 언어 그룹 없음</b> + '
+        '<b>[언어 확장이 필요하면 고객사 관리 ▸ 공통코드 · 확장 언어 에서 먼저 켜세요 →]</b> '
+        '② 이 S/O 가 이미 어느 그룹의 Owner 이면 고객사를 고르기 전에도 '
+        '<b>🌐 확장 언어 그룹 {그룹} · {역할} · {언어 …}</b> 를 보여 준다(보기만). '
+        '(정의서에서는 두 갈래를 위아래로 함께 보인다.)',
+        frame('SOB-01', 'SOBP 맵',
+              p_sob01.content(pds='N', sel_s=3, sel_o=17),
+              overlay=modal2(
+                  ('① 고른 고객사에 그룹 없음',
+                   mdl(T, detail('아이스크림에듀') + cust_svc('아이스크림에듀', 'NONE') + grp_none()
+                       + owned('아이스크림에듀', []))),
+                  ('② 이미 그룹에 든 Owner — 고객사 미선택',
+                   mdl(T, detail('', sec=3, own=965, shared=True, kind='PDS2') + cust_svc('', 'NONE')
+                       + grp_in(GC, '확장 슬롯') + owned(''), save_off=True))),
+              height=1500),
+        [('그룹 없음', '자동', '한 줄 + 링크',
+          '<b>🌐 확장 언어 그룹 없음</b> · 링크는 그 고객사 상세(<code>MEM-02</code>)로 — '
+          '그룹은 고객사 관리에서 먼저 켠다'),
+         ('그룹 Section 다름', '자동', '한 줄',
+          '<b>🌐 확장 언어 그룹 · S{s} 그룹이라 이 Section(S{s})에서는 연결하지 않습니다</b>'),
+         ('이미 그룹 Owner', '자동', '한 줄(보기만)',
+          '<b>🌐 확장 언어 그룹 {그룹} · 기본 Owner / 확장 슬롯 · {언어 · 언어 …}</b> — '
+          '언어가 없으면 <b>지정된 언어 없음</b>'),
+         ('역할 미지정 Owner', '자동', '한 줄(보기만)',
+          '<b>🌐 확장 언어 그룹 {그룹} · 역할 미지정 · 역할 · 언어는 고객사 관리에서 정합니다</b>'),
+         ('표시 조건', '참고', '—',
+          '고객사를 아직 안 고름 · 고른 고객사가 그 그룹 고객사가 아님(예전 슬롯 고객사 보유 포함)')] + CLOSE))
+
+    B.append((
+        'S14', '이미 쓰는 좌표 — [그룹에 넣기]', '분기',
+        '<code>PC-332</code> <code>PC-335</code> — 이미 쓰는 좌표(조회 전용)라도 <b>보유 고객사가 한 곳</b>이고 '
+        '그 고객사에 같은 Section 그룹이 있으면 그룹 칸을 그대로 보여 주고, 아래 버튼은 '
+        '<b>[할당]</b> 대신 <b>[그룹에 넣기]</b> 가 된다. 이 S/O 는 다시 할당하지 않고 '
+        '<b>그룹에만 넣는다</b>(역할 미지정). 이 고객사가 이미 가진 Owner 는 칩 <b>O{n} 보유</b> 로 보인다.',
+        scr(modal(T, detail('웅진씽크빅', cross=True)
+                  + cust_svc('웅진씽크빅', 'NONE', kind_fixed=True, used=True)
+                  + grp_panel('웅진씽크빅', 'PDS3', 7, 2, 0, cur=17, n=2, dir_='이후',
+                              rng='O18~O19 (2개)',
+                              chips=((17, 'here'), (18, 'mine'), (19, 'ok')))
+                  + owned('웅진씽크빅', OWN2 + [('N', 3, 18, '0~49', '', False)]),
+                  save='그룹에 넣기')),
+        [('보유 고객사', '자동', '그 고객사로 판단',
+          '고객사 입력칸이 없는 조회 전용 좌표 — 보유 고객사가 <b>한 곳</b>일 때만'),
+         ('[그룹에 넣기]', '클릭', '<code>LOG-01</code>',
+          '이 S/O 는 그룹에만 넣고, 확장 Owner 중 새 번호는 할당 후 넣는다 · '
+          '<b>{고객사} · 확장 언어 그룹에 넣기(역할 미지정) · S{s} · O{n}·O{n}</b>'),
+         ('O{n} 보유', '표시', '—', '이 고객사가 이미 보유 — 할당 없이 그룹에 넣기만'),
+         ('버튼 감춤', '자동', '—',
+          '이 좌표가 이미 그룹에 있고 함께 할당할 Owner 도 없으면 [그룹에 넣기] 를 감춘다'),
+         ('보유 고객사 여러 곳', '자동', '칸 없음', '어느 고객사로 볼지 정할 수 없어 그룹 칸을 보이지 않는다')]
+        + CLOSE))
 
     intro = ('<b>NcodeCenter에서 코드의 주인이 정해지는 유일한 지점</b>이며, '
              '<b>사용 서비스와 코드 종류는 여기서 정하지 않는다</b> — '

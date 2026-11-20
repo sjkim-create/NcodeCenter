@@ -22,16 +22,23 @@ SECTIONS = (
     (44, None, None, ('0~4095', '0~255', '0~255', '0~255')),   # PDS4 (S-code) `PC-042`
 )
 
-# LangSlotView.tsx PROJECTS
-COMMON = {'project': 'Common', 'color': '#2563eb', 'pds': 'PDS2 (Gcode)', 'base': 21,
-          'baseLangs': ['한국어', '영어', '중국어', '일본어'],
-          'ext': list(range(964, 984)), 'extLabel': 'O964~O983',
-          'known': {964: ['베트남어', '러시아어', '몽골어', '캄보디아어(크메르어)'],
-                    965: ['스리랑카어', '필리핀어(따갈로그어)']}}
-CAKE = {'project': 'Cake', 'color': '#db2777', 'pds': 'PDS3 (Ncode)', 'base': 1009,
-        'baseLangs': ['한국어', '영어', '일본어', '스페인어'],
-        'ext': list(range(1003, 983, -1)), 'extLabel': 'O1003~O984 (내림차순)',
-        'known': {1003: ['BTS', '중국어', '인도네시아어', '러시아어']}}
+# LangSlotView.tsx — 고객사 관리 ▸ 공통코드 · 확장 언어 의 **그룹**을 보기 전용으로 `PC-330`
+# (web/lib/langGroups.ts SEED · 그룹마다 기본 Owner + 확장 Owner, Owner 당 4슬롯)
+GROUP_COLORS = ('#2563eb', '#db2777', '#0e7490', '#7c3aed', '#d97706')
+GROUPS = (
+    {'label': 'Common-21', 'kind': 'PDS2', 'section': 3, 'base': 21, 'langCount': 10,
+     'ext': list(range(964, 984)),
+     'langs': {21: ['한국어', '영어', '중국어', '일본어'],
+               964: ['베트남어', '러시아어', '몽골어', '캄보디아어(크메르어)'],
+               965: ['스리랑카어', '필리핀어(따갈로그어)']}},
+    {'label': 'Cake-1009', 'kind': 'PDS3', 'section': 3, 'base': 1009, 'langCount': 8,
+     'ext': list(range(1003, 983, -1)),
+     'langs': {1009: ['한국어', '영어', '일본어', '스페인어'],
+               1003: ['BTS', '중국어', '인도네시아어', '러시아어']}},
+)
+# 할당 전 자리 예시 — 고객사 관리에서 그룹을 켜고 언어만 미리 넣은 상태(아직 SOBP 할당 전) `PC-334`
+NEW_GROUP = {'label': '신규 고객사(예시)', 'kind': 'PDS3', 'section': None, 'base': None, 'langCount': 8,
+             'ext': [], 'langs': {'#0': ['한국어', '영어', '중국어', '일본어'], '#1': ['프랑스어', '독일어']}}
 
 
 def tabs(active=0):
@@ -97,71 +104,87 @@ def range_table():
             % (hdr, hdr, hdr, hdr, body))
 
 
-def owner_cards(cfg):
-    owners = [(cfg['base'], True, cfg['baseLangs'])]
-    for o in cfg['ext']:
-        owners.append((o, False, cfg['known'].get(o, [])))
+def need_ext(n):
+    return max(0, -(-max(0, n) // 4) - 1)
+
+
+def lang_rows(g):
+    """langGroups.ts langRows — 필요한 Owner 수(기본 1 + 필요 확장)만큼, 할당 전 자리도 줄로 `PC-334`"""
+    n = max(need_ext(g['langCount']), len(g['ext'])) + 1
+    out = []
+    for pos in range(n):
+        owner = g['base'] if pos == 0 else (g['ext'][pos - 1] if pos - 1 < len(g['ext']) else None)
+        key = owner if owner is not None else '#%d' % pos
+        out.append((pos, owner, key, pos * 4 + 1))
+    return out
+
+
+def owner_cards(g, color):
     out = ''
-    n = 1
-    for owner, base, langs in owners:
+    for pos, owner, key, start in lang_rows(g):
+        base = (pos == 0)
+        langs = g['langs'].get(key, [])
         slots = ''
-        first = n
         for i in range(4):
-            lang = langs[i] if i < len(langs) else ''
+            lang = (langs[i] if i < len(langs) else '').strip()
             slots += ('<div style="display:flex;gap:6px;font-size:11.5px;padding:2px 0;'
                       'align-items:baseline">'
                       '<span style="color:#9ca3af;font-family:ui-monospace,monospace;'
                       'min-width:18px;text-align:right">%d</span>'
                       '<span style="color:%s">%s</span></div>'
-                      % (n, '#111827' if lang else '#94a3b8', lang or '사용가능'))
-            n += 1
+                      % (start + i, '#111827' if lang else '#94a3b8', lang or '사용가능'))
         tag = ('<span style="font-size:9px;background:%s;color:#fff;font-weight:700;'
-               'border-radius:5px;padding:2px 7px">기본</span>' % cfg['color']) if base else ''
-        out += ('<div style="border:1px solid #eef0f4;border-radius:10px;overflow:hidden;'
+               'border-radius:5px;padding:2px 7px">기본</span>' % color) if base else ''
+        title = 'O%d' % owner if owner is not None else '할당 전'
+        tcol = '#9ca3af' if owner is None else (color if base else '#111827')
+        out += ('<div style="border:1px %s #e5e7eb;border-radius:10px;overflow:hidden;'
                 'background:#fff">'
                 '<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;'
                 'border-bottom:1px solid #eef0f4;background:%s">'
-                '<b style="font-family:ui-monospace,monospace;font-size:12.5px;color:%s">O%d</b>%s'
+                '<b style="font-family:ui-monospace,monospace;font-size:12.5px;color:%s">%s</b>%s'
                 '<span style="margin-left:auto;font-size:10px;color:#9ca3af">슬롯 %d~%d</span></div>'
                 '<div style="padding:4px 8px 6px">%s</div></div>'
-                % ('#eef6ff' if base else '#fafbfc', cfg['color'] if base else '#111827',
-                   owner, tag, first, n - 1, slots))
-    return out, len(owners)
+                % ('dashed' if owner is None else 'solid', '#eef6ff' if base else '#fafbfc',
+                   tcol, title, tag, start, start + 3, slots))
+    return out
 
 
-def proj_section(cfg):
-    cards, cnt = owner_cards(cfg)
+def group_section(g, color):
+    ext = ('O%d~O%d (%d개)' % (min(g['ext']), max(g['ext']), len(g['ext']))) if g['ext'] else '없음'
+    meta = ('%s · Section %s · 기본 %s · 확장 %s · 필요 언어 %d개 · 오너당 4슬롯'
+            % (g['kind'], g['section'] if g['section'] is not None else '미정',
+               'O%d' % g['base'] if g['base'] is not None else '미정', ext, g['langCount']))
     return ('<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;'
             'padding:16px;margin-bottom:16px">'
             '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
             '<span style="background:%s;color:#fff;font-weight:700;border-radius:6px;'
             'padding:3px 10px;font-size:12.5px">%s</span>'
             '<b style="font-size:14px">확장 언어 슬롯</b>'
-            '<span style="color:#6b7280;font-size:12px">%s · Section 3 · 기본 O%d · 확장 %s · '
-            '오너 %d개 · 오너당 4슬롯</span></div>'
+            '<span style="color:#6b7280;font-size:12px">%s</span></div>'
             '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));'
             'gap:8px">%s</div></div>'
-            % (cfg['color'], cfg['project'], cfg['pds'], cfg['base'], cfg['extLabel'], cnt, cards))
+            % (color, g['label'], meta, owner_cards(g, color)))
 
 
-def lang_slots(flt='all'):
+def lang_slots(flt='all', groups=GROUPS):
     pills = ''
-    for f in ('all', 'Common', 'Cake'):
-        on = (f == flt)
-        c = '#2563eb' if f == 'Common' else ('#db2777' if f == 'Cake' else '#374151')
+    for i, (v, lab) in enumerate([('all', '전체')] + [(g['label'], g['label']) for g in groups]):
+        on = (v == flt)
+        c = '#374151' if v == 'all' else GROUP_COLORS[(i - 1) % len(GROUP_COLORS)]
         pills += ('<span style="border:1px solid %s;background:%s;color:%s;border-radius:8px;'
                   'padding:5px 12px;font-size:12.5px;font-weight:700">%s</span>'
-                  % (c if on else '#e5e7eb', c if on else '#fff', '#fff' if on else '#6b7280',
-                     '전체' if f == 'all' else f))
+                  % (c if on else '#e5e7eb', c if on else '#fff', '#fff' if on else '#6b7280', lab))
     secs = ''
-    for cfg in (COMMON, CAKE):
-        if flt == 'all' or flt == cfg['project']:
-            secs += proj_section(cfg)
-    return ('<div><p style="margin:0 0 12px;color:#6b7280;font-size:13px">'
-            '확장 언어 슬롯 — 기본 언어에서 언어가 확장되면 해당 언어의 확장 오너 코드를 사용합니다. '
-            '오너마다 4개 슬롯.<br>출처: (소리펜)NSP_Ncode_List.xlsx '
-            '「Common 추가 언어 슬롯 (964~983)」·「Cake (984~1003)」 시트.</p>'
-            '<div style="display:flex;gap:6px;margin-bottom:14px">%s</div>%s</div>' % (pills, secs))
+    for i, g in enumerate(groups):
+        if flt == 'all' or flt == g['label']:
+            secs += group_section(g, GROUP_COLORS[i % len(GROUP_COLORS)])
+    link = '<span style="color:#2563eb;text-decoration:underline">%s</span>'
+    return ('<div><p style="margin:0 0 12px;color:#6b7280;font-size:13px;line-height:1.7">'
+            '확장 언어 슬롯 — 기본 Owner 에서 언어가 늘면 그룹에 연결된 확장 Owner 의 슬롯을 씁니다. '
+            'Owner 하나에 4슬롯.<br>그룹 · 언어는 %s ▸ 공통코드 · 확장 언어 에서, '
+            'Owner 연결은 %s 할당 창에서 합니다.</p>'
+            '<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">%s</div>%s</div>'
+            % (link % '고객사 관리', link % 'SOBP 맵', pills, secs))
 
 
 def sect(title, inner, num=None):
@@ -344,29 +367,49 @@ def build():
           '<code>SOB-01</code>의 Section 목록(1 · 44 포함)과 <b>범위가 다르다</b>')] + NAV))
 
     boards.append((
-        'S2', '확장 언어 슬롯 · 전체', '기본',
-        'PRD §4.2 — <b>INF-02(Common)와 INF-03(Cake)은 화면상 같은 탭</b>에서 프로젝트 필터로 전환된다. '
-        '오너 카드는 <code>repeat(auto-fill, minmax(168px, 1fr))</code> 격자이며 '
-        '<b>오너당 4슬롯</b>, 슬롯 번호는 프로젝트 내에서 <b>연속</b>으로 매겨진다. '
-        '언어가 지정되지 않은 슬롯은 <b>사용가능</b>으로 표시된다.',
+        'S2', '확장 언어 슬롯 · 전체 그룹', '기본',
+        'PRD §4.2 — <b>보기 전용 그룹 보기</b> <code>PC-330</code>. 고정된 Common · Cake 두 묶음 대신 '
+        '<b>고객사 관리 ▸ 공통코드 · 확장 언어</b>의 <b>확장 언어 그룹</b>을 그룹마다 카드 하나로 보여 준다. '
+        '필터 칩은 <b>[전체] + 그룹명</b>이다. 그룹 머리에 <b>{코드 종류} · Section · 기본 O{n} · '
+        '확장 O{첫}~O{끝} ({n}개) · 필요 언어 {n}개 · 오너당 4슬롯</b>을 붙인다. '
+        'Owner 카드는 <code>repeat(auto-fill, minmax(168px, 1fr))</code> 격자이며 <b>Owner 당 4슬롯</b>, '
+        '슬롯 번호는 기본 1~4 · 확장은 연결 순서대로 5~8 · 9~12 … 로 이어진다. '
+        '언어가 없는 슬롯은 <b>사용가능</b>이다. 이 화면에서는 고칠 수 없다 — 그룹 · 언어는 고객사 관리, '
+        'Owner 연결은 SOBP 맵 할당 창에서 한다.',
         frame('INF-01', '코드 관리 정보', content(1), height=2000),
-        [('[전체] / [Common] / [Cake]', '클릭', '프로젝트 필터', 'Common 파랑 · Cake 자홍'),
-         ('Common', '조회', '—', 'PDS2(Gcode) · Section 3 · 기본 <b>O21</b> · 확장 <b>O964~O983</b> · 오너 21개'),
-         ('Cake', '조회', '—', 'PDS3(Ncode) · Section 3 · 기본 <b>O1009</b> · 확장 <b>O1003~O984(내림차순)</b> · 오너 21개'),
-         ('기본 오너 카드', '표시', '—', '머리 배경 #eef6ff + <b>기본</b> 배지'),
+        [('안내 [고객사 관리]', '클릭', '<code>MEM-01</code>', '그룹 · 슬롯별 언어 정본(공통코드 · 확장 언어)'),
+         ('안내 [SOBP 맵]', '클릭', '<code>SOB-01</code>', 'Owner(영역) 할당'),
+         ('[전체] / [Common-21] / [Cake-1009]', '클릭', '그룹 필터', '칩 = 고객사 관리에 등록된 그룹 · 그룹마다 색이 다르다'),
+         ('Common-21', '조회', '—', 'PDS2 · Section 3 · 기본 <b>O21</b> · 확장 <b>O964~O983 (20개)</b> · 필요 언어 10개 · 오너당 4슬롯'),
+         ('Cake-1009', '조회', '—', 'PDS3 · Section 3 · 기본 <b>O1009</b> · 확장 <b>O984~O1003 (20개)</b> · 필요 언어 8개 · 오너당 4슬롯'),
+         ('기본 Owner 카드', '표시', '—', '<b>O{n} [기본] 슬롯 1~4</b> — 머리 배경 #eef6ff + <b>기본</b> 배지'),
          ('사용가능 슬롯', '표시', '—', '언어 미지정 슬롯'),
+         ('그룹 없음', '표시', '—', '<b>등록된 확장 언어 그룹이 없습니다.</b>'),
          ('실제 점유 확인', '이동', '<code>SOB-01</code>', '해당 Owner의 코드 상태'),
-         ('탭 분리 여부', '—', '<b>미결</b>', '⚠ §7 — 별도 탭으로 분리할지'),
-         ('데이터 갱신 경로', '—', '<b>미결</b>', '⚠ §7 — 현재 원본 엑셀 기준')]))
+         ('탭 분리 여부', '—', '<b>미결</b>', '⚠ §7 — 별도 탭으로 분리할지')]))
 
     boards.append((
-        'S3', '확장 언어 슬롯 · Cake 필터', '필터',
-        '프로젝트 필터로 <b>Cake</b>만 본 상태. 활성 칩은 프로젝트 색(자홍 #db2777)으로 채워진다.',
-        frame('INF-01', '코드 관리 정보', content(1, 'Cake'), height=1100),
-        [('[Cake]', '클릭', 'Cake만 표시', ''),
+        'S3', '확장 언어 슬롯 · 그룹 필터', '필터',
+        '그룹 필터로 <b>Cake-1009</b> 한 그룹만 본 상태. 활성 칩은 그 그룹 색(자홍 #db2777)으로 채워진다. '
+        '확장 Owner 카드는 <b>연결한 순서</b>(O1003 → O984)대로 놓이고 머리의 확장 범위는 작은 번호부터 적는다.',
+        frame('INF-01', '코드 관리 정보', content(1, 'Cake-1009'), height=1100),
+        [('[Cake-1009]', '클릭', '그 그룹만 표시', ''),
          ('[전체]', '클릭', 'S2 복귀', ''),
-         ('기본 Owner', '조회', '—', 'O1009 (한국어·영어·일본어·스페인어)'),
-         ('확장 순서', '조회', '—', 'O1003 → O984 <b>내림차순</b>')]))
+         ('기본 Owner', '조회', '—', 'O1009 슬롯 1~4 (한국어·영어·일본어·스페인어)'),
+         ('확장 Owner', '조회', '—', 'O1003 슬롯 5~8 (BTS·중국어·인도네시아어·러시아어) → 이후 <b>사용가능</b>')]))
+
+    boards.append((
+        'S8', '확장 언어 슬롯 · 할당 전 자리', '분기',
+        '고객사 관리에서 그룹을 켜고 언어만 미리 넣었고 <b>아직 SOBP 할당 전</b>인 그룹 <code>PC-334</code>. '
+        '그룹의 <b>필요한 Owner 수</b>(기본 1 + ⌈필요 언어 수 ÷ 4⌉ − 1)만큼 카드를 만들고, '
+        'Owner 가 없는 자리는 <b>할당 전</b>(점선 카드)으로 보인다. 미리 넣은 언어도 그 자리에 보인다. '
+        'Section · 기본 Owner 가 정해지기 전이라 머리에는 <b>미정</b>으로 적는다.',
+        frame('INF-01', '코드 관리 정보',
+              content(1, body=lang_slots(NEW_GROUP['label'], GROUPS + (NEW_GROUP,))), height=760),
+        [('할당 전 카드', '표시', '—', '<b>할당 전</b> · 점선 테두리 · 슬롯 번호는 자리 순서대로(1~4 · 5~8 …)'),
+         ('미리 넣은 언어', '표시', '—', '고객사 관리에서 넣은 언어 — Owner 가 연결되면 그 Owner 로 옮겨진다'),
+         ('그룹 머리', '표시', '—', 'PDS3 · Section <b>미정</b> · 기본 <b>미정</b> · 확장 <b>없음</b> · 필요 언어 8개 · 오너당 4슬롯'),
+         ('Owner 연결', '이동', '<code>SOB-01</code>', 'SOBP 맵 할당 창 — 이 화면에서는 연결할 수 없다')]))
 
     boards.append((
         'S4', '발급 구조', '기본',

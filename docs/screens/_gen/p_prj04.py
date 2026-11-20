@@ -48,6 +48,83 @@ def status_row(st='진행중', locked=False, need_date=False, released=False):
             % (chips, note))
 
 
+# 확장 언어 그룹 — Common-21 (PDS2 · 기본 S3/O21 · 확장 O964~983) `PC-327`
+#   (Owner, 언어) — 언어가 없으면 「지정된 언어 없음」 · PRD §4.2.1 슬롯 · 언어 표
+EXT_LANG = ((964, '5 베트남어 · 6 러시아어 · 7 몽골어 · 8 캄보디아어(크메르어)'),
+            (965, '9 스리랑카어 · 10 필리핀어(따갈로그어)'),
+            (966, ''), (967, ''), (968, ''), (969, ''))
+EXT_TAKEN = {966: '다른 고객사가 사용 중 — 충남교육청 · 어서와 한국 생활은 처음이지 1'}   # 그림 예시
+EXT_LEGACY = (964, 965)   # 같은 사용 고객사(전북교육청)가 슬롯 Book 을 따로 등록해 둔 슬롯
+
+
+def ext_picker(picked=(964, 965), open_=False):
+    """확장 언어 슬롯 칸 — 🌐 O{n} 배지(✕) + [+ 슬롯] · 누르면 다중 선택 체크 목록 `PC-327`"""
+    badges = ''.join(
+        '<span title="S3/O%d/B265 — %s" style="display:inline-flex;align-items:center;gap:3px;'
+        'font-size:11px;background:#ecfeff;color:#0e7490;border-radius:5px;padding:2px 6px;'
+        'font-weight:700;white-space:nowrap">🌐 O%d%s<span style="font-weight:400">✕</span></span>'
+        % (o, dict(EXT_LANG)[o] or '지정된 언어 없음', o,
+           '<span style="font-weight:400;color:#b45309">따로</span>' if o in EXT_LEGACY else '')
+        for o in picked)
+    add = ('<span style="font-size:12px;color:#6b7280;flex:1;min-width:70px;white-space:nowrap">'
+           '%s <span style="font-size:10px;color:#9ca3af">%s</span></span>'
+           % ('+ 슬롯' if picked else '+ 슬롯 선택 (없음)', '▲' if open_ else '▼'))
+    box = ('<div class="inp" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;'
+           'min-height:34px;padding:3px 6px;background:#fff%s">%s%s</div>'
+           % (';border-color:#67e8f9' if open_ else '', badges, add))
+    pop = ''
+    if open_:
+        items = ''
+        for o, lang in EXT_LANG:
+            on = o in picked
+            taken = (not on) and EXT_TAKEN.get(o)
+            legacy = o in EXT_LEGACY
+            tail = ('<span style="font-size:10.5px">사용 중</span>' if taken else
+                    '<span style="font-size:10.5px;color:#b45309">따로 등록됨</span>' if legacy else '')
+            items += ('<div%s style="display:flex;align-items:center;gap:6px;padding:5px 8px;'
+                      'border-radius:6px;font-size:12px;background:%s;color:%s">'
+                      '<span style="width:13px;height:13px;border-radius:3px;border:1px solid %s;'
+                      'background:%s;color:#fff;font-size:9px;display:inline-grid;place-items:center">%s</span>'
+                      '<b style="font-family:ui-monospace,monospace;min-width:44px;color:%s">O%d</b>'
+                      '<span style="flex:1;min-width:0;color:%s">%s</span>%s</div>'
+                      % (' title="%s"' % taken if taken else '',
+                         '#ecfeff' if on else 'transparent', '#9ca3af' if taken else '#374151',
+                         '#0891b2' if on else ('#e5e7eb' if taken else '#9ca3af'),
+                         '#0891b2' if on else ('#f3f4f6' if taken else '#fff'), '✓' if on else '',
+                         '#9ca3af' if taken else ('#0e7490' if on else '#111827'), o,
+                         '#9ca3af' if (taken or not lang) else '#4b5563',
+                         lang or '지정된 언어 없음', tail))
+        pop = ('<div style="position:absolute;z-index:30;top:calc(100%% + 4px);right:0;width:400px;'
+               'background:#fff;border:1px solid #e5e7eb;border-radius:8px;'
+               'box-shadow:0 8px 24px rgba(0,0,0,.12);overflow:hidden">'
+               '<div style="display:flex;align-items:center;gap:6px;padding:6px 8px 6px 12px;'
+               'border-bottom:1px solid #eef0f4;background:#fafbfc">'
+               '<span style="font-size:11.5px;color:#6b7280">Common-21 확장 언어 슬롯 · %d개 선택</span>'
+               '<span style="flex:1"></span><span class="btn sm">닫기</span></div>'
+               '<div style="max-height:280px;overflow:hidden;padding:4px">%s'
+               '<div style="font-size:11px;color:#9ca3af;padding:3px 8px">⋯ O970 ~ O983</div>'
+               '</div></div>' % (len(picked), items))
+    return '<div style="position:relative">%s%s</div>' % (box, pop)
+
+
+def coord_ext(picked=(964, 965), open_=False):
+    """기본 코드 교재의 [사용할 코드] 한 줄 — 할당된 S/O · Book · 코드 종류 · 확장 언어 슬롯 · 사용 고객사 `PC-327`"""
+    cells = (field('할당된 S / O',
+                   '<div class="inp ro">S3 / O21 <span style="color:#9ca3af;font-size:11px">(수정 불가)</span></div>',
+                   True)
+             + field('Book', sel('B265'), True)
+             + field('코드 종류', sel('PDS2'), True)
+             + field('확장 언어 슬롯 (Common-21 O964~983)', ext_picker(picked, open_))
+             + field('사용 고객사 (서비스 티켓)',
+                     '<div class="inp ro"><span style="font-size:11px;background:#f3e8ff;color:#7e22ce;'
+                     'border-radius:5px;padding:2px 7px;font-weight:700">전북교육청</span></div>'))
+    return ('<div class="card"><div class="hd">사용할 코드</div><div class="bd">'
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 2.2fr 1.3fr;gap:10px;'
+            'align-items:start">%s</div>'
+            '<div style="font-size:11.5px;color:#6b21a8;margin-top:8px">여러 고객사가 Book 번호만 나눠 '
+            '쓰는 코드입니다 — 공유 코드 · 여러 고객사 사용</div></div></div>' % cells)
+
+
 def coord(mode='edit', share=False, sub_err=False):
     # mode='dup' — [복제]로 연 등록 폼: 코드(S/O·Book·종류)를 **원본에 고정**한다 `PC-112`
     dup = (mode == 'dup')
@@ -109,7 +186,7 @@ def sel_chips(placeholder, chips):
             % (SUB5, sel(placeholder), chips))
 
 
-def info(empty=False, mod_date=True):
+def info(empty=False, mod_date=True, title='범블비 잉글리시 전집 1권'):
     def v(x, ph=False):
         return '<div class="inp%s">%s</div>' % (' ph' if ph else '', x)
     e = empty
@@ -141,7 +218,7 @@ def info(empty=False, mod_date=True):
             '<div style="' + g6 + '">%s%s</div>'
             '</div></div>')
     return (tmpl
-            % (field('교재명', v('교재명 입력' if e else '범블비 잉글리시 전집 1권', e),
+            % (field('교재명', v('교재명 입력' if e else title, e),
                      False, None, '연동이 <b>NPROJ 타이틀 → 없으면 NPROJ 파일명</b>으로 채우고 <b>여기서 고칠 수 있다</b> '
                      '(이후 전송에서 바꾸지 않는다) <code>PC-284</code> · 목록·검색에 표시'),
                pen_models,
@@ -165,7 +242,7 @@ def info(empty=False, mod_date=True):
 CASTER_TIP = ('casterN 에서 프로젝트를 저장하면 .nproj 파일명이 <b>프로젝트명</b>으로, ncp2 를 내보내면 그때 지정한 파일명이 <b>ncp2 파일명</b>으로 채워집니다. 같은 코드 · 같은 ncp2 파일명으로 다시 들어오면 이 교재가 최신 값으로 바뀝니다. 이 화면에서 고칠 수 없습니다.')
 
 
-def caster(empty=False, mod_date=True, tip=False):
+def caster(empty=False, mod_date=True, tip=False, proj='BUMBLEBEE_ENG_01'):
     # casterN 연동 — 네 칸 모두 **자동 · 읽기 전용** `PC-282`
     #   프로젝트명 = 저장한 .nproj 파일명 · ncp2 파일명 = 내보내기 때 지정한 이름
     #   ncp2 파일 크기 · 최종수정 = 저장 · 수정할 때마다 최신 값으로
@@ -193,9 +270,9 @@ def caster(empty=False, mod_date=True, tip=False):
             '<div style="grid-column:span 2">%s</div>%s'
             '</div></div></div>'
             % (head, g6,
-               field('프로젝트명 (.nproj)', ro(None if e else 'BUMBLEBEE_ENG_01.nproj', False), False, None,
+               field('프로젝트명 (.nproj)', ro(None if e else proj + '.nproj', False), False, None,
                      'casterN 에서 <b>프로젝트를 저장</b>하면 .nproj 파일명'),
-               field('ncp2 파일명', ro(None if e else 'BUMBLEBEE_ENG_01'), False, None,
+               field('ncp2 파일명', ro(None if e else proj), False, None,
                      'ncp2 <b>내보내기 때 지정한 파일명</b>'),
                field('ncp2 파일 크기 (byte)', ro(None if e else '109,316,656'), False, None,
                      '저장 · 수정 때마다 갱신'),
@@ -370,13 +447,20 @@ def extra(hi=None):
 
 def content(mode='edit', st='진행중', locked=False, need_date=False, released=False,
             share=False, sub_err=False, empty=False, pen='소리펜', badge='fixed',
-            discount=True, mod_date=True, hi=None, toast='', tip=False):
+            discount=True, mod_date=True, hi=None, toast='', tip=False, ext=None):
+    # ext — 기본 코드 교재 예시(Common-21 S3/O21/B265) : {'picked': (964, 965), 'open': bool} `PC-327`
     save = '추가' if mode in ('new', 'dup') else '저장'
+    if ext is not None:
+        cd = coord_ext(ext.get('picked', (964, 965)), ext.get('open', False))
+        inf = info(empty, mod_date, '톡톡 누르면 배움이 쏙쏙 4')
+        cst = caster(empty, mod_date, tip, 'TOKTOK_Korean_Book_4-1')
+    else:
+        cd, inf, cst = coord(mode, share, sub_err), info(empty, mod_date), caster(empty, mod_date, tip)
     return (toast
             + status_row(st, locked, need_date, released) + '<div style="height:12px"></div>'
-            + coord(mode, share, sub_err) + '<div style="height:12px"></div>'
-            + info(empty, mod_date) + '<div style="height:12px"></div>'
-            + caster(empty, mod_date, tip) + '<div style="height:12px"></div>'
+            + cd + '<div style="height:12px"></div>'
+            + inf + '<div style="height:12px"></div>'
+            + cst + '<div style="height:12px"></div>'
             + qty(pen) + '<div style="height:12px"></div>'
             + totals(pen) + '<div style="height:12px"></div>'
             + settle(badge, discount) + '<div style="height:12px"></div>'
@@ -625,6 +709,64 @@ def build():
          ('ncp2 파일명 중복', '—', '<b>검사 안 함</b>',
           '폐지 <code>PC-282</code> — 중복은 casterN · 서버 매칭에서 다룬다'),
          ('[확인]', '클릭', '폼 복귀', '입력값은 그대로 남는다')]))
+
+    boards.append((
+        'S13', '기본 코드 교재 — 확장 언어 슬롯 칸', '분기',
+        '<code>PC-327</code> — 교재 코드가 확장 언어 그룹의 <b>기본 코드</b>(Common S3/O21 PDS2 · '
+        'Cake S3/O1009 PDS3)면 [사용할 코드] <b>한 줄</b>의 코드 종류 뒤에 '
+        '<b>「확장 언어 슬롯 ({그룹} O{첫}~{끝})」</b> 칸이 붙는다. 같은 Book 을 확장 슬롯 Owner 에서도 쓰면 '
+        '언어마다 교재를 따로 만들지 않고 여기서 슬롯을 골라 <b>한 교재로 묶는다</b>. '
+        '고른 슬롯은 <b>🌐 O{n}</b> 배지(✕ 로 빼기)이고, 칸 끝 <b>[+ 슬롯]</b> 으로 더한다. '
+        '언어별 심볼은 소리펜 심볼 입력의 <b>Compound n언어</b> 칸에 넣는다(슬롯 심볼 칸 없음). '
+        '예: 전북교육청 「톡톡 누르면 배움이 쏙쏙 4」 S3/O21/B265 + O964 · O965.',
+        frame('PRJ-03', '교재(책) 편집 수정', content(ext={'picked': (964, 965)}), height=2260),
+        [('확장 언어 슬롯 칸', '표시', '—',
+          '기본 코드 교재일 때만 · 할당된 S/O · Book · 코드 종류 <b>뒤</b>, (사용 고객사) 앞 — 한 줄'),
+         ('🌐 O{n}', 'hover', '툴팁', '<b>S{s}/O{n}/B{b} — 5 베트남어 · 6 러시아어 …</b>'),
+         ('🌐 O{n} 따로', '표시', '—',
+          '같은 사용 고객사가 그 슬롯 Book 을 따로 등록해 둔 슬롯(옛 방식) — 따로 등록된 교재는 고치지 않는다'),
+         ('✕', '클릭', '슬롯 빼기', ''),
+         ('[+ 슬롯]', '클릭', 'S14 체크 목록', '아무것도 없으면 <b>+ 슬롯 선택 (없음)</b>'),
+         ('Book', '규칙', '—', '고른 슬롯은 <b>기본과 같은 Book</b> 을 쓴다'),
+         ('[저장]', '클릭', '<code>PRJ-03</code> · <code>SOB-01</code>',
+          '목록 S/O/B 칸에 <b>[확장] {o}</b> 실선 칩 · 슬롯 Book 도 SOBP 맵에 편집 표시(사용 고객사 포함)'),
+         ('기본 코드가 아니게 되면', '저장', '슬롯 체크 버림', ''),
+         ('정산', '—', '그대로', '슬롯은 Owner 만 기록 · 슬롯별 ncp2 · 심볼 칸은 두지 않는다')]))
+
+    boards.append((
+        'S14', '[+ 슬롯] 체크 목록 — 다중 선택 · 사용 중 · 따로 등록됨', '분기',
+        '<code>PC-327</code> — <b>[+ 슬롯]</b> 을 누르면 <b>체크 목록</b>이 열린다. 열린 채로 '
+        '<b>여러 개를 체크 · 해제</b>하고(누를 때마다 바로 반영) Owner 순으로 놓인다. '
+        '머리 줄에 <b>{그룹} 확장 언어 슬롯 · {n}개 선택</b> 과 오른쪽 <b>[닫기]</b> — 목록을 스크롤해도 '
+        '늘 위 오른쪽에 있다. 목록 바깥을 누르거나 <b>Esc</b> 를 눌러도 닫힌다.',
+        frame('PRJ-03', '교재(책) 편집 수정',
+              content(ext={'picked': (964, 965), 'open': True}), height=2260),
+        [('머리 줄', '표시', '—', '<b>Common-21 확장 언어 슬롯 · 2개 선택</b> · 오른쪽 <b>[닫기]</b>'),
+         ('항목', '표시', '—',
+          '<b>O{n}</b> · 슬롯 번호 + 언어 전체 — 예: <b>O964 · 5 베트남어 · 6 러시아어 · 7 몽골어 · 8 캄보디아어(크메르어)</b>, '
+          'Cake 는 <b>O1003 · 5 BTS · 6 중국어 · 7 인도네시아어 · 8 러시아어</b> · 언어가 없으면 <b>지정된 언어 없음</b>'),
+         ('항목', '체크 · 해제', '바로 반영', '목록은 열린 채로 남는다'),
+         ('사용 중', '—', '<b>체크 불가</b>',
+          '그 슬롯 Book 을 <b>다른 고객사 교재</b>가 쓴다 — 회색 · 툴팁 <b>다른 고객사가 사용 중 — {편집 프로젝트} · {교재명}</b>'),
+         ('따로 등록됨', '—', '<b>체크 가능</b>',
+          '<b>같은 사용 고객사</b>가 그 슬롯 Book 을 따로 등록한 교재가 있다(옛 방식) · 툴팁 '
+          '<b>같은 Book 이 따로 등록돼 있습니다 — {고객사} · {교재명}</b> · 그 교재는 고치지 않는다'),
+         ('[닫기] · 바깥 클릭 · Esc', '클릭', 'S13', '체크는 이미 반영돼 있다')]))
+
+    boards.append((
+        'S15', '확장 언어 슬롯 저장 차단 — 다른 고객사 교재가 쓰는 Book', '오류',
+        '<code>PC-327</code> — 체크한 슬롯 Book 을 그 사이 <b>다른 고객사 교재</b>가 쓰게 됐으면(예: Book 을 바꾼 뒤) '
+        '저장할 때 확인창으로 막는다. 입력값은 그대로 남는다.',
+        frame('PRJ-03', '교재(책) 편집 수정', content(ext={'picked': (964, 965)}),
+              overlay=ovl('저장할 수 없습니다',
+                          'S3/O965/B265 은 이미 다른 고객사 교재가 쓰고 있습니다 — '
+                          '충남교육청 · 어서와 한국 생활은 처음이지 1. 확장 언어 슬롯 체크를 빼거나 다른 Book 을 고르세요.'),
+              height=2260),
+        [('[저장]', '클릭', '<b>차단</b>',
+          '<b>S{s}/O{o}/B{b} 은 이미 다른 고객사 교재가 쓰고 있습니다 — {편집 프로젝트} · {교재명}. '
+          '확장 언어 슬롯 체크를 빼거나 다른 Book 을 고르세요.</b>'),
+         ('따로 등록됨(같은 사용 고객사)', '[저장]', '<b>막지 않는다</b>', '알림만 — 데이터는 그대로'),
+         ('[확인]', '클릭', 'S13', '입력값은 그대로 남는다')]))
 
     intro = ('교재(책) 1권의 <b>편집 내역과 정산 근거를 입력</b>하는 화면. '
              '<b>등록과 수정이 같은 화면</b>이며 진입 방법으로 모드가 갈린다 — '
