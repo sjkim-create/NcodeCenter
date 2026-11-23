@@ -92,11 +92,11 @@ def price_card(n_custom=2):   # 전용 단가 예시 = 편집 · 게임 2항목 
                 'padding:11px 12px">%s</div></div>'
                 % (bd, bg, bd, fg, title, note, len(items), badge, cells))
     badge = ('<span class="tag y">전용 %d항목</span>' % n_custom) if n_custom else ''
-    return ('<div class="card"><div class="hd">편집 단가 (2026 항목별) '
+    return sec_card('편집 단가', '· 2026 항목별', '<div style="max-width:980px">' + ('<div><div style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700">편집 단가 (2026 항목별) '
             '<span style="font-size:11px;color:#9ca3af;font-weight:400">'
             '· 기본값에서 바꾼 항목만 전용 단가</span> %s<div class="sp"></div>'
             '<span class="btn sm">전체 기본값</span></div>'
-            '<div class="bd" style="padding-top:6px">%s%s'
+            '<div style="padding-top:6px">%s%s'
             '<div style="font-size:11px;color:#9ca3af;margin-top:8px;line-height:1.6">'
             '편집 프로젝트의 청구액이 이 단가로 계산됩니다(항목 수량 × 단가). '
             '단가를 바꾸면 <b>이후 등록되는 교재(책)부터 적용</b>되고, '
@@ -107,49 +107,59 @@ def price_card(n_custom=2):   # 전용 단가 예시 = 편집 · 게임 2항목 
              group('🔊 소리펜', 'ncp2 산출 · mp3 심볼', PRICE_NSP,
                    ('#1d4ed8', '#f5f9ff', '#dbeafe')),
              group('✍ 필기펜', '필기 인식 · APP 연동', PRICE_NWP,
-                   ('#7e22ce', '#faf5ff', '#e9d5ff'))))
+                   ('#7e22ce', '#faf5ff', '#e9d5ff')))) + '</div>')
 
 
 def docs_card():
-    return ('<div class="card"><div class="hd">관련 서류<div class="sp"></div>'
-            '<span class="btn sm">＋ 서류 추가</span></div><div class="bd" style="padding:0">'
-            '<table><tr><th>항목명</th><th style="width:210px">파일</th>'
-            '<th style="width:56px">작업</th></tr>'
-            '<tr><td>사업자등록증</td><td style="color:#5f8ff0">wj_biz_license.pdf</td>'
-            '<td><span class="lnk" style="color:#dc2626">삭제</span></td></tr>'
-            '<tr><td>통장 사본</td><td style="color:#5f8ff0">wj_bank.jpg</td>'
-            '<td><span class="lnk" style="color:#dc2626">삭제</span></td></tr>'
-            '<tr><td>2026 단가 합의서</td><td style="color:#5f8ff0">wj_price_2026.pdf</td>'
-            '<td><span class="lnk" style="color:#dc2626">삭제</span></td></tr>'
-            '</table></div></div>')
+    """관련 서류 — 「· 항목명 수정 가능」 · 줄 = 항목명 입력칸 · [파일] + 파일명(없으면 「선택 없음」) · 삭제 (CompaniesView.tsx)"""
+    rows = (('사업자등록증', 'wj_biz_license.pdf'), ('통장 사본', 'wj_bank.jpg'), ('2026 단가 합의서', 'wj_price_2026.pdf'))
+    li = ''.join('<div style="display:grid;grid-template-columns:130px 1fr auto;gap:8px;align-items:center;margin-bottom:8px">'
+                 '<div class="inp" style="font-weight:600">%s</div>'
+                 '<div class="inp" style="display:flex;align-items:center;gap:8px"><span class="btn sm">파일</span><span>%s</span></div>'
+                 '<span class="lnk" style="color:#dc2626">삭제</span></div>' % (lb, fn) for lb, fn in rows)
+    inner = ('<div style="max-width:900px"><div style="display:flex;margin-bottom:10px"><span class="btn sm" style="margin-left:auto">＋ 서류 추가</span></div>%s</div>' % li)
+    return sec_card('관련 서류', '· 항목명 수정 가능', inner)
 
 
-def memo_card(draft='', hi=None):
-    rows = ''
-    for no, kind, who, ts, writer, txt in MEMOS:
-        cls = {'요청': 'tag b', '처리': 'tag g', '메모': 'tag'}[kind]
+MEMO_PROJ = {'3': '웅진씽크빅 코드발급 · S3/O17', '2': '웅진씽크빅 코드발급 · S3/O17', '1': ''}
+KIND_TAG = {'요청': ('#eef6ff', '#2563eb'), '처리': ('#ecfdf5', '#047857'), '메모': ('#f3f4f6', '#6b7280')}
+
+
+def memo_card(draft='', hi=None, editing=None, new=False):
+    """업무 메모 — 고객사 전용 원장 · 번호 유지 · 본인 글만 수정/삭제 (CompaniesView.tsx 업무 메모 섹션)
+    입력: [프로젝트 ▾(고객사 공통 / 고객사 프로젝트)] [종류 ▾] · 내용 · [＋ 기록](고치는 중이면 [수정 저장] [취소])
+    목록: 카드 — 번호 · 프로젝트 태그 · 종류 · 일시(수정됨) · 작성자(나) · [삭제] / 🔒 타인 글 — 본문을 누르면 위에서 수정"""
+    head = ('<div style="padding:13px 18px;border-bottom:1px solid #eef0f4;display:flex;align-items:center;gap:8px">'
+            '<b style="font-size:14px">업무 메모</b><span style="font-size:11.5px;color:#9ca3af">· 고객사 전용 원장 · 번호 유지 · 본인 글만 수정/삭제</span></div>')
+    if new:
+        body = '<div style="font-size:12px;color:#9ca3af;padding:10px 12px;background:#fafbfc;border:1px dashed #e5e7eb;border-radius:8px">업무 메모는 고객사를 등록한 뒤 기록할 수 있습니다.</div>'
+        return '<div style="' + CARD + '">' + head + '<div style="padding:16px 18px">' + body + '</div></div>'
+    cards = ''
+    for no, kind, _who, ts, writer, txt in MEMOS:
         mine = writer == '김순정'
-        acts = ('<span class="lnk">수정</span><span class="lnk" style="color:#dc2626">삭제</span>'
-                if mine else '<span style="color:#cbd5e1;font-size:11px">본인 글만 수정</span>')
-        bg = ' style="background:#fff7ed"' if hi == no else ''
-        rows += ('<tr%s><td style="color:#9ca3af">%s</td><td><span class="%s">%s</span></td>'
-                 '<td style="font-size:11.5px;color:#6b7280">%s<br>%s</td>'
-                 '<td>%s</td><td style="white-space:nowrap">%s</td></tr>'
-                 % (bg, no, cls, kind, writer, ts, txt, acts))
+        pj = MEMO_PROJ.get(no) or ''
+        bg, fg = KIND_TAG[kind]
+        cards += ('<div style="border:1px solid %s;border-radius:8px;padding:6px 8px;margin-bottom:8px;%s">'
+                  '<div style="display:flex;gap:8px;align-items:center;font-size:11.5px">'
+                  '<span style="min-width:22px;text-align:center;background:#f3f4f6;border-radius:5px;font-family:ui-monospace,monospace;color:#374151">%s</span>'
+                  '%s%s<span style="color:#9ca3af;font-family:ui-monospace,monospace">%s</span>'
+                  '<span style="color:%s;font-weight:%s">%s</span><span style="flex:1"></span>%s</div>'
+                  '<div style="margin-top:4px;font-size:12.5px">%s</div></div>'
+                  % ('#93c5fd' if editing == no else '#eef0f4', 'background:#fff7ed;' if hi == no else '', no,
+                     tg(pj or '고객사 공통', '#eef6ff' if pj else '#f3f4f6', '#2563eb' if pj else '#6b7280', False),
+                     tg(kind, bg, fg, False), ts + (' (수정됨)' if no == '2' else ''),
+                     '#2563eb' if mine else '#9ca3af', '700' if mine else '400', writer + (' (나)' if mine else ''),
+                     '<span class="lnk" style="color:#dc2626">삭제</span>' if mine else '<span style="font-size:10.5px;color:#d1d5db">🔒 타인 글</span>',
+                     txt))
     dv = draft or '<span style="color:#9ca3af">내용 입력 · Enter 기록 · Shift+Enter 줄바꿈</span>'
-    return ('<div class="card" style="height:100%%"><div class="hd">업무요청 메모 '
-            '<div class="sp"></div>'
-            '<span style="font-size:11px;color:#9ca3af;font-weight:400">수정 화면 전용 · 탭과 무관하게 고정</span></div>'
-            '<div class="bd" style="padding:12px 14px">'
-            '<div class="row" style="gap:6px;margin-bottom:8px">'
-            '<span class="chip on">요청</span><span class="chip">처리</span><span class="chip">메모</span></div>'
-            '<div class="inp" style="min-height:56px">%s</div>'
-            '<div style="font-size:11px;color:#9ca3af;margin-top:6px">'
-            'Enter 기록 · Shift+Enter 줄바꿈 · <b>본인이 작성한 메모만</b> 수정·삭제할 수 있습니다.</div>'
-            '</div><div style="padding:0 0 4px">'
-            '<table><tr><th style="width:34px">No</th><th style="width:60px">종류</th>'
-            '<th style="width:120px">작성자 / 시각</th><th>내용</th>'
-            '<th style="width:100px">작업</th></tr>%s</table></div></div>' % (dv, rows))
+    btn = ('<span class="btn sm">수정 저장</span><span class="btn sm">취소</span>' if editing else '<span class="btn sm">＋ 기록</span>')
+    body = ('<div style="display:grid;grid-template-columns:1fr 76px;gap:8px">'
+            '<div class="inp" style="display:flex;justify-content:space-between">%s<span style="color:#9ca3af">▾</span></div>'
+            '<div class="inp" style="display:flex;justify-content:space-between">%s<span style="color:#9ca3af">▾</span></div></div>'
+            '<div style="display:flex;gap:8px;margin-top:8px;align-items:flex-start"><div class="inp" style="flex:1;min-height:38px">%s</div>%s</div>'
+            '<div style="margin-top:12px">%s</div>'
+            % ('웅진씽크빅 코드발급 · S3/O17' if editing else '고객사 공통', '처리' if editing else '요청', dv, btn, cards))
+    return '<div style="' + CARD + '">' + head + '<div style="padding:16px 18px;max-width:980px">' + body + '</div></div>'
 
 
 
@@ -173,12 +183,14 @@ def tg(text, bg, fg, bold=True):
             'white-space:nowrap;%s">%s</span>' % (bg, fg, 'font-weight:700' if bold else '', text))
 
 
-KIND_C = {'하위 고객사': ('#f3e8ff', '#7e22ce'), '상위 고객사': ('#ecfdf5', '#047857'), '단독 고객사': ('#f3f4f6', '#6b7280')}
+KIND_C = {'하위 고객사': ('#f3e8ff', '#7e22ce'), '상위 고객사': ('#ecfdf5', '#047857'), '단독': ('#f3f4f6', '#9ca3af')}
 
 
 def header(new=False, closed=False, popover=False, name=CO, n_acc=3, n_on=2, svc='casterN', kind='하위 고객사'):
     """머리말 — 업체명 · 구분 · 요약 · 진행중/사업 종료 · ⋯ (등록 화면의 [취소][등록]은 섹션 아래 한 곳 `PC-331`)"""
     nm = (name or '새 고객사')
+    if new and kind == '하위 고객사':
+        kind = '단독'   # 새 고객사는 하위 등록 전이라 「단독」
     cls = tg(kind, *KIND_C[kind]) if name else ''
     newtag = tg('등록 중', '#fff7ed', '#c2410c') if new else ''
     summ = ('<div style="display:flex;gap:16px;margin-left:8px;color:#6b7280;font-size:12.5px">'
@@ -204,7 +216,6 @@ def header(new=False, closed=False, popover=False, name=CO, n_acc=3, n_on=2, svc
                '<span class="btn gho">취소</span><span class="btn dan">사업 종료</span></div></div>')
     right = ('' if new else '<span class="btn gho" style="padding:5px 11px">⋯</span>')   # 등록 버튼은 섹션 아래에만 `PC-331`
     return ('<div style="' + CARD + ';padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:12px">'
-            '<span class="btn gho" style="padding:5px 11px">←</span>'
             '<div style="font-size:20px;font-weight:800;color:%s">%s</div>%s%s%s'
             '<span style="flex:1"></span><div style="position:relative">%s%s</div>%s</div>'
             % ('#111827' if name else '#c7cdd6', nm, cls, newtag, summ, seg, pop, right))
@@ -253,7 +264,7 @@ def ltag(t, bg, fg):
             'margin-left:5px;background:%s;color:%s">%s</span>' % (bg, fg, t))
 
 
-def left_col(adding=False, sel=CO, tags=None):
+def left_col(adding=False, sel=CO, tags=None, closed=False):
     rows = []
     tagmap = dict(LEFT_TAGS)
     tagmap.update(tags or {})
@@ -265,7 +276,7 @@ def left_col(adding=False, sel=CO, tags=None):
         if isinstance(x, tuple):
             rows.append(kws.co_group(x[0], 0, False, x[1]))
         else:
-            lb = x + ''.join(ltag(*t) for t in tagmap.get(x, ()))
+            lb = x + (' (사업 종료)' if (closed and x == sel) else '') + ''.join(ltag(*t) for t in tagmap.get(x, ()))
             rows.append((lb, 3 if x == CO else (1 if x == sel else 0), (x == sel and not adding), 0, False))
     # 보기 칩 대신 구분 셀렉트(건수) `PC-300`
     sel = ('<div class="inp" style="margin-bottom:8px;display:flex;justify-content:space-between">전체 고객사 (536)'
@@ -274,12 +285,12 @@ def left_col(adding=False, sel=CO, tags=None):
                       right='<span class="btn pri" style="padding:5px 10px;font-size:12px">＋ 고객사 등록</span>')
 
 
-def layout(head, nv, body, sel=CO, tags=None):
+def layout(head, nv, body, sel=CO, tags=None, closed=False):
     """고객사 관리 3단 — 머리 · 집계 / 고객사 | (머리말 + 섹션 메뉴 | 본문) `PC-204`"""
     inner = (head + '<div style="display:grid;grid-template-columns:210px minmax(0,1fr);gap:12px;align-items:start">'
              + nv + '<div style="min-width:0">' + body + '</div></div>')
     return (kws.co_ws_head('ws') + '<div style="display:grid;grid-template-columns:270px minmax(0,1fr);gap:12px;align-items:start">'
-            + left_col(adding='등록 중' in head, sel=sel, tags=tags) + '<div style="min-width:0">' + inner + '</div></div>')
+            + left_col(adding='등록 중' in head, sel=sel, tags=tags, closed=closed) + '<div style="min-width:0">' + inner + '</div></div>')
 
 
 def sec_card(title, desc, inner, new=False, dirty=False):
@@ -311,10 +322,8 @@ def common_block(parent=False, empty=False):
                     '0.55' if dis else '1', ' checked' if (ck and not dis) else '', ' disabled' if dis else '',
                     '#9ca3af' if dis else ('#1e3a8a' if ck else '#374151'), nm, lb, ext.get(nm.split(' ')[0], ''))
                  for nm, lb, ck, dis in items)
-    note = ('<div class="toast warn" style="margin:8px 0 0">대표(상위) 회사는 <b>자기 코드의 하위가 될 수 없어</b> 해당 항목이 비활성입니다.</div>'
-            if parent else
-            '<div style="font-size:11px;color:#9ca3af;margin-top:6px;line-height:1.7">선택하면 이 고객사가 해당 공통코드의 '
-            '<b>사용 고객사(하위)</b>로 등록됩니다. 이미 발급된 공통코드를 쓰므로 코드 할당은 없습니다.</div>')
+    note = ('<div style="font-size:11px;color:#9ca3af;margin-top:6px;line-height:1.7">선택하면 이 고객사가 해당 <b>공통코드의 '
+            '사용 고객사(하위)</b>로 등록됩니다. 이미 발급된 공통코드를 쓰므로 <b>코드 할당은 없고</b>, 편집 프로젝트·티켓 발급에서 하위 고객사로 관리됩니다.</div>')
     return ('<div style="margin-top:18px;padding-top:16px;border-top:1px solid #eef0f4">'
             '<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px">공통코드 사용 고객사 (하위 등록) '
             '<span style="color:#9ca3af;font-weight:400">· 대표 회사 아래로 귀속 · 코드 할당 불필요</span></div>'
@@ -426,7 +435,8 @@ def owner_box(state):
     on = state in ('self', 'first', 'switch')
     hint = {'self': '이 계정이 이 고객사의 OWNER 입니다.', 'first': '이 계정이 이 고객사의 OWNER 입니다.',
             'other': '지금 OWNER: 김태호 (kim@wjthinkbig.com)',
-            'switch': '<b style="color:#b45309">저장하면 OWNER 가 김태호 (kim@wjthinkbig.com) 에서 이 계정으로 바뀝니다.</b>'}[state]
+            'switch': '<b style="color:#b45309">저장하면 OWNER 가 김태호 (kim@wjthinkbig.com) 에서 이 계정으로 바뀝니다.</b>',
+            'none': '지금 OWNER 가 없습니다.'}[state]
     return ('<div style="display:flex;align-items:flex-start;gap:10px;margin-top:12px;border:1px solid %s;background:%s;border-radius:10px;padding:10px 12px">'
             '<span style="width:15px;height:15px;border-radius:3px;border:1px solid %s;background:%s;color:#fff;font-size:10px;display:grid;place-items:center;margin-top:2px">%s</span>'
             '<span><span style="display:block;font-size:13px;font-weight:700;color:%s">OWNER (대표 계정)</span>'
@@ -465,7 +475,7 @@ def acc_detail(mode='edit', acc=ACCS[0], cast_on=True, n=6, tab='CASTERN', err='
             ('<b style="font-size:14px">%s</b><span style="font-size:11.5px;color:#9ca3af;font-family:ui-monospace,monospace">%s</span>' % (nm, mail)))
     ft_left = ('' if isnew else '<span class="btn gho" style="color:#dc2626;border-color:#fecaca">계정 삭제</span>')
     ft_left += ('<span style="font-size:12px;color:#b45309">● 저장하지 않은 변경이 있습니다</span>' if dirty else '')
-    ft_left += ('<span style="font-size:11.5px;color:#9ca3af">계정을 추가하면 고객사가 함께 등록됩니다 · 계정 없이 등록하려면 아래 [등록]</span>' if (isnew and new_draft) else '')
+    ft_left += ('<span style="font-size:11.5px;color:#9ca3af">계정을 추가하면 고객사가 함께 등록됩니다 · 계정 없이 등록하려면 위 [등록]</span>' if (isnew and new_draft) else '')
     ft_right = ('<span class="btn gho">취소</span><span class="btn pri">계정 추가</span>' if isnew
                 else '<span class="btn gho"%s>취소</span><span class="btn pri">저장</span>' % ('' if dirty else ' style="opacity:.5"'))
     return ('<div style="' + CARD + '"><div style="padding:13px 16px;border-bottom:1px solid #eef0f4;display:flex;align-items:center;gap:8px">'
@@ -770,18 +780,19 @@ def build():
               '상세 화면의 서비스 계정 섹션(S12)을 연다 — 「임시」 계정은 없다 <code>PC-142</code>.',
               frame('MEM-01', FN, layout(header(new=True, name='에듀테크랩', n_acc=0, n_on=0, svc=''), nav('acc', new=True),
                                           acc_section(acc_card_list(accs=(), adding=True),
-                                                      acc_detail('new', cast_on=True, n=6, new_draft=True, owner='first'))), height=1150),
+                                                      acc_detail('new', cast_on=True, n=6, new_draft=True, owner='first')) + '<div style="' + CARD + ';margin-top:12px;padding:11px 18px;display:flex;align-items:center;gap:8px"><span style="flex:1"></span><span class="btn gho">취소</span><span class="btn pri">등록</span></div>'), height=1200),
               [('ID (이메일)', '입력 (필수)', '—', '이메일 형식 · 전체에서 유일 · 비밀번호는 받지 않는다(SSO) <code>PC-159</code>'),
                ('OWNER (대표 계정)', '체크', '첫 계정은 체크된 채 시작', '고객사당 1명 <code>PC-159</code>'),
                ('서비스 권한', '선택', 'CasterN 사용 · 권한 6종', '켠 서비스가 고객사의 사용 서비스가 된다 <code>PC-138</code>'),
-               ('[계정 추가]', '클릭', '<b>고객사 + 계정 등록</b> → 상세(서비스 계정)', '<code>/companies/{id}?sec=acc</code> <code>PC-142</code>')]))
+               ('[계정 추가]', '클릭', '<b>고객사 + 계정 등록</b> → 상세(서비스 계정)', '<code>/companies/{id}?sec=acc</code> <code>PC-142</code>'),
+               ('계정 아래 [취소] [등록]', '클릭', '계정 없이 고객사만 등록 / 취소', '다른 섹션과 같은 자리(카드 아래) <code>PC-331</code> · 폼 안내 <b>계정 없이 등록하려면 위 [등록]</b>')]))
 
     # ── 상세 · 고객사 정보 ──
     B.append(('S4', '상세 — 기본 정보', '기본',
               '<code>MEM-01</code> 행 클릭으로 진입. 기본 정보 섹션에 업체 정보와 <b>공통코드 사용 고객사</b>가 있고, 아래 [저장]은 <b>이 섹션만</b> 저장한다 '
               '<code>PC-136</code>. 머리말 오른쪽에서 진행중/사업 종료를 바꾼다(S9).',
               frame('MEM-01', FR, layout(H, nav('base'), base_section()), height=1200),
-              [('섹션 메뉴', '클릭', '그 섹션 본문', '고객사 정보(기본 정보 · 편집 단가 · 관련 서류) / 운영(서비스 계정 · 업무 메모)'),
+              [('섹션 메뉴', '클릭', '그 섹션 본문', '고객사 정보(기본 정보 · 편집 단가 · 관련 서류 · 공통코드 · 확장 언어 · 서비스 티켓) / 운영(서비스 계정 · 업무 메모)'),
                ('공통코드 체크', '체크', '하위 고객사 등록', '기본 정보 [저장] 때 함께 반영 · 코드 할당 없음'),
                ('Common-21 카드 셋째 줄', '마우스 올림', '툴팁', '<b>🌐 확장 언어 슬롯 S3/O964~983</b> — 범위만(사용 슬롯 나열 없음) · 툴팁에 언어가 지정된 슬롯 <b>S3/O964 — 5 베트남어 · 6 러시아어 …</b> <code>PC-329</code>'),
                ('왼쪽 목록 이름 옆 배지', '—', '하위 n · 확장 언어', '상위 고객사면 <b>하위 {n}</b>(▶ 묶음이 있으면 그 「하위 n」 하나만) · 확장 언어 그룹이 있으면 <b>확장 언어</b>(툴팁 <b>확장 언어 그룹 · 언어 {n}개</b>) — 예: Common-21 「하위 50」「확장 언어」 · 네오노트-3-27 「하위 149」 <code>PC-342</code>'),
@@ -796,20 +807,16 @@ def build():
                ('[취소]', '클릭', '되돌림', '마지막 저장값'),
                ('다른 섹션 이동', '클릭', '값 유지', '화면을 떠나면 사라진다')]))
     B.append(('S6', '대표(상위) 회사 — 자기 공통코드 비활성', '분기',
-              '대표(상위) 회사는 자기 코드의 하위가 될 수 없어 해당 공통코드가 비활성이다 <code>PC-015</code>.',
+              '대표(상위) 회사는 자기 코드의 하위가 될 수 없어 해당 공통코드가 <b>회색 · 체크 불가</b>이고 <b>「대표(자기) 코드」</b> 배지가 붙는다 <code>PC-015</code>. 아래 설명은 늘 같은 문장이다(따로 경고하지 않는다).',
               frame('MEM-01', FR, layout(H, nav('base'), base_section(parent=True)), height=1240),
-              [('자기 보유 공통코드', '—', '<b>비활성</b>', '선택 불가'), ('다른 공통코드', '체크', '하위 등록', '')]))
+              [('자기 보유 공통코드', '—', '<b>비활성</b>', '회색 · 선택 불가 · 「대표(자기) 코드」'), ('다른 공통코드', '체크', '하위 등록', '')]))
     B.append(('S7', '편집 단가', '분기',
               '소리펜 · 필기펜 그룹 카드. 기본값에서 바꾼 항목만 전용 단가(주황)이고 그룹·전체 [기본값]으로 되돌린다. 변경은 <b>이후 등록되는 교재부터</b> 적용 <code>PC-027</code>.',
-              frame('MEM-01', FR, layout(H, nav('rate'), price_card(2) +
-                    '<div class="row" style="justify-content:flex-end;gap:8px;margin-top:10px"><span class="btn gho" style="opacity:.5">취소</span><span class="btn pri">저장</span></div>'),
-                    height=1300),
-              [('단가 입력', '입력', '전용 단가', '기본값과 다르면 강조'), ('[저장]', '클릭', '편집 단가만 저장', '')]))
-    B.append(('S8', '관련 서류', '분기', '서류 항목명을 고치고 파일을 붙인다. [저장]으로 이 섹션만 저장한다.',
-              frame('MEM-01', FR, layout(H, nav('docs'), docs_card() +
-                    '<div class="row" style="justify-content:flex-end;gap:8px;margin-top:10px"><span class="btn gho" style="opacity:.5">취소</span><span class="btn pri">저장</span></div>'),
-                    height=900),
-              [('[＋ 서류 추가]', '클릭', '빈 줄', ''), ('[삭제]', '클릭', '줄 제거', '')]))
+              frame('MEM-01', FR, layout(H, nav('rate'), price_card(2)), height=1300),
+              [('단가 입력', '입력', '전용 단가', '기본값과 다르면 강조'), ('[전체 기본값]', '클릭', '모든 항목 기본 단가로', ''), ('카드 아래 [저장]', '클릭', '편집 단가만 저장', '')]))
+    B.append(('S8', '관련 서류', '분기', '줄마다 <b>항목명 입력칸</b> · <b>[파일]</b> + 파일명 · 삭제. 항목명을 고치고 파일을 붙인 뒤 카드 아래 [저장]으로 이 섹션만 저장한다.',
+              frame('MEM-01', FR, layout(H, nav('docs'), docs_card()), height=900),
+              [('[＋ 서류 추가]', '클릭', '빈 줄', ''), ('항목명', '입력', '—', '자리표시 <b>항목명</b>'), ('[파일]', '클릭', '파일 선택', '고르기 전 <b>선택 없음</b>'), ('[삭제]', '클릭', '줄 제거', ''), ('서류 없음', '—', '빈 안내', '<b>등록된 서류가 없습니다.</b>')]))
     B.append(('S9', '사업 종료 전환', '분기',
               '머리말 오른쪽 <b>[사업 종료]</b>를 누르면 종료 사유 / 코드 이관 메모를 받는 창이 열리고 [사업 종료]로 <b>바로 저장</b>된다 <code>PC-139</code>.',
               frame('MEM-01', FR, layout(header(popover=True), nav('base'), base_section()), height=1200),
@@ -818,9 +825,9 @@ def build():
                ('창 [취소]', '클릭', '닫힘', '변경 없음')]))
     B.append(('S10', '사업 종료 상태', '변형',
               '사업 종료면 머리말 전환이 붉게 표시되고, 마우스를 올리면 종료 사유가 보인다. [진행중]은 확인 후 바로 저장된다.',
-              frame('MEM-01', FR, layout(header(closed=True), nav('base'), base_section()), height=1200),
+              frame('MEM-01', FR, layout(header(closed=True), nav('base'), base_section(), closed=True), height=1200),
               [('[진행중]', '클릭', '확인 후 바로 저장', '<b>진행중으로 바꿨습니다 · {업체명}</b>'),
-               ('목록', '—', '회색 · 종료 배지', '코드 발급 이력은 보존')]))
+               ('왼쪽 목록', '—', '「{업체명} (사업 종료)」', '코드 발급 이력은 보존')]))
 
     # ── 서비스 계정 ──
     B.append(('S11', '서비스 계정 — 카드 목록 | 상세', '기본',
@@ -831,7 +838,11 @@ def build():
                ('권한 카드', '클릭', '개별 지정', '[모두 선택]/[모두 해제]'),
                ('계정 상태', '선택', '활성 / 비활성', '비활성 = 서비스 로그인 불가 <code>PC-135</code>'),
                ('OWNER (대표 계정)', '체크', 'S21', '고객사당 1명 · 카드에 OWNER 배지 · 맨 위 <code>PC-159</code>'),
-               ('[저장]', '클릭', '그 계정만 저장', '<b>저장됨 · {ID}</b> · 사용 서비스 다시 계산 <code>PC-138</code>')]))
+               ('[저장]', '클릭', '그 계정만 저장', '<b>저장됨 · {ID}</b> · 사용 서비스 다시 계산 <code>PC-138</code>'),
+               ('계정 4개 이상', '—', '목록 위 검색칸', '자리표시 <b>이름 · 이메일 검색</b>'),
+               ('App Key 와 연결된 계정', '—', '상세 머리 「App Key 연결」 · 접속 · 이력에 App Key 줄', '키 값이 없으면 <b>대장에 키 값 미기재</b>'),
+               ('CasterN 사용 · 권한 0개', '—', '주황 경고', '<b>권한이 하나도 선택되지 않았습니다. 이 계정은 CasterN 에 로그인해도 쓸 수 있는 기능이 없습니다.</b>'),
+               ('OWNER 없는 고객사', '—', 'OWNER 칸 안내', '<b>지금 OWNER 가 없습니다.</b>')]))
     B.append(('S12', '서비스 계정 — 계정 추가', '분기',
               '<b>[＋ 계정 추가]</b>를 누르면 오른쪽에 등록 폼이 나온다(모달 아님). 새 계정은 고객사의 현재 사용 서비스를 기본으로 켜고 CasterN 이면 권한 6종 모두. [계정 추가]로 <b>바로 저장</b>된다.',
               frame('MEM-01', FR, layout(H, nav('acc'), acc_section(acc_card_list(adding=True), acc_detail('new', owner='other'))), height=1150),
@@ -862,15 +873,18 @@ def build():
               [('ID (이메일)', '자동', 'SSO 이메일', '<code>?email=</code>'), ('[계정 추가]', '클릭', '바로 저장', '')]))
 
     # ── 업무 메모 ──
-    B.append(('S18', '업무 메모', '기본', '고객사 전용 업무 원장. Enter 로 바로 기록하고, 본인 글만 수정·삭제한다.',
+    B.append(('S18', '업무 메모', '기본', '고객사 전용 업무 원장(번호 유지). 위에서 <b>프로젝트</b>(고객사 공통 / 이 고객사의 코드 프로젝트)와 <b>종류</b>를 고르고 내용을 넣어 '
+              'Enter 또는 <b>[＋ 기록]</b>. 목록은 카드 — 번호 · 프로젝트 태그 · 종류 · 일시(수정됨) · 작성자(나). 본인 글은 본문을 누르면 위 입력창에서 고치고(<b>[수정 저장] [취소]</b>), [삭제] 할 수 있다. 남의 글은 <b>🔒 타인 글</b>.',
               frame('MEM-01', FR, layout(H, nav('memo'), memo_card(draft='범블비 전집 2차 33권 코드 재발급 요청 접수 — 8/28까지 회신 예정')), height=900),
-              [('종류', '선택', '요청 / 처리 / 메모', ''), ('Enter', '입력', '바로 기록', 'Shift+Enter 줄바꿈'),
-               ('본인 글', '클릭', '수정 · 삭제', '')]))
+              [('프로젝트', '선택', '고객사 공통 / 고객사 프로젝트', '카드에 프로젝트 태그'), ('종류', '선택', '요청 / 처리 / 메모', ''),
+               ('Enter · [＋ 기록]', '입력', '바로 기록', 'Shift+Enter 줄바꿈'),
+               ('본인 글 본문', '클릭', '위 입력창에서 수정', '버튼이 <b>[수정 저장] [취소]</b> · 고친 글은 <b>(수정됨)</b>'),
+               ('본인 글 [삭제]', '클릭', 'S20 확인창', ''), ('기록 없음', '—', '빈 안내', '<b>기록된 업무가 없습니다.</b> · 등록 화면은 <b>업무 메모는 고객사를 등록한 뒤 기록할 수 있습니다.</b>')]))
     err_ovl = ('<div class="ovl" style="background:none;place-items:start center;padding-top:16px"><div class="toast err" '
                'style="width:680px;margin:0">박지훈 님이 작성한 메모입니다. 본인 글만 수정할 수 있습니다.</div></div>')
     B.append(('S19', '남의 메모 수정 시도', '오류', '다른 직원이 쓴 메모는 수정·삭제할 수 없다.',
               frame('MEM-01', FR, layout(H, nav('memo'), memo_card(hi='1')), overlay=err_ovl, height=900),
-              [('남의 메모', '수정·삭제', '<b>차단</b>', '<b>{작성자} 님이 작성한 메모입니다. 본인 글만 수정할 수 있습니다.</b>')]))
+              [('남의 메모 본문', '클릭', '<b>차단</b>', '<b>{작성자} 님이 작성한 메모입니다. 본인 글만 수정할 수 있습니다.</b> · 카드에는 [삭제] 대신 <b>🔒 타인 글</b>')]))
     memo_del = ('<div class="ovl"><div class="mdl"><div class="mh"><div class="mt">메모 삭제</div><div class="mx">✕</div></div>'
                 '<div style="font-size:13px;color:#374151;line-height:1.7">메모 2번을 삭제할까요?</div>'
                 '<div class="mf"><div class="btn gho">취소</div><div class="btn dan">삭제</div></div></div></div>')
@@ -930,7 +944,9 @@ def build():
                ('① 범위 미선택', '—', '오류', '<b>지정 범위(할당 SOBP)를 선택하세요.</b>'),
                ('② 기간 비어 있음', '—', '오류', '<b>사용기간 시작과 끝을 모두 정하세요.</b>'),
                ('③ 끝 &lt; 시작', '—', '오류', '<b>사용기간 끝이 시작보다 앞설 수 없습니다.</b>'),
-               ('④ SOBP 겹침', '—', '오류', '<b>이미 {App Key / N Key / 서비스 티켓}로 발급된 SOBP 와 겹칩니다 — {고객사} · S/O/B/P. N Key · App Key · 서비스 티켓은 SOBP 가 겹칠 수 없습니다.</b> (전체 고객사 기준)')]))
+               ('④ SOBP 겹침', '—', '오류', '<b>이미 {App Key / N Key / 서비스 티켓}로 발급된 SOBP 와 겹칩니다 — {고객사} · S/O/B/P. N Key · App Key · 서비스 티켓은 SOBP 가 겹칠 수 없습니다.</b> (전체 고객사 기준)'),
+               ('⑤ Code Type 범위', '—', '오류', '<b>{종류} 의 S{n} Owner 는 0~{n} 입니다</b> · Book · Page 범위도 같은 식 · <b>S{n} 은 {종류} 코드 타입이 없습니다.</b> <code>PC-279</code>'),
+               ('⑥ 교재 검사', '—', '오류', '<b>티켓 범위 안에 다른 고객사({이름}) 소유 교재가 있습니다 …</b> · <b>범위를 바꾸면 이 고객사 소유 교재가 티켓 범위를 벗어납니다 …</b> <code>PC-291</code>')]))
     B.append(('S26', '서비스 티켓 — 정산 탭', '분기',
               'N Key · App Key 처럼 <b>정산은 별도 탭</b>이다 <code>PC-179</code>. 고른 서비스 티켓의 정산을 N Key 와 같은 4종으로 등록한다 <code>PC-176</code>.',
               frame('MEM-01', FR, layout(H, nav('ticket'), acc_section(ticket_list(), ticket_detail('bill'))), height=1000),
@@ -987,13 +1003,13 @@ def build():
               '그룹을 만들고 <b>할당 전에 기본 자리에 언어를 넣어 둔 뒤</b> SOBP 맵에서 O4 · O5 를 할당한 때. 코드 없이 언어만 든 자리는 줄 머리가 '
               '<b>[코드 선택 ▾] [기본]</b> 이고, 표에 없는 코드는 표 아래 <b>＋ 언어 등록 [코드 ▾] [역할 ▾] [추가]</b> 로 꺼낸다(그림 = 코드 셀렉트를 펼친 상태) '
               '<code>PC-338</code> <code>PC-347</code>.',
-              frame('MEM-01', FR, layout(header(name=LG, kind='단독 고객사', n_acc=1, n_on=1), nav('codes', dirty=('codes',), codes='🌐'),
+              frame('MEM-01', FR, layout(header(name=LG, kind='단독', n_acc=1, n_on=1), nav('codes', dirty=('codes',), codes='🌐'),
                                           holder_card([('0', '4', None, 0, True), ('0', '5', None, 0, True)]) +
                                           lang_card('on', status='사용 · 언어 8개 · Owner 0개 지정 · 역할 미지정 2개', section='S0', need=8, pending=2,
                                                     chips=pre_chips, rows=pre_rows, add=add_lang_row(open_=('S0 · O4', 'S0 · O5')), dirty=True),
                                    sel=LG, tags={LG: (('확장 언어',) + LANG_T,)}), height=1000),
               [('할당 전 자리 줄', '—', '[코드 선택 ▾] [기본] + 언어 4칸', '코드 없이 언어만 넣어 둔 자리 · 코드를 고르면 그 코드가 이 역할이 되고 언어가 그 코드로 옮겨진다(그 코드에 언어가 없을 때) <code>PC-347</code>'),
-               ('＋ 언어 등록 [코드 ▾]', '선택', '표에 없는 코드', '<b>S{s} · O{n}</b>(이미 역할이 있으면 <b>· 기본 / 확장 k</b>) · 역할 기본값이 채워진다 — 이미 역할이 있으면 그 역할, 없으면 기본이 비었으면 기본, 아니면 다음 확장 k'),
+               ('＋ 언어 등록 [코드 ▾]', '선택', '표에 없는 코드', '<b>S{s} · O{n}</b>(코드만 — 역할은 옆 셀렉트에 미리 채워진다 <code>PC-355</code>) · 역할 기본값이 채워진다 — 이미 역할이 있으면 그 역할, 없으면 기본이 비었으면 기본, 아니면 다음 확장 k'),
                ('[역할 ▾]', '선택', '기본 · 확장 1 … · 확장 {마지막+1}', '코드를 고르기 전에는 비활성'),
                ('[추가]', '클릭', '표에 줄을 꺼낸다', '코드 · 역할이 모두 있어야 눌린다 · 이미 다른 코드가 있는 역할이면 <b>맞바뀐다</b> · 넣은 뒤 언어를 채우고 [저장]'),
                ('ⓘ', '클릭', '말풍선', '<b>표에는 언어를 등록한 코드만 보입니다. 남은 코드는 여기서 코드(S · O)와 역할(기본 · 확장 k)을 골라 [추가] 한 뒤 언어를 넣고 저장하세요.</b>'),

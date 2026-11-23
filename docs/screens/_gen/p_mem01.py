@@ -59,10 +59,10 @@ def toolbar(search='', filtered=None):
             'font-size:13px;font-weight:600">＋ 고객사 등록</span></div>' % (sv, clear))
 
 
-def tier_filter(active='', shown=None):
+def tier_filter(active='', shown=None, q=''):
     pre = ''
-    if shown is not None:
-        pre = ('<span>검색 <b style="color:#111827">%s</b>건 · </span>' % shown)
+    if shown is not None:   # 「검색」 은 검색어가 있을 때만 · 구분 필터만이면 「{n}건 ·」
+        pre = ('<span>%s<b style="color:#111827">%s</b>건 · </span>' % ('검색 ' if q else '', shown))
     # 필터 칩 — 다른 화면과 같은 모양(kws.chip) `PC-307`
     pills = ''.join(kws.chip('%s %s' % (label, '{:,}'.format(n)), v == active) for v, label, n, fg, bg in TIERS)
     return ('<div style="font-size:12px;color:#6b7280;margin-bottom:8px;display:flex;'
@@ -206,7 +206,7 @@ def onboard_modal(rows=PEND, done=''):
 
 def content(rows=None, search='', tier='', shown=None, toast='', onboard=None, approved=None):
     rows = ROWS if rows is None else rows
-    return kws.co_ws_head('table', pending=onboard or 0) + toolbar(search) + tier_filter(tier, shown) + toast + table(rows, search)
+    return kws.co_ws_head('table', pending=onboard or 0) + toolbar(search) + tier_filter(tier, shown, search) + toast + table(rows, search)
 
 
 BASE = [
@@ -214,14 +214,14 @@ BASE = [
     ('행 클릭', '클릭', '<code>MEM-02</code> 3단의 그 고객사',
      '툴팁 <b>클릭하면 수정 화면으로 이동합니다</b> · 종료 업체는 <b>프로젝트 종료 고객사 (코드 발급 이력만)</b>'),
     ('업체명 옆 정렬 셀렉트', '선택', '목록 다시 정렬', '최신순(기본) / 오름차순 (가나다) / 내림차순 <code>PC-161</code>'),
-    ('검색', '입력', '즉시 필터링', '<b>업체명·담당자·사업자번호</b> · ×로 해제'),
+    ('검색', '입력', '즉시 필터링', '<b>업체명 · 담당자 · 연락처 · 사업자번호 · 주소</b>(자리표시는 업체명·담당자·사업자번호) · ×로 해제'),
     ('상태 [사업 종료] 칩', '클릭', '사업 종료만', '다시 누르면 해제 · 마우스를 올리면 사업 종료 고객사 이름 <code>PC-256</code>'),
     ('구분 필터 칩', '클릭', '해당 계층만',
      '전체 / 상위(초록) / 하위(보라) / 단독(회색) — 각 칩에 건수'),
     ('[＋ 고객사 등록]', '클릭', '<code>MEM-02</code> (등록 모드)', '기본 정보 → [등록] 또는 서비스 계정 [계정 추가] <code>PC-142</code>'),
     ('서비스 계정 {n}명', '클릭', 'S13 명단 창', '고객사별 서비스 계정 수 <code>PC-135</code>'),
     ('행 [삭제]', '클릭', 'S5 삭제 확인', '행 클릭과 분리(<code>stopPropagation</code>)'),
-    ('건수 선택', '드롭다운', '표시 건수 변경', '50 / 100 / 200 / 500 / 전체 보기'),
+    ('건수 선택', '드롭다운', '표시 건수 변경', '25 / 50 / 100 / 200 / 500 / 전체 보기'),
     ('«  ‹  1..  ›  »', '클릭', '페이지 이동', '우측에 <b>{현재} / {전체}</b>'),
 ]
 
@@ -232,7 +232,7 @@ def build():
     boards.append((
         'S1', '기본 · 전체 목록', '기본',
         '좌측 메뉴 [고객사 관리]는 <b>3단</b>(<code>MEM-02</code>)으로 열리고, 머리의 <b>[표 보기]</b>를 누르면 이 목록 표가 나온다(<code>/companies?view=table</code>) <code>PC-204</code>. '
-        '구현은 <b>안내문 + 검색 + [＋ 고객사 등록]</b> 툴바 아래에 '
+        '구현은 <b>검색 + [＋ 고객사 등록]</b> 툴바(안내문 없음 <code>PC-308</code>) 아래에 '
         '<b>구분 필터 줄</b>이 따로 있고, 표는 <b>12열</b>(No · 업체명 · 담당자/연락처 · 서비스 계정 · 사업자번호 · '
         '은행/계좌 · 커먼 코드 · 편집 단가 · <b>주소</b> · 서류 · 업무 · 작업)이다. '
         '표 하단에 <b>표시 건수 선택 + 페이지네이션</b>이 붙는다. '
@@ -247,7 +247,7 @@ def build():
         'S2', '구분 필터 · 하위 고객사', '필터',
         '<code>P-11</code> — 계층은 <b>상위(공통코드 보유) / 하위(공통코드 사용) / 단독</b> 3분류이며 '
         '<b>하위 고객사도 정식 회사 레코드</b>로 함께 표시된다. '
-        '필터가 걸리면 앞에 <b>검색 {n}건 ·</b>가 붙는다.',
+        '필터가 걸리면 앞에 <b>{n}건 ·</b>(검색어가 있으면 <b>검색 {n}건 ·</b>)가 붙는다.',
         frame('MEM-01', '고객사 관리',
               content([r for r in ROWS if r[1] == 'member'], tier='member', shown=34),
               height=760),
@@ -258,7 +258,7 @@ def build():
 
     boards.append((
         'S3', '검색 결과 없음', '빈 상태',
-        '검색 결과가 없으면 표 본문이 <b>한 줄 안내</b>로 대체된다(<code>colSpan 11</code>). '
+        '검색 결과가 없으면 표 본문이 <b>한 줄 안내</b>로 대체된다(<code>colSpan 12</code>). '
         '하단 페이지네이션은 <b>표시되지 않는다</b>.',
         frame('MEM-01', '고객사 관리',
               content([], search='존재하지않는업체', shown=0), height=620),
@@ -283,12 +283,11 @@ def build():
                else 'background:#f1f5f9;color:#94a3b8;border:1px solid #e5e7eb')
         val = ('웅진씽크빅' if typed else '<span style="color:#9ca3af">웅진씽크빅</span>')
         return ('<div class="ovl"><div class="mdl">'
-                '<div class="mh"><div class="mt">고객사 삭제</div><div class="mx">✕</div></div>'
-                '<div style="font-size:13px;color:#374151;line-height:1.7">'
-                '삭제하려면 아래에 <b>웅진씽크빅</b> 을(를) 그대로 입력하세요.</div>'
-                '<div class="toast err" style="margin:12px 0 0"><b>SOBP 할당 전 고객사만 삭제할 수 있습니다.</b><br>'
-                '서류 · 업무 원장 기록도 함께 삭제됩니다.</div>'
-                '<div class="fld" style="margin-top:12px"><div class="inp">%s</div></div>'
+                '<div class="mh"><div class="mt">⚠ 고객사 삭제 — 신중히 확인하세요</div><div class="mx">✕</div></div>'
+                '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 16px;font-size:13px;color:#991b1b;line-height:1.7">'
+                '<b>웅진씽크빅</b> 을(를) 삭제합니다.<br>• <b>SOBP 할당 전 고객사만 삭제할 수 있습니다.</b><br>• 서류·업무 원장 기록도 함께 삭제됩니다.</div>'
+                '<div style="margin-top:14px;font-size:12.5px;color:#374151">확인을 위해 업체명 <b>웅진씽크빅</b> 을(를) 입력하세요:</div>'
+                '<div class="fld" style="margin-top:6px"><div class="inp">%s</div></div>'
                 '<div class="mf"><div class="btn gho">취소</div>'
                 '<div style="border-radius:9px;padding:9px 16px;font-size:13px;font-weight:600;'
                 '%s">삭제 확정</div></div></div></div>' % (val, btn))
@@ -351,7 +350,7 @@ def build():
         '처리한 줄은 사라지고 여러 건을 이어서 처리한다. 대기가 없으면 <b>대기 중인 승인 요청이 없습니다.</b>',
         frame('MEM-01', '고객사 관리', content(onboard=5), overlay=onboard_modal(), height=940),
         [('[승인]', '클릭', 'S12 · 고객사 등록', '같은 이름 있으면 연결, 없으면 새로 등록'),
-         ('[거절]', '클릭', '확인창 후 목록에서 제거', '<b>{업체명} ({이메일}) 의 승인 요청을 거절할까요?</b>'),
+         ('[거절]', '클릭', '확인창 후 목록에서 제거', '<b>{업체명} ({이메일}) 의 승인 요청을 거절할까요?</b> · 거절하면 모달 위에 회색 줄 <b>거절 — {업체명}</b>'),
          ('[닫기] · [✕]', '클릭', '모달 닫힘', '')]))
 
     boards.append((
