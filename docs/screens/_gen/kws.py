@@ -340,14 +340,18 @@ def toast_line(text, ok=True):
             % ('#047857' if ok else '#dc2626', text))
 
 
-def range_picker(open_=False, sel=None, ranges=()):
-    """발급 범위 선택 — 접힘: S·O·B·P 칩 / 펼침: 번호 + 칩 목록"""
+def range_picker(open_=False, sel=None, ranges=(), show_type=None):
+    """발급 범위 선택 — 접힘: S·O·B·P 칩 / 펼침: 번호 + 칩 목록
+    show_type: App Key 는 범위마다 코드 타입 태그(PDS3 · PDS2)를 앞에 붙인다 `PC-220` (N Key 는 없음)"""
     def chips(r):
         s, o, b, p = r[:4]
+        t = ('<span style="font-size:11px;font-weight:700;color:%s;background:%s;border-radius:6px;padding:2px 6px;margin-right:6px">%s</span>'
+             % ((('#b45309', '#fef3c7') if show_type == 'PDS2' else ('#2563eb', '#eef6ff')) + (show_type,))) if show_type else ''
         # 하위 고객사가 받은 상위 고객사 SOBP 는 「상위 · 고객사」 를 붙인다 `PC-199`
         par = ('<span style="font-size:11px;color:#6b7280;margin-left:2px">상위 · %s</span>' % r[4]) if len(r) > 4 else ''
-        return ''.join('<span style="font-size:11px;border-radius:5px;padding:1px 6px;margin-right:4px;background:#f3f4f6;color:#374151">'
-                       '<b style="color:#9ca3af">%s</b> %s</span>' % (k, v) for k, v in (('S', s), ('O', o), ('B', b), ('P', p))) + par
+        out = ''.join('<span style="font-size:11px;border-radius:5px;padding:1px 6px;margin-right:4px;background:#f3f4f6;color:#374151">'
+                      '<b style="color:#9ca3af">%s</b> %s</span>' % (k, v) for k, v in (('S', s), ('O', o), ('B', b), ('P', p))) + par
+        return t + out
     head = chips(sel) if sel else '<span style="color:#9ca3af">- 범위 선택 -</span>'
     box = ('<div class="inp" style="display:flex;align-items:center;justify-content:space-between">%s'
            '<span style="color:#9ca3af">%s</span></div>' % (head, '▲' if open_ else '▼'))
