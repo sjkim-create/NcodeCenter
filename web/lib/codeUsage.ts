@@ -248,7 +248,12 @@ export function assignedSOFor(customer: string, extra: BookRec[] = []): { k: str
     const an = norm(a).replace(/\(.*\)/g, "");
     return !!cn && !!an && (an === cn || (cn.length >= 2 && an.includes(cn)) || (an.length >= 2 && cn.includes(an)));
   };
-  for (const r of [...EDIT_BOOKS, ...extra]) if (same(r.cust)) add(r.k, r.sec, r.owner, "발급");
+  for (const r of EDIT_BOOKS) if (same(r.cust)) add(r.k, r.sec, r.owner, "발급");
+  // 코드 프로젝트 할당(앱에서 할당한 것 포함) — 이름이 **똑같은** 고객사가 있으면 그 고객사 것만 본다 `PC-360`
+  //   느슨하게 맞추면 「(유한)언어테스트」 에 「언어테스트」 · 「테스트」 같은 다른 고객사의 코드가 섞인다.
+  //   똑같은 이름이 없을 때만(옛 표기 차이) 느슨하게 맞춘다.
+  const exact = extra.some((r) => norm(r.cust) === cn);
+  for (const r of extra) if (exact ? norm(r.cust) === cn : same(r.cust)) add(r.k, r.sec, r.owner, "발급");
   for (const s of OD) for (const r of s.records) {
     if (!same(r.account)) continue;
     const ks = r.product === "PDS3" ? ["N"] : r.product === "PDS2" ? ["G"] : ["N", "G"];
