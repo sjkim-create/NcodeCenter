@@ -162,7 +162,7 @@ export function CompaniesWorkspace({ companyId = 0, isNew = false, prefillEmail 
                   </div>
                 )}
                 {/* 상위 고객사 ▶ 접기 · 펼치기 — 하위는 세로 안내선 안. 하위 고객사는 목록 제자리에도 있다 `PC-198` `PC-199` */}
-                {nestCompanies(list, companies, subsOf, (x) => (q ? x.name.toLowerCase().includes(q.toLowerCase()) : true)).map(({ c, subs }) => (
+                {nestCompanies(list, companies, subsOf, (x, p) => (q ? [p.name, x.name].some((n) => n.toLowerCase().includes(q.toLowerCase())) : true)).map(({ c, subs }) => (
                   <WsCoGroup key={c.id} n={subs.length} autoOpen={!!q}
                     head={(fold) => coRow(c.id, c.name, !!c.closed, false, fold)}>
                     {subs.map((x) => coRow(x.id, x.name, !!x.closed, true))}

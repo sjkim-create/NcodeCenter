@@ -175,7 +175,7 @@ export function AppKeyWorkspace() {
               {/* 전체 — N Key 관리와 같은 자리 `PC-269` */}
               {!q && coRow(ALL, "전체", filtered ? keyAccounts.filter(accHit).length : keyAccounts.length)}
               {/* 상위 고객사 ▸ 접기 · 펼치기 — 하위는 세로 안내선 안에 `PC-198` */}
-              {nestCompanies(list, companies, subsOf, (x) => (q ? x.name.toLowerCase().includes(q.toLowerCase()) : true)).map(({ c, subs }) => (
+              {nestCompanies(list, companies, subsOf, (x, p) => (q ? [p.name, x.name].some((n) => n.toLowerCase().includes(q.toLowerCase())) : true)).map(({ c, subs }) => (
                 <WsCoGroup key={c.id} n={subs.length} autoOpen={!!q}
                   head={(fold) => coRow(c.id, c.name, filtered ? hitN(c.id) : accountsOf(c.id).length, false, false, fold)}>
                   {subs.filter((x) => !filtered || hitIds.has(x.id)).map((x) => coRow(x.id, x.name, filtered ? hitN(x.id) : accountsOf(x.id).length, false, true, undefined, c.name))}

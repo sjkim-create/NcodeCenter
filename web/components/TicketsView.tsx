@@ -203,8 +203,8 @@ function NKeyWorkspace() {
   const coBtn = (name: string, label: string, n: number, warn = false, sub = false, fold?: WsFold, parent: string | null = null) =>
     <WsCoItem key={`${parent ?? ""}|${name || "__all"}`} label={label} n={n} on={co === name && via === parent} warn={warn} sub={sub} fold={fold} bold={name === ALL_CO} title="N Key 발급 건수" onClick={() => pickCo(name, parent)} />;
   // 하위 고객사는 상위 고객사 밑에 들여 보인다 — App Key 관리와 같다 `PC-197`
-  const keepCo = (k: string) => (cq ? labelOf(k).toLowerCase().includes(cq.toLowerCase()) : true) && (filtered0 ? hitOf(k).length > 0 : true);
-  const coRows = nestCompanies(coList.map((k) => companies.find((c) => String(c.id) === k)!).filter(Boolean), companies, subsOf, (c) => keepCo(String(c.id)));
+  const keepCo = (k: string, parent?: string) => (cq ? [k, ...(parent ? [parent] : [])].some((x) => labelOf(x).toLowerCase().includes(cq.toLowerCase())) : true) && (filtered0 ? hitOf(k).length > 0 : true);
+  const coRows = nestCompanies(coList.map((k) => companies.find((c) => String(c.id) === k)!).filter(Boolean), companies, subsOf, (c, p) => keepCo(String(c.id), String(p.id)));   // 상위 이름으로 찾으면 하위도 함께 `PC-356`
 
   if (!ready) return null;   // 발급 원장을 읽기 전에는 0건 집계가 잠깐 보이지 않게
   return (

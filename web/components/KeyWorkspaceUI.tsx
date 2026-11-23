@@ -30,11 +30,12 @@ export function useSubsOf(companies: { id: number; name: string }[]): Map<number
 
 /** 상 · 하위로 묶은 고객사 — 상위 고객사마다 그 하위 고객사(가나다순) `PC-197` `PC-198`
  *  하위 고객사는 **목록 제자리에도** 그대로 둔다 — 전체 고객사에서 바로 골라 발급할 수 있게 `PC-199` */
-export function nestCompanies<T extends { id: number; name: string }>(list: T[], all: T[], subsOf: Map<number, number[]>, keep: (c: T) => boolean = () => true): { c: T; subs: T[] }[] {
+// keep(하위, 상위) — 검색어가 **상위 이름**에 맞으면 하위는 이름과 상관없이 남긴다(상위를 찾으면 그 하위가 함께 보인다) `PC-356`
+export function nestCompanies<T extends { id: number; name: string }>(list: T[], all: T[], subsOf: Map<number, number[]>, keep: (c: T, parent: T) => boolean = () => true): { c: T; subs: T[] }[] {
   return list.map((c) => ({
     c,
     subs: (subsOf.get(c.id) ?? [])
-      .map((id) => all.find((x) => x.id === id)).filter((x): x is T => !!x && keep(x))
+      .map((id) => all.find((x) => x.id === id)).filter((x): x is T => !!x && keep(x, c))
       .sort((a, b) => a.name.localeCompare(b.name, "ko")),
   }));
 }
