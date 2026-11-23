@@ -5,8 +5,8 @@ from shell import page, frame
 CODE, NAME = 'INF-01', '코드 관리 정보'
 PRD = 'docs/prd/INF-01_코드 관리 정보.md'
 
-# 펜 모델은 교재 편집이 쓰는 **참조 목록**이라 여기서 공용 관리한다 `PC-101`
-TABS = ('Code Info', '확장 언어 슬롯', '발급 구조', '티켓 정보', 'OID 관리대장', '펜 모델', '알아야 할 사항')   # 티켓 정보 `PC-246`
+# [OID 관리대장] · [펜 모델] 탭은 폐지 `PC-325` — OID 설명은 [티켓 정보] 탭 카드로, 펜 모델은 데이터 직접 관리
+TABS = ('Code Info', '확장 언어 슬롯', '발급 구조', '티켓 정보', '알아야 할 사항')   # 티켓 정보 `PC-246`
 KEYS = ('owner', 'bookcode', 'page', 'length')
 KEYS4 = ('owner', 'bookcode', 'page', 'xy')   # PDS4(S-code)는 length 대신 xy `PC-042`
 
@@ -237,14 +237,14 @@ def issue_struct():
                  ('<b>Section 44</b> 로 발급된 좌표를 PDS4(S-code)로 구분합니다. 범위는 owner 0~4095 · book 0~255 · page 0~255 · <b>xy 0~255</b> <code>PC-042</code>.', '')],
                 [('OID', mono), ('인덱스', 'font-weight:700;color:#0f766e'),
                  ('<b>index만 갖는 코드</b> — 외부 코드를 <b>우리 펜으로 읽을</b> 목적으로 '
-                  '만든 방식. <b>좌표(SOBP) 관리 대상이 아니며</b> 업체+index 대장'
-                  '(<code>INF-04</code>)에서 관리합니다.', '')],
+                  '만든 방식. <b>좌표(SOBP) 관리 대상이 아니며</b> index 로 관리합니다 '
+                  '— 설명은 [티켓 정보] 탭 <code>PC-325</code>.', '')],
                 [('IDS (A)', 'color:#9ca3af;' + mono), ('이력', 'color:#9ca3af'),
                  ('초창기 A코드 — 이력 조회 전용.', 'color:#9ca3af')]])
                     + '<div style="margin-top:8px;font-size:12px;color:#6b7280;line-height:1.7">'
                       '<b>신규 발급</b>은 같은 <b>S/O</b> 에 한 종류만 씁니다 <code>PC-041</code>. 과거 혼용 이력은 그대로 표시합니다.<br>'
                       '<b>OID</b> 는 index 전용이라 좌표로 관리하지 않고 '
-                      '<b>업체 + index</b> 대장(<code>INF-04</code>)에서 관리합니다 — '
+                      '<b>index</b> 로 관리합니다(좌표로 보려면 SOBP 맵 [OID] 필터) — '
                       '펜으로 찍으면 <b>코드 값 1개</b>, 총량 <b>약 6만 개</b>, 분량이 적으면 '
                       '<b>book 미분할</b>.<br>'
                       '펜 구분(<b>소리펜</b> NSP · <b>필기펜</b> NWP)도 좌표 속성이며 '
@@ -289,10 +289,19 @@ def ticket_info():
            '<b style="font-size:14px">N Key — 프로필 · 코드 타입별 쓸 수 있는 Section</b>'
            '<div style="margin-top:8px;font-family:ui-monospace,monospace;line-height:1.9">LEGACY · PDS2 S 0·1·2·3·14 / PDS3 S 0·3·14<br>'
            'HYBRID · PDS2 S 0·3·14 / PDS3 S 0·3·5·10·11·14·15</div></div>')
+    # OID(index 전용 코드) 안내 — 옛 [OID 관리대장] 탭 설명을 여기로 `PC-325`
+    oid = ('<div style="margin-top:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;font-size:12.5px">'
+           '<b style="font-size:14px">OID — index 전용 코드</b> <span style="color:#9ca3af;font-size:12px">· 새로 발급하지 않음</span>'
+           '<ul style="margin:8px 0 0;padding-left:18px;color:#374151;line-height:1.9">'
+           '<li><b>OID = index 만 갖는 코드</b> — 외부 코드를 <b>우리 펜으로 읽으려고</b> 만든 방식입니다. OID 책을 우리 펜으로 찍으면 <b>코드 값이 1개만</b> 나옵니다. (옛 <b>IDS</b> 표기도 같은 것입니다)</li>'
+           '<li>총량이 <b>약 60,000개</b>뿐이라, 책의 양이 많지 않으면 <b>book 으로 코드를 나누지 않습니다</b>. 업체 구분에는 S/O 를 써 왔고, 분량이 늘어난 업체만 <b>book 번호(=OID index)</b> 로 나눠 관리했습니다.</li>'
+           '<li>SOBP(PDS2·PDS3·PDS4) 좌표 관리와 달리 <b>index 로만</b> 관리합니다. 좌표로 보려면 <b>SOBP 맵에서 종류 [OID]</b> 로 필터하세요.</li>'
+           '<li style="color:#6b7280">OID 는 티켓을 <b>새로 발급하지 않는</b> 코드 종류입니다(위 N Key 표 참고). 이력만 남아 있습니다.</li>'
+           '</ul></div>')
     common = ('<div style="margin-top:16px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:14px 16px;font-size:12.5px;color:#1e3a8a;line-height:1.9">'
               '<b>세 티켓 공통</b> — 할당된 SOBP 안에서만 · 세 티켓끼리 SOBP 겹침 불가 · 지우지 않고 [티켓 수정] · 사용기간은 티켓에만</div>')
     return ('<p style="margin:0 0 12px;color:#6b7280;font-size:13px">고객사가 코드를 직접 쓸 때 주는 티켓은 세 가지입니다. '
-            '<b>사내 편집에는 티켓이 필요 없습니다.</b></p>' + tbl + relc + pick + sec + common)
+            '<b>사내 편집에는 티켓이 필요 없습니다.</b></p>' + tbl + relc + pick + sec + oid + common)
 
 
 def must_know():
@@ -332,9 +341,10 @@ def must_know():
 
 
 def content(tab=0, flt='all', body=None):
-    #   tab 3 = 티켓 정보 `PC-246` · tab 4 = OID 관리대장(INF-04 에서 그린다) · tab 5 = 펜 모델 · tab 6 = 알아야 할 사항
+    #   tab 3 = 티켓 정보 `PC-246`(+ OID 안내 `PC-325`) · tab 4 = 알아야 할 사항
+    #   (옛 OID 관리대장 · 펜 모델 탭은 폐지 `PC-325`)
     if body is None:
-        body = {0: range_table, 1: lambda: lang_slots(flt), 2: issue_struct, 3: ticket_info, 6: must_know}[tab]()
+        body = {0: range_table, 1: lambda: lang_slots(flt), 2: issue_struct, 3: ticket_info, 4: must_know}[tab]()
     return tabs(tab) + body
 
 
@@ -357,7 +367,8 @@ def build():
         '',
         frame('INF-01', '코드 관리 정보', content(0), height=1240),
         [('탭', '클릭', '본문 교체',
-          'Code Info / 확장 언어 슬롯 / 발급 구조 / OID 관리대장 / <b>펜 모델</b> / 알아야 할 사항'),
+          'Code Info / 확장 언어 슬롯 / 발급 구조 / 티켓 정보 / 알아야 할 사항 — '
+          '<b>5개</b> (OID 관리대장 · 펜 모델 탭은 폐지 <code>PC-325</code>)'),
          ('length(판형)', '조회', '—',
           '<b>코드를 입힐 수 있는 최대 크기</b> — 판형이 커지면 <b>Section이 달라진다</b>'),
          ('PDS2 범위 없는 Section', '표시', '—', '값이 <b>—</b>로 표시된다 (S5·S10·S11·S15)'),
@@ -423,80 +434,35 @@ def build():
           '<b>OID</b>=인덱스 전용(같은 S/O 공유, B/P로 구분) · '
           'IDS(A)=이력 전용'),
          ('종류 규칙', '조회', '—', '<b>신규 발급</b>은 같은 S/O 에 한 종류만 <code>PC-041</code> (과거 혼용 이력은 표시 유지)'),
-         ('OID 설명', '조회', '<code>INF-04</code>',
-          '<b>index 전용 · 코드 1개 노출 · 약 6만 개 · book 미분할</b> — 업체+index 대장에서 관리'),
+         ('OID 설명', '조회', '—',
+          '<b>index 전용 · 코드 1개 노출 · 약 6만 개 · book 미분할</b> — 자세한 안내는 [티켓 정보] 탭 OID 카드(S7) · '
+          '좌표는 SOBP 맵 [OID] 필터 <code>PC-325</code>'),
          ('펜 구분', '조회', '—', '<b>소리펜(NSP) · 필기펜(NWP)</b> 도 좌표 속성'),
          ('SOBP 계층', '조회', '—', 'S 파랑 · O 청록 · B 보라 · P 주황 4카드'),
          ('X·Y 좌표', '참고', '—',
           '<b>한 페이지 안의 위치는 추가로 X·Y 좌표로 지정됩니다. 겹침 없이 발급하는 것이 최우선.</b>')]))
 
-    # ── 펜 모델 관리 `PC-101`
-    def pen_body():
-        base = ('C30(PO)', 'C71(BH)', 'C71(BH2)', 'C71(BH5)', 'C71(BH6)', 'C90', 'C91',
-                'C133', 'C160', 'C161', 'C190', 'C192', 'C200', 'C1000(PO)',
-                'NSP-C1000-PO', '연구수업용')
-        chips = ''.join('<span class="tag" style="background:#f3f4f6;color:#6b7280;'
-                        'margin:0 4px 4px 0;display:inline-block">%s</span>' % m for m in base)
-        added = ('<span class="tag" style="background:#eef6ff;color:#2563eb;'
-                 'margin:0 4px 4px 0;display:inline-block">C250 ✕</span>')
-        return ('<div style="max-width:900px">'
-                '<div class="row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap">'
-                '<b style="font-size:14px">펜 모델</b>'
-                '<span class="tag" style="background:#eef6ff;color:#2563eb;font-weight:700">17종</span>'
-                '<span style="font-size:11.5px;color:#9ca3af">편집 프로젝트 &#9656; 교재(책) 등록·수정의 '
-                '<b>[펜 모델]</b> 셀렉트가 이 목록을 씁니다</span></div>'
-                '<div class="row" style="gap:8px;margin-bottom:12px">'
-                '<div class="inp ph" style="max-width:260px">새 펜 모델명 (예: C250)</div>'
-                '<div class="btn pri">＋ 추가</div></div>'
-                '<div class="g2">'
-                '<div style="border:1px solid #eef0f4;border-radius:10px;padding:12px 14px">'
-                '<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px">기본 '
-                '<span style="color:#9ca3af;font-weight:400">· 16종 · 코드에서 관리</span></div>'
-                '<div>%s</div></div>'
-                '<div style="border:1px solid #eef0f4;border-radius:10px;padding:12px 14px">'
-                '<div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px">추가한 모델 '
-                '<span style="color:#9ca3af;font-weight:400">· 1종 · 이 브라우저</span></div>'
-                '<div>%s</div></div></div>'
-                '<div style="font-size:11.5px;color:#6b7280;margin-top:10px;line-height:1.8;'
-                'border:1px solid #fde68a;background:#fffbeb;border-radius:9px;padding:10px 12px">'
-                '<b>추가한 모델은 이 브라우저에만 남습니다.</b> 서버 저장소가 없어 다른 담당자 화면에는 '
-                '나오지 않습니다 — 팀 전체가 쓰려면 여기 목록을 알려 주세요. <b>기본</b> 목록에 넣어 '
-                '배포하면 모두에게 반영됩니다.<br>교재에 이미 적어 둔 펜 모델은 목록에서 지워도 '
-                '<b>그대로 남습니다</b>(기록이므로).</div></div>'
-                % (chips, added))
-
-    boards.append((
-        'S5', '펜 모델 관리', '기본',
-        '교재(책) 등록·수정의 <b>[펜 모델]</b> 셀렉트가 쓰는 <b>참조 목록</b>을 여기서 공용으로 관리한다 '
-        '<code>PC-101</code>. 화면마다 따로 늘리지 않고 <b>한 곳에서 보고 고친다</b>. '
-        '<b>기본</b>(코드에서 관리 · 16종)과 <b>추가한 모델</b>을 나눠 보여 주며, '
-        '<b>추가분만 지울 수 있다</b>. '
-        '⚠ 서버 저장소가 없어 추가분은 <b>브라우저 단위</b>다 — 팀 전체 반영은 기본 목록에 넣어 배포한다.',
-        frame('INF-01', '코드 관리 정보', content(5, body=pen_body()), height=620),
-        [('새 펜 모델명 + [＋ 추가]', '입력·클릭', '목록에 추가',
-          'Enter 로도 추가된다 · 이미 있으면 <b>이미 있는 모델입니다.</b>'),
-         ('추가한 모델의 ✕', '클릭', '확인창 → 삭제',
-          '<b>기본 모델은 지울 수 없다</b> · 교재에 적어 둔 값은 그대로 남는다'),
-         ('교재(책) 등록·수정', '반영', '<code>PRJ-04</code>',
-          '여기서 늘린 모델이 <b>[펜 모델] 셀렉트에 바로 나온다</b>'),
-         ('교재 화면의 [＋ 직접 추가…]', '—', '<b>같은 목록</b>',
-          '거기서 추가해도 이 목록에 들어온다 <code>PC-100</code>')]))
-
     boards.append((
         'S7', '티켓 정보', '기본',
         '<b>App Key · N Key · 서비스 티켓</b>이 각각 무엇에 쓰이는지 비교한다 <code>PC-245</code> <code>PC-246</code> — '
-        '쓰는 곳 · 형태 · 계정 · 권한 · 기간 · 정산 · 발급 화면, 「어떤 티켓을 주나」, N Key 프로필별 Section 표(발급 화면과 같은 값), 세 티켓 공통 규칙. '
-        '읽기 전용이다.',
-        frame('INF-01', '코드 관리 정보', content(3), height=1250),
+        '쓰는 곳 · 형태 · 계정 · 권한 · 기간 · 정산 · 발급 화면, 「어떤 티켓을 주나」, N Key 프로필별 Section 표(발급 화면과 같은 값), '
+        '<b>OID 안내 카드</b> <code>PC-325</code>, 세 티켓 공통 규칙. '
+        '읽기 전용이다. 옛 [OID 관리대장] 탭의 설명이 OID 안내 카드로 들어왔다.',
+        frame('INF-01', '코드 관리 정보', content(3), height=1500),
         [('App Key 관계 카드', '조회', '—', '고객사 → 계정(여러 개) → <b>App Key 1개</b>(자동) + <b>티켓 여러 개</b>(계정 소속) <code>PC-247</code>'),
          ('발급 · 지정 화면 링크', '클릭', '<code>TKT-01</code> · <code>TKT-02</code> · <code>MEM-02</code>', 'App Key 관리 · N Key 관리 · 고객사 관리'),
-         ('N Key Section 표', '조회', '—', '발급 화면이 쓰는 값 그대로 — LEGACY / HYBRID × PDS2 / PDS3 <code>PC-219</code>')]))
+         ('N Key Section 표', '조회', '—', '발급 화면이 쓰는 값 그대로 — LEGACY / HYBRID × PDS2 / PDS3 <code>PC-219</code>'),
+         ('OID 안내 카드', '조회', '—',
+          '「OID — index 전용 코드 · 새로 발급하지 않음」 — ① index 만 갖는 코드(찍으면 코드 값 1개 · 옛 IDS 동일) '
+          '② 약 60,000개라 book 미분할 ③ index 로 관리 · 좌표는 SOBP 맵 [OID] 필터 ④ 새로 발급하지 않음 · 이력만 '
+          '<code>PC-325</code>'),
+         ('OID 좌표 조회', '이동', '<code>SOB-01</code>', 'SOBP 맵 종류 [OID] 필터')]))
 
     boards.append((
         'S6', '알아야 할 사항', '기본',
-        'PRD §4.4 — 코드 발급·편집 운영에서 <b>반드시 알아야 할 기준</b>을 번호 붙은 섹션으로 정리한다. '
+        'PRD §4.5 — 코드 발급·편집 운영에서 <b>반드시 알아야 할 기준</b>을 번호 붙은 섹션으로 정리한다. '
         '단가의 정본은 <code>P-16</code>이며 고객사별 단가는 <code>MEM-02</code>에서 지정한다.',
-        frame('INF-01', '코드 관리 정보', content(6), height=900),
+        frame('INF-01', '코드 관리 정보', content(4), height=900),
         [('① 편집 비용 산출', '조회', '—', '소리펜·필기펜 모두 <b>페이지 수 + 심볼 갯수</b> · <b>심볼 갯수 = 작업량</b>'),
          ('② 산출물·저장 위치', '조회', '—',
           'mp3·ncp2 = <b>디바이스</b>(파랑) / nproj·PDF·JPG·썸네일 = <b>서버 등록</b>(초록)'),
@@ -506,14 +472,12 @@ def build():
          ('단가 지정하러 가기', '이동', '<code>MEM-01</code> → <code>MEM-02</code>', ''),
          ('SOBP 실시간 발급', '—', '<b>미구현</b>', '⚠ §7 — 이 메뉴의 탭으로 넣을지 협의')]))
 
-    intro = ('코드 발급·편집 업무에 필요한 <b>참조 정보</b>를 <b>밑줄 탭 7개</b>로 제공한다 — '
+    intro = ('코드 발급·편집 업무에 필요한 <b>참조 정보</b>를 <b>밑줄 탭 5개</b>로 제공한다 — '
              'Code Info(Section별 발급 범위 — PDS2·PDS3·PDS4) · 확장 언어 슬롯 · 발급 구조 · <b>티켓 정보</b> `PC-246` · '
-             'OID 관리대장 · <b>펜 모델</b> · 알아야 할 사항. '
-             '대부분 <b>참조 전용</b>이고 <b>[펜 모델] 탭만 목록을 고칠 수 있다</b> <code>PC-101</code> — '
-             '교재(책) 등록·수정이 쓰는 참조 목록을 여기서 공용으로 관리한다. '
+             '알아야 할 사항. 모두 <b>참조 전용</b>이다. '
+             '<b>[OID 관리대장] · [펜 모델] 탭은 폐지</b> <code>PC-325</code> — OID 설명은 [티켓 정보] 탭의 OID 안내 카드로, '
+             '좌표 조회는 SOBP 맵 [OID] 필터로 하고, 펜 모델은 화면 등록 없이 데이터를 직접 고쳐 관리한다. '
              '권한은 전 역할(STAFF / ADMIN). '
-             '탭 2~6은 각각 <code>LangSlotView</code> · <code>NcodeInfoView</code> · '
-             '<code>OidView</code> · <code>PenModelsView</code> · '
-             '<code>NcodeGuideView</code>를 <code>embedded</code>로 불러 쓴다. '
-             '')
+             '탭 2~5는 각각 <code>LangSlotView</code> · <code>NcodeInfoView</code> · '
+             '<code>TicketInfoView</code> · <code>NcodeGuideView</code>를 불러 쓴다.')
     return page(CODE, NAME, PRD, intro, boards)

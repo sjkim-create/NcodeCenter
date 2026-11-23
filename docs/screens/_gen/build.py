@@ -20,7 +20,6 @@ MODULES = [
     ('p_sob01', 'SOB-01_SOBP 맵.html'),
     ('p_sob02', 'SOB-02_직접 코드 할당.html'),
     ('p_prj01', 'PRJ-01_코드 프로젝트.html'),
-    ('p_oid01', 'INF-04_OID 관리대장.html'),
     ('p_prj02w', 'PRJ-02_편집 프로젝트 목록.html'),
     ('p_prj03w', 'PRJ-03_편집 프로젝트 상세.html'),
     ('p_prj04', 'PRJ-04_교재(책) 등록·수정.html'),

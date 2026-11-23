@@ -6,8 +6,6 @@ import { S } from "./ui";
 import NcodeInfoView from "./NcodeInfoView";
 import NcodeGuideView from "./NcodeGuideView";
 import LangSlotView from "./LangSlotView";
-import OidView from "./OidView";
-import PenModelsView from "./PenModelsView";
 
 // 첨부 자료(Code Info) 기준 SECTION별 코드 범위
 //  · PDS2·PDS3 는 owner·bookcode·page·length(판형)
@@ -27,10 +25,9 @@ const SECTIONS: { s: number; pds2: Range; pds3: Range; pds4: Range }[] = [
 const KEYS = ["owner", "bookcode", "page", "length"] as const;
 const KEYS4 = ["owner", "bookcode", "page", "xy"] as const;
 
-// OID 관리대장은 별도 메뉴가 아니라 이 화면의 탭으로 둔다 (PC-034)
-// 펜 모델은 교재 편집이 쓰는 **참조 목록**이라 정보 화면에서 공용 관리한다 `PC-101`
-// 티켓 정보 — App Key · N Key · 서비스 티켓 용도 `PC-246`
-const TABS = ["Code Info", "확장 언어 슬롯", "발급 구조", "티켓 정보", "OID 관리대장", "펜 모델", "알아야 할 사항"];
+// OID 관리대장·펜 모델 탭은 폐지 `PC-325` — OID 설명은 [티켓 정보]에, 펜 모델은 편집 프로젝트에서 쓰고 DB 직접 관리.
+// 티켓 정보 — App Key · N Key · 서비스 티켓 용도 `PC-246` · OID(index 전용) 안내 `PC-325`
+const TABS = ["Code Info", "확장 언어 슬롯", "발급 구조", "티켓 정보", "알아야 할 사항"];
 
 export default function InfoView() {
   const [tab, setTab] = useState(0);
@@ -46,9 +43,7 @@ export default function InfoView() {
       {tab === 1 && <LangSlotView embedded />}
       {tab === 2 && <NcodeInfoView embedded />}
       {tab === 3 && <TicketInfoView />}
-      {tab === 4 && <OidView embedded />}
-      {tab === 5 && <PenModelsView embedded />}
-      {tab === 6 && <NcodeGuideView embedded />}
+      {tab === 4 && <NcodeGuideView embedded />}
     </div>
   );
 }

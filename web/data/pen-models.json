@@ -1,0 +1,481 @@
+{
+ "source": "NEW 모델관리시트.xlsx ▸ 모델LIST (대표·세부·구분)",
+ "note": "펜 모델 정본 — DB(이 파일) 직접 추가/수정. 편집 프로젝트 타입(소리펜/필기펜)별 선택에 쓴다.",
+ "models": [
+  {
+   "rep": "NWP-F30",
+   "name": "NWP-F30-NC BK/PK",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F30",
+   "name": "NWP-F30-NCJ BK/PK",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F30",
+   "name": "NWP-F30-SM-K",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F30",
+   "name": "NWP-F30-ZQ",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F40",
+   "name": "NWP-F40-NC",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F40",
+   "name": "NWP-F40-VS",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F45",
+   "name": "MSS-S300",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F45",
+   "name": "NWP-F45-NC",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F45",
+   "name": "NWP-F45-TW",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F45",
+   "name": "NWP-F45-SW",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F45",
+   "name": "NWP-F45-OS",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F45",
+   "name": "NWP-F45-WX",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F45",
+   "name": "NWP-MA100",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F45",
+   "name": "NWP-MA101",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F45",
+   "name": "NWP-F45-PD",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F46",
+   "name": "NWP-F46-",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F50",
+   "name": "NWP-F50-BB >> F55-NO",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F51",
+   "name": "NWP-F51-NC BK/GS/NY",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F51",
+   "name": "NWP-F51-NCJ BK/GS/NY",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F51",
+   "name": "NWP-F51-DS BK/NY",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F51",
+   "name": "NWP-F51-BB",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F51",
+   "name": "NWP-F51-LC",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F51",
+   "name": "NWP-F51-B2B",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F51",
+   "name": "NWP-F51-WX",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F51",
+   "name": "NWP-F51-IC, BK/PK",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F51",
+   "name": "NWP-F51-KD",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F53",
+   "name": "NWP-F53-MG",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F55",
+   "name": "NWP-F55-NC",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F55",
+   "name": "NWP-F55-FB",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F55",
+   "name": "NWP-F55-IC (FB 에서 파생)",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F55",
+   "name": "NWP-F55-KD",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F55",
+   "name": "NWP-F55-ST",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F55",
+   "name": "NWP-F55-NO",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F80",
+   "name": "NWP-F80-NC",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F80",
+   "name": "NWP-F80-NC PK",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F90",
+   "name": "NWP-F90-HM",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F125",
+   "name": "NWP-F125-YJ",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F130",
+   "name": "NWP-F130-MS",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F151",
+   "name": "NWP-F151-NC",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F151",
+   "name": "NWP-F151-KK",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NWP-F151",
+   "name": "NWP-F151-TM",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "PSP-F300",
+   "name": "PSP-F300",
+   "pen": "필기펜"
+  },
+  {
+   "rep": "NEP-E100",
+   "name": "NEP-E101-KK",
+   "pen": "기타기기"
+  },
+  {
+   "rep": "NEP-E100",
+   "name": "NEP-E105-KK",
+   "pen": "기타기기"
+  },
+  {
+   "rep": "NEP-E100",
+   "name": "NEP-E105-NC",
+   "pen": "기타기기"
+  },
+  {
+   "rep": "NMC-Z100",
+   "name": "NMC-Z100-MA",
+   "pen": "기타기기"
+  },
+  {
+   "rep": "NMC-Z100",
+   "name": "NMC-Z100-NC",
+   "pen": "기타기기"
+  },
+  {
+   "rep": "NMC-Z100",
+   "name": "NMC-Z100-PD",
+   "pen": "기타기기"
+  },
+  {
+   "rep": "PMC-Z110",
+   "name": "PMC-Z110",
+   "pen": "기타기기"
+  },
+  {
+   "rep": "NSP-C30",
+   "name": "NSP-C30-PA",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C30",
+   "name": "NSP-C30-YD",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C30",
+   "name": "NSP-C30-DR",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C30",
+   "name": "NSP-C30-LR",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C30",
+   "name": "NSP-C30-FR",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C30",
+   "name": "NSP-C30-JC",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C30",
+   "name": "NSP-C30-STT",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C30",
+   "name": "NSP-C30-AL",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C30",
+   "name": "NSP-C30-AL2",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C30",
+   "name": "NSP-C30-KP",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C30",
+   "name": "NSP-C30-CE",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C30",
+   "name": "NSP-C30-SC",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C30",
+   "name": "NSP-C30-DB",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C60",
+   "name": "NSP-C60-DA",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C60",
+   "name": "NSP-C60-DA2",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C60",
+   "name": "NSP-C60-WJ2",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C60",
+   "name": "NSP-C60-GS2",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C60",
+   "name": "NSP-C60-PM",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C71",
+   "name": "NSP-C71-BH5",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C71",
+   "name": "NSP-C71-BH5, B1",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C71",
+   "name": "NSP-C71-BH5, B2",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C71",
+   "name": "NSP-C71-BH5, B3",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C71",
+   "name": "NSP-C71-BH5, P1",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C71",
+   "name": "NSP-C71-BH6",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C71",
+   "name": "NSP-C71-PN : drop",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C72",
+   "name": "NSP-C72-SC : drop",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C72",
+   "name": "NSP-C72-NC",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C72",
+   "name": "NSP-C72-PM",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C72",
+   "name": "NSP-C72-CE",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C72",
+   "name": "NSP-C72PK-CE",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C72",
+   "name": "NSP-C72-CH",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C72",
+   "name": "NSP-C72-CO",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C72",
+   "name": "NSP-C72-JB",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C72",
+   "name": "NSP-C72-HN",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C90",
+   "name": "NSP-C90-KK",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C90",
+   "name": "NSP-C91-KK",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C161",
+   "name": "NSP-C161-HS3",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C161",
+   "name": "NSP-C161-HS4",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C192",
+   "name": "NSP-C192-HS2",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C200",
+   "name": "NSP-C200-SS",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C200",
+   "name": "NSP-C200-SSE",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C200",
+   "name": "NSP-C200-SSJ : 미양산",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C200",
+   "name": "NSP-C200-PF",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C30",
+   "name": "NSP-C30-PO",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C1000",
+   "name": "NSP-C1000-KR",
+   "pen": "소리펜"
+  },
+  {
+   "rep": "NSP-C1000",
+   "name": "NSP-C1000-EN",
+   "pen": "소리펜"
+  }
+ ]
+}

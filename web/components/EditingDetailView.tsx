@@ -13,7 +13,7 @@ import type { WorkKind } from "@/lib/customerData";
 import { useAuth, currentUser } from "@/lib/authStore";
 import { useStore } from "@/lib/store";
 import { assignedSOFor, editableBookNumbers, projectBooks, sameBookSpace, sharedInfo } from "@/lib/codeUsage";
-import { usePenModels, addPenModel } from "@/lib/penModels";
+import { penModelsByType } from "@/lib/penModels";
 import { hydrateShared, useSharedOwners, COMMON_LABEL, commonRangesText } from "@/lib/sharedOwners";
 import { hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { allServiceTickets, hydrateServiceTickets, useServiceTickets, ticketState, serviceTicketText, type ServiceTicket } from "@/lib/serviceTicketStore";
@@ -74,7 +74,6 @@ const ST_COLOR: Record<string, { bg: string; fg: string }> = {
 const stateOf = (v?: string) => (v === "완료" || v === "보류" || v === "진행중" ? v : "진행중");
 // 펜 모델 목록은 **공용 저장소**에서 온다 `PC-101` — `lib/penModels.ts`
 //   [코드 관리 정보 ▸ 펜 모델] 에서 한 곳으로 관리한다.
-const PEN_NEW = "__PEN_NEW__";          // 셀렉트의 [＋ 직접 추가…] 값
 // 편집 방식 — **타입에 맞는 것만** 고른다 `PC-087`.
 //   KEP_ICT(필기펜) · 교원구몬_내공100 은 폐지 `PC-086` (타입에서 교원구몬/KEP 를 뺀 것과 같은 정리).
 const METHODS = [
@@ -311,8 +310,6 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const [editing, setEditing] = useState<{ idx: number; row: BR; dupOf?: number } | null>(null);
   const [pick, setPick] = useState("");
   const [penPick, setPenPick] = useState("");
-  const [penNew, setPenNew] = useState<string | null>(null); // 직접 추가 입력 중인 값 `PC-100`
-  const penOptions = usePenModels();                         // 공용 목록 `PC-101`
   const [basis, setBasis] = useState(false);
   const [kepOpen, setKepOpen] = useState(false);
   const [logDraft, setLogDraft] = useState<{ id: number | null; kind: WorkKind; content: string }>({ id: null, kind: "요청", content: "" });
@@ -674,18 +671,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
 
   const selPens = editing?.row.pmdl ? editing.row.pmdl.split(/[/,]/).map((s) => s.trim()).filter(Boolean) : [];
   const addPen = (v: string) => {
-    if (v === PEN_NEW) { setPenNew(""); setPenPick(""); return; }   // 직접 추가 입력칸 열기
     if (v && !selPens.includes(v)) setF("pmdl", [...selPens, v].join(" / "));
     setPenPick("");
-  };
-  // 직접 추가 — **공용 목록**에 넣고, 이 교재에도 바로 붙인다 `PC-100` `PC-101`
-  const commitPenNew = () => {
-    const v = (penNew ?? "").trim();
-    if (!v) { setPenNew(null); return; }
-    const r = addPenModel(v);                      // 이미 있으면 목록은 그대로 두고 넘어간다
-    if (!r.ok && r.msg !== "이미 있는 모델입니다.") { flash(r.msg); return; }
-    if (!selPens.includes(v)) setF("pmdl", [...selPens, v].join(" / "));
-    setPenNew(null);
   };
   const rmPen = (v: string) => setF("pmdl", selPens.filter((x) => x !== v).join(" / "));
 
@@ -1229,23 +1216,24 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               <div style={{ gridColumn: "span 2" }}>
               <Field label="펜 모델 · 복수 선택">
                 <div style={SUB5}>
-                  {penNew === null ? (
-                    <select style={{ ...S.input, ...SEL_2 }} value={penPick} onChange={(e) => addPen(e.target.value)}>
-                      <option value="">＋ 펜 모델 추가…</option>
-                      {penOptions.filter((pm) => !selPens.includes(pm)).map((pm) => <option key={pm} value={pm}>{pm}</option>)}
-                      <option value={PEN_NEW}>＋ 직접 추가…</option>
-                    </select>
-                  ) : (
-                    /* 목록에 없는 모델을 직접 적는다 `PC-100` */
-                    <div style={{ ...SEL_2, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <input autoFocus style={{ ...S.input, flex: "1 1 120px", minWidth: 0 }} value={penNew}
-                        placeholder="새 펜 모델명"
-                        onChange={(e) => setPenNew(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitPenNew(); } if (e.key === "Escape") setPenNew(null); }} />
-                      <button onClick={commitPenNew} style={{ ...S.smallBtn, whiteSpace: "nowrap" }}>추가</button>
-                      <button onClick={() => setPenNew(null)} style={{ ...S.smallBtn, whiteSpace: "nowrap" }}>취소</button>
-                    </div>
-                  )}
+                  {/* 타입(소리펜/필기펜)에 맞는 펜 모델만 · 대표모델로 묶어 보여 준다 `PC-325` */}
+                  {(() => {
+                    const pm = penModelsByType(normTy(editing.row.ty));
+                    const reps = [...new Set(pm.map((m) => m.rep))];
+                    return (
+                      <select style={{ ...S.input, ...SEL_2 }} value={penPick} onChange={(e) => addPen(e.target.value)}>
+                        <option value="">＋ {normTy(editing.row.ty)} 펜 모델 추가…</option>
+                        {reps.map((rep) => {
+                          const opts = pm.filter((m) => m.rep === rep && !selPens.includes(m.name));
+                          return opts.length ? (
+                            <optgroup key={rep} label={rep}>
+                              {opts.map((m) => <option key={m.name} value={m.name}>{m.name}</option>)}
+                            </optgroup>
+                          ) : null;
+                        })}
+                      </select>
+                    );
+                  })()}
                   <div style={CHIPS_3}>
                     {selPens.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>선택된 펜 모델 없음</span>}
                     {selPens.map((pm) => (

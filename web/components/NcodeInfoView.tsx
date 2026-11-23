@@ -46,7 +46,7 @@ export default function NcodeInfoView({ embedded }: { embedded?: boolean } = {})
             <tr><td style={{ ...td, fontWeight: 700 }}>업체 구분</td><td style={td}><b>S/O</b> 로 업체를 구분해 왔습니다(관리 편의를 위한 구분이며 좌표 발급이 아닙니다).</td><td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>한솔 S3/O25 · 웅진 S3/O17</td></tr>
             <tr><td style={{ ...td, fontWeight: 700 }}>book 미분할</td><td style={td}>분량이 <b>6만 페이지 미만</b>이면 book 번호로 나누지 않고 <b>업체 단위</b>로만 관리합니다.</td><td style={td}>한솔교육 · 잉글리시에그 · 헤르만헤세 등</td></tr>
             <tr><td style={{ ...td, fontWeight: 700 }}>index 관리</td><td style={td}>분량이 늘어난 업체는 <b>book 번호로 나누며, 그 번호가 곧 OID index</b> 로 보입니다.</td><td style={{ ...td, fontFamily: "ui-monospace,monospace" }}>웅진 B431~464</td></tr>
-            <tr><td style={{ ...td, fontWeight: 700 }}>조회 화면</td><td style={td}>좌표 기준은 <b>SOBP 맵의 종류 필터 [OID]</b>, 업체별 index 목록은 <b>이 화면의 [OID 관리대장] 탭</b>에서 봅니다.</td><td style={td}>book 미분할 업체는 대장에서 확인</td></tr>
+            <tr><td style={{ ...td, fontWeight: 700 }}>조회 화면</td><td style={td}>좌표 기준은 <b>SOBP 맵의 종류 필터 [OID]</b>, OID 설명은 <b>[티켓 정보] 탭의 OID 안내 카드</b>에 있습니다(옛 [OID 관리대장] 탭은 폐지 `PC-325`).</td><td style={td}>index 로만 관리 · 새로 발급하지 않음</td></tr>
             <tr><td style={{ ...td, fontWeight: 700 }}>용어</td><td style={td}>옛 <b>IDS(A코드)</b> 표기는 <b>OID 와 같은 것</b>입니다. 화면·필터에서 구분하지 않습니다.</td><td style={td}>IDS = OID</td></tr>
           </tbody>
         </table>

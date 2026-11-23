@@ -789,7 +789,7 @@ def build():
         '<b>옛 IDS(A코드) 표기와 같은 것</b>이다. 종류 칩 <b>OID</b> 로 좌표를 걸러 본다. '
         'Section 은 데이터가 있는 <b>3 · 4</b> 만 나오고, OID 는 같은 S/O 를 다른 종류와 '
         '함께 쓸 수 있어(index 부여) <b>OID 로 잡은 Book 만</b> 발급으로 표시된다. '
-        '업체별 index 목록은 <code>INF-04</code> 관리대장(코드 관리 정보 탭)에서 본다.',
+        'OID 설명은 코드 관리 정보 ▸ [티켓 정보] 탭의 OID 안내 카드에 있다(옛 OID 관리대장 탭은 폐지 <code>PC-325</code>).',
         frame('SOB-01', 'SOBP 맵',
               content(pds='OID', sel_s=3, sel_o=17, sel_b=431,
                       own_more='4,077', book_more='8,111',
@@ -804,8 +804,8 @@ def build():
           '분량이 적어 book 을 나누지 않은 업체(예: <b>한솔교육 S3/O25</b>)는 OWNER 로 나오고, '
           'BOOK 열 맨 위에 <b>『book 미분할 · {n}건』 안내 + 항목 목록</b>이 붙는다 <code>PC-036</code>'),
          ('IDS 표기', '—', '통합', '옛 <b>IDS(A코드)</b> 는 OID 와 <b>같은 것</b>으로 함께 나온다'),
-         ('업체·index 목록', '조회', '<code>INF-04</code>',
-          '코드 관리 정보 ▸ OID 관리대장 탭 (book 미분할 업체 포함)')] + NAV))
+         ('OID 설명', '조회', '<code>INF-01</code>',
+          '코드 관리 정보 ▸ [티켓 정보] 탭 OID 안내 카드 · 옛 OID 관리대장 탭은 폐지 <code>PC-325</code>')] + NAV))
 
     LT = '(유한)언어테스트'
     B.append((

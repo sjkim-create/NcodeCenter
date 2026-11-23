@@ -128,6 +128,17 @@ export default function TicketInfoView() {
         </div>
       </div>
 
+      {/* OID(index 전용 코드) 안내 — 옛 [OID 관리대장] 탭 설명을 여기로 `PC-325` */}
+      <div style={{ ...S.card, padding: "14px 16px" }}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>OID — index 전용 코드 <span style={{ fontWeight: 400, color: "#9ca3af", fontSize: 12 }}>· 새로 발급하지 않음</span></div>
+        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#374151", lineHeight: 1.9 }}>
+          <li><b>OID = index 만 갖는 코드</b> — 외부 코드를 <b>우리 펜으로 읽으려고</b> 만든 방식입니다. OID 책을 우리 펜으로 찍으면 <b>코드 값이 1개만</b> 나옵니다. (옛 <b>IDS</b> 표기도 같은 것입니다)</li>
+          <li>총량이 <b>약 60,000개</b>뿐이라, 책의 양이 많지 않으면 <b>book 으로 코드를 나누지 않습니다</b>. 업체 구분에는 S/O 를 써 왔고, 분량이 늘어난 업체만 <b>book 번호(=OID index)</b> 로 나눠 관리했습니다.</li>
+          <li>SOBP(PDS2·PDS3·PDS4) 좌표 관리와 달리 <b>index 로만</b> 관리합니다. 좌표로 보려면 <b>SOBP 맵에서 종류 [OID]</b> 로 필터하세요.</li>
+          <li style={{ color: "#6b7280" }}>OID 는 티켓을 <b>새로 발급하지 않는</b> 코드 종류입니다(위 N Key 표 참고). 이력만 남아 있습니다.</li>
+        </ul>
+      </div>
+
       {/* 세 티켓 공통 규칙 */}
       <div style={{ border: "1px solid #bfdbfe", background: "#eff6ff", borderRadius: 10, padding: "14px 16px", fontSize: 12.5, color: "#1e3a8a", lineHeight: 1.9 }}>
         <div style={{ fontWeight: 700, marginBottom: 6 }}>세 티켓 공통</div>
