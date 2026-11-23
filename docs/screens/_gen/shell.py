@@ -306,7 +306,8 @@ def frame(active, title, content, admin=True, user='김순정', role='ADMIN',
           menu_open=False, hover=None, overlay='', rail=False, collapsed_castern=False,
           height=900):
     """앱 셸 1장 = Figma 프레임 1개"""
-    h = ('height:%dpx' % height) if height else 'min-height:900px'
+    # 높이는 **최소값** — 내용이 길면 틀이 늘어나 잘리지 않는다(고정 높이였을 때 본문 아래가 잘렸다)
+    h = ('min-height:%dpx' % height) if height else 'min-height:900px'
     return ('<div class="frame" style="%s">%s<div class="body">%s<div class="main">%s</div></div>%s</div>'
             % (h, sidebar(active, admin, collapsed_castern, rail),
                topbar(title, user, role, menu_open, hover), content, overlay))
