@@ -206,6 +206,74 @@ def mini_table(headers, rows):
             '<thead><tr>%s</tr></thead><tbody>%s</tbody></table>' % (th, tr))
 
 
+def issue_struct_more():
+    """발급 구조 — 이어지는 아래쪽(S9): 펜 구분 · 편집 산출물 / 오너코드 발급 구조(예시) /
+    티켓 발급 구조 — N Key vs App Key / Section 1 · 44 안내 (web/components/NcodeInfoView.tsx 순서 그대로)"""
+    mono = 'font-family:ui-monospace,monospace'
+    sm = mono + ';font-size:11.5px'
+    pen = mini_table(['펜', '구분', '편집 산출물', '저장 위치'], [
+        [('소리펜', 'font-weight:700'), ('Ncp', mono), ('<b>ncp2</b> (좌표 + mp3 묶음)', ''), ('디바이스(소리펜)에 저장 · 넣어야 동작', '')],
+        [('필기펜', 'font-weight:700'), ('Ndp', mono), ('<b>nproj</b> + PDF + JPG + 썸네일 png', ''), ('서버에 등록 (mp3 리소스는 디바이스)', '')]])
+    own = mini_table(['Section', 'Owner', 'ACCOUNT', 'Book 범위', 'Page', 'X', 'Y'], [
+        [(s, ''), (o, ''), (a, ''), (b, sm), (p, sm), (x, sm), (y, sm)] for s, o, a, b, p, x, y in (
+            ('0', '1', 'neoa', '0~999 (1,000권)', '0~1023', '0~255', '0~255'),
+            ('1', '1', 'neolab', '0~4,194,303 (4.19M권)', '0~255', '0~255', '0~255'),
+            ('14', '1', 'FisherPrice(임시)', '0~4,095 (4,096권)', '0~4,095', '0~1023', '0~1023'),
+            ('3', '4', 'planning', '0~16,383 (16,384권)', '0~4,095', '0~1023', '0~1023'),
+            ('5', '5', 'Kyeowon', '0~199 (200권)', '0~255', '0~255', '0~255'))]) + (
+        '<p style="font-size:12px;color:#9ca3af;margin:8px 0 0">Section·Owner에 따라 Book/Page/X/Y 최대 차원이 다릅니다. '
+        '페이지 1장이 2.3m 이하면 overflow 없이 페이지 수만으로 발급 규모를 산정합니다.</p>')
+    card = lambda top, chip_, d, c: (
+        '<div style="flex:1 1 230px;border:1px solid #eef0f4;border-radius:10px;padding:12px">'
+        '<div style="font-size:12px;color:#6b7280">%s</div>'
+        '<span style="display:inline-block;margin-top:5px;background:%s;color:#fff;font-weight:700;border-radius:6px;padding:2px 8px;font-size:12px">%s</span>'
+        '<div style="font-size:11.5px;color:#9ca3af;margin-top:5px;line-height:1.6">%s</div></div>' % (top, c, chip_, d))
+    uses = ''.join(card(*u) for u in (
+        ('오프라인 편집툴', 'N Key', '계정 불필요 · 티켓 파일만 있으면 사용', '#14b8a6'),
+        ('온라인(웹) 편집툴', '계정 + App Key', '계정으로 로그인 → 연동된 App Key의 SOBP로 작업', '#2563eb'),
+        ('SDK 연동', 'App Key', 'SOBP + id/pwd 가 포함된 App Key 필요', '#d97706')))
+    b = 'font-weight:700'
+    cmp_ = mini_table(['구분', 'N Key', 'App Key'], [
+        [('성격', b), ('<b>물리적 키 발급</b> (티켓 파일)', ''), ('물리 키 아님 — <b>서비스 DB에 등록</b>', '')],
+        [('사용 대상', b), ('<b>오프라인</b> 편집툴 사용자', ''), ('<b>온라인(웹)</b> 편집툴 · <b>SDK 연동</b> 고객사', '')],
+        [('전달 방식', b), ('티켓 파일을 <b>TicketFolder</b>에 생성 → nproj 폴더 또는 <code>문서 &gt; NeoLAB &gt; CodeTickets</code>에 복사', ''),
+         ('발급 즉시 <b>서비스 DB(datastore)</b>에 등록 — 별도 파일 전달 없음', '')],
+        [('계정 연동', b), ('없음 (파일만 있으면 사용)', ''), ('있음 — 계정과 연동되는 것이 특징', 'font-weight:700;color:#2563eb')],
+        [('사용 흐름', b), ('티켓 파일 배치 → 편집툴에서 파일 정보 입력 시 해당 SOBP 사용', ''),
+         ('웹: <b>발급된 계정으로 로그인</b> → 연동 App Key의 SOBP로 작업<br>SDK: <b>id/pwd + App Key</b>로 SOBP 사용', '')],
+        [('주요 항목', b), ('회사이름 · Issued Time · Valid Until Time · Section/Owner · Book Start/Volume · Page Start/Volume · '
+                         'Code Type · Ticket Type · Separate Each Book', ''),
+         ('계정(ID) · 고객사 · 할당 SOBP 범위 · 만료일 · 발급 키(<b>영문·숫자 29자</b>)', '')]])
+    step = lambda n, t, d: (
+        '<div style="flex:1 1 210px;border:1px solid #eef0f4;border-radius:10px;padding:12px">'
+        '<span style="background:%s;color:#fff;font-weight:700;border-radius:6px;padding:2px 8px;font-size:11px">%s</span>'
+        '<span style="margin-left:8px;font-weight:700;font-size:13px">%s</span>'
+        '<div style="font-size:12px;color:#6b7280;margin-top:4px;line-height:1.6">%s</div></div>'
+        % ('#14b8a6' if n.startswith('3') else '#5f8ff0', n, t, d))
+    steps = ''.join(step(*s) for s in (
+        ('1', '코드 할당', 'SOBP 맵에서 고객사에 Section/Owner/Book 할당'),
+        ('2', '티켓 발급 요청', '관리자가 좌측 [티켓 발급] 메뉴에서 N Key 발급 또는 계정 발급 선택'),
+        ('3-A', 'N Key', '티켓 파일 생성 → 사용자 PC의 CodeTickets로 복사 → 오프라인 편집툴 사용 (계정 불필요)'),
+        ('3-B', '계정 발급 (계정 + App Key)', '계정 등록(회사·ID·PWD…) → App Key 발급 → 서비스 DB에 등록 → 계정으로 로그인/SDK 연동해 사용')))
+    acc = ('<div style="margin-top:12px;background:#f5f9ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 12px;'
+           'font-size:12.5px;color:#1e3a8a;line-height:1.7">'
+           '<b>계정</b> — App Key와 한 묶음으로 관리되는 로그인 정보입니다. 항목: <b>회사정보 · ID(EMAIL) · PWD · NAME · ADDR · HOMEPAGE</b>. '
+           '고객사 관리의 정보를 불러와 등록하며, <b>App Key는 계정 없이 발급되지 않습니다</b>(발급 화면에서 계정 등록 → App Key 발급이 한 흐름).'
+           '<div style="margin-top:6px">※ <b>비밀번호를 요청하지 않는 고객사(SDK 목적)</b>는 담당자가 <b>임의 비밀번호를 지정</b>해 계정을 만들고, '
+           '그 <b>id/pwd + SOBP가 포함된 App Key</b>를 전달합니다.</div></div>')
+    tkt = ('<p style="margin:0 0 12px;font-size:12.5px;color:#374151">코드를 할당한 뒤 <b>사용 허가(티켓)</b>를 발급합니다. '
+           '핵심은 <b>키와 계정의 묶음 관계</b>입니다 — <b>App Key는 반드시 계정과 함께</b> 발급되고, <b>N Key는 계정 없이</b> 파일만으로 동작합니다.</p>'
+           '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">%s</div>%s'
+           '<div style="margin-top:14px;font-weight:700;font-size:13px;color:#374151">발급 절차</div>'
+           '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">%s</div>%s' % (uses, cmp_, steps, acc))
+    warn = ('<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;font-size:12.5px;color:#92400e">'
+            '⚠ Section <b>1</b>은 테스트/개발 전용으로 만들어졌고 상용 서비스로는 미출시된 코드입니다(레거시 아님). '
+            'Section <b>44</b>는 <b>PDS4(S-code)</b> 로 구분합니다.</div>')
+    return ('<div style="max-width:1000px">%s%s%s%s</div>'
+            % (sect('펜 구분 · 편집 산출물', pen), sect('오너코드 발급 구조 (예시)', own),
+               sect('티켓 발급 구조 — N Key vs App Key', tkt), warn))
+
+
 def issue_struct():
     mono = 'font-family:ui-monospace,monospace'
     sobp = ''
@@ -221,7 +289,7 @@ def issue_struct():
                  % (c, k, nm, d))
     return ('<div style="max-width:1000px">'
             '<p style="margin:0 0 16px;color:#6b7280;font-size:13px">'
-            'Ncode 코드 체계·구분 참조. (출처: 오너코드_발급리스트 + 운영 정리)</p>%s%s</div>'
+            'Ncode 코드 체계·구분 참조. (출처: 오너코드_발급리스트 + 운영 정리)</p>%s%s%s</div>'
             % (sect('코드 종류 — 좌표(SOBP)의 속성',
                     '<p style="margin:0 0 10px;font-size:12.5px;color:#374151;line-height:1.7">'
                     '<b>좌표(SOBP)가 먼저</b>입니다. Section·Owner·Book·Page 로 코드를 지정하고, '
@@ -234,21 +302,29 @@ def issue_struct():
                 [('PDS2 (G3C6)', mono), ('Gcode', 'font-weight:700;color:#92400e'),
                  ('G3C6의 <b>G</b>를 따서 Gcode. 구형/호환 코드.', '')],
                 [('PDS4 (S-code)', mono), ('Scode', 'font-weight:700;color:#7c3aed'),
-                 ('<b>Section 44</b> 로 발급된 좌표를 PDS4(S-code)로 구분합니다. 범위는 owner 0~4095 · book 0~255 · page 0~255 · <b>xy 0~255</b> <code>PC-042</code>.', '')],
+                 ('<b>Section 44</b> 로 발급된 좌표를 PDS4(S-code)로 구분합니다.', '')],
                 [('OID', mono), ('인덱스', 'font-weight:700;color:#0f766e'),
                  ('<b>index만 갖는 코드</b> — 외부 코드를 <b>우리 펜으로 읽을</b> 목적으로 '
-                  '만든 방식. <b>좌표(SOBP) 관리 대상이 아니며</b> index 로 관리합니다 '
-                  '— 설명은 [티켓 정보] 탭 <code>PC-325</code>.', '')],
-                [('IDS (A)', 'color:#9ca3af;' + mono), ('이력', 'color:#9ca3af'),
-                 ('초창기 A코드 — 이력 조회 전용.', 'color:#9ca3af')]])
+                  '만든 방식. 옛 <b>IDS(A코드)</b> 표기도 <b>같은 것</b>으로 본다.', '')]])   # IDS 행 없음 `PC-035`
                     + '<div style="margin-top:8px;font-size:12px;color:#6b7280;line-height:1.7">'
-                      '<b>신규 발급</b>은 같은 <b>S/O</b> 에 한 종류만 씁니다 <code>PC-041</code>. 과거 혼용 이력은 그대로 표시합니다.<br>'
-                      '<b>OID</b> 는 index 전용이라 좌표로 관리하지 않고 '
-                      '<b>index</b> 로 관리합니다(좌표로 보려면 SOBP 맵 [OID] 필터) — '
-                      '펜으로 찍으면 <b>코드 값 1개</b>, 총량 <b>약 6만 개</b>, 분량이 적으면 '
-                      '<b>book 미분할</b>.<br>'
-                      '펜 구분(<b>소리펜</b> NSP · <b>필기펜</b> NWP)도 좌표 속성이며 '
-                      '지도·목록에서 필터로 가릅니다.</div>'),
+                      '같은 <b>S/O</b> 는 <b>PDS2·PDS3·PDS4 중 한 종류만</b> 씁니다(무겹침). OID는 index 부여라 같은 S/O 를 함께 쓸 수 있습니다.<br>'
+                      '펜 구분(<b>소리펜</b> NSP · <b>필기펜</b> NWP)도 좌표 속성이며 지도·목록에서 필터로 가릅니다.<br>'
+                      'SOBP 맵·코드 프로젝트에서 <b>PDS2 · PDS3 · PDS4 · OID</b> 로 필터해 조회합니다.</div>'),
+               # OID — 좌표가 아닌 index 관리 (web/components/NcodeInfoView.tsx 「OID — index 전용 코드」)
+               sect('OID — index 전용 코드',
+                    '<div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:12px 14px;'
+                    'font-size:12.5px;color:#115e59;line-height:1.9">'
+                    '<div><b>개념</b> — OID는 <b>index만 갖는 코드</b>로, <b>외부 코드를 우리 펜으로 읽을</b> 목적으로 만든 방식입니다.</div>'
+                    '<div>OID 책을 우리 펜으로 찍으면 <b>코드 값이 1개만</b> 나옵니다.</div>'
+                    '<div>총량이 <b>약 60,000개</b>뿐이라, 책의 양이 많지 않으면 <b>book 으로 코드를 나누지 않습니다</b>.</div></div>'
+                    '<div style="margin-top:10px">'
+                    + mini_table(['대장 관리 방식', '내용', '예'], [
+                [('업체 구분', 'font-weight:700'), ('<b>S/O</b> 로 업체를 구분해 왔습니다(관리 편의를 위한 구분이며 좌표 발급이 아닙니다).', ''), ('한솔 S3/O25 · 웅진 S3/O17', mono)],
+                [('book 미분할', 'font-weight:700'), ('분량이 <b>6만 페이지 미만</b>이면 book 번호로 나누지 않고 <b>업체 단위</b>로만 관리합니다.', ''), ('한솔교육 · 잉글리시에그 · 헤르만헤세 등', '')],
+                [('index 관리', 'font-weight:700'), ('분량이 늘어난 업체는 <b>book 번호로 나누며, 그 번호가 곧 OID index</b> 로 보입니다.', ''), ('웅진 B431~464', mono)],
+                [('조회 화면', 'font-weight:700'), ('좌표 기준은 <b>SOBP 맵의 종류 필터 [OID]</b>, OID 설명은 <b>[티켓 정보] 탭의 OID 안내 카드</b>에 있습니다(옛 [OID 관리대장] 탭은 폐지 <code>PC-325</code>).', ''), ('index 로만 관리 · 새로 발급하지 않음', '')],
+                [('용어', 'font-weight:700'), ('옛 <b>IDS(A코드)</b> 표기는 <b>OID 와 같은 것</b>입니다. 화면·필터에서 구분하지 않습니다.', ''), ('IDS = OID', '')]])
+                    + '</div>'),
                sect('SOBP 계층 (코드 주소 체계)',
                     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">%s</div>'
                     '<p style="font-size:12.5px;color:#374151;margin:0">한 페이지 안의 위치는 추가로 '
@@ -256,88 +332,141 @@ def issue_struct():
 
 
 def ticket_info():
-    """티켓 정보 — App Key · N Key · 서비스 티켓 용도 비교 `PC-245` `PC-246` (web/components/TicketInfoView.tsx)"""
-    rows = (('쓰는 곳 · 쓰는 사람', '<b>Ncode SDK</b> 고객사 · <b>Caster U</b> 고객', '<b>Caster Lite</b>(오프라인) · CasterN 오프라인(HYBRID)', '<b>casterN · 폼솔루션</b> 온라인 서비스 고객사'),
-            ('형태', '계정 + App Key + 계정 소속 티켓', '.nkey 파일(Book 2권 이상이면 .zip)', '키 아님 — 고객사 계정과 매칭하는 승인 기준'),
-            ('계정', '<b>필요</b>(계정 생성 = App Key 자동)', '필요 없음', '고객사 서비스 계정과 매칭'),
-            ('권한 · 설정', '[권한] 탭 Caster U 권한 20항목', '프로필 LEGACY / HYBRID(CasterN 권한 6개)', '서비스 casterN / 폼솔루션'),
-            ('기간', '티켓마다 사용기간', 'Issued Time · Valid Until Time', '티켓마다 사용기간'),
-            ('정산', '티켓 4종 + 연간 라이선스', '티켓 4종 + 연간 라이선스', '티켓 4종'),
-            ('발급 · 지정 화면', 'App Key 관리', 'N Key 관리', '고객사 관리 ▸ 서비스 티켓'))
-    th = 'text-align:center;padding:9px 12px;background:#eef0f4;color:#374151;font-weight:700;font-size:12px'
-    td = 'padding:9px 12px;border-top:1px solid #f1f3f6;vertical-align:top;font-size:12.5px'
+    """티켓 정보 — App Key · N Key · 서비스 티켓 용도 비교 `PC-245` `PC-246` (web/components/TicketInfoView.tsx 내용 그대로)"""
+    rows = (('쓰는 곳 · 쓰는 사람', '<b>Ncode SDK</b> 를 쓰는 고객사 · <b>Caster U</b> 를 쓰는 고객',
+             '<b>Caster Lite</b>(오프라인 편집툴) 사용자 · <b>CasterN 을 오프라인</b>으로 쓰는 경우(HYBRID)',
+             '<b>casterN · 폼솔루션</b> 온라인 서비스를 쓰는 고객사'),
+            ('형태', '계정 + App Key(영문 소문자 · 숫자 29자) + 계정 소속 티켓',
+             '파일 키 <code>.nkey</code>(Key=Value 텍스트) · Book 2권 이상이면 Book 마다 .nkey 를 묶은 <code>.zip</code>',
+             '키가 아니다 — 고객사 계정과 매칭해 서비스 사용을 승인하는 기준'),
+            ('계정', '<b>필요</b> — 계정을 만들면 App Key 자동 생성(계정당 1개) · 티켓은 App Key 가 아니라 <b>계정에</b> 여러 개',
+             '필요 없음', '고객사의 서비스 계정과 매칭(주인 = 고객사, 소속 사용자 전원이 공유)'),
+            ('권한 · 설정', '[권한] 탭의 <b>Caster U 권한 20항목</b>(true / false) — 설정해 발급하면 그 계정으로 Caster U 를 쓴다',
+             '프로필 (Ticket Version) <b>1 LEGACY</b>(Caster Lite) / <b>2 HYBRID</b>(CasterN 오프라인 · CasterN 권한 6개 · Page Size 8의 배수) · '
+             '코드 재사용 (Ticket Type) Unlimited / Single — <b>코드 재사용은 N Key 에만</b>',
+             '서비스 구분 casterN / 폼솔루션 — 티켓 하나에 서비스 하나'),
+            ('기간', '티켓마다 사용기간(시작 ~ 끝 / 무제한)', 'Issued Time(발급일) · Valid Until Time(기본 무제한)',
+             '티켓마다 사용기간 — 끝나면 편집 · 추가 작업 불가, 이미 만든 PDF 인쇄는 막을 수 없음'),
+            ('정산', '티켓마다 미정 · 유료 · 무료 · 체험 + 고객사별 연간 라이선스 비용',
+             '티켓마다 미정 · 유료 · 무료 · 체험 + 고객사별 연간 라이선스 비용', '티켓마다 미정 · 유료 · 무료 · 체험'),
+            ('발급 · 지정 화면', '<span style="color:#2563eb">티켓 발급 ▸ App Key 관리</span>',
+             '<span style="color:#2563eb">티켓 발급 ▸ N Key 관리</span>', '<span style="color:#2563eb">고객사 관리 ▸ 서비스 티켓</span>'))
+    th = 'text-align:center;padding:9px 12px;background:#eef0f4;color:#374151;font-weight:700;font-size:12px;border-bottom:1px solid #e5e7eb'
+    td = 'padding:9px 12px;border-top:1px solid #f1f3f6;vertical-align:top;font-size:13px;line-height:1.7'
+    tg = lambda bg, fg, t: '<span style="background:%s;color:%s;font-weight:700;font-size:12px;border-radius:6px;padding:2px 8px">%s</span>' % (bg, fg, t)
     tbl = ('<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden"><table style="width:100%%;border-collapse:collapse">'
-           '<tr><th style="%s;width:130px">구분</th><th style="%s">App Key</th><th style="%s">N Key</th><th style="%s">서비스 티켓</th></tr>%s</table></div>'
-           % (th, th, th, th, ''.join('<tr><td style="%s;font-weight:700">%s</td><td style="%s">%s</td><td style="%s">%s</td><td style="%s">%s</td></tr>'
-                                      % (td, k, td, a, td, n, td, v) for k, a, n, v in rows)))
-    # App Key · 계정 · 티켓 관계 `PC-247`
-    box = lambda bg, fg, t, d: ('<div style="background:%s;color:%s;border-radius:9px;padding:9px 12px;min-width:150px"><b>%s</b><br><span style="font-size:12px">%s</span></div>' % (bg, fg, t, d))
-    relc = ('<div style="margin-top:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;font-size:12.5px;line-height:1.8">'
-            '<b style="font-size:14px">App Key — 고객사 · 계정 · App Key · 티켓 관계</b>'
-            '<div style="display:flex;gap:10px;align-items:center;margin-top:10px">' + box('#f3f4f6', '#374151', '고객사', '계정 여러 개') + '→' +
-            box('#f5f3ff', '#6d28d9', '계정', '고객사 안에 여러 개') + '→<div style="display:flex;flex-direction:column;gap:8px">' +
-            box('#eef6ff', '#1d4ed8', 'App Key 1개', '계정 생성 때 자동 · 계정당 1개') + box('#ecfdf5', '#047857', '티켓 여러 개', '계정에 붙는다') + '</div></div>'
-            '<ul style="margin:10px 0 0;padding-left:18px"><li>App Key 는 고객사의 <b>계정마다 1개</b></li>'
-            '<li>티켓은 App Key 가 아니라 <b>계정에 매칭</b> — 한 계정에 여러 개 발급</li>'
-            '<li>SOBP 가 바뀌면 App Key 는 그대로, 티켓만 더 발급</li></ul></div>')
-    pick = ('<div style="margin-top:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;font-size:12.5px;line-height:1.9">'
-            '<b style="font-size:14px">어떤 티켓을 주나</b><ul style="margin:6px 0 0;padding-left:18px">'
-            '<li>Ncode SDK → <b>App Key</b></li><li>Caster U → 계정 + Caster U 권한을 켠 <b>App Key</b></li>'
-            '<li>Caster Lite → <b>N Key</b>(LEGACY)</li><li>CasterN 오프라인 → <b>N Key</b>(HYBRID)</li>'
-            '<li>casterN · 폼솔루션 온라인 → <b>서비스 티켓</b></li></ul></div>')
-    sec = ('<div style="margin-top:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;font-size:12.5px">'
-           '<b style="font-size:14px">N Key — 프로필 · 코드 타입별 쓸 수 있는 Section</b>'
-           '<div style="margin-top:8px;font-family:ui-monospace,monospace;line-height:1.9">LEGACY · PDS2 S 0·1·2·3·14 / PDS3 S 0·3·14<br>'
-           'HYBRID · PDS2 S 0·3·14 / PDS3 S 0·3·5·10·11·14·15</div></div>')
+           '<tr><th style="%s;width:130px">구분</th><th style="%s">%s</th><th style="%s">%s</th><th style="%s">%s</th></tr>%s</table></div>'
+           % (th, th, tg('#f5f3ff', '#6d28d9', 'App Key'), th, tg('#eef6ff', '#1d4ed8', 'N Key'), th, tg('#ecfdf5', '#047857', '서비스 티켓'),
+              ''.join('<tr style="background:%s"><td style="%s;color:#374151;font-weight:700">%s</td><td style="%s">%s</td><td style="%s">%s</td><td style="%s">%s</td></tr>'
+                      % ('#fafbfc' if i % 2 else '#fff', td, k, td, a, td, n, td, v) for i, (k, a, n, v) in enumerate(rows))))
+    card = '<div style="margin-top:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;font-size:13px">'
+    ul = '<ul style="margin:%s;padding-left:18px;font-size:13px;color:#374151;line-height:1.9">'
+    # App Key · 계정 · 티켓 관계 `PC-206` `PC-210` `PC-247`
+    box = lambda bg, fg, t, d: ('<div style="background:%s;color:%s;border-radius:9px;padding:9px 12px;min-width:150px;font-size:12.5px;display:flex;flex-direction:column;gap:2px">'
+                                '<b>%s</b><span>%s</span></div>' % (bg, fg, t, d))
+    arr = '<div style="display:flex;align-items:center;color:#9ca3af;font-size:16px">→</div>'
+    relc = (card + '<div style="font-weight:700;font-size:14px;margin-bottom:10px">App Key — 고객사 · 계정 · App Key · 티켓 관계</div>'
+            '<div style="display:flex;gap:10px;align-items:stretch">' + box('#f3f4f6', '#374151', '고객사', '계정을 여러 개 가질 수 있다') + arr +
+            box('#f5f3ff', '#6d28d9', '계정', '고객사 안에 여러 개') + arr + '<div style="display:flex;flex-direction:column;gap:8px">' +
+            box('#eef6ff', '#1d4ed8', 'App Key 1개', '계정을 만들면 자동 생성 · 계정당 1개') +
+            box('#ecfdf5', '#047857', '티켓 여러 개', '계정에 붙는다 · SOBP 가 바뀌면 티켓을 더 발급') + '</div></div>'
+            + ul % '12px 0 0' +
+            '<li>App Key 는 <b>고객사의 계정마다 1개만</b> 만들어진다 — 계정을 만들 때 자동으로 생긴다.</li>'
+            '<li>티켓은 <b>App Key 에 매칭되지 않고 계정에 매칭</b>된다 — 한 계정에 티켓(Code Type · Section · Owner · Book · Page · Info · Period)을 <b>여러 개</b> 발급할 수 있다.</li>'
+            '<li>그래서 쓰는 코드(SOBP)가 늘거나 바뀌어도 <b>App Key 는 그대로</b> 두고 그 계정에 티켓만 더 발급한다. 정산도 티켓마다 한다.</li>'
+            '<li style="color:#6b7280">이전 정책으로 App Key 가 2개 만들어진 옛 계정은 기록대로 둘 다 보이지만, 새 키는 만들지 않는다.</li></ul></div>')
+    pick = (card + '<div style="font-weight:700;font-size:14px;margin-bottom:8px">어떤 티켓을 주나</div>' + ul % '0' +
+            '<li>앱 · 서비스에 <b>Ncode SDK</b> 를 넣는 고객사 → <b>App Key</b></li>'
+            '<li><b>Caster U</b> 를 쓰는 고객 → 계정을 만들고(App Key 자동) [권한] 탭에서 <b>Caster U 권한</b>을 켠 <b>App Key</b></li>'
+            '<li>오프라인 <b>Caster Lite</b> 로 편집하는 고객 → <b>N Key</b>(프로필 LEGACY)</li>'
+            '<li><b>CasterN 을 오프라인</b>으로 쓰는 고객 → <b>N Key</b>(프로필 HYBRID · CasterN 권한 6개)</li>'
+            '<li><b>casterN · 폼솔루션</b> 온라인 서비스를 쓰는 고객사 → 고객사 관리에서 <b>서비스 티켓</b> 지정</li></ul></div>')
+    # N Key 프로필 · 코드 타입별 Section — 발급 화면 값(lib/nkeyFile NKEY_SECTIONS) 그대로
+    sth = 'padding:9px 12px;background:#eef0f4;color:#374151;font-weight:700;font-size:12px;border-bottom:1px solid #e5e7eb'
+    std = 'padding:9px 12px;border-top:1px solid #f1f3f6;font-size:13px'
+    mono = ';font-family:ui-monospace,monospace;text-align:center'
+    srow = lambda p, d, a, b: ('<tr><td style="%s;font-weight:700">%s <span style="font-weight:400;color:#6b7280">%s</span></td>'
+                               '<td style="%s">S %s</td><td style="%s">S %s</td></tr>' % (std, p, d, std + mono, a, std + mono, b))
+    sec = (card + '<div style="font-weight:700;font-size:14px;margin-bottom:8px">N Key — 프로필 · 코드 타입별 쓸 수 있는 Section</div>'
+           '<table style="border-collapse:collapse"><tr><th style="%s;text-align:left">프로필</th><th style="%s">PDS2</th><th style="%s">PDS3</th></tr>%s%s</table>'
+           '<div style="font-size:12px;color:#6b7280;margin-top:8px;line-height:1.8">표에 없는 Section 은 제한이 없습니다. '
+           '새로 발급하는 Code Type 은 PDS2 · PDS3 만입니다(OID · PDS4 는 새로 발급하지 않음).</div></div>'
+           % (sth, sth, sth, srow('LEGACY', '(Caster Lite)', '0 · 1 · 2 · 3 · 14', '0 · 3 · 14'),
+              srow('HYBRID', '(CasterN 오프라인)', '0 · 3 · 14', '0 · 3 · 5 · 10 · 11 · 14 · 15')))
     # OID(index 전용 코드) 안내 — 옛 [OID 관리대장] 탭 설명을 여기로 `PC-325`
-    oid = ('<div style="margin-top:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;font-size:12.5px">'
-           '<b style="font-size:14px">OID — index 전용 코드</b> <span style="color:#9ca3af;font-size:12px">· 새로 발급하지 않음</span>'
-           '<ul style="margin:8px 0 0;padding-left:18px;color:#374151;line-height:1.9">'
+    oid = (card + '<div style="font-weight:700;font-size:14px;margin-bottom:8px">OID — index 전용 코드 '
+           '<span style="font-weight:400;color:#9ca3af;font-size:12px">· 새로 발급하지 않음</span></div>' + ul % '0' +
            '<li><b>OID = index 만 갖는 코드</b> — 외부 코드를 <b>우리 펜으로 읽으려고</b> 만든 방식입니다. OID 책을 우리 펜으로 찍으면 <b>코드 값이 1개만</b> 나옵니다. (옛 <b>IDS</b> 표기도 같은 것입니다)</li>'
            '<li>총량이 <b>약 60,000개</b>뿐이라, 책의 양이 많지 않으면 <b>book 으로 코드를 나누지 않습니다</b>. 업체 구분에는 S/O 를 써 왔고, 분량이 늘어난 업체만 <b>book 번호(=OID index)</b> 로 나눠 관리했습니다.</li>'
            '<li>SOBP(PDS2·PDS3·PDS4) 좌표 관리와 달리 <b>index 로만</b> 관리합니다. 좌표로 보려면 <b>SOBP 맵에서 종류 [OID]</b> 로 필터하세요.</li>'
-           '<li style="color:#6b7280">OID 는 티켓을 <b>새로 발급하지 않는</b> 코드 종류입니다(위 N Key 표 참고). 이력만 남아 있습니다.</li>'
-           '</ul></div>')
+           '<li style="color:#6b7280">OID 는 티켓을 <b>새로 발급하지 않는</b> 코드 종류입니다(위 N Key 표 참고). 이력만 남아 있습니다.</li></ul></div>')
     common = ('<div style="margin-top:16px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:14px 16px;font-size:12.5px;color:#1e3a8a;line-height:1.9">'
-              '<b>세 티켓 공통</b> — 할당된 SOBP 안에서만 · 세 티켓끼리 SOBP 겹침 불가 · 지우지 않고 [티켓 수정] · 사용기간은 티켓에만</div>')
-    return ('<p style="margin:0 0 12px;color:#6b7280;font-size:13px">고객사가 코드를 직접 쓸 때 주는 티켓은 세 가지입니다. '
-            '<b>사내 편집에는 티켓이 필요 없습니다.</b></p>' + tbl + relc + pick + sec + oid + common)
+              '<div style="font-weight:700;margin-bottom:6px">세 티켓 공통</div><ul style="margin:0;padding-left:18px">'
+              '<li>고객사에 <b>할당된 SOBP 안에서만</b> 발급 · 지정합니다.</li>'
+              '<li>App Key · N Key · 서비스 티켓은 <b>SOBP 가 겹칠 수 없습니다</b> — 고객사를 가리지 않고 전체 발급분과 비교합니다.</li>'
+              '<li>발급한 티켓은 <b>지우지 않고 고칩니다</b>([티켓 수정]).</li>'
+              '<li>SOBP 할당에는 기간이 없고(한 번 할당받은 고객사가 영구 소유), <b>사용기간은 티켓에만</b> 있습니다.</li></ul></div>')
+    return ('<div style="max-width:1100px"><p style="margin:0 0 16px;color:#6b7280;font-size:13px">고객사가 코드를 직접 쓸 때 주는 티켓은 세 가지입니다. '
+            '무엇을 쓰는 고객인지에 따라 고릅니다. <b>사내 편집에는 티켓이 필요 없습니다.</b></p>'
+            + tbl + relc + pick + sec + oid + common + '</div>')
 
 
 def must_know():
-    ul = 'margin:0;padding-left:18px;font-size:12.5px;color:#374151;line-height:1.9'
+    """알아야 할 사항 — web/components/NcodeGuideView.tsx 내용 그대로 (섹션 1~6 + 정리)"""
+    ul = 'margin:0;padding-left:18px;font-size:13px;color:#374151;line-height:1.9'
+    mono = 'font-family:ui-monospace,monospace'
+    note = '<p style="font-size:12px;color:#9ca3af;margin:8px 0 0">%s</p>'
+    s1 = sect('편집 비용 산출 기준 — 페이지 + 심볼',
+              '<ul style="%s">'
+              '<li>소리펜·필기펜 <b>모두 「페이지 수 + 심볼 갯수」로 편집 비용을 산출</b>합니다.</li>'
+              '<li><b>심볼</b> = 편집(nproj)에서 (책) 영역을 설정한 편집 단위. 이 심볼에 리소스(mp3)를 매핑합니다. <b>심볼 갯수 = 작업량</b>.</li>'
+              '<li>필기펜 <b>nproj</b>는 심볼 갯수가 늘수록 서버 저장 용량도 증가 → 필기펜도 심볼 갯수 파악이 현황 확인에 도움.</li>'
+              '<li>재무팀은 이미 <b>편집 단가 협상 미팅을 완료</b>해 산출 기준을 알고 있습니다.</li>'
+              '</ul>' % ul, '1')
+    s2 = sect('산출물 · 저장 위치',
+              mini_table(['항목', '종류', '저장 위치'], [
+                  [('리소스 파일 (mp3 등)', 'font-weight:600'), ('소리펜·필기펜 공통', ''), ('디바이스에 저장 (서버 스토리지 ✕)', 'color:#2563eb')],
+                  [('ncp2', 'font-weight:600'), ('소리펜 산출물 (좌표+mp3)', ''), ('디바이스(소리펜)에 넣어야 동작', 'color:#2563eb')],
+                  [('nproj + PDF + JPG + 썸네일 png', 'font-weight:600'), ('필기펜 편집 파일', ''), ('서버에 등록', 'color:#047857')]])
+              + note % '편집은 소리·필기 모두 「심볼 ↔ 리소스 매핑」에서 작업이 발생하므로 심볼 갯수로 작업량을 산출하는 것이 맞습니다.', '2')
+    s3 = sect('코드 구분 (PDS)',
+              '<ul style="%s"><li><b>PDS3 (N3C6) = Ncode</b> — N3C6의 N.</li>'
+              '<li><b>PDS2 (G3C6) = Gcode</b> — G3C6의 G.</li></ul>' % ul, '3')
+    s4 = sect('코드 발급 현황 — 재무·사업부용',
+              '<ul style="%s">'
+              '<li>발급 코드 <b>합계는 편집에는 사용하지 않습니다.</b> B2B 납품 관점에서도 합계 필요성은 낮았습니다.</li>'
+              '<li>그러나 이제 <b>사업부·재무팀이 코드 발급 현황을 조회</b>합니다 → <b>"코드가 얼마나 발급되었는지"</b> 확인 용도로 발급 규모를 봅니다.</li>'
+              '<li><b>코드 라이선스 비용은 사업팀에서 별도 책정</b>합니다(편집 단가와 별개). 편집 단가는 재무팀이 이미 인지.</li>'
+              '</ul>' % ul, '4')
+    # 옛 「항목 구성 버전」 설명 `PC-065` 대체 `PC-257`~`PC-260`
+    s5 = sect('Ticket Version · Ticket Type — N Key 프로필 · 코드 재사용',
+              '<ul style="%s">'
+              '<li>N Key 의 <b>Ticket Version</b> 은 <b>프로필</b>입니다 — 발급 화면 항목명 <b>프로필 (Ticket Version)</b>.</li>'
+              '<li>N Key 의 <b>Ticket Type</b> 은 <b>코드 재사용 여부</b>입니다 — 발급 화면 항목명 <b>코드 재사용 (Ticket Type)</b>.</li>'
+              '<li><b>코드 재사용은 N Key 에서만</b> 씁니다. App Key 티켓 · 서비스 티켓에는 없습니다.</li>'
+              '<li><b>HYBRID</b> 프로필은 <b>Page Size가 8의 배수</b>여야 발급됩니다.</li>'
+              '</ul>' % ul
+              + '<div style="margin-top:10px">' + mini_table(['항목', '값', '뜻'], [
+                  [('Ticket Version (프로필)', 'font-weight:700'), ('1', mono), ('LEGACY — Caster Lite', '')],
+                  [('', ''), ('2', mono), ('HYBRID — CasterN 오프라인 · Page Size 8의 배수', '')],
+                  [('Ticket Type (코드 재사용)', 'font-weight:700'), ('Unlimited', mono), ('재사용 (기본)', '')],
+                  [('', ''), ('Single', mono), ('재사용 안 함', '')]]) + '</div>'
+              + note % ('※ 항목명 표기는 <b>띄어쓰기 기준</b>입니다 <code>PC-064</code> (Issued Time · Ticket Version …). '
+                        '티켓 파일 안의 키 이름(<code>issuedTime</code> 등)은 프로그램이 읽는 값이라 바뀌지 않습니다.'), '5')
+    s6 = sect('실제 산출 단가 (견적서 기준)',
+              mini_table(['구분', '단위', '단가', '비고'], [
+                  [('Ncode 적용', 'font-weight:600'), ('페이지당', ''), ('500원', mono), ('인쇄데이터에 Ncode 적용', '')],
+                  [('Ncode 편집', 'font-weight:600'), ('심볼당', ''), ('1,000 ~ 1,500원', mono), ('난도(기능)에 따라 차등', '')],
+                  [('노트서버 업로드', 'font-weight:600'), ('건당', ''), ('10,000원', mono), ('필기펜 nproj 서버 등록', '')]])
+              + note % '예: 2026-07-16 양지사 플래너 4종 견적 = 적용(페이지) + 편집(심볼) + 업로드 합산 ₩35,232,000(VAT 별도).', '6')
+    sumbox = ('<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 16px;font-size:13px;color:#1e3a8a;line-height:1.8">'
+              '<b>정리</b> — 리소스(mp3)는 소리·필기 모두 디바이스 저장, 필기펜 편집 파일(nproj+PDF+JPG+png)만 서버 등록. '
+              '편집은 심볼↔리소스 매핑에서 발생하므로 <b>페이지와 심볼 갯수로 작업량·비용을 산출</b>합니다. '
+              '코드 발급 규모는 재무·사업부 현황 파악용이며, 코드 라이선스 비용은 사업팀이 별도 책정합니다.</div>')
     return ('<div style="max-width:1000px">'
             '<p style="margin:0 0 16px;color:#6b7280;font-size:13px">'
-            '코드 발급·편집 운영에서 반드시 알아야 할 기준. (한윤정 책임 협의 정리)</p>%s%s</div>'
-            % (sect('편집 비용 산출 기준 — 페이지 + 심볼',
-                    '<ul style="%s">'
-                    '<li>소리펜·필기펜 <b>모두 「페이지 수 + 심볼 갯수」로 편집 비용을 산출</b>합니다.</li>'
-                    '<li><b>심볼</b> = 편집(nproj)에서 (책) 영역을 설정한 편집 단위. '
-                    '이 심볼에 리소스(mp3)를 매핑합니다. <b>심볼 갯수 = 작업량</b>.</li>'
-                    '<li>필기펜 <b>nproj</b>는 심볼 갯수가 늘수록 서버 저장 용량도 증가 → '
-                    '필기펜도 심볼 갯수 파악이 현황 확인에 도움.</li>'
-                    '<li>재무팀은 이미 <b>편집 단가 협상 미팅을 완료</b>해 산출 기준을 알고 있습니다.</li>'
-                    '</ul>' % ul, '1'),
-               sect('산출물 · 저장 위치',
-                    mini_table(['항목', '종류', '저장 위치'], [
-                        [('리소스 파일 (mp3 등)', 'font-weight:600'), ('소리펜·필기펜 공통', ''),
-                         ('디바이스에 저장 (서버 스토리지 ✕)', 'color:#2563eb')],
-                        [('ncp2', 'font-weight:600'), ('소리펜 산출물 (좌표+mp3)', ''),
-                         ('디바이스(소리펜)에 넣어야 동작', 'color:#2563eb')],
-                        [('nproj + PDF + JPG + 썸네일 png', 'font-weight:600'),
-                         ('필기펜 편집 파일', ''), ('서버에 등록', 'color:#047857')]]), '2')
-               + sect('Ticket Version · Ticket Type — N Key 프로필 · 코드 재사용',   # 옛 「항목 구성 버전」 설명 `PC-065` 대체 `PC-257`~`PC-260`
-                      '<ul style="%s">'
-                      '<li>N Key 의 <b>Ticket Version</b> 은 <b>프로필</b>이다 — 발급 화면 항목명 <b>프로필 (Ticket Version)</b>.</li>'
-                      '<li>N Key 의 <b>Ticket Type</b> 은 <b>코드 재사용 여부</b>이다 — 발급 화면 항목명 <b>코드 재사용 (Ticket Type)</b>.</li>'
-                      '<li><b>코드 재사용은 N Key 에서만</b> 쓴다. App Key 티켓 · 서비스 티켓에는 없다.</li>'
-                      '<li><b>HYBRID</b> 프로필은 <b>Page Size가 8의 배수</b>여야 발급된다.</li>'
-                      '</ul>' % ul
-                      + mini_table(['항목', '값', '뜻'], [
-                          [('Ticket Version (프로필)', 'font-weight:700'), ('1', 'font-family:ui-monospace,monospace'), ('LEGACY — Caster Lite', '')],
-                          [('', ''), ('2', 'font-family:ui-monospace,monospace'), ('HYBRID — CasterN 오프라인 · Page Size 8의 배수', '')],
-                          [('Ticket Type (코드 재사용)', 'font-weight:700'), ('Unlimited', 'font-family:ui-monospace,monospace'), ('재사용 (기본)', '')],
-                          [('', ''), ('Single', 'font-family:ui-monospace,monospace'), ('재사용 안 함', '')]]), '5')))
+            '코드 발급·편집 운영에서 반드시 알아야 할 기준. (한윤정 책임 협의 정리)</p>'
+            + s1 + s2 + s3 + s4 + s5 + s6 + sumbox + '</div>')
 
 
 def content(tab=0, flt='all', body=None):
@@ -374,8 +503,8 @@ def build():
          ('PDS2 범위 없는 Section', '표시', '—', '값이 <b>—</b>로 표시된다 (S5·S10·S11·S15)'),
          ('안내 박스', '조회', '—', '파란 박스(#eff6ff) · <b>※ Section 1은 테스트/개발 전용</b> · <b>※ Section 44 = PDS4(S-code)</b> owner 0~4095 · book 0~255 · page 0~255 · xy 0~255'),
          ('⚠ 수록 Section', '참고', '—',
-          '이 표에는 <b>0 · 3 · 5 · 10 · 11 · 14 · 15</b>만 있다 — '
-          '<code>SOB-01</code>의 Section 목록(1 · 44 포함)과 <b>범위가 다르다</b>')] + NAV))
+          '이 표에는 <b>0 · 3 · 5 · 10 · 11 · 14 · 15 · 44</b>가 있다 — '
+          '<code>SOB-01</code>의 Section 목록과 달리 <b>Section 1</b>(테스트/개발 전용)은 없다')] + NAV))
 
     boards.append((
         'S2', '확장 언어 슬롯 · 전체 그룹', '기본',
@@ -424,23 +553,39 @@ def build():
 
     boards.append((
         'S4', '발급 구조', '기본',
-        'PRD §4.3 — <b>좌표(SOBP)가 먼저</b>이고 코드 종류(PDS3·PDS2·PDS4·OID·IDS)는 '
+        'PRD §4.3 — <b>좌표(SOBP)가 먼저</b>이고 코드 종류(PDS3·PDS2·PDS4·OID)는 '
         '그 좌표의 속성이라는 <b>코드 체계</b>와 <b>SOBP 계층</b>을 설명한다 <code>PC-032</code>. '
+        '옛 IDS(A) 는 OID 와 같은 것이라 따로 행을 두지 않는다 <code>PC-035</code>. '
         '기능 조작 없이 읽는 페이지다. 본문 최대 폭 1000px.',
         frame('INF-01', '코드 관리 정보', content(2), height=900),
         [('코드 종류 표', '조회', '—',
-          'PDS3(N3C6)=<b>Ncode</b> 현행 주력 · PDS2(G3C6)=<b>Gcode</b> 구형/호환 · '
-          '<b>PDS4(S-code)=Section 44</b>(owner 0~4095 · book 0~255 · page 0~255 · xy 0~255) · '
-          '<b>OID</b>=인덱스 전용(같은 S/O 공유, B/P로 구분) · '
-          'IDS(A)=이력 전용'),
-         ('종류 규칙', '조회', '—', '<b>신규 발급</b>은 같은 S/O 에 한 종류만 <code>PC-041</code> (과거 혼용 이력은 표시 유지)'),
+          '4행 — PDS3(N3C6)=<b>Ncode</b> 현행 주력 · PDS2(G3C6)=<b>Gcode</b> 구형/호환 · '
+          '<b>PDS4(S-code)=Section 44</b> · <b>OID</b>=인덱스 전용(옛 IDS(A코드) 표기도 같은 것)'),
+         ('종류 규칙', '조회', '—', '같은 S/O 는 <b>PDS2·PDS3·PDS4 중 한 종류만</b>(무겹침) · OID 는 index 부여라 같은 S/O 를 함께 쓸 수 있다'),
+         ('필터 안내', '조회', '—', 'SOBP 맵 · 코드 프로젝트에서 <b>PDS2 · PDS3 · PDS4 · OID</b> 로 필터해 조회'),
          ('OID 설명', '조회', '—',
           '<b>index 전용 · 코드 1개 노출 · 약 6만 개 · book 미분할</b> — 자세한 안내는 [티켓 정보] 탭 OID 카드(S7) · '
           '좌표는 SOBP 맵 [OID] 필터 <code>PC-325</code>'),
          ('펜 구분', '조회', '—', '<b>소리펜(NSP) · 필기펜(NWP)</b> 도 좌표 속성'),
          ('SOBP 계층', '조회', '—', 'S 파랑 · O 청록 · B 보라 · P 주황 4카드'),
          ('X·Y 좌표', '참고', '—',
-          '<b>한 페이지 안의 위치는 추가로 X·Y 좌표로 지정됩니다. 겹침 없이 발급하는 것이 최우선.</b>')]))
+          '<b>한 페이지 안의 위치는 추가로 X·Y 좌표로 지정됩니다. 겹침 없이 발급하는 것이 최우선.</b>'),
+         ('아래로 이어짐', '스크롤', 'S9', '펜 구분 · 오너코드 발급 구조 · 티켓 발급 구조 · Section 1 · 44 안내')]))
+
+    boards.append((
+        'S9', '발급 구조 · 이어서 (아래로 스크롤)', '기본',
+        'S4 를 아래로 내린 부분 — 같은 [발급 구조] 탭의 나머지 섹션이다. 한 장에 다 넣으면 길어서 '
+        '<b>이어지는 화면으로 나눠</b> 그렸다. 순서는 <b>펜 구분 · 편집 산출물 → 오너코드 발급 구조(예시) → '
+        '티켓 발급 구조 — N Key vs App Key → Section 1 · 44 안내</b>. 읽기 전용이다.',
+        frame('INF-01', '코드 관리 정보', content(2, body=issue_struct_more()), height=900),
+        [('펜 구분 · 편집 산출물', '조회', '—', '소리펜 = <b>Ncp</b> · ncp2(좌표 + mp3) · 디바이스 저장 / 필기펜 = <b>Ndp</b> · nproj + PDF + JPG + 썸네일 · 서버 등록'),
+         ('오너코드 발급 구조 (예시)', '조회', '—', 'Section · Owner · ACCOUNT · Book 범위 · Page · X · Y 5행 — Section·Owner 마다 최대 차원이 다르다 · 페이지 1장 2.3m 이하면 페이지 수로 발급 규모 산정'),
+         ('사용처별 키', '조회', '—', '오프라인 편집툴 = <b>N Key</b> · 온라인(웹) 편집툴 = <b>계정 + App Key</b> · SDK 연동 = <b>App Key</b>'),
+         ('N Key vs App Key 표', '조회', '—', '성격 · 사용 대상 · 전달 방식 · 계정 연동 · 사용 흐름 · 주요 항목 6행'),
+         ('발급 절차', '조회', '—', '1 코드 할당 → 2 티켓 발급 요청 → 3-A N Key / 3-B 계정 발급(계정 + App Key)'),
+         ('계정 안내', '조회', '—', 'App Key 는 계정 없이 발급되지 않는다 · 비밀번호를 요청하지 않는 고객사(SDK)는 담당자가 임의 비밀번호 지정'),
+         ('Section 1 · 44 안내', '조회', '—', 'Section 1 = 테스트/개발 전용(상용 미출시 · 레거시 아님) · Section 44 = PDS4(S-code)'),
+         ('발급 화면', '이동', '<code>SOB-01</code> · <code>TKT-02</code> · <code>TKT-01</code>', '코드 할당 · N Key 관리 · App Key 관리')]))
 
     boards.append((
         'S7', '티켓 정보', '기본',
@@ -456,19 +601,30 @@ def build():
           '「OID — index 전용 코드 · 새로 발급하지 않음」 — ① index 만 갖는 코드(찍으면 코드 값 1개 · 옛 IDS 동일) '
           '② 약 60,000개라 book 미분할 ③ index 로 관리 · 좌표는 SOBP 맵 [OID] 필터 ④ 새로 발급하지 않음 · 이력만 '
           '<code>PC-325</code>'),
-         ('OID 좌표 조회', '이동', '<code>SOB-01</code>', 'SOBP 맵 종류 [OID] 필터')]))
+         ('OID 좌표 조회', '이동', '<code>SOB-01</code>', 'SOBP 맵 종류 [OID] 필터'),
+         ('세 티켓 공통', '조회', '—',
+          '4항목 — ① 할당된 SOBP 안에서만 발급 · 지정 ② 세 티켓끼리 SOBP 겹침 불가(고객사 가리지 않고 전체 발급분과 비교) '
+          '③ 지우지 않고 [티켓 수정] ④ SOBP 할당은 기간 없음(영구 소유) · 사용기간은 티켓에만')]))
 
     boards.append((
         'S6', '알아야 할 사항', '기본',
-        'PRD §4.5 — 코드 발급·편집 운영에서 <b>반드시 알아야 할 기준</b>을 번호 붙은 섹션으로 정리한다. '
+        'PRD §4.5 — 코드 발급·편집 운영에서 <b>반드시 알아야 할 기준</b>을 번호 붙은 섹션 <b>6개 + 정리</b>로 보여 준다 '
+        '(web/components/NcodeGuideView.tsx 내용 그대로). '
         '단가의 정본은 <code>P-16</code>이며 고객사별 단가는 <code>MEM-02</code>에서 지정한다.',
         frame('INF-01', '코드 관리 정보', content(4), height=900),
         [('① 편집 비용 산출', '조회', '—', '소리펜·필기펜 모두 <b>페이지 수 + 심볼 갯수</b> · <b>심볼 갯수 = 작업량</b>'),
          ('② 산출물·저장 위치', '조회', '—',
-          'mp3·ncp2 = <b>디바이스</b>(파랑) / nproj·PDF·JPG·썸네일 = <b>서버 등록</b>(초록)'),
+          'mp3·ncp2 = <b>디바이스</b>(파랑) / nproj·PDF·JPG·썸네일 = <b>서버 등록</b>(초록) · '
+          '각주 「심볼 ↔ 리소스 매핑에서 작업이 발생 → 심볼 갯수로 작업량 산출」'),
+         ('③ 코드 구분 (PDS)', '조회', '—', 'PDS3(N3C6) = Ncode · PDS2(G3C6) = Gcode'),
+         ('④ 코드 발급 현황', '조회', '—',
+          '발급 합계는 편집에 쓰지 않음 · <b>사업부·재무팀이 발급 규모를 조회</b> · 코드 라이선스 비용은 사업팀이 별도 책정'),
          ('⑤ Ticket Version · Ticket Type', '조회', '—',
           'N Key — Ticket Version = <b>프로필</b>(1 LEGACY · 2 HYBRID) · Ticket Type = <b>코드 재사용</b>(Unlimited · Single, N Key 에만) · '
-          'HYBRID 는 Page Size 8의 배수 <code>PC-257</code>~<code>PC-260</code>'),
+          'HYBRID 는 Page Size 8의 배수 <code>PC-257</code>~<code>PC-260</code> · 각주 「항목명은 띄어쓰기 기준 <code>PC-064</code>」'),
+         ('⑥ 실제 산출 단가 (견적서 기준)', '조회', '—',
+          'Ncode 적용 페이지당 500원 · Ncode 편집 심볼당 1,000~1,500원 · 노트서버 업로드 건당 10,000원 · 양지사 견적 예시'),
+         ('정리 박스', '조회', '—', '저장 위치 · 페이지와 심볼 갯수로 작업량·비용 산출 · 발급 규모는 현황 파악용'),
          ('단가 지정하러 가기', '이동', '<code>MEM-01</code> → <code>MEM-02</code>', ''),
          ('SOBP 실시간 발급', '—', '<b>미구현</b>', '⚠ §7 — 이 메뉴의 탭으로 넣을지 협의')]))
 
