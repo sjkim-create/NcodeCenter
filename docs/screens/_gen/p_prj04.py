@@ -39,12 +39,11 @@ def status_row(st='진행중', locked=False, need_date=False, released=False):
         note = ('<div class="inline-err" style="margin-top:8px">'
                 '※ 완료하려면 ncp2 최종수정 날짜가 필요합니다.</div>')
     if released:
-        note += ('<div style="font-size:11.5px;color:#6b7280;margin-top:8px">'
-                 '· 2026-08-16 <span style="color:#9ca3af">(완료 해제 2026-08-24 10:05 · 김순정)</span></div>')
+        note += ('<div style="font-size:11.5px;color:#6b7280;margin-top:8px"><b style="color:#374151">ncp2 최종수정 이력</b>'
+                 '<div style="font-family:ui-monospace,monospace;margin-top:2px">· 2026-08-16 <span style="color:#9ca3af">(완료 해제 2026-08-24 10:05 · 김순정)</span></div></div>')
     return ('<div class="card"><div class="bd"><div class="row" style="gap:10px">'
             '<div class="lbl" style="margin:0">진행 상태</div>'
-            '<div class="row" style="gap:5px">%s</div><div style="flex:1"></div>'
-            '<span class="btn sm" style="color:#dc2626">교재 삭제</span></div>%s</div></div>'
+            '<div class="row" style="gap:5px">%s</div></div>%s</div></div>'
             % (chips, note))
 
 
@@ -108,30 +107,31 @@ def ext_picker(picked=(964, 965), open_=False):
 
 
 def coord_ext(picked=(964, 965), open_=False):
-    """기본 코드 교재의 [사용할 코드] 한 줄 — 할당된 S/O · Book · 코드 종류 · 확장 언어 슬롯 · 사용 고객사 `PC-327`"""
-    cells = (field('할당된 S / O',
-                   '<div class="inp ro">S3 / O21 <span style="color:#9ca3af;font-size:11px">(수정 불가)</span></div>',
-                   True)
-             + field('Book', sel('B265'), True)
-             + field('코드 종류', sel('PDS2'), True)
+    """기본 코드 교재의 [사용할 코드] 한 줄 — 할당된 S/O · Book · 코드 종류 · 확장 언어 슬롯 · 사용 고객사 `PC-327` (수정 모드)"""
+    cells = (field('할당된 S / O (수정 불가)',
+                   '<div class="inp" style="background:#fff"><b style="font-family:ui-monospace,monospace">S3 / O21</b> '
+                   '<span style="color:#9ca3af;font-size:11px">할당된 코드</span></div>', True)
+             + field('Book (수정 불가)', '<div class="inp" style="background:#f9fafb"><b style="font-family:ui-monospace,monospace">B265</b> '
+                     '<span style="color:#9ca3af;font-size:11px">등록된 코드</span></div>', True)
+             + field('코드 종류', '<div class="inp" style="background:#f3f4f6;color:#6b7280">PDS2</div>', True)
              + field('확장 언어 슬롯 (Common-21 O964~983)', ext_picker(picked, open_))
              + field('사용 고객사 (서비스 티켓)',
                      '<div class="inp ro"><span style="font-size:11px;background:#f3e8ff;color:#7e22ce;'
                      'border-radius:5px;padding:2px 7px;font-weight:700">전북교육청</span></div>'))
-    return ('<div class="card"><div class="hd">사용할 코드</div><div class="bd">'
-            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 2.2fr 1.3fr;gap:10px;'
+    return ('<div class="card" style="border-color:#e9d5ff;background:#faf5ff"><div class="hd" style="display:flex;align-items:center;gap:8px;color:#6b21a8">사용할 코드'
+            '<span style="font-size:11px;background:#a855f7;color:#fff;border-radius:5px;padding:2px 7px;font-weight:700">공유 코드 · 여러 고객사 사용</span></div><div class="bd">'
+            '<div style="display:grid;grid-template-columns:1.3fr .9fr .9fr 1.6fr 1.1fr;gap:10px;'
             'align-items:start">%s</div>'
-            '<div style="font-size:11.5px;color:#6b21a8;margin-top:8px">여러 고객사가 Book 번호만 나눠 '
-            '쓰는 코드입니다 — 공유 코드 · 여러 고객사 사용</div></div></div>' % cells)
+            '<div style="font-size:11.5px;color:#6b21a8;margin-top:8px">여러 고객사가 Book 번호만 나눠 쓰는 코드입니다 — '
+            '사용 고객사는 <b>이 Book 에 서비스 티켓을 받은 고객사</b>로 표시됩니다.</div></div></div>' % cells)
 
 
 def coord(mode='edit', share=False, sub_err=False):
     # mode='dup' — [복제]로 연 등록 폼: 코드(S/O·Book·종류)를 **원본에 고정**한다 `PC-112`
     dup = (mode == 'dup')
-    so = ('<div class="inp ro">S0 / O10 <span style="color:#9ca3af;font-size:11px">(수정 불가)</span></div>'
-          if dup else
-          '<div class="inp ro">S3 / O17 <span style="color:#9ca3af;font-size:11px">(수정 불가)</span></div>'
-          if mode == 'edit' else sel('S3 / O17'))
+    so = ('<div class="inp" style="background:#fff"><b style="font-family:ui-monospace,monospace">%s</b> '
+          '<span style="color:#9ca3af;font-size:11px">할당된 코드</span></div>' % ('S0 / O10' if dup else 'S3 / O17')
+          if mode in ('dup', 'edit') else sel('S3 / O17'))
     # 좌표만 보여 준다 `PC-083` — 종류(N·G)는 뒤의 [코드 종류]에서 고른다
     hint = ('<b>복제 원본의 코드</b> — 바꿀 수 없다 <code>PC-112</code>' if dup
             else '수정 모드에서는 <b>변경 불가</b> · 종류 배지는 붙이지 않는다 <code>PC-083</code>'
@@ -157,6 +157,12 @@ def coord(mode='edit', share=False, sub_err=False):
                        '<div class="inp ro">B1108 '
                        '<span style="color:#9ca3af;font-size:11px">복제 원본의 코드</span></div>',
                        True, None, '같은 코드에 작업물을 하나 더 만드는 것이라 바꾸지 않는다')
+    elif mode == 'edit':
+        # 수정 모드 — Book 은 등록된 코드로 고정 · 코드 종류 셀렉트 잠김 `PC-112`
+        kind_f = field('코드 종류', '<div class="inp" style="background:#f3f4f6;color:#6b7280">PDS2 <span style="color:#9ca3af;font-size:10px">▾</span></div>', True, None,
+                       '수정 모드에서는 <b>잠김</b>')
+        book_f = field('Book (수정 불가)', '<div class="inp" style="background:#f9fafb"><b style="font-family:ui-monospace,monospace">B431</b> '
+                       '<span style="color:#9ca3af;font-size:11px">등록된 코드</span></div>', True, None, '등록된 코드라 바꾸지 않는다')
     else:
         kind_f = field('코드 종류', sel('PDS3'), True, None,
                        '<b>PDS2 · PDS3 · PDS4 · OID</b> 중 선택 <code>PC-052</code>')
@@ -169,10 +175,21 @@ def coord(mode='edit', share=False, sub_err=False):
         banner = ('<div class="toast" style="margin-bottom:10px;background:#fff7ed;'
                   'border-color:#fed7aa;color:#c2410c">복제 · 코드 S0/O10/B1108 고정 — '
                   '기본 정보·심볼 입력은 초기화됨 · casterN 연동 항목은 새 작업으로 채워집니다</div>')   # `PC-282`
-    return ('<div class="card"><div class="hd">코드 좌표</div><div class="bd">%s'
+    tagc = ('<span style="font-size:11px;background:#a855f7;color:#fff;border-radius:5px;padding:2px 7px;font-weight:700">공유 코드 · 여러 고객사 사용</span>'
+            if share else
+            '<span style="font-size:11px;background:#eef6ff;color:#2563eb;border-radius:5px;padding:2px 7px;font-weight:700">전용 코드 · %s</span>'
+            % ('교원구몬-10' if dup else '웅진씽크빅'))
+    note = ('<div style="font-size:11.5px;margin-top:8px;color:#6b21a8">여러 고객사가 Book 번호만 나눠 쓰는 코드입니다 — 사용 고객사는 '
+            '<b>이 Book 에 서비스 티켓을 받은 고객사</b>로 표시됩니다.</div>' if share else
+            '<div style="font-size:11.5px;margin-top:8px;color:#6b7280">이 S/O는 %s 전용입니다. 별도 고객사 입력이 필요 없습니다.</div>'
+            % ('교원구몬-10' if dup else '웅진씽크빅'))
+    lab = '할당된 S / O (수정 불가)' if mode in ('dup', 'edit') else '할당된 S / O (선택)'
+    return ('<div class="card" style="border-color:%s;background:%s"><div class="hd" style="display:flex;align-items:center;gap:8px;color:%s">사용할 코드%s</div><div class="bd">%s'
             '<div class="g3">%s%s%s</div>'
-            '<div class="g3" style="margin-top:10px">%s</div></div></div>'
-            % (banner, field('할당된 S / O', so, True, None, hint), book_f, kind_f, sub))
+            '%s%s</div></div>'
+            % ('#e9d5ff' if share else '#bfdbfe', '#faf5ff' if share else '#f5f9ff', '#6b21a8' if share else '#1e3a8a', tagc, banner,
+               field(lab, so, True, None, hint), book_f, kind_f,
+               ('<div class="g3" style="margin-top:10px">%s</div>' % sub) if sub else '', note))
 
 
 # 칩이 붙는 셀렉트 — 2칸 폭을 셀렉트가 다 쓰고 칩은 **아래**로 `PC-278`
@@ -213,7 +230,7 @@ def info(empty=False, mod_date=True, title='범블비 잉글리시 전집 1권')
     g6 = 'display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-top:10px'
     # 첫 줄은 **교재명만**(2칸) — 연동이 NPROJ 타이틀(없으면 파일명)로 채우고 여기서 고칠 수 있다 `PC-284`
     #   ncp2 파일명 · 크기 · 최종수정은 아래 [casterN 연동] 묶음(읽기 전용)으로 옮겼다
-    tmpl = ('<div class="card"><div class="hd">교재 정보</div><div class="bd">'
+    tmpl = ('<div class="card"><div class="hd">기본 정보</div><div class="bd">'
             '<div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px">'
             '<div style="grid-column:span 2">%s</div></div>%s'
             '%s<div style="grid-column:span 2">%s</div></div>'
@@ -339,7 +356,7 @@ def totals(pen='소리펜'):
             '<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">'
             '<span style="font-size:13px">Ncode 적용 수 '
             '<b style="color:#2563eb;font-size:17px">%d</b>'
-            '<span style="color:#9ca3af;font-size:11px"> p · 적용비 기준</span></span>'
+            '<span style="color:#9ca3af;font-size:11px"> p · %s 기준</span></span>'
             '<span style="color:#cbd5e1">|</span>'
             '<span style="font-size:13px">소리펜 합 '
             '<b style="color:#2563eb">%s</b></span>'
@@ -350,101 +367,103 @@ def totals(pen='소리펜'):
             '<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:8px;'
             'padding-top:8px;border-top:1px dashed #bfdbfe">'
             '<span style="font-size:12.5px;color:#374151">적용비 <b>₩%s</b>'
-            '<span style="color:#9ca3af;font-size:11px"> (Ncode 적용 소리펜 %dp · 필기펜 %dp)</span></span>'
+            '<span style="color:#9ca3af;font-size:11px"> (%s Ncode 적용 %dp × 단가)</span></span>'
             '<span style="font-size:12.5px;color:#374151">편집·기능비 <b>₩%s</b>'
             '<span style="color:#9ca3af;font-size:11px"> (항목별 단가 합)</span></span>'
             '<span style="margin-left:auto;font-size:14px">청구액 '
             '<b style="color:#2563eb;font-size:18px">₩%s</b></span></div>'
             '</div></div>'
-            % (pg, '{:,}'.format(s_sum), '{:,}'.format(p_sum), '{:,}'.format(tot),
-               '{:,}'.format(page_amt), s_pg, w_pg, '{:,}'.format(sym_amt),
+            % (pg, pen, '{:,}'.format(s_sum), '{:,}'.format(p_sum), '{:,}'.format(tot),
+               '{:,}'.format(page_amt), pen, pg, '{:,}'.format(sym_amt),
                '{:,}'.format(page_amt + sym_amt)))
 
 
 def settle(badge='fixed', discount=True):
+    """편집 단가 · 할인 정산 (EditingDetailView 3-B행) — 머리 배지 · 할인 적용 · [할인 초기화] · 설명 · 할인 입력 3칸 · 내역표 · 아래 안내"""
     if badge == 'fixed':
         b = '<span class="tag b">등록 시 단가 (2019-04-11) · 적용 500 / 편집 1,000</span>'
-        sub = '저장 시점의 고객사 단가로 <b>고정</b>된 상태 — 이후 고객사 단가가 바뀌어도 이 교재는 그대로'
         warn = ''
     elif badge == 'changed':
         b = '<span class="tag b">등록 시 단가 (2019-04-11) · 적용 500 / 편집 1,000</span>'
-        sub = '고정된 단가와 <b>현재 고객사 단가가 다릅니다</b>'
-        warn = ('<div class="toast warn" style="margin-top:10px">'
-                '⚠ 고객사 단가 변경됨 — <span class="btn sm" style="margin-left:6px">'
-                '현재 단가로 갱신</span></div>')
+        warn = '<span class="btn sm" style="color:#b45309">⚠ 고객사 단가 변경됨 — 현재 단가로 갱신</span>'
     else:
-        b = '<span class="tag">고객사 단가</span>'
-        sub = '아직 고정 전(신규 교재) — <b>저장하면 현재 단가로 고정</b>됩니다'
+        b = '<span class="tag y">고객사 단가 · 적용 500 / 편집 1,000</span>'
         warn = ''
-    rows = (('① 적용비 (페이지)', '48p × 500', '24,000'),
-            ('② 편집·기능비', '심볼·기능 1,188 (항목별 단가 합)', '＋ 1,188,000'),
-            ('③ 합계 (할인 전)', '적용비 + 편집·기능비', '1,212,000'))
+    dct = ('<span style="font-size:11px;background:#fee2e2;color:#b91c1c;border-radius:5px;padding:2px 7px;font-weight:700">할인 적용</span>'
+           if discount else '')
+    rows = [('적용비 (Ncode 적용)', '소리펜 48p × 단가', '₩24,000', False),
+            ('편집·기능비', '심볼·기능 1,188 (항목별 단가 합)', '＋ ₩1,188,000', False),
+            ('합계 (할인 전)', '적용비 + 편집·기능비', '₩1,212,000', False)]
     if discount:
-        rows += (('④ 할인율 10%', '합계 기준', '−121,200'),)
-        total = '1,090,800'
+        rows += [('할인율 10%', '합계 기준', '− ₩121,200', True), ('추가 할인액', '재작업분 · 물량 협의', '− ₩10,000', True)]
+        total, tdc = '₩1,080,800', '<span style="margin-left:8px;font-size:11px;background:#fee2e2;color:#b91c1c;border-radius:5px;padding:2px 7px;font-weight:700">총 할인 ₩131,200 (10.8%)</span>'
     else:
-        total = '1,212,000'
-    tr = ''.join('<tr><td>%s</td><td style="color:#6b7280">%s</td>'
-                 '<td style="text-align:right%s">%s</td></tr>'
-                 % (a, b_, ';color:#dc2626' if c.startswith('−') else '', c)
-                 for a, b_, c in rows)
-    return ('<div class="card"><div class="hd">정산 (교재 단위 조정)</div><div class="bd">'
-            '<div class="row" style="gap:8px;flex-wrap:wrap">%s'
-            '<span style="font-size:11.5px;color:#6b7280">%s</span></div>%s'
-            '<div class="g3" style="margin-top:12px">%s%s%s</div>'
-            '<div class="row" style="justify-content:flex-end;margin-top:8px">'
-            '<span class="btn sm">할인 초기화</span></div>'
-            '<div style="border:1px solid #e5e7eb;border-radius:9px;overflow:hidden;margin-top:12px">'
-            '<table><tr><th>단계</th><th>산식</th>'
-            '<th style="width:110px;text-align:right">금액</th></tr>%s'
-            '<tr style="background:#f0fdf9"><td><b>청구액</b></td><td></td>'
-            '<td style="text-align:right"><b style="color:#065f46;font-size:14px">%s</b></td></tr>'
-            '</table></div></div></div>'
-            % (b, sub, warn,
-               field('할인율(%)', '<div class="inp">%s</div>' % ('10' if discount else '0'),
-                     False, None, '합계(할인 전) 기준'),
-               field('추가 할인액(₩)', '<div class="inp">%s</div>'
-                     % ('10,000' if discount else '0'), False, None, '정액 차감'),
-               field('할인 사유', '<div class="inp%s">%s</div>'
-                     % ('' if discount else ' ph',
-                        '재작업분 · 물량 협의' if discount else '예) 재작업분 · 물량 협의')),
-               tr, total))
+        total, tdc = '₩1,212,000', ''
+    tr = ''.join('<tr><td style="padding:7px 12px">%s</td><td style="color:#6b7280">%s</td>'
+                 '<td style="text-align:right;padding:7px 12px%s">%s</td></tr>'
+                 % (a_, b_, ';color:#dc2626' if m else '', c) for a_, b_, c, m in rows)
+    return ('<div class="card" style="border-color:%s;background:%s"><div class="hd" style="display:flex;align-items:center;gap:8px">편집 단가 · 할인 정산 %s%s%s'
+            '<span class="btn sm" style="margin-left:auto">할인 초기화</span></div><div class="bd">'
+            '<div style="font-size:11.5px;color:#6b7280;margin-bottom:8px">단가는 <b>고객사 관리</b>에서 항목별로 지정합니다. 교재는 <b>등록 시점의 단가로 고정</b>되며, '
+            '이후 고객사 단가가 바뀌어도 기존 교재의 청구액은 그대로 유지됩니다. 여기서는 이 교재의 할인만 입력합니다.</div>'
+            '<div class="g3">%s%s%s</div>'
+            '<div style="border:1px solid #eef0f4;border-radius:9px;overflow:hidden;margin-top:12px">'
+            '<table>%s<tr style="border-top:2px solid #e5e7eb;background:#f5f9ff"><td colspan="2" style="padding:10px 12px;font-weight:700;color:#1e3a8a">최종 청구액%s</td>'
+            '<td style="text-align:right;padding:10px 12px"><b style="color:#2563eb;font-size:17px">%s</b></td></tr></table></div>'
+            '<div style="font-size:11px;color:#9ca3af;margin-top:6px">단가를 고객사 단가와 같게 두고 할인율·할인액을 0으로 하면 할인 없음(기준가 그대로)입니다. '
+            '고객사 단가 변경은 <b>멤버 관리 &gt; 고객사 관리</b>에서 합니다.</div></div></div>'
+            % ('#fecaca' if discount else '#eef0f4', '#fffafa' if discount else '#fff', b, warn, dct,
+               field('할인율 (%)', '<div class="inp">%s</div>' % ('10' if discount else '0')),
+               field('추가 할인액 (₩)', '<div class="inp">%s</div>' % ('10000' if discount else '0')),
+               field('할인 사유', '<div class="inp%s">%s</div>' % ('' if discount else ' ph', '재작업분 · 물량 협의' if discount else '예) 재작업분 · 물량 협의')),
+               tr, tdc, total))
 
 
-def extra(hi=None):
-    rows = ''.join('<tr%s><td style="color:#9ca3af">%s</td>'
-                   '<td><span class="tag %s">%s</span></td>'
-                   '<td style="font-size:11.5px;color:#6b7280">%s<br>%s</td><td>%s</td>'
-                   '<td style="white-space:nowrap">%s</td></tr>'
-                   % (' style="background:#fff7ed"' if hi == no else '', no,
-                      {'요청': 'b', '처리': 'g', '메모': ''}[k], k, w, ts, txt,
-                      '<span class="lnk">수정</span>'
-                      '<span class="lnk" style="color:#dc2626">삭제</span>' if w == '김순정'
-                      else '<span style="color:#cbd5e1;font-size:11px">본인 글만</span>')
-                   for no, k, ts, w, txt in MEMOS)
-    links = ''.join('<div class="g2" style="margin-bottom:8px">'
-                    '<div class="fld"><span class="lbl">%s · 링크(URL)</span>'
-                    '<div class="inp%s">%s</div></div>'
-                    '<div class="fld"><span class="lbl">설명</span>'
-                    '<div class="inp ph">설명</div></div></div>'
-                    % (n, '' if u else ' ph', u or 'https://')
-                    for n, u in (('세부내역', 'https://drive.neolab.net/wj/detail'),
-                                 ('출력용파일', ''), ('APP 데이터', '')))
-    return ('<div class="card"><div class="hd">부가 정보 · 업무 메모</div><div class="bd">'
-            '<div class="g3" style="margin-bottom:10px">%s</div>%s'
-            '<div class="lbl" style="margin:14px 0 6px">업무 메모</div>'
-            '<div class="row" style="gap:6px;margin-bottom:8px">'
-            '<span class="chip on">요청</span><span class="chip">처리</span>'
-            '<span class="chip">메모</span></div>'
-            '<div class="inp ph" style="min-height:48px">내용 입력 · Enter 기록 · Shift+Enter 줄바꿈</div>'
-            '<div style="font-size:11px;color:#9ca3af;margin-top:6px">'
-            '<b>본인이 작성한 메모만</b> 수정·삭제할 수 있습니다.</div>'
-            '<div style="border:1px solid #e5e7eb;border-radius:9px;overflow:hidden;margin-top:10px">'
-            '<table><tr><th style="width:34px">No</th><th style="width:60px">종류</th>'
-            '<th style="width:120px">작성자 / 시각</th><th>내용</th>'
-            '<th style="width:100px">작업</th></tr>%s</table></div>'
-            '</div></div>'
-            % (field('세트 개수', '<div class="inp">1</div>'), links, rows))
+def att(label, mode='link', value='', note=''):
+    """AttField — [링크 ▾ / 파일] · 링크면 입력 + [↗ 열기], 파일이면 [파일] + 파일명 · 아래 설명"""
+    if mode == 'file':
+        body = ('<div class="inp" style="flex:1;display:flex;align-items:center;gap:8px"><span class="btn sm">파일</span>%s</div>'
+                % (value or '<span style="color:#9ca3af">선택 없음</span>'))
+    else:
+        body = ('<div class="inp%s" style="flex:1">%s</div><span class="btn sm" style="opacity:%s">↗ 열기</span>'
+                % ('' if value else ' ph', value or 'https://...', '1' if value else '.4'))
+    return ('<div style="border:1px solid #eef0f4;border-radius:8px;padding:10px"><div style="font-size:11px;color:#6b7280;margin-bottom:6px;font-weight:600">%s</div>'
+            '<div style="display:flex;gap:6px;align-items:center"><div class="inp" style="width:64px;display:flex;justify-content:space-between">%s<span style="color:#9ca3af;font-size:9px">▾</span></div>%s</div>'
+            '<div class="inp%s" style="margin-top:6px">%s</div></div>'
+            % (label, '파일' if mode == 'file' else '링크', body, '' if note else ' ph', note or '링크/파일에 대한 내용·설명'))
+
+
+def extra(hi=None, empty_memo=False):
+    """4행 — 산출물(접기 · 세트 개수 · 첨부 3칸) + 업무요청 메모(종류 · 입력 · [＋ 기록] · 카드 목록)"""
+    cards = ''
+    for no, k, ts, w, txt in MEMOS:
+        mine = w == '김순정'
+        bg, fg = {'요청': ('#eef6ff', '#2563eb'), '처리': ('#ecfdf5', '#047857'), '메모': ('#f3f4f6', '#6b7280')}[k]
+        cards += ('<div style="border:1px solid #eef0f4;border-radius:8px;padding:6px 8px;margin-bottom:8px;%s">'
+                  '<div style="display:flex;gap:8px;align-items:center;font-size:11.5px">'
+                  '<span style="min-width:22px;text-align:center;background:#f3f4f6;border-radius:5px;font-family:ui-monospace,monospace">%s</span>'
+                  '<span style="font-size:11px;background:%s;color:%s;border-radius:5px;padding:2px 7px">%s</span>'
+                  '<span style="color:#9ca3af;font-family:ui-monospace,monospace">%s</span>'
+                  '<span style="color:%s;font-weight:%s">%s</span><span style="flex:1"></span>%s</div>'
+                  '<div style="margin-top:4px;font-size:12.5px">%s</div></div>'
+                  % ('background:#fff7ed;' if hi == no else '', no, bg, fg, k, ts, '#2563eb' if mine else '#9ca3af', '700' if mine else '400',
+                     w + (' (나)' if mine else ''),
+                     '<span class="lnk" style="color:#dc2626">삭제</span>' if mine else '<span style="font-size:10.5px;color:#d1d5db">🔒 타인 글</span>', txt))
+    if empty_memo:
+        cards = '<div style="font-size:12px;color:#9ca3af">기록된 업무 메모가 없습니다.</div>'
+    return ('<div class="card"><div class="bd">'
+            '<div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;margin-bottom:10px">산출물 '
+            '<span style="font-weight:400;color:#9ca3af;font-size:11px">· 세트 개수 · 세부내역 · 출력용파일 · APP 데이터 (파일/링크 + 설명)</span>'
+            '<span style="margin-left:auto;font-size:11px;color:#3b82f6;font-weight:400">접기 ▲</span></div>'
+            '<div style="max-width:200px;margin-bottom:10px">%s</div>'
+            '<div class="g3">%s%s%s</div>'
+            '<div style="font-weight:700;font-size:13px;margin:14px 0 8px">업무요청 메모 <span style="font-weight:400;color:#9ca3af;font-size:11px">· 요청/처리/메모 (메모1~3 대체)</span></div>'
+            '<div style="display:flex;gap:8px;align-items:flex-start"><div class="inp" style="width:76px;display:flex;justify-content:space-between">요청<span style="color:#9ca3af;font-size:9px">▾</span></div>'
+            '<div class="inp ph" style="flex:1;min-height:38px">내용 입력 · Enter 기록 · Shift+Enter 줄바꿈</div><span class="btn sm">＋ 기록</span></div>'
+            '<div style="margin-top:10px">%s</div></div></div>'
+            % (field('세트 개수', '<div class="inp">1</div>'),
+               att('세부내역', 'link', 'https://drive.neolab.net/wj/detail', '2차 교정본'), att('출력용파일', 'file'), att('APP 데이터'),
+               cards))
 
 
 def content(mode='edit', st='진행중', locked=False, need_date=False, released=False,
@@ -458,7 +477,18 @@ def content(mode='edit', st='진행중', locked=False, need_date=False, released
         cst = caster(empty, mod_date, tip, 'TOKTOK_Korean_Book_4-1')
     else:
         cd, inf, cst = coord(mode, share, sub_err), info(empty, mod_date), caster(empty, mod_date, tip)
-    return (toast
+    cust = ('교원구몬-10', '10', 'PDS2') if mode == 'dup' else ('웅진씽크빅', '17', 'PDS2')
+    head = ('<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span class="btn gho">목록</span>'
+            '<div style="font-size:18px;font-weight:700">%s</div>'
+            '<span class="tag" style="font-family:ui-monospace,monospace">owner %s</span>'
+            '<span style="font-size:11px;background:#fef3c7;color:#d97706;border-radius:5px;padding:2px 7px;font-weight:700">%s</span></div>' % cust)
+    title = {'new': '교재(책) 추가', 'dup': '교재(책) 복제 추가'}.get(mode, '교재(책) 편집 수정')
+    tline = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap"><b style="font-size:15px">%s</b>%s'
+             '<span class="tag" style="font-family:ui-monospace,monospace">S%s</span></div>'
+             % (title, '' if mode in ('new', 'dup') else '<span class="tag" style="background:#f3f4f6;color:#6b7280">%s</span>' % (
+                 '톡톡 누르면 배움이 쏙쏙 4' if ext is not None else '범블비 잉글리시 전집 1권'),
+                '0/O10/B1108' if mode == 'dup' else ('3/O21/B265' if ext is not None else '3/O17/B431')))
+    return (toast + head + tline
             + status_row(st, locked, need_date, released) + '<div style="height:12px"></div>'
             + cd + '<div style="height:12px"></div>'
             + inf + '<div style="height:12px"></div>'
@@ -524,7 +554,8 @@ def build():
     boards.append((
         'S2', '수정 모드 · 교재(책) 편집 수정', '기본',
         '<code>PRJ-03</code>의 <b>교재 행 클릭</b>으로 진입. 화면 제목 <b>교재(책) 편집 수정</b>. '
-        'S/O는 <b>(수정 불가)</b>로 표기된다.',
+        '위에 고객사 머리줄([목록] · 고객사 · owner · 코드 종류), 그 아래 폼 제목줄(교재명 태그 · S/O/B 태그). '
+        '<b>사용할 코드</b> 묶음의 S/O · Book 은 <b>(수정 불가)</b> — 「이 S/O는 {고객사} 전용입니다. 별도 고객사 입력이 필요 없습니다.」',
         frame('PRJ-03', '교재(책) 편집 수정', content(tip=True), height=2260),
         [('S / O', '—', '<b>수정 불가</b>', '수정 모드에서는 변경할 수 없다'),
          ('교재명', '입력', '—', '연동이 <b>NPROJ 타이틀 → 없으면 NPROJ 파일명</b>으로 채우고 여기서 고칠 수 있다 <code>PC-284</code>'),
@@ -532,7 +563,7 @@ def build():
           '프로젝트명(.nproj) · ncp2 파일명 · ncp2 파일 크기 · ncp2 최종수정 · 편집 유형 · 최초 등록일 — casterN 저장 · 수정 때마다 '
           '최신 값으로 채워진다. 값이 없으면 <b>미연동</b> <code>PC-282</code>'),
          ('casterN 연동 ⓘ', '클릭', '말풍선(5초)', CASTER_TIP),
-         ('Book', '선택', '—', '사용 가능한 번호에서'),
+         ('Book (수정 불가)', '—', '<b>등록된 코드</b>', '수정 모드에서는 Book 을 바꾸지 않는다 · 코드 종류 셀렉트도 잠김 <code>PC-112</code>'),
          ('발급인 · 펜 모델 · 타입 · 편집 방식', '—', '<b>한 줄</b>',
           '교재명 다음 줄에 <b>발급인 · 펜 모델 · 타입 · 편집 방식</b>(1 · 2 · 1 · 2칸) — 고른 값은 셀렉트 아래 <code>PC-096</code> <code>PC-278</code>'),
          ('펜 모델 선택지', '—', '<b>타입별 · 대표모델 묶음</b>',
@@ -640,7 +671,7 @@ def build():
          ('편집·기능비', '자동', '<b>두 묶음 합산</b>',
           '옛 장부에 반대편 묶음으로 기록된 심볼이 있어 그대로 청구에 반영한다'),
          ('Custom', '—', '<b>1,500</b>', '심볼당 <code>PC-084</code>'),
-         ('할인율 · 추가 할인액', '입력', '청구액 조정', '0이면 할인 행이 산출 근거에 나오지 않는다'),
+         ('할인율 · 추가 할인액', '입력', '청구액 조정', '0이면 할인 행이 내역표에 나오지 않는다 · 할인이 있으면 머리에 <b>할인 적용</b> · 최종 청구액 옆 <b>총 할인 ₩{n} ({n}%)</b>'),
          ('[할인 초기화]', '클릭', '할인 없음으로', '')]))
 
     boards.append((

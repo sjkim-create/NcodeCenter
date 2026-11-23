@@ -78,7 +78,7 @@ def base_missing_block(co='(유한)언어테스트'):
             '고객사 관리로 이동 →</div></div>' % co)
 
 
-def modal(company='- 고객사 선택 -', body='', ok=False):
+def modal(company='- 고객사 선택 (536곳) -', body='', ok=False):
     btn = ('<div class="btn pri">추가</div>' if ok
            else '<div class="btn dis">추가</div>')
     return ('<div class="ovl"><div class="mdl" style="width:560px">'
@@ -88,8 +88,7 @@ def modal(company='- 고객사 선택 -', body='', ok=False):
             '<p style="font-size:11.5px;color:#9ca3af;margin-top:12px">추가 후 우측 상세에서 '
             '<b>＋교재(책) 추가</b>로 편집 교재를 등록하세요.</p>'
             '<div class="mf"><div class="btn gho">취소</div>%s</div></div></div>'
-            % (field('등록된 고객사 * (고객사 관리)', sel(company),
-                     hint='고객사 관리에 <b>등록된 고객사 전부</b> · 서비스 계정의 casterN 체크와 무관 <code>PC-187</code>'),
+            % (field('고객사 * (고객사 관리 등록 고객사)', sel(company, ph=company.startswith('-'))),   # 셀렉트 아래 안내문 없음
                body, btn))
 
 
@@ -115,8 +114,9 @@ def build():
         '<b>편집 관리 대상으로 올리는</b> 창이다. 고객사를 고르기 전에는 아래가 비어 있고 '
         '<b>[추가]</b> 가 눌리지 않는다.',
         F(modal()),
-        [('등록된 고객사', '선택', 'Owner 코드 목록',
-          '고객사 관리에 <b>등록된 고객사 전부</b> · 가나다순 · 사업 종료면 「(사업 종료)」 표시 <code>PC-187</code> · '
+        [('고객사 * (고객사 관리 등록 고객사)', '선택', 'Owner 코드 목록',
+          '자리표시 <b>- 고객사 선택 ({n}곳) -</b> · 고객사 관리에 <b>등록된 고객사 전부</b>(서비스 계정의 casterN 체크와 무관) · 가나다순 · 사업 종료면 「(사업 종료)」 표시 <code>PC-187</code> · '
+          '0곳이면 셀렉트 아래 <b>등록된 고객사가 없습니다 — 고객사 관리에서 먼저 등록하세요.</b> · '
           '옛 확장 언어 슬롯 고객사(「Common 추가 언어 슬롯-…」 · 「Cake-984~1003」)는 빼고 '
           '<b>그룹 고객사(Common-21 · Cake-1009)만</b> <code>PC-345</code>'),
          ('후보에 없을 때', '—', '<code>MEM-01</code>',

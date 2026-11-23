@@ -84,9 +84,16 @@ def top(kind='전체', search=''):
             '<span>청구액 <b style="color:#2563eb">%s</b>%s'
             '<span style="color:#9ca3af;margin-left:5px" title="기본 단가 적용 120 / 편집 85 · '
             '고객사 단가는 고객사 관리에서 지정">· 고객사 단가 기준</span></span>%s</div>'
-            % (it('편집 고객사', n), it('편집 북코드', '{:,}'.format(bk)),
+            % (it('편집 고객사', n).replace('</b></span>', '</b><span style="margin-left:5px">(상위 %d · 하위 0)</span></span>' % (2 if n > 3 else 0)), it('편집 북코드', '{:,}'.format(bk)),
                it('총 심볼', '{:,}'.format(sym), '#2563eb'), it('리소스', '%.1fGB' % gb),
                cost, dc, scope))
+
+
+def co_head(n):
+    """WsCoHead — 「고객사 {n}곳」 + [＋ 고객사]"""
+    return ('<div style="display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid #eef0f4">'
+            '<b style="font-size:14px">고객사</b><span style="font-size:11.5px;color:#6b7280">%d곳</span><span style="flex:1"></span>'
+            '<span class="btn sm" style="background:#5f8ff0;color:#fff;border:0;padding:5px 10px;font-size:12px">＋ 고객사</span></div>' % n)
 
 
 def left(sel_cust='웅진씽크빅', kind='전체', search='', empty=False):
@@ -107,49 +114,18 @@ def left(sel_cust='웅진씽크빅', kind='전체', search='', empty=False):
     if empty:
         rows = ()
     if not rows:
-        body = ('<div style="font-size:12px;color:#9ca3af;padding:12px;text-align:center">'
-                '결과 없음</div>')
+        body = '<div style="font-size:12px;color:#9ca3af;padding:14px 6px;text-align:center">검색 결과가 없습니다.</div>'
     else:
-        body = ''
-        for nm, bk, k, sym, add in rows:
-            on = (nm == sel_cust)
-            badges = ''
-            if add:
-                badges += ('<span style="font-size:10px;background:#ecfdf5;color:#047857;'
-                           'border-radius:5px;padding:2px 7px">신규</span>')
-            badges += ('<span style="font-size:10px;background:%s;color:%s;border-radius:5px;'
-                       'padding:2px 7px">%s</span>'
-                       % ('#eef6ff' if k == 'N' else '#fef3c7',
-                          '#2563eb' if k == 'N' else '#92400e', k))
-            unit = ('북' if kind == '전체' else ('PDS3' if kind == 'PDS3(Ncode)' else 'PDS2'))
-            dele = ('<span style="color:#dc2626;margin-left:8px">삭제</span>') if add else ''
-            body += ('<div style="border:1px solid %s;background:%s;border-radius:10px;'
-                     'padding:10px 12px;margin-bottom:6px%s">'
-                     '<div style="display:flex;align-items:center;gap:6px">'
-                     '<span style="font-weight:700;font-size:13px;flex:1;color:%s">%s</span>%s</div>'
-                     '<div style="font-size:11px;color:#9ca3af;margin-top:2px">%s %s권%s</div>'
-                     '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">'
-                     '<div style="flex:1;height:4px;background:#eef0f4;border-radius:3px;'
-                     'overflow:hidden"><div style="width:%.0f%%;height:100%%;background:%s">'
-                     '</div></div>'
-                     '<span style="font-size:10.5px;color:%s;font-family:ui-monospace,monospace">'
-                     '심볼 %s</span></div></div>'
-                     % ('#93c5fd' if on else '#eef0f4', '#f5f9ff' if on else '#fff',
-                        ';box-shadow:0 2px 8px rgba(95,143,240,.12)' if on else '',
-                        '#1d4ed8' if on else '#111827', nm, badges,
-                        unit, '{:,}'.format(bk), dele,
-                        max(3, sym * 100.0 / MAXSYM), '#2563eb' if on else '#93c5fd',
-                        '#1d4ed8' if on else '#6b7280', '{:,}'.format(sym)))
-    cnt = '%d곳 표시%s' % (len(rows), (' · %s 보유' % kind) if kind != '전체' else '')
-    return ('<div class="card" style="align-self:start"><div class="bd" style="padding:12px">'
-            '<div style="display:flex;align-items:center;margin-bottom:8px">'
-            '<div style="font-weight:700;font-size:13px;flex:1">고객사 선택</div>'
-            '<span class="btn sm" style="background:#5f8ff0;color:#fff;border:0">'
-            '＋ 고객사</span></div>'
+        body = ''.join(co_item(nm, bk, on=(nm == sel_cust), kinds=('PDS3' if k == 'N' else 'PDS2',),
+                               tags=('<span style="font-size:9.5px;background:#ecfdf5;color:#047857;border-radius:5px;padding:0 5px">신규</span>'
+                                     '<span style="font-size:11px;color:#dc2626;margin-left:4px">삭제</span>') if add else '')
+                       for nm, bk, k, _sym, add in rows)
+    cnt = '%d곳 표시%s' % (len(rows), (' · %s 보유' % kind.replace('(', ' (')) if kind != '전체' else '')
+    return ('<div class="card" style="align-self:start;padding:0">%s<div style="padding:10px">'
             '<div style="margin-bottom:8px">%s</div>'
-            '<div style="position:relative;margin-bottom:10px">%s</div>'
-            '<div style="font-size:11px;color:#9ca3af;margin-bottom:6px">%s</div>%s'
-            '</div></div>' % (ks, sv, cnt, body))
+            '<div style="position:relative;margin-bottom:8px">%s</div>'
+            '<div style="font-size:11px;color:#6b7280;margin:0 0 6px 4px">%s</div>%s'
+            '</div></div>' % (co_head(len(rows)), ks, sv, cnt, body))
 
 
 def kpi_group(title, items, grow, accent=False):
@@ -204,7 +180,7 @@ def basis_box(filtered=False, base_price=False, discount=True):
     ftag = ('<span style="color:#2563eb"> (필터 5건 기준)</span>') if filtered else ''
 
     return ('<div style="position:absolute;z-index:30;top:28px;left:0;width:430px;'
-            'max-height:70vh;overflow-y:auto;background:#fff;border:1px solid #e5e7eb;'
+            'background:#fff;border:1px solid #e5e7eb;'
             'border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.18);padding:14px;'
             'font-size:12px;color:#111827;text-align:left;line-height:1.6">'
             '<div style="font-weight:700;margin-bottom:2px">계산식 · 단가 근거</div>'
@@ -362,12 +338,14 @@ def sob(s, o, b, ext=None):
 
 
 def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
-              hf=False, page=True, dup=False, work=None, extmap=None, total=114):
+              hf=False, page=True, dup=False, work=None, extmap=None, total=114, allc=None):
     # dup — 행 맨 끝 [복제] 열(조회 전용에는 없다) · work — {No: (n, N)} 「작업 n/N」 배지 `PC-112`
     # extmap — {No: (실선 슬롯, 점선 슬롯)} S/O/B 칸의 [확장] 칩 `PC-327` · total — 페이지네이션 전체 건수
     cols = list(HEAD3)
     if share:
         cols.insert(2, '사용 고객사')
+    if allc:
+        cols.insert(2, '고객사')
     if dup:
         cols.append('복제')
     th = ''
@@ -394,6 +372,8 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
         blank = ('<th style="padding:4px 6px;background:#fafbfc;'
                  'border-bottom:1px solid #eef0f4"></th>')
         fr = '<tr>' + blank + fsel('전체')
+        if allc:
+            fr += fsel('고객사 전체', 110)
         if share:
             fr += fsel('전체', 100)
         # S/O/B 열에는 **Book 필터 콤보박스** 가 붙는다 `PC-052` `PC-057`
@@ -412,10 +392,10 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
         body = ('<tr><td colspan="%d" style="padding:24px;text-align:center;color:#9ca3af">'
                 '결과 없음</td></tr>' % len(cols))
     else:
-        for (no, st, cu, t, fn, k, ty, (s, o, b), prange, pg, sym, mth, d, nmod,
-             logs, by, amt, dc) in (rows or BOOKS):
+        for i_r, (no, st, cu, t, fn, k, ty, (s, o, b), prange, pg, sym, mth, d, nmod,
+             logs, by, amt, dc) in enumerate(rows or BOOKS):
             bgc, fgc = STATE_C[st]
-            cell_cu = ''
+            cell_cu = ('<td style="font-size:11.5px;text-align:left;font-weight:600">%s</td>' % allc[i_r % len(allc)]) if allc else ''
             if share:
                 if cu:
                     v = ('<span style="font-size:11px;background:#f3e8ff;color:#7e22ce;'
@@ -423,8 +403,8 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                 else:
                     v = ('<span style="color:#9ca3af" title="S%s/O%s/B%s 를 덮는 '
                          '서비스 티켓이 없습니다">티켓 없음</span>' % (s, o, b))   # `PC-289`
-                cell_cu = ('<td style="font-size:11.5px;text-align:left;max-width:130px">%s</td>'
-                           % v)
+                cell_cu += ('<td style="font-size:11.5px;text-align:left;max-width:130px">%s</td>'
+                            % v)
             # 같은 코드(S/O/B)에 작업물이 여럿이면 교재명 옆에 「작업 n/N」 `PC-110` `PC-112`
             wbadge = ''
             if work and no in work:
@@ -467,7 +447,7 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                         if fn and fn != '—' else '',
                         t, wbadge,
                         '#eef6ff' if k == 'N' else '#fef3c7',
-                        '#2563eb' if k == 'N' else '#92400e', k,
+                        '#2563eb' if k == 'N' else '#92400e', 'PDS3' if k == 'N' else 'PDS2',
                         sob(s, o, b, (extmap or {}).get(no)),
                         prange, pg, '{:,}'.format(sym), d,
                         '#374151' if nmod != '—' else '#d1d5db', nmod,
@@ -525,8 +505,8 @@ def ext_chips(on=False, n=16):
 
 def detail(empty=False, share=False, filtered=False, base_price=False, discount=True,
            list_empty=False, basis=False, unfilter=False, search='', sort=None,
-           hf=False, toast3='', dup=False, work=None, rows=None, who=None, ext=None,
-           nums=None, extmap=None, total=114):
+           hf=False, toast3='', dup=True, work=None, rows=None, who=None, ext=None,
+           nums=None, extmap=None, total=114, sub=None):
     # who — (고객사, owner, (코드 종류 …)) · ext — None / 'all' / 'ext' (확장 언어 칩) `PC-344`
     if empty:
         return ('<div class="card"><div class="bd"><div class="empty" style="padding:90px 10px">'
@@ -541,7 +521,7 @@ def detail(empty=False, share=False, filtered=False, base_price=False, discount=
         ktags = ('<span style="font-size:11px;background:%s;color:%s;border-radius:5px;'
                  'padding:2px 7px">%s</span>'
                  % ('#eef6ff' if share else '#fef3c7', '#2563eb' if share else '#92400e',
-                    'N' if share else 'G'))
+                    'PDS3' if share else 'PDS2'))
     head = ('<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">'
             '<div style="font-size:18px;font-weight:700">%s</div>'
             '<span style="font-size:11px;background:#eef2f7;color:#475569;border-radius:5px;'
@@ -551,8 +531,11 @@ def detail(empty=False, share=False, filtered=False, base_price=False, discount=
             '<span class="btn pri">＋ 교재(책) 추가</span></div>'
             % (name, own, ktags, ext_chips(ext == 'ext') if ext else ''))
     ts = ('<div class="toast" style="margin-bottom:10px">%s</div>' % toast3) if toast3 else ''
-    return ('<div>%s%s%s%s</div>'
-            % (head, ts, summary(filtered, base_price, discount, basis, unfilter,
+    back = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px">'
+            '<span class="lnk" style="font-size:12.5px">← 전체 고객사</span>%s</div>'
+            % (('<span style="color:#6b7280">· <span class="lnk">%s</span> ▸ <b style="color:#7e22ce">%s</b></span>' % sub) if sub else ''))
+    return ('<div>%s%s%s%s%s</div>'
+            % (back, head, ts, summary(filtered, base_price, discount, basis, unfilter,
                                  search, share, nums),
                book_list(rows=rows, share=share, filtered=filtered, empty=list_empty,
                          sort=sort, hf=hf, page=not list_empty, dup=dup, work=work,
@@ -569,34 +552,29 @@ KIND_C2 = {'PDS3': ('#eef6ff', '#2563eb'), 'PDS2': ('#fef3c7', '#d97706'),
            'PDS4': ('#f3e8ff', '#7c3aed'), 'OID': ('#ccfbf1', '#0f766e')}
 
 
-def all_customers(kind='전체', n=71):
+ALL_NUMS = dict(bk='2,269', pg='325,410', s='310,120', p='15,603', sym='325,723',
+                apply='₩162,705,000', symamt='₩325,723,000', cost='₩488,428,000')
+ALL_CU = ('웅진씽크빅', '웅진씽크빅', '웅진씽크빅', '대교', '구몬학습')
+
+
+def all_customers(kind='전체', n=11):
+    """전체 고객사 — 고객사를 고르지 않은 처음 화면. EditingDetailView(allCustomers) 와 같은 화면:
+    머리 줄 + 편집량 · 정산 집계 + 교재 표(「고객사」 열 · 「고객사 전체」 필터 · 복제 열 없음) · 조회 전용 `PC-040`"""
     chips = ''
     if kind != '전체':
-        bg, fg = KIND_C2.get(kind, ('#eef6ff', '#2563eb'))
+        kk = 'PDS3' if kind.startswith('PDS3') else 'PDS2'
+        bg, fg = KIND_C2.get(kk, ('#eef6ff', '#2563eb'))
         chips = ('<span style="font-size:11px;background:%s;color:%s;font-weight:700;'
-                 'border-radius:5px;padding:2px 7px">%s 보유</span>' % (bg, fg, kind))
+                 'border-radius:5px;padding:2px 7px">%s 보유</span>' % (bg, fg, kk))
     head = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;'
             'flex-wrap:wrap"><b style="font-size:14px">전체 고객사</b>'
             '<span style="font-size:11px;background:#eef6ff;color:#2563eb;font-weight:700;'
             'border-radius:5px;padding:2px 7px">%d곳</span>%s'
-            '<span style="font-size:11.5px;color:#9ca3af">고객사를 고르면 교재별 상세로 '
-            '들어갑니다.</span></div>' % (n, chips))
-    th = ''.join('<th>%s</th>' % h for h in ('고객사', '코드 종류', '북', '심볼', '리소스', '청구액'))
-    body = ''
-    for name, kinds, bk, sym, sz, amt in ALL_ROWS:
-        ks = ''.join('<span style="font-size:10px;background:%s;color:%s;font-weight:700;'
-                     'border-radius:5px;padding:2px 6px;margin-right:3px">%s</span>'
-                     % (KIND_C2[k][0], KIND_C2[k][1], k) for k in kinds)
-        body += ('<tr><td style="text-align:left;font-weight:600">%s</td>'
-                 '<td style="text-align:left">%s</td>'
-                 '<td style="font-family:ui-monospace,monospace">%s</td>'
-                 '<td style="font-family:ui-monospace,monospace">%s</td>'
-                 '<td style="font-family:ui-monospace,monospace;color:#6b7280">%s</td>'
-                 '<td style="font-family:ui-monospace,monospace;font-weight:700;color:#1d4ed8">%s</td>'
-                 '</tr>' % (name, ks, bk, sym, sz, amt))
-    return (head + '<div class="card" style="padding:0;overflow:auto">'
-            '<table style="text-align:center;min-width:720px"><tr>' + th + '</tr>'
-            + body + '</table></div>')
+            '<span style="font-size:11.5px;color:#6b7280">모든 고객사의 교재를 한 목록으로 봅니다 · 조회 전용(수정은 고객사 선택 후)</span></div>'
+            % (n, chips))
+    return ('<div>' + head +
+            summary(base_price=True, discount=False, nums=ALL_NUMS) +
+            book_list(hf=True, allc=ALL_CU, share=True, total=2269) + '</div>')
 
 
 # ── 확장 언어 그룹 고객사(Common-21) 예시 — `PC-344` `PC-327` ─────────────────────
@@ -654,7 +632,7 @@ COMMON_SUBS = (('EBS', 1), ('LG U+', 50), ('NeoLAB', 49), ('The M', 1), ('Tranwi
                ('YBM', 6))
 
 
-def co_item(label, n, on=False, sub=False, fold=None, sub_n=0, kinds=(), slot=False):
+def co_item(label, n, on=False, sub=False, fold=None, sub_n=0, kinds=(), slot=False, tags=''):
     """고객사 관리 · App Key 관리와 같은 줄 — ▶ · 이름 · 하위 n · 권수 배지 / 둘째 줄 코드 종류 `PC-294`"""
     arrow = ('<span style="width:12px;color:#6b7280;font-size:10px">%s</span>' % fold) if fold else \
         ('' if sub else '<span style="width:12px"></span>')
@@ -674,7 +652,7 @@ def co_item(label, n, on=False, sub=False, fold=None, sub_n=0, kinds=(), slot=Fa
                (' title="확장 언어 슬롯 O%s — 따로 등록된 교재 %d권"'
                 % (label.split(' · ')[0].replace('🌐 O', ''), n)) if slot else '',
                arrow, '12px' if sub else '13px', '700' if (on or not sub) else '400',
-               '#1d4ed8' if on else ('#0e7490' if slot else '#111827'), label, subb,
+               '#1d4ed8' if on else ('#0e7490' if slot else '#111827'), label, subb + tags,
                '#dbeafe' if on else '#f3f4f6', '#1d4ed8' if on else '#6b7280',
                '{:,}'.format(n), line2))
 
@@ -701,18 +679,13 @@ def left_rows(search='', open_common=True, sel='Common-21'):
             body += ('<div style="margin:0 0 4px 14px;border-left:2px solid #e5e7eb;'
                      'padding-left:6px">%s</div>' % kids)
     n = len(rows) if search else 69
-    return ('<div class="card" style="align-self:start"><div class="bd" style="padding:12px">'
-            '<div style="display:flex;align-items:center;margin-bottom:8px">'
-            '<div style="font-weight:700;font-size:13px;flex:1">고객사 선택 '
-            '<span style="color:#9ca3af;font-weight:400">(%d)</span></div>'
-            '<span class="btn sm" style="background:#5f8ff0;color:#fff;border:0">'
-            '＋ 고객사</span></div>'
+    return ('<div class="card" style="align-self:start;padding:0">%s<div style="padding:10px">'
             '<div style="margin-bottom:8px"><div class="inp" style="display:flex;'
             'justify-content:space-between">전체 코드 종류 (69)<span style="color:#9ca3af">▾</span>'
             '</div></div>'
             '<div style="position:relative;margin-bottom:8px">%s</div>'
             '<div style="font-size:11px;color:#6b7280;margin:0 0 6px 4px">%d곳 표시</div>%s'
-            '</div></div>' % (n, sv, n, body))
+            '</div></div>' % (co_head(n), sv, n, body))
 
 
 def common_view(ext='all', search='', left_open=True):
@@ -730,7 +703,7 @@ def content(sel_cust='웅진씽크빅', kind='전체', search='', left_empty=Fal
             empty_detail=False, share=False, filtered=False, base_price=False,
             discount=True, list_empty=False, toast='', top_row=True,
             basis=False, unfilter=False, bsearch='', sort=None, hf=False, toast3='',
-            dup=False, work=None, rows=None, left_html=None, who=None, ext=None,
+            dup=True, work=None, rows=None, left_html=None, who=None, ext=None,
             nums=None, extmap=None, total=114):
     # left_html — 줄 목록(상위 ▶ 하위 · 🌐 확장 언어 슬롯)으로 그린 왼쪽 `PC-294` `PC-344`
     head = top(kind, search) if top_row else ''
@@ -750,8 +723,10 @@ OWNER_OPTS = (('N', 3, 306), ('N', 3, 307), ('G', 0, 88))
 
 def prj05(step='cust', picked=0, direct=False):
     """편집 고객사 추가 모달 — step: cust(미선택) / owner(칩 선택) / none(할당 코드 없음)"""
-    co = '- 고객사 선택 -' if step == 'cust' else ('시원스쿨' if direct else '대교')
-    body = field('등록된 고객사 * (고객사 관리)', sel(co, ph=(step == 'cust')))
+    co = '- 고객사 선택 (536곳) -' if step == 'cust' else ('시원스쿨' if direct else '대교')
+    if step == 'base':
+        co = '언어테스트사(예시)'
+    body = field('고객사 * (고객사 관리 등록 고객사)', sel(co, ph=(step == 'cust')))
     if step == 'owner':
         chips = ''
         for i, (k, s, o) in enumerate(OWNER_OPTS):
@@ -762,7 +737,7 @@ def prj05(step='cust', picked=0, direct=False):
                       'padding:1px 5px;background:%s">%s</span>%s%s</span>'
                       % ('#93c5fd' if on else '#e5e7eb', '#eef6ff' if on else '#fff',
                          '#2563eb' if k == 'N' else '#d97706',
-                         'PDS3' if k == 'N' else 'PDS2', sc('S', s), sc('O', o)))
+                         'N(PDS3)' if k == 'N' else 'G(PDS2)', sc('S', s), sc('O', o)))
         body += ('<div style="margin-top:12px">'
                  '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">'
                  'Owner 코드 <span style="color:#dc2626">*</span> '
@@ -772,15 +747,21 @@ def prj05(step='cust', picked=0, direct=False):
                  '<b>편집 관리</b> 대상이 되어 코드 프로젝트·SOBP 맵에서 <b>편집</b> 플래그로 '
                  '표시됩니다.</p></div>' % chips)
     elif step == 'none':
-        body += ('<div style="margin-top:12px">'
-                 '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:9px;'
-                 'padding:9px 11px;font-size:12px;color:#92400e;margin-bottom:10px">'
-                 '<b>시원스쿨</b> 는 아직 할당된 코드가 없습니다. Owner 코드를 직접 입력하거나, '
-                 '먼저 <b>SOBP 맵</b>에서 코드를 할당하세요.</div>'
-                 '<div class="g2">%s%s</div></div>'
-                 % (field('Owner (직접 입력)', '<div class="inp">306</div>', True),
-                    field('코드 종류', sel('PDS3(Ncode)'))))
-    ok = (step != 'cust')
+        # 코드 할당은 SOBP 맵에서만 — 직접 입력 없음 `PC-045`
+        body += ('<div style="margin-top:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:9px;'
+                 'padding:11px 13px;font-size:12.5px;color:#991b1b;line-height:1.7">'
+                 '🚫 <b>시원스쿨</b> 는 아직 <b>할당된 코드가 없습니다.</b>'
+                 '<div style="margin-top:4px;color:#7f1d1d">코드 할당은 <b>[SOBP 맵]</b> 에서만 합니다. '
+                 '먼저 SOBP 맵에서 이 고객사에 코드를 할당한 뒤 다시 추가하세요.</div>'
+                 '<div style="margin-top:8px;font-size:12px;font-weight:700;color:#b91c1c">SOBP 맵으로 이동 →</div></div>')
+    elif step == 'base':
+        # 확장 언어 그룹 고객사인데 기본 코드를 아직 정하지 않음 `PC-349`
+        body += ('<div style="margin-top:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;'
+                 'padding:11px 13px;font-size:12.5px;color:#92400e;line-height:1.7">'
+                 '<b>%s</b> 는 확장 언어 그룹 고객사입니다. <b>기본 코드</b>를 아직 정하지 않았습니다.'
+                 '<div style="margin-top:4px">고객사 관리 ▸ 공통코드 · 확장 언어 에서 코드 하나를 <b>기본</b>으로 정하고 저장한 뒤 다시 추가하세요.</div>'
+                 '<div style="margin-top:8px;font-size:12px;font-weight:700;color:#b45309">고객사 관리로 이동 →</div></div>' % co)
+    ok = (step == 'owner')
     return ('<div class="ovl"><div class="mdl">'
             '<div class="mh"><div class="mt">편집 고객사 추가 '
             '<span class="tag">PRJ-05</span></div><div class="mx">✕</div></div>%s'
@@ -816,7 +797,7 @@ def confirmbox(msg):
             '<div class="btn dan">삭제</div></div></div></div>' % msg)
 
 
-NAV2 = [('고객사 카드', '클릭', '<code>PRJ-03</code>', '우측 상세가 그 고객사로 바뀐다'),
+NAV2 = [('고객사 줄', '클릭', '<code>PRJ-03</code>', '우측 상세가 그 고객사로 바뀐다'),
         ('발급 코드 확인', '이동', '<code>PRJ-01</code>', '코드 프로젝트'),
         ('코드 위치 확인', '이동', '<code>SOB-01</code>', 'SOBP 맵')]
 
@@ -828,7 +809,8 @@ def build2():
 
     B.append((
         'S1', '첫 화면 — 전체 고객사', '기본',
-        '좌 <b>280px</b> 고객사 목록 + 우 <b>전체 고객사 교재 목록</b>이 함께 있다. '
+        '좌 고객사 <b>줄 목록</b>(고객사 관리 · App Key 관리와 같은 줄 — 이름 · 하위 n · 권수 배지 / 둘째 줄 코드 종류, 심볼 막대 없음 <code>PC-294</code>) + '
+        '우 <b>전체 고객사 교재 목록</b>이 함께 있다 — 머리 <b>전체 고객사 [n곳] 모든 고객사의 교재를 한 목록으로 봅니다 · 조회 전용(수정은 고객사 선택 후)</b>, 아래는 고객사 상세와 같은 편집량 · 정산 집계와 교재 표. '
         '<b>특정 고객사를 미리 고르지 않는다</b> <code>PC-038</code> — 표·항목 셀렉트 필터·'
         '페이지네이션은 <b>고객사 상세(<code>PRJ-03</code>)와 같은 것</b>을 쓰고 '
         '앞에 <b>고객사</b> 열이 붙는다 <code>PC-040</code>. 전체 보기는 <b>조회 전용</b>이며, '
@@ -841,38 +823,37 @@ def build2():
          ('항목 셀렉트 필터', '선택', '목록 필터',
           '<b>상태 · 고객사 · 사용 고객사 · 코드(PDS2·PDS3·PDS4·OID)</b> — 타입 · 편집방식 필터는 열과 함께 없앴다 <code>PC-282</code>'),
          ('페이지네이션', '클릭', '페이지 이동',
-          '<b>50 / 100 / 200 / 500 / 전체 보기</b> · <b>전체 {n}건 중 {a}~{b} 표시</b>'),
+          '<b>25 / 50 / 100 / 200 / 500 / 전체 보기</b> · <b>전체 {n}건 중 {a}~{b} 표시</b>'),
          ('전체 보기 편집', '—', '조회 전용',
           '교재 추가·수정·초기화 버튼이 나오지 않는다 — 고객사를 골라야 수정 가능'),
-         ('좌측 고객사 카드', '클릭', 'S2 상세', '그 고객사의 교재별 상세로 들어간다'),
+         ('좌측 고객사 줄', '클릭', 'S2 상세', '그 고객사의 교재별 상세로 들어간다 · 상세 위에 <b>[← 전체 고객사]</b> · 하위 고객사로 들어오면 <b>· 상위 ▸ 하위</b>'),
          ('[← 전체 고객사]', '클릭', 'S1', '상세에서 전체 화면으로 되돌아온다'),
          ('URL ?owner={n}', '진입', '해당 고객사 상세',
           '<code>SOB-01</code> [✏️ 편집으로 이동 →] 은 그 고객사로 바로 연다'),
          ('상단 요약', '표시', '—',
-          '편집 고객사 · 편집 북코드 · 총 심볼 · 리소스 · <b>청구액</b>(할인 있으면 기준가·할인 표기)'),
+          '편집 고객사 {n} <b>(상위 {n} · 하위 {n})</b> · 편집 북코드 · 총 심볼 · 리소스 · <b>청구액</b>(할인 있으면 기준가·할인 표기) <code>PC-293</code>'),
          ('범위 안내', '표시', '—', '<b>· 편집현황 장부에 있는 업체만 표시</b>'),
-         ('[＋ 고객사]', '클릭', 'S7 <code>PRJ-05</code>', '헤더 우측 파란 버튼'),
-         ('고객사 카드', '클릭', '우측 상세 교체', '심볼 막대는 <b>목록 최대값</b> 기준'),
+         ('[＋ 고객사]', '클릭', 'S7 <code>PRJ-05</code>', '왼쪽 칸 머리 「고객사 {n}곳」 오른쪽 파란 버튼'),
+         ('고객사 줄', '클릭', '우측 상세 교체', '오른쪽 배지 = 교재(권) 수 · 심볼 수는 목록에 두지 않는다(고르면 오른쪽 집계) <code>PC-294</code>'),
          ('정렬', '자동', '가나다순', '고객사명 오름차순'),
          ('<code>SOB-01</code> 에서 진입', '자동', '해당 고객사 선택',
           '[✏️ 편집으로 이동 →] 로 오면 그 Owner 의 고객사가 선택된 상태로 열린다')] + NAV2))
 
     B.append((
         'S2', '코드 종류 필터 · 고객사 상세', '필터',
-        '<code>P-02</code> <code>PC-037</code> — <b>전체 / PDS3 / PDS2 / PDS4 / OID</b> 5칸이 '
-        '균등하게 놓인다. 코드 종류는 교재 행의 <b>(종류값, Section)</b> 으로 판별한다 — '
+        '<code>P-02</code> <code>PC-037</code> — 코드 종류는 <b>셀렉트</b>(전체 코드 종류 · PDS2 · PDS3 · PDS4 · OID, 항목마다 고객사 수) <code>PC-310</code>. 코드 종류는 교재 행의 <b>(종류값, Section)</b> 으로 판별한다 — '
         '<b>OID</b>(옛 IDS 포함)로 작업한 교재도 여기서 걸러 본다. '
         '고르면 목록뿐 아니라 <b>상단 요약 · 카드 권수 · 우측 상세 집계</b>가 모두 '
         '그 종류의 교재만으로 다시 계산된다.',
         frame('PRJ-02', '편집 프로젝트',
               content(sel_cust='시원스쿨', kind='PDS3(Ncode)', filtered=True), height=H2 - 120),
-        [('코드 종류 칩', '클릭', '목록·집계 재계산', '교재(행) 단위로 걸린다'),
+        [('코드 종류 셀렉트', '선택', '목록·집계 재계산', '교재(행) 단위로 걸린다'),
          ('표시 수', '자동', '—', '<b>3곳 표시 · PDS3(Ncode) 보유</b>'),
          ('OID 필터', '클릭', 'OID 보유 고객사',
           'OID 로 작업한 교재를 가진 고객사만 — <b>book 미분할</b> 교재도 포함된다 '
           '(예: 한솔교육-25 『Ready Readers Book』·『신기한 영어나라』)'),
          ('고객사 배지', '자동', '—', '<b>PDS3 · PDS2 · PDS4 · OID</b> 라벨로 표시'),
-         ('카드 권수', '자동', '—', '<b>북</b> → <b>PDS3</b> 로 바뀐다'),
+         ('줄 권수 배지', '자동', '—', '그 종류 교재 권수'),
          ('범위 안내', '자동', '—', '<b>· 필터 적용 (전체 11곳 / 2,269권)</b> 파랑'),
          ('우측 상세', '자동', '같은 필터 적용', '상세 목록·정산도 그 종류만')] + NAV2))
 
@@ -888,11 +869,11 @@ def build2():
 
     B.append((
         'S4', '검색 결과 없음', '빈 상태',
-        '조건에 맞는 고객사가 없을 때. 목록 자리에 <b>결과 없음</b> 만 남는다. '
+        '조건에 맞는 고객사가 없을 때. 목록 자리에 <b>검색 결과가 없습니다.</b> 만 남는다. '
         '<b>우측 상세는 이전 선택을 그대로 유지</b>한다.',
         frame('PRJ-02', '편집 프로젝트',
               content(search='없는업체', left_empty=True), height=H2 - 300),
-        [('목록', '표시', '—', '<b>결과 없음</b>'),
+        [('목록', '표시', '—', '<b>검색 결과가 없습니다.</b>'),
          ('우측 상세', '—', '유지', '선택이 풀리지 않는다'),
          ('해제', '×  클릭', 'S1', '')] + NAV2))
 
@@ -907,13 +888,15 @@ def build2():
          ('장부 항목', '—', '<b>삭제 없음</b>', '삭제 표시 자체가 나오지 않는다')] + NAV2))
 
     B.append((
-        'S6', '고객사 미선택', '빈 상태',
-        '우측에 안내만 나오는 상태. <b>편집 장부에 고객사가 하나도 없을 때만</b> 생기므로 '
-        '⚠ <b>실제로는 거의 보이지 않는다</b> — 삭제 후에도 장부의 첫 고객사가 자동 선택된다.',
-        frame('PRJ-02', '편집 프로젝트',
-              content(empty_detail=True), height=H2 - 500),
-        [('우측', '표시', '—', '<b>좌측에서 고객사를 선택하세요.</b>'),
-         ('발생 조건', '참고', '—', '장부·추가 항목이 <b>모두 비었을 때</b>')] + NAV2))
+        'S6', 'PRJ-05 · 확장 언어 그룹 — 기본 코드 미정', '모달',
+        '<code>PC-349</code> — 확장 언어 그룹 고객사는 <b>기본 코드만</b> 고를 수 있다. 고객사 관리에서 기본 코드를 아직 정하지 않았으면 '
+        'Owner 칩 대신 노란 안내와 <b>[고객사 관리로 이동 →]</b> 이 나오고 [추가] 가 눌리지 않는다. '
+        '(옛 「고객사 미선택」 상태는 없앴다 — 고객사를 고르지 않으면 늘 전체 고객사 보기 S1 이다)',
+        frame('PRJ-02', '편집 프로젝트', content(), overlay=prj05('base', direct=True), height=H2),
+        [('안내', '표시', '—', '<b>{고객사} 는 확장 언어 그룹 고객사입니다. 기본 코드를 아직 정하지 않았습니다.</b> · '
+          '<b>고객사 관리 ▸ 공통코드 · 확장 언어 에서 코드 하나를 기본으로 정하고 저장한 뒤 다시 추가하세요.</b>'),
+         ('[고객사 관리로 이동 →]', '클릭', '<code>MEM-02</code>', '그 고객사 상세'),
+         ('[추가]', '—', '비활성', '')]))
 
     B.append((
         'S7', 'PRJ-05 · 편집 고객사 추가 — 고객사 선택', '모달',
@@ -921,8 +904,9 @@ def build2():
         '먼저 <code>MEM-01</code> 에 등록된 고객사를 고른다. '
         '고르기 전에는 <b>[추가]</b> 가 눌리지 않는다.',
         frame('PRJ-02', '편집 프로젝트', content(), overlay=prj05('cust'), height=H2),
-        [('등록된 고객사 *', '선택', 'S8 또는 S9',
-          '<code>MEM-01</code> 등록 고객사만 · 가나다 정렬'),
+        [('고객사 * (고객사 관리 등록 고객사)', '선택', 'S8 · S9 · S6',
+          '자리표시 <b>- 고객사 선택 ({n}곳) -</b> · <code>MEM-01</code> 등록 고객사 전부(확장 언어 슬롯 고객사 제외 <code>PC-345</code>) · 가나다 정렬 · 사업 종료는 「(사업 종료)」 · '
+          '0곳이면 <b>등록된 고객사가 없습니다 — 고객사 관리에서 먼저 등록하세요.</b>'),
          ('[추가]', '—', '비활성', '고객사·Owner 를 모두 골라야 활성'),
          ('[추가]', '강제 실행', '확인창',
           '<b>고객사 관리에 등록된 고객사를 선택하세요.</b>'),
@@ -934,7 +918,7 @@ def build2():
         '눌러서 고르며, 여러 개면 <b>· {n}개 중 선택</b> 이 붙는다. '
         '하나뿐이면 <b>자동으로 선택</b>된다.',
         frame('PRJ-02', '편집 프로젝트', content(), overlay=prj05('owner'), height=H2),
-        [('Owner 칩', '클릭', '선택', '<b>코드 프로젝트 발급 내역</b> 기준'),
+        [('Owner 칩', '클릭', '선택', '<b>코드 프로젝트 발급 내역</b> 기준 · 칩 = <b>N(PDS3) / G(PDS2)</b> + S + O · 확장 언어 그룹 고객사는 <b>기본 코드만</b> + <b>[기본]</b> 칩 <code>PC-346</code> <code>PC-349</code>'),
          ('선택 효과', '참고', '<code>PRJ-01</code> · <code>SOB-01</code>',
           '그 Owner 가 <b>편집</b> 플래그로 표시된다'),
          ('[추가]', '클릭', '목록에 반영',
@@ -943,18 +927,15 @@ def build2():
           '<b>추가 후 우측 상세에서 ＋교재(책) 추가로 편집 교재를 등록하세요.</b>')]))
 
     B.append((
-        'S9', 'PRJ-05 · 할당된 코드 없음 (직접 입력)', '모달',
-        '아직 <code>SOB-02</code> 로 코드를 받지 않은 고객사를 고른 경우. '
-        '노란 안내가 뜨고 <b>Owner 를 직접 입력</b>하며 코드 종류도 함께 지정한다.',
+        'S9', 'PRJ-05 · 할당된 코드 없음', '모달',
+        '아직 <code>SOB-02</code> 로 코드를 받지 않은 고객사를 고른 경우. <b>직접 입력은 없다</b> — 코드 할당은 SOBP 맵에서만 한다 <code>PC-045</code>. '
+        '빨간 🚫 안내와 <b>[SOBP 맵으로 이동 →]</b> 이 나오고 [추가] 가 눌리지 않는다.',
         frame('PRJ-02', '편집 프로젝트', content(),
               overlay=prj05('none', direct=True), height=H2),
         [('안내', '표시', '—',
-          '<b>{고객사} 는 아직 할당된 코드가 없습니다. Owner 코드를 직접 입력하거나, '
-          '먼저 SOBP 맵에서 코드를 할당하세요.</b>'),
-         ('Owner (직접 입력) *', '입력', '—', '예: 306'),
-         ('코드 종류', '선택', '—', 'PDS3(Ncode) / PDS2(Gcode)'),
-         ('권장', '이동', '<code>SOB-01</code> → <code>SOB-02</code>',
-          '먼저 코드를 할당하는 쪽이 정상 흐름')]))
+          '<b>🚫 {고객사} 는 아직 할당된 코드가 없습니다.</b> · <b>코드 할당은 [SOBP 맵] 에서만 합니다. 먼저 SOBP 맵에서 이 고객사에 코드를 할당한 뒤 다시 추가하세요.</b>'),
+         ('[SOBP 맵으로 이동 →]', '클릭', '<code>SOB-01</code> → <code>SOB-02</code>', '코드를 할당한 뒤 다시 추가'),
+         ('[추가]', '—', '비활성', '')]))
 
     B.append((
         'S10', 'PRJ-05 · 검증 확인창', '오류',
@@ -1194,7 +1175,7 @@ def build3():
     B.append((
         'S10', '페이지네이션', '분기',
         '교재가 많으면 나눠서 본다. 왼쪽에 <b>전체 {n}건 중 {a}~{b} 표시</b> 와 '
-        '<b>건수 선택</b>(50 / 100 / 200 / 500 / 전체 보기), 오른쪽에 페이지 이동이 있다.',
+        '<b>건수 선택</b>(25 / 50 / 100 / 200 / 500 / 전체 보기), 오른쪽에 페이지 이동이 있다.',
         frame('PRJ-02', '편집 프로젝트', content(), height=H3),
         [('건수 선택', '선택', '1페이지로', '50 / 100 / 200 / 500 / <b>전체 보기</b>'),
          ('« ‹ › »', '클릭', '페이지 이동', '처음 · 이전 · 다음 · 끝'),
