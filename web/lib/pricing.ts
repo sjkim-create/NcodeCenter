@@ -83,7 +83,13 @@ export const customRateCount = (c?: { rates?: RateMap; pageUnit?: number; symbol
 
 // ── 교재(책) 1건 정산 ──────────────────────────────────────────
 //   ty: "소리펜"이면 소리펜 항목, 아니면 필기펜 항목 사용. pg=페이지, sm/pm=항목별 수량.
-export type BookQty = { ty?: string; pg: number; sm: number[]; pm: number[]; dcRate?: number; dcAmt?: number };
+export type BookQty = { ty?: string; pg: number; sm: number[]; pm: number[]; cx?: number[]; dcRate?: number; dcAmt?: number };
+// Compound 9언어 이상 — 확장 언어 그룹 기본 코드 교재에서만 생긴다(그룹 코드 수 × 4 언어까지) `PC-359`
+//   cx[i] = Compound (9 + i)언어 심볼 수량 · 단가 = 고객사 단가(s_cmp{n})가 있으면 그것, 없으면 8언어에 이어 300원씩(9언어 3,400 …) — 임시 단가
+export const CMP_EXTRA_FROM = 9;
+export const cmpKey = (n: number) => `s_cmp${n}`;
+export const cmpBase = (n: number) => 1300 + 300 * (n - 2);   // 2언어 1,300 … 8언어 3,100 · 9언어 3,400 …
+export const cmpRate = (n: number, rate: RateMap) => rate[cmpKey(n)] ?? cmpBase(n);
 export type BookBill = {
   pageAmt: number;    // 적용(페이지) 금액
   symAmt: number;     // 편집·기능 금액(페이지 제외)
@@ -116,6 +122,12 @@ export function settleBook(row: BookQty, rate: RateMap): BookBill {
     if (isPageKey(it.key)) pageAmt += amt; else symAmt += amt;
   };
   SOUND_QTY.forEach((it, i) => add(it, Math.max(0, row.sm?.[i] || 0), !isPen));
+  (row.cx ?? []).forEach((v, i) => {   // Compound 9언어 이상 `PC-359`
+    const q = Math.max(0, v || 0), n = CMP_EXTRA_FROM + i;
+    if (q <= 0) return;
+    const amt = q * cmpRate(n, rate);
+    byKey[cmpKey(n)] = amt; symAmt += amt;
+  });
   PEN_QTY.forEach((it, i) => add(it, Math.max(0, row.pm?.[i] || 0), isPen));
 
   const gross = pageAmt + symAmt;

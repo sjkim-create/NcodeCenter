@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { S, Field, AutoTextarea } from "./ui";
 import { InfoTip } from "./KeyWorkspaceUI";
-import { langGroupOf, extLangText, type ExtSlot, type LangGroup } from "@/lib/langGroups";
+import { langGroupOf, groupOfOwner, extLangText, type ExtSlot } from "@/lib/langGroups";
+import { CN_FIELDS, CN_SOURCES, setManual, type CnKey } from "@/lib/casterLink";
 import { allEditBooks, alignLegacyServiceTickets } from "@/lib/bookOwnership";
 import { codeKind, codeTypeRangeErr, kindMeta, type CodeKind } from "@/lib/codeKind";
 import { SobpChips, Sc } from "./sobp";
@@ -21,7 +22,7 @@ import { setBookOverride } from "@/lib/editOverrides";
 import { logActivity } from "@/lib/activityStore";
 import { EDIT_CUSTOMERS } from "@/lib/editingData";
 import { loadCustomCustomers } from "@/lib/editingCustomers";
-import { BASE_RATE, RATE_ITEMS, rateMapOf, settleBook, bookHasDiscount, hasCustomRates, SOUND_QTY, PEN_QTY, S_PAGE_I, W_PAGE_I, ncodeApplied, type RateMap } from "@/lib/pricing";
+import { BASE_RATE, RATE_ITEMS, rateMapOf, settleBook, bookHasDiscount, hasCustomRates, SOUND_QTY, PEN_QTY, S_PAGE_I, W_PAGE_I, ncodeApplied, CMP_EXTRA_FROM, type RateMap } from "@/lib/pricing";
 
 const KIND_BG: Record<string, string> = { 요청: "#fef3c7", 처리: "#dcfce7", 메모: "#eef2f7" };
 const KIND_FG: Record<string, string> = { 요청: "#92400e", 처리: "#166534", 메모: "#475569" };
@@ -40,8 +41,10 @@ type BR = {
   //   rs = 항목별 단가맵 · rsAt = 적용 시점(YYYY-MM-DD). 없는(구) 교재는 현재 고객사 단가로 계산.
   rs?: RateMap; rsAt?: string;
   cu?: string;   // 사용 고객사 — 공유 OWNER(레퍼런스 코드)일 때만 사용
-  // 확장 언어 슬롯 — 기본 코드(Common O21 · Cake O1009)의 같은 Book 을 확장 Owner 에서도 쓸 때(Owner 만 기록). 언어 심볼은 Compound n언어 칸에 넣는다 `PC-327`
+  // 확장 언어 코드 — 그룹 기본 코드 교재면 그룹의 확장 코드가 **모두 자동으로** 같은 Book 으로 붙는다(코드마다 casterN 연동 값) `PC-327` `PC-359`
   ext?: ExtSlot[];
+  // Compound 9언어 이상 심볼 수량 — cx[i] = (9 + i)언어 · 그룹 코드 수 × 4 언어까지 `PC-359`
+  cx?: number[];
   _cust?: string;   // 전체 고객사 보기에서만 채워지는 보유 고객사명 `PC-040`
   nhist?: { date: string; movedAt: string; by: string }[];   // 완료→진행중 전환 시 보관하는 ncp2 최종수정 이력
   // 같은 코드(SOBP)에 작업물(ncp2)이 여럿인 교재 — wn=작업 번호 · wc=그 코드의 작업 수. 코드는 1개, 작업은 N행 `PC-110`
@@ -52,6 +55,8 @@ type BR = {
   // 편집 유형 — 유입 경로(casterN 마스터 계정 / Resource Studio) · 연동이 채운다 `PC-284`
   //   d(옛 발급일자)는 **최초 등록일**(교재 생성 요청이 처음 들어온 날짜)로 쓴다 `PC-284`
   src?: string;
+  // casterN 연동 칸 중 **직접 입력**한 칸 — 자동 값이 들어오면 자동이 우선(덮어쓰고 지운다) `PC-361`
+  man?: CnKey[];
 };
 type Cust = { customer: string; owner: string; owners?: number[]; codeKinds: string[]; books: number; pages: number; symbols: number; soundSymbols: number; penSymbols: number; sizeMB: number; topMethods?: [string, number][]; bookRows?: BR[] };
 const D = { customers: EDIT_CUSTOMERS as unknown as Cust[] };
@@ -97,7 +102,7 @@ const CHIPS_3: React.CSSProperties = { display: "flex", alignItems: "center", ga
 const won = (n: number) => `₩${Math.round(n).toLocaleString()}`;
 const today = () => new Date().toISOString().slice(0, 10);
 // 심볼 합계에서 **[Ncode 적용] 수량은 뺀다** `PC-085` — 페이지 수이지 심볼이 아니다.
-const sSum = (r: BR) => r.sm.reduce((a, b, i) => a + (i === S_PAGE_I ? 0 : b), 0);
+const sSum = (r: BR) => r.sm.reduce((a, b, i) => a + (i === S_PAGE_I ? 0 : b), 0) + (r.cx ?? []).reduce((a, b) => a + (b || 0), 0);
 const pSum = (r: BR) => r.pm.reduce((a, b, i) => a + (i === W_PAGE_I ? 0 : b), 0);
 const tSum = (r: BR) => sSum(r) + pSum(r);
 // 코드 관리 정보 기준 Book 최대치 (PDS·Section별)
@@ -109,78 +114,6 @@ const BOOK_STEP = 100;   // Book 번호 노출 단위 `PC-046`
 
 // Book 선택기 — 목록을 **닫지 않고** 100개씩 이어 본다 `PC-057`
 //   네이티브 <select> 는 항목을 고르면 닫혀서 [＋더 보기] 를 넣을 수 없다.
-/** 확장 언어 슬롯 다중 선택 — 고른 슬롯은 배지, [+ 슬롯] 을 누르면 체크 목록이 열린 채로 여러 개를 고른다 `PC-327`
- *  항목 = O{n} · 「5 베트남어 · 6 러시아어 …」(언어가 없으면 「지정된 언어 없음」) · (사용 중) 은 고를 수 없다 · (따로 등록됨) 은 알림만 */
-function ExtSlotPicker({ g, s, b, cur, onChange, takenBy, legacyOf }: {
-  g: LangGroup; s: number; b: number; cur: ExtSlot[]; onChange: (next: ExtSlot[]) => void;
-  takenBy: (o: number) => string; legacyOf: (o: number) => string;
-}) {
-  const [open, setOpen] = useState(false);
-  // 바깥(다른 영역)을 누르면 닫는다 — 체크는 누를 때마다 바로 반영되므로 닫기만 하면 된다
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const away = (ev: MouseEvent) => { if (box.current && !box.current.contains(ev.target as Node)) setOpen(false); };
-    const esc = (ev: KeyboardEvent) => { if (ev.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", away);
-    document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
-  }, [open]);
-  const has = (o: number) => cur.some((e) => e.o === o);
-  const set = (next: ExtSlot[]) => onChange([...next].sort((x, y) => g.ext.indexOf(x.o) - g.ext.indexOf(y.o)));
-  const toggle = (o: number) => set(has(o) ? cur.filter((e) => e.o !== o) : [...cur, { o }]);
-  return (
-    <div ref={box} style={{ position: "relative" }}>
-      <div style={{ ...S.input, background: "#fff", display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", minHeight: 34, padding: "3px 6px" }}>
-        {cur.map((e) => {
-          const legacy = legacyOf(e.o);
-          return (
-            <span key={e.o} title={`S${s}/O${e.o}/B${b} — ${extLangText(g, e.o)}${legacy ? `\n같은 Book 이 따로 등록돼 있습니다 — ${legacy} (그대로 둡니다)` : ""}`}
-              style={{ ...S.tag, background: "#ecfeff", color: "#0e7490", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 3 }}>
-              🌐 O{e.o}{legacy && <span style={{ fontWeight: 400, color: "#b45309" }}>따로</span>}
-              <button type="button" aria-label={`O${e.o} 빼기`} onClick={() => toggle(e.o)}
-                style={{ border: 0, background: "none", color: "#0e7490", cursor: "pointer", padding: 0, fontSize: 11 }}>✕</button>
-            </span>
-          );
-        })}
-        <button type="button" aria-expanded={open} aria-label="확장 언어 슬롯 고르기" onClick={() => setOpen((v) => !v)}
-          style={{ border: 0, background: "transparent", fontSize: 12, color: "#6b7280", flex: 1, minWidth: 80, textAlign: "left", cursor: "pointer", padding: "2px 2px" }}>
-          {cur.length ? "+ 슬롯" : "+ 슬롯 선택 (없음)"} <span style={{ fontSize: 10, color: "#9ca3af" }}>{open ? "▲" : "▼"}</span>
-        </button>
-      </div>
-      {open && (
-        <div style={{ position: "absolute", zIndex: 30, top: "calc(100% + 4px)", right: 0, width: "max(100%, 380px)", maxWidth: "calc(100vw - 32px)",   // 칸 오른쪽에 맞춰 왼쪽으로 펼친다 — 좁은 화면에서도 [닫기]가 보이게
-          background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,.12)", overflow: "hidden" }}>
-          {/* 머리 — 스크롤과 상관없이 늘 위 · [닫기]는 오른쪽 */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px 6px 12px", borderBottom: "1px solid #eef0f4", background: "#fafbfc" }}>
-            <span style={{ fontSize: 11.5, color: "#6b7280" }}>{g.label} 확장 언어 슬롯 · {cur.length}개 선택</span>
-            <span style={{ flex: 1 }} />
-            <button type="button" onClick={() => setOpen(false)} style={{ ...S.ghost, padding: "3px 10px", fontSize: 12 }}>닫기</button>
-          </div>
-          <div role="listbox" aria-multiselectable="true" style={{ maxHeight: 280, overflowY: "auto", padding: 4 }}>
-          {g.ext.map((o) => {
-            const on = has(o);
-            const taken = on ? "" : takenBy(o);
-            const legacy = legacyOf(o);
-            return (
-              <label key={o} title={taken ? `다른 고객사가 사용 중 — ${taken}` : legacy ? `같은 Book 이 따로 등록돼 있습니다 — ${legacy}` : undefined}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderRadius: 6, fontSize: 12, cursor: taken ? "not-allowed" : "pointer",
-                  background: on ? "#ecfeff" : "transparent", color: taken ? "#9ca3af" : "#374151" }}>
-                <input type="checkbox" checked={on} disabled={!!taken} onChange={() => toggle(o)} style={{ margin: 0 }} />
-                <b style={{ fontFamily: "ui-monospace,monospace", minWidth: 44, color: taken ? "#9ca3af" : on ? "#0e7490" : "#111827" }}>O{o}</b>
-                <span style={{ flex: 1, minWidth: 0, color: taken ? "#9ca3af" : "#4b5563" }}>{extLangText(g, o)}</span>
-                {taken && <span style={{ fontSize: 10.5 }}>사용 중</span>}
-                {!taken && legacy && <span style={{ fontSize: 10.5, color: "#b45309" }}>따로 등록됨</span>}
-              </label>
-            );
-          })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function BookPicker({ value, list, more, step, onPick, onMore }: {
   value: number; list: number[]; more: boolean; step: number;
   onPick: (b: number) => void; onMore: () => void;
@@ -291,6 +224,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const [fCu, setFCu] = useState("");                  // 사용 고객사 필터 · CU_NONE = (미입력) `PC-109`
   const [fOwnerCust, setFOwnerCust] = useState("");    // 고객사 필터 — 전체 고객사 보기 `PC-040`
   const [fExt, setFExt] = useState(false);             // 확장 언어 교재만 `PC-344`
+  const [cnTab, setCnTab] = useState(0);               // casterN 연동 — 코드 탭(0 = 기본, k = 확장 k) `PC-359`
   useSharedOwners();                                   // 공유 OWNER 변경 시 리렌더
   useEffect(() => { hydrateShared(); hydrateMembers(); }, []);
   useCommonMembers();
@@ -338,6 +272,13 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   // 같은 사용 고객사가 따로 등록한 슬롯 교재
   const extLegacy = (k: string, s2: number, o: number, b: number, cu = "") =>
     slotBooks(k, s2, o, b).filter((x) => (x.cu ?? "") === cu);
+  // 그룹 기본 코드 교재의 확장 코드 — 고객사 관리 그룹 설정을 따라 **모두 자동**(이미 받은 casterN 연동 값은 그대로) `PC-359`
+  const extOf = (r: BR): ExtSlot[] => {
+    const g = langGroupOf(r.k, r.s, r.o);
+    return g ? g.ext.map((o) => (r.ext ?? []).find((e) => e.o === o) ?? { o }) : [];
+  };
+  // Compound 언어 수 상한 — 그룹 기본 코드 교재면 그룹 코드 수 × 4(기본 4 · 확장 하나마다 4), 아니면 단가표 그대로(8) `PC-359`
+  const cmpMax = (r: BR) => { const g = langGroupOf(r.k, r.s, r.o); return g ? 4 * (1 + g.ext.length) : 8; };
 
   // 고객사(owner) 전환 시 해당 고객사 데이터로 재로드 (localStorage 우선, 없으면 시드)
   useEffect(() => {
@@ -371,7 +312,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   // 교재에 적용할 단가 — 등록 시 스냅샷(rs)이 있으면 그것, 없으면 현재 고객사 단가
   const rateOf = (r: BR): RateMap => r.rs ?? rateMap;
   // 교재 1건 정산 (교재 단가 스냅샷 → 교재별 할인 적용)
-  const bill = (r: BR) => settleBook({ ty: r.ty, pg: r.pg, sm: r.sm, pm: r.pm, dcRate: r.dcRate, dcAmt: r.dcAmt }, rateOf(r));
+  const bill = (r: BR) => settleBook({ ty: r.ty, pg: r.pg, sm: r.sm, pm: r.pm, cx: r.cx, dcRate: r.dcRate, dcAmt: r.dcAmt }, rateOf(r));
   const cost = (r: BR) => bill(r).total;                 // 청구액
   const discounted = (r: BR) => bookHasDiscount(r);
 
@@ -568,7 +509,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
         row.k = src.k; row.s = src.s; row.o = src.o; row.b = src.b; row.t = src.t;
         if (src.cu) row.cu = src.cu;
       } else {
-        const a = assignedSO[0];                      // 할당된 S/O 기본값 (수정 불가)
+        // 할당된 S/O 기본값 — 확장 언어 코드는 교재 코드로 고르지 않는다 `PC-359`
+        const a = assignedSO.find((x) => groupOfOwner(x.s, x.o)?.role !== "ext") ?? assignedSO[0];
         if (a) { row.k = a.k; row.s = a.s; row.o = a.o; row.b = freeBooks(a.k, a.s, a.o)[0] ?? 0; }
       }
       setKepOpen(true); setLogDraft({ id: null, kind: "요청", content: "" });
@@ -579,7 +521,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
     const r = rows[idx];
     if (!r) return;
     setKepOpen(bookHasKep(r)); setLogDraft({ id: null, kind: "요청", content: "" });
-    setEditing({ idx, row: { ...r, sm: [...r.sm], pm: [...r.pm], logs: r.logs ? r.logs.map((l) => ({ ...l })) : [] } });
+    setEditing({ idx, row: { ...r, sm: [...r.sm], pm: [...r.pm], ...(r.cx ? { cx: [...r.cx] } : {}), ...(r.ext ? { ext: r.ext.map((e) => ({ ...e })) } : {}), logs: r.logs ? r.logs.map((l) => ({ ...l })) : [] } });
+    setCnTab(0);
   }, [bookMode, bookIdx, rows, editing, assignedSO, owner, loadedKey, key]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // 훅은 모두 호출한 뒤에 분기한다 — 고객사를 늦게(로컬 저장분) 찾는 경우가 있어 조건부 훅이 되면 안 된다 `PC-045`
@@ -591,10 +534,20 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   //   · Ncode 적용 — 직접 입력 · **적용비 계산**에 쓴다 `PC-085`
   const setSm = (i: number, v: number) => setEditing((e) => (e ? { ...e, row: { ...e.row, sm: e.row.sm.map((x, j) => (j === i ? v : x)) } } : e));
   const setPm = (i: number, v: number) => setEditing((e) => (e ? { ...e, row: { ...e.row, pm: e.row.pm.map((x, j) => (j === i ? v : x)) } } : e));
+  const setCx = (i: number, v: number) => setEditing((e) => (e ? { ...e, row: { ...e.row, cx: Array.from({ length: Math.max(i + 1, e.row.cx?.length ?? 0) }, (_, j) => (j === i ? v : e.row.cx?.[j] ?? 0)) } } : e));
   // 진행 상태 변경 — 완료는 ncp2 최종수정 필수, 완료 해제 시 날짜를 이력으로 이관
   const changeState = (next: string) => {
     if (!editing) return;
     const cur = stateOf(editing.row.use);
+    // 그룹 기본 코드 교재는 **모든 코드 탭**(기본 + 확장)에 ncp2 최종수정이 있어야 완료 `PC-359`
+    const extNow = extOf(editing.row);
+    if (next === "완료" && extNow.length) {
+      const miss = [...(!(editing.row.nmod ?? "").trim() ? [`O${editing.row.o}(기본)`] : []), ...extNow.filter((e) => !(e.nmod ?? "").trim()).map((e) => `O${e.o}`)];
+      if (miss.length) {
+        alert(`ncp2 최종수정 날짜가 비어 있는 코드가 있어 완료할 수 없습니다 — ${miss.join(" · ")}. casterN 에서 코드마다 ncp2 를 내보낸 뒤 완료로 변경하세요.`);
+        return;
+      }
+    }
     if (next === "완료" && !(editing.row.nmod ?? "").trim()) {
       alert("ncp2 최종수정 날짜가 비어 있어 완료할 수 없습니다. casterN 에서 ncp2 를 내보낸 뒤 완료로 변경하세요.");
       return;
@@ -605,7 +558,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
         ? [...(editing.row.nhist ?? []), { date: keep, movedAt: today(), by: me?.name ?? "" }]
         : (editing.row.nhist ?? []);
       // 편집 재요청 → 날짜는 비우고 이력으로 남김
-      setEditing((e) => (e ? { ...e, row: { ...e.row, use: next, nmod: "", nhist: hist } } : e));
+      setEditing((e) => (e ? { ...e, row: { ...e.row, use: next, nmod: "", nhist: hist, ...(e.row.ext ? { ext: e.row.ext.map((x) => ({ ...x, nmod: "" })) } : {}) } } : e));   // 확장 코드 탭의 최종수정도 비운다 `PC-359`
       return;
     }
     setF("use", next);
@@ -622,18 +575,20 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
       if (ctErr) { alert(ctErr); return; }
     }
     // 공유 코드의 사용 고객사 필수 검사는 없앴다 — 사용 고객사는 서비스 티켓에서 자동으로 정해진다 `PC-289`
-    // 확장 언어 슬롯 — 기본 코드가 아니면 버리고, 같은 Book 을 다른 교재가 쓰는 슬롯이면 막는다 `PC-327`
+    // 확장 언어 코드 — 그룹 기본 코드 교재면 그룹의 확장 코드를 **모두** 붙인다(고르지 않는다) `PC-359`
+    //   같은 Book 을 다른 고객사 교재가 쓰는 확장 코드가 있으면 막는다 · 기본 코드가 아니면 버린다
     let extRow = editing.row;
-    if ((editing.row.ext ?? []).length) {
-      if (!langGroupOf(editing.row.k, editing.row.s, editing.row.o)) extRow = { ...editing.row, ext: undefined };
-      else {
-        const cu0 = (editing.row.cu ?? "").trim();
-        const bad = (editing.row.ext ?? []).find((e) => extTakenBy(editing.row.k, editing.row.s, e.o, editing.row.b, cu0));
-        if (bad) {
-          alert(`S${editing.row.s}/O${bad.o}/B${editing.row.b} 은 이미 다른 고객사 교재가 쓰고 있습니다 — ${extTakenBy(editing.row.k, editing.row.s, bad.o, editing.row.b, cu0)}. 확장 언어 슬롯 체크를 빼거나 다른 Book 을 고르세요.`);
-          return;
-        }
+    if (!langGroupOf(editing.row.k, editing.row.s, editing.row.o)) {
+      if ((editing.row.ext ?? []).length) extRow = { ...editing.row, ext: undefined };
+    } else {
+      const ext = extOf(editing.row);
+      const cu0 = (editing.row.cu ?? "").trim();
+      const bad = ext.find((e) => extTakenBy(editing.row.k, editing.row.s, e.o, editing.row.b, cu0));
+      if (bad) {
+        alert(`S${editing.row.s}/O${bad.o}/B${editing.row.b} 은 이미 다른 고객사 교재가 쓰고 있습니다 — ${extTakenBy(editing.row.k, editing.row.s, bad.o, editing.row.b, cu0)}. 확장 언어 코드는 그룹 설정대로 모두 붙으므로 다른 Book 을 고르세요.`);
+        return;
       }
+      extRow = { ...editing.row, ext };
     }
     // 같은 코드(S/O/B) 교재는 [복제]로만 만든다 — 일반 추가에서 겹치면 막는다 `PC-112`
     //   Book 하나는 한 코드 타입만 — 다른 타입(PDS2 · PDS3)이 쓴 Book 도 막는다 `PC-281`
@@ -950,9 +905,13 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                         <Sc k="S" v={r.s} name="Section" small />
                         <Sc k="O" v={r.o} name="Owner" small />
                         <Sc k="B" v={r.b} name="Book" small />
-                        {g && mine.map((o) => (
-                          <Sc key={`m${o}`} k="확장" v={o} c="#0891b2" small name={`확장 언어 슬롯 S${r.s}/O${o}/B${r.b} — ${extLangText(g, o)}`} />
+                        {g && mine.slice(0, 2).map((o) => (
+                          <Sc key={`m${o}`} k="확장" v={o} c="#0891b2" small name={`확장 언어 코드 S${r.s}/O${o}/B${r.b} — ${extLangText(g, o)}`} />
                         ))}
+                        {/* 확장 코드가 많으면(예: Common-21 확장 20개) 둘만 보이고 나머지는 +n `PC-359` */}
+                        {g && mine.length > 2 && (
+                          <span title={mine.slice(2).map((o) => `O${o}`).join(" · ")} style={{ fontSize: 10.5, color: "#0891b2", fontWeight: 700 }}>+{mine.length - 2}</span>
+                        )}
                         {g && legacy.map((o) => (
                           <Sc key={`l${o}`} k="확장" v={o} c="#0891b2" small dashed
                             name={`같은 Book 이 확장 슬롯에 따로 등록돼 있습니다 — S${r.s}/O${o}/B${r.b} (${extLangText(g, o)})\n교재를 열어 확장 언어 슬롯을 고르면 이 교재에 묶여 보입니다(따로 등록된 교재는 그대로)`} />
@@ -1049,7 +1008,12 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               })}
             </div>
             {locked && <span style={{ fontSize: 12, color: "#166534" }}>🔒 완료 처리되어 내용이 잠겼습니다. 수정하려면 <b>진행중</b>으로 변경하세요.</span>}
-            {!locked && !(editing.row.nmod ?? "").trim() && <span style={{ fontSize: 11.5, color: "#9ca3af" }}>※ 완료하려면 ncp2 최종수정 날짜가 필요합니다.</span>}
+            {!locked && (() => {
+              // 그룹 기본 코드 교재는 코드 탭마다 최종수정이 필요하다 `PC-359`
+              const miss = [...(!(editing.row.nmod ?? "").trim() ? [`O${editing.row.o}`] : []), ...extOf(editing.row).filter((e) => !(e.nmod ?? "").trim()).map((e) => `O${e.o}`)];
+              if (!miss.length) return null;
+              return <span style={{ fontSize: 11.5, color: "#9ca3af" }}>※ 완료하려면 ncp2 최종수정 날짜가 필요합니다{extOf(editing.row).length ? ` — 비어 있는 코드 ${miss.length > 3 ? `${miss.slice(0, 3).join(" · ")} 외 ${miss.length - 3}개` : miss.join(" · ")}` : ""}.</span>;
+            })()}
             {(editing.row.nhist ?? []).length > 0 && (
               <div style={{ width: "100%", marginTop: 4, fontSize: 11.5, color: "#6b7280" }}>
                 <b style={{ color: "#374151" }}>ncp2 최종수정 이력</b>
@@ -1088,15 +1052,20 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                           setBookLimit(BOOK_STEP);
                           setEditing((ed) => (ed ? { ...ed, row: { ...ed.row, k, s: sv, o: ov, b: freeBooks(k, sv, ov, undefined, BOOK_STEP)[0] ?? 0 } } : ed));
                         }}>
-                        {assignedCoords.map((a) => (
-                          <option key={`${a.s}/${a.o}`} value={`${a.s}/${a.o}`}>
-                            S{a.s} / O{a.o}{a.ks.some((k) => sharedInfo(a.s, a.o, k)) ? " · 공유" : ""}
-                          </option>
-                        ))}
+                        {/* 확장 언어 그룹 — 기본 코드는 「· 기본」, 확장 코드는 「· 확장 언어 (기본 O{n})」로 보이고 **고를 수 없다** `PC-359` */}
+                        {assignedCoords.map((a) => {
+                          const gr = groupOfOwner(a.s, a.o);
+                          return (
+                            <option key={`${a.s}/${a.o}`} value={`${a.s}/${a.o}`} disabled={gr?.role === "ext"}>
+                              S{a.s} / O{a.o}{gr?.role === "base" ? " · 기본" : gr?.role === "ext" ? ` · 확장 언어 (기본 O${gr.g.base})` : ""}{a.ks.some((k) => sharedInfo(a.s, a.o, k)) ? " · 공유" : ""}
+                            </option>
+                          );
+                        })}
                       </select>
                     ) : (
                       <div style={{ ...S.input, background: "#fff", color: "#374151", display: "flex", alignItems: "center", gap: 6 }}>
                         <b style={{ fontFamily: "ui-monospace,monospace" }}>S{editing.row.s} / O{editing.row.o}</b>
+                        {langGroupOf(editing.row.k, editing.row.s, editing.row.o) && <span style={{ ...S.tag, fontSize: 10, background: "#dbeafe", color: "#1d4ed8", fontWeight: 700 }}>기본</span>}
                         <span style={{ fontSize: 11, color: "#9ca3af" }}>할당된 코드</span>
                       </div>
                     )}
@@ -1145,18 +1114,26 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                       </Field>
                     );
                   })()}
-                  {/* 확장 언어 슬롯 — 코드 종류 뒤 한 칸. 고른 슬롯은 배지(✕ 로 빼기) · [+ 슬롯] 셀렉트로 더한다 `PC-327`
-                      기본 코드(Common O21 · Cake O1009)일 때만 · 같은 Book 을 확장 Owner 에서도 쓴다.
-                      다른 고객사 교재가 그 Book 을 쓰면 고를 수 없다(사용 중) · 같은 사용 고객사가 따로 등록한 슬롯은 「따로」로 알린다(데이터는 그대로) */}
+                  {/* 확장 언어 코드 — 고르지 않는다. 고객사 관리 그룹 설정대로 **모두 자동**으로 같은 Book 을 쓴다 `PC-359`
+                      (옛 [+ 슬롯] 고르기 `PC-327` 폐지) · 다른 고객사 교재가 그 Book 을 쓰면 빨간 「사용 중」 — 저장이 막힌다 */}
                   {(() => {
                     const g = langGroupOf(editing.row.k, editing.row.s, editing.row.o);
                     if (!g) return null;
                     const cu0 = (editing.row.cu ?? "").trim();
-                    const legacyOf = (o: number) => extLegacy(editing.row.k, editing.row.s, o, editing.row.b, cu0).map((x) => `${x.cust} · ${x.t || "교재"}`).join(", ");
                     return (
-                      <Field label={`확장 언어 슬롯 (${g.label} O${g.ext[0]}~${g.ext[g.ext.length - 1]})`}>
-                        <ExtSlotPicker g={g} s={editing.row.s} b={editing.row.b} cur={editing.row.ext ?? []} onChange={(next) => setF("ext", next)}
-                          takenBy={(o) => extTakenBy(editing.row.k, editing.row.s, o, editing.row.b, cu0)} legacyOf={legacyOf} />
+                      <Field label={`확장 언어 코드 (자동 · ${g.ext.length}개)`}>
+                        <div style={{ ...S.input, background: "#f9fafb", display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", minHeight: 34, padding: "3px 6px", maxHeight: 96, overflowY: "auto" }}>
+                          {g.ext.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>확장 코드 없음</span>}
+                          {g.ext.map((o, i) => {
+                            const taken = extTakenBy(editing.row.k, editing.row.s, o, editing.row.b, cu0);
+                            return (
+                              <span key={o} title={`확장 ${i + 1} · S${editing.row.s}/O${o}/B${editing.row.b} — ${extLangText(g, o)}${taken ? `\n다른 고객사가 사용 중 — ${taken}` : ""}`}
+                                style={{ ...S.tag, fontSize: 11, background: taken ? "#fef2f2" : "#ecfeff", color: taken ? "#b91c1c" : "#0e7490", fontWeight: 700 }}>
+                                🌐 O{o}{taken ? " 사용 중" : ""}
+                              </span>
+                            );
+                          })}
+                        </div>
                       </Field>
                     );
                   })()}
@@ -1289,42 +1266,83 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
             </div>
           </div>
 
-          {/* casterN 연동 — 모두 **자동**이라 직접 고치지 않는다 `PC-282` `PC-284`
+          {/* casterN 연동 — **자동**으로 채워지지만 **직접 등록도 할 수 있다** `PC-282` `PC-284` `PC-361`
+              · 직접 넣은 칸은 「직접」 표시 · casterN 에서 자동 값이 들어오면 **자동 값이 우선**(덮어쓴다 — lib/casterLink applyAutoLink)
               · 같은 코드 + 같은 ncp2 파일명으로 다시 들어오면 이 교재를 최신 값으로 갱신
               · 편집 유형 = 유입 경로 · 최초 등록일 = 첫 생성 요청 날짜(옛 발급일자)
-              · 프로젝트명 = casterN 에서 저장한 .nproj 파일명
-              · ncp2 파일명 = ncp2 내보내기 때 지정한 파일명
-              · ncp2 파일 크기 · 최종수정 = 저장 · 수정할 때마다 최신 값으로 덮어쓴다 */}
+              · 그룹 기본 코드 교재는 **코드마다 탭**(기본 + 확장 k) `PC-359` */}
+          {(() => {
+            const exts = extOf(editing.row);
+            const tabs: { label: string; o: number }[] = exts.length
+              ? [{ label: "기본", o: editing.row.o }, ...exts.map((e, i) => ({ label: `확장 ${i + 1}`, o: e.o }))]
+              : [];
+            const t = tabs.length ? Math.min(cnTab, tabs.length - 1) : 0;
+            const valOf = (i: number) => (i === 0 ? editing.row : exts[i - 1]);
+            const cv = valOf(t);
+            // 직접 입력 — 기본 코드(교재 행) 또는 그 확장 코드 기록에 넣는다
+            const put = (key: CnKey, value: string | number | undefined) => setEditing((ed) => {
+              if (!ed) return ed;
+              if (t === 0) return { ...ed, row: setManual(ed.row, key, value) };
+              const ext = extOf(ed.row).map((e, i) => (i === t - 1 ? setManual(e, key, value) : e));
+              return { ...ed, row: { ...ed.row, ext } };
+            });
+            return (
           <div style={rowBox}>
             <div style={{ ...rowHead, display: "flex", alignItems: "center", gap: 6 }}>
               casterN 연동
-              <span style={{ ...S.tag, fontSize: 10.5, background: "#f3f4f6", color: "#6b7280", fontWeight: 700 }}>자동</span>
-              <InfoTip title="casterN 연동 설명" width={340}>
+              <span style={{ ...S.tag, fontSize: 10.5, background: "#f3f4f6", color: "#6b7280", fontWeight: 700 }}>자동 우선</span>
+              {tabs.length > 0 && <span style={{ fontSize: 11.5, color: "#0e7490", fontWeight: 400 }}>코드 {tabs.length}개 · 코드마다 등록</span>}
+              <InfoTip title="casterN 연동 설명" width={360}>
                 casterN 에서 프로젝트를 저장하면 .nproj 파일명이 <b>프로젝트명</b>으로, ncp2 를 내보내면 그때 지정한 파일명이 <b>ncp2 파일명</b>으로 채워집니다.
-                같은 코드 · 같은 ncp2 파일명으로 다시 들어오면 이 교재가 최신 값으로 바뀝니다. 이 화면에서 고칠 수 없습니다.
+                연동 전에는 <b>직접 등록</b>할 수 있습니다. 직접 넣은 칸에는 「직접」이 붙고, casterN 에서 값이 들어오면 <b>자동 값으로 바뀝니다</b>.
+                같은 코드 · 같은 ncp2 파일명으로 다시 들어오면 이 교재가 최신 값으로 바뀝니다.
               </InfoTip>
             </div>
+            {tabs.length > 0 && (
+              <div role="tablist" aria-label="casterN 연동 코드" style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10, borderBottom: "1px solid #eef0f4", paddingBottom: 6 }}>
+                {tabs.map((x, i) => {
+                  const on = i === t; const v = valOf(i); const done = !!(v.nmod ?? "").trim();
+                  return (
+                    <button key={x.o} type="button" role="tab" aria-selected={on} onClick={() => setCnTab(i)}
+                      title={done ? `ncp2 최종수정 ${v.nmod}` : "ncp2 최종수정 없음"}
+                      style={{ fontSize: 12, padding: "4px 10px", borderRadius: 7, cursor: "pointer", fontWeight: on ? 700 : 400,
+                        border: on ? "1px solid #93c5fd" : "1px solid #e5e7eb", background: on ? "#eef6ff" : "#fff", color: on ? "#2563eb" : "#374151" }}>
+                      {x.label} · O{x.o}{done && <span style={{ color: "#16a34a", marginLeft: 4 }}>✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 10 }}>
-              {([
-                ["프로젝트명 (.nproj)", editing.row.pj, 2, false],
-                ["ncp2 파일명", editing.row.f, 2, true],
-                ["ncp2 파일 크기 (byte)", editing.row.bytes ? editing.row.bytes.toLocaleString() : "", 1, true],
-                ["ncp2 최종수정 (완료 필수)", editing.row.nmod, 1, true],
-                ["편집 유형", editing.row.src, 2, false],
-                ["최초 등록일", editing.row.d, 1, true],
-              ] as [string, string | undefined, number, boolean][]).map(([lab, v, span, mono]) => (
-                <div key={lab} style={{ gridColumn: `span ${span}` }}>
-                  <Field label={lab}>
-                    <div aria-readonly="true" title={v || undefined}
-                      style={{ ...S.input, background: "#f9fafb", color: v ? "#374151" : "#9ca3af", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                        ...(mono && v ? { fontFamily: "ui-monospace,monospace" } : {}) }}>
-                      {v || "미연동"}
-                    </div>
-                  </Field>
-                </div>
-              ))}
+              {CN_FIELDS.map((fd) => {
+                const raw = cv[fd.key];
+                const manual = (cv.man ?? []).includes(fd.key);
+                const st: React.CSSProperties = { ...S.input, ...(fd.mono ? { fontFamily: "ui-monospace,monospace" } : {}), ...(manual ? { borderColor: "#fcd34d", background: "#fffdf5" } : {}) };
+                const lab = `${fd.label}${manual ? " · 직접" : ""}`;
+                return (
+                  <div key={fd.key} style={{ gridColumn: `span ${fd.span}` }}>
+                    <Field label={lab}>
+                      {fd.type === "src" ? (
+                        <select style={st} value={String(raw ?? "")} aria-label={fd.label} onChange={(e) => put(fd.key, e.target.value)}>
+                          <option value="">미연동</option>
+                          {CN_SOURCES.map((o) => <option key={o} value={o}>{o}</option>)}
+                          {raw && !CN_SOURCES.includes(String(raw)) && <option value={String(raw)}>{String(raw)}</option>}
+                        </select>
+                      ) : fd.type === "number" ? (
+                        <input type="number" min={0} style={st} value={raw ? Number(raw) : ""} placeholder="미연동" aria-label={fd.label}
+                          onChange={(e) => put(fd.key, e.target.value === "" ? 0 : Math.max(0, Math.round(+e.target.value)))} />
+                      ) : (
+                        <input type={fd.type} style={st} value={String(raw ?? "")} placeholder="미연동" aria-label={fd.label} title={raw ? String(raw) : undefined}
+                          onChange={(e) => put(fd.key, e.target.value)} />
+                      )}
+                    </Field>
+                  </div>
+                );
+              })}
             </div>
           </div>
+            );
+          })()}
 
           {/* 2행: 소리펜(좌) / 필기펜(우) 심볼 입력 — **타입에 맞는 쪽만 입력한다** `PC-091` */}
           {(() => {
@@ -1338,11 +1356,31 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
             return (
           <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 12 }}>
             <div style={{ ...rowBox, ...dim(!penOn) }}>
-              <div style={rowHead}>소리펜 심볼 입력{lock(!penOn)}</div>
+              <div style={rowHead}>소리펜 심볼 입력{lock(!penOn)}
+                {langGroupOf(editing.row.k, editing.row.s, editing.row.o) && (
+                  <span style={{ fontSize: 11.5, color: "#0e7490", fontWeight: 400, marginLeft: 8 }}
+                    title="확장 언어 그룹 — 기본 코드 4언어 + 확장 코드 하나마다 4언어(고객사 관리 그룹 설정)">🌐 Compound {cmpMax(editing.row)}언어까지</span>
+                )}
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                {SOUND_LABELS.map((lab, i) => (
-                  <Field key={lab} label={lab}><input type="number" disabled={penOn} style={{ ...S.input, ...(penOn ? off : {}) }} value={editing.row.sm[i]} onChange={(e) => setSm(i, +e.target.value)} /></Field>
-                ))}
+                {/* Compound 항목은 **그룹 코드 수 × 4 언어까지** — 기본 코드만이면 4언어, 확장 1 이면 8언어, 확장 2 면 12언어 `PC-359`
+                    (상한보다 큰 항목은 감춘다 · 이미 값이 있으면 그대로 보인다) · 9언어 이상은 8언어 뒤에 이어 붙인다 */}
+                {SOUND_LABELS.flatMap((lab, i) => {
+                  const key = SOUND_QTY[i].key, mx = cmpMax(editing.row);
+                  const n = key.startsWith("s_cmp") ? Number(key.slice(5)) : 0;
+                  const out: React.ReactNode[] = [];
+                  if (!(n && n > mx && !(editing.row.sm[i] > 0))) {
+                    out.push(<Field key={lab} label={lab}><input type="number" disabled={penOn} style={{ ...S.input, ...(penOn ? off : {}) }} value={editing.row.sm[i]} onChange={(e) => setSm(i, +e.target.value)} /></Field>);
+                  }
+                  if (key === "s_cmp8") {
+                    for (let n2 = CMP_EXTRA_FROM; n2 <= Math.max(mx, CMP_EXTRA_FROM - 1 + (editing.row.cx ?? []).length); n2++) {
+                      const j = n2 - CMP_EXTRA_FROM;
+                      if (n2 > mx && !((editing.row.cx?.[j] ?? 0) > 0)) continue;
+                      out.push(<Field key={`cx${n2}`} label={`Compound ${n2}언어`}><input type="number" disabled={penOn} style={{ ...S.input, ...(penOn ? off : {}) }} value={editing.row.cx?.[j] ?? 0} onChange={(e) => setCx(j, +e.target.value)} /></Field>);
+                    }
+                  }
+                  return out;
+                })}
               </div>
             </div>
             <div style={{ ...rowBox, ...dim(penOn) }}>
