@@ -77,6 +77,11 @@ export function addCommonCode(company: string, k: "N" | "G", s: number, o: numbe
   ccPersist(); ccNotify();
   return rec;
 }
+/** 「고객사-owner」 표기 — 이름이 이미 「-{owner}」 로 끝나면 그대로(예: Common-21 · 네오노트-0-27) `PC-362` */
+export const withOwner = (name: string, o?: number | string | null) => {
+  const ow = String(o ?? "").trim();
+  return !ow || name.endsWith(`-${ow}`) ? name : `${name}-${ow}`;
+};
 /** 화면에서 지정한 공통코드 해제 */
 export function removeCommonCode(k: string, s: number, o: number) {
   hydrateCommonCodes();

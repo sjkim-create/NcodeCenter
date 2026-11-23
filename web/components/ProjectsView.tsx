@@ -14,7 +14,7 @@ import {
 import { EDIT_BOOKS } from "@/lib/codeUsage";
 import { codesOfCompany, isCommonCodeCompany, type CommonCode } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
-import { groupOfOwner, groupOfCompany, hydrateLangGroups, useLangGroups, isLangSlotCompany } from "@/lib/langGroups";
+import { groupOfOwner, hydrateLangGroups, useLangGroups, isLangSlotCompany } from "@/lib/langGroups";
 
 // 고객사별 코드 종류 — 좌표(SOBP) 속성으로 판별 (PDS3 · PDS2 · PDS4 · OID). 옛 IDS(A) = OID 동일 `PC-035`
 const KIND_BY_NAME: Record<string, CodeKind[]> = EDIT_BOOKS.reduce((m, r) => {
@@ -104,27 +104,24 @@ export default function ProjectsView() {
   const totalUsed = shownProjects.reduce((s2, r) => s2 + projectUsed(r), 0);
   const isFiltered = pds !== "ALL" || flag !== "ALL" || svc !== "ALL" || !!q;
 
-  // 확장 언어 그룹 역할 칩 — [기본] / [확장 k] / [역할 미지정] `PC-350`
+  // 확장 언어 그룹 역할 칩 — [기본] / [확장 k] `PC-350` (역할 미지정은 없앴다 — 그룹 밖 코드는 전용 코드 `PC-357`)
   const roleChip = (sec: number, o: number) => {
     if (!lgReady) return null;
     const lg = groupOfOwner(sec, o);
     if (!lg) return null;
     const n = lg.g.ext.indexOf(o) + 1;
     return lg.role === "base" ? { t: "기본", bg: "#dbeafe", fg: "#1d4ed8", tip: `${lg.g.company} 기본 Owner · 슬롯 1~4`, lg, n: 0 }
-      : lg.role === "ext" ? { t: `확장 ${n}`, bg: "#cffafe", fg: "#0e7490", tip: `${lg.g.company} 확장 언어 ${n} · 슬롯 ${n * 4 + 1}~${n * 4 + 4}`, lg, n }
-      : { t: "역할 미지정", bg: "#fef3c7", fg: "#b45309", tip: `${lg.g.company} — 고객사 관리에서 역할을 고르세요`, lg, n: 999 };
+      : { t: `확장 ${n}`, bg: "#cffafe", fg: "#0e7490", tip: `${lg.g.company} · 기본 O${lg.g.base} 의 확장 언어 ${n} · 슬롯 ${n * 4 + 1}~${n * 4 + 4}`, lg, n };
   };
   const chipEl = (c: ReturnType<typeof roleChip>) => c && (
     <span title={c.tip} style={{ fontSize: 9, fontWeight: 700, borderRadius: 4, padding: "0 4px", lineHeight: "14px", whiteSpace: "nowrap", background: c.bg, color: c.fg }}>{c.t}</span>);
-  // 확장 언어 그룹의 확장 · 역할 미지정 코드인가 — 프로젝트 목록에는 **기본 코드만** 보인다 `PC-353`
+  // 확장 언어 그룹의 확장 코드인가 — 프로젝트 목록에서 빼고 그 그룹 기본 코드의 발급 내역에 보인다 `PC-353` `PC-357`
   const isExtProject = (p: Project) => { const a = soOf(p)[0]; const c = a ? roleChip(a.s, a.o) : null; return !!c && c.t !== "기본"; };
   // 프로젝트 목록 — Owner 오름차순(같으면 Section · 이름) · 발급 없는 프로젝트는 맨 뒤 `PC-350`
   const ownerKey = (p: Project) => { const a = soOf(p)[0]; return a ? [a.o, a.s] : [Infinity, Infinity]; };
-  // 그룹 고객사(기본 코드가 정해진)면 **기본 코드 프로젝트만** — 나머지 코드는 모두 기본 코드의 발급 SOBP 내역에 모은다 `PC-354`
-  //   (확장 슬롯으로 아직 고르지 않은 코드도 「전용 코드인지 언어 확장 코드인지」 한곳에서 보이게)
-  const curGroup = lgReady && curCo ? groupOfCompany(curCo.id) : undefined;
-  const isBaseProject = (p: Project) => !!curGroup && curGroup.base != null && p.issued.some((b) => b.owner === curGroup.base && (curGroup.section == null || b.section === curGroup.section));
-  const coProjects = projectsOf(curCo?.id ?? -1).filter((p) => (curGroup && curGroup.base != null ? isBaseProject(p) || projKind(p) === "OID" : !isExtProject(p))).slice().sort((a, b) => {
+  // 기본 코드마다 그룹이 따로 있다 — 목록에는 **확장 코드만 빼고** 모두(기본 코드 · 그룹 밖 전용 코드 · OID) `PC-357`
+  //   (`PC-354` 의 「그룹 고객사는 기본 코드 프로젝트만 · 나머지 코드는 모두 기본 코드 안에」를 바꿈)
+  const coProjects = projectsOf(curCo?.id ?? -1).filter((p) => projKind(p) === "OID" || !isExtProject(p)).slice().sort((a, b) => {
     const [oa, sa] = ownerKey(a), [ob, sb] = ownerKey(b);
     return oa - ob || sa - sb || a.name.localeCompare(b.name, "ko");
   });
@@ -292,18 +289,20 @@ export default function ProjectsView() {
                     // 기본 코드를 고르면 그 그룹의 확장 언어 코드 블록도 [확장 k] 칩과 함께 이어서 보인다(확장 순서) `PC-353`
                     const own = proj.issued.slice().sort((a, b) => (a.date > b.date ? 1 : -1));
                     const c0 = own[0] ? roleChip(own[0].section, own[0].owner) : null;
-                    // 그룹의 기본 코드 프로젝트면 그 고객사(슬롯 고객사 포함)의 **나머지 코드 전부** — 확장 k 순 → 역할 없는 코드는 Owner 순 `PC-354`
-                    const ext = c0 && c0.t === "기본" && projKind(proj) !== "OID"
-                      ? projectsOf(homeOf(proj)).filter((p2) => p2.id !== proj.id && projKind(p2) !== "OID" && !p2.issued.some((b) => b.owner === c0.lg.g.base))
+                    // 그룹의 기본 코드 프로젝트면 **그 그룹의 확장 코드만**(슬롯 고객사 포함) — 확장 k 순 `PC-357`
+                    const g0 = c0 && c0.t === "기본" && projKind(proj) !== "OID" ? c0.lg.g : null;
+                    const ext = g0
+                      ? projectsOf(homeOf(proj)).filter((p2) => p2.id !== proj.id && projKind(p2) !== "OID")
                         .flatMap((p2) => p2.issued)
-                        .sort((x, y) => (roleChip(x.section, x.owner)?.n ?? 1000) - (roleChip(y.section, y.owner)?.n ?? 1000) || x.owner - y.owner)
+                        .filter((b) => b.section === g0.section && g0.ext.includes(b.owner))
+                        .sort((x, y) => g0.ext.indexOf(x.owner) - g0.ext.indexOf(y.owner))
                       : [];
                     return [...own, ...ext];
                   })().map((b, i) => (
                     <div key={`${b.owner}-${b.id ?? i}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, border: "1px solid #eef0f4", borderRadius: 10, padding: "9px 11px", background: "#fafbfc", flexWrap: "wrap" }}>
                       <span style={{ fontSize: 11, color: "#9ca3af", fontFamily: "ui-monospace,monospace", minWidth: 18 }}>{i + 1}</span>
                       <SobpChipRow b={b} />
-                      {(() => { const c = roleChip(b.section, b.owner); return c && c.t !== "역할 미지정" ? chipEl(c) : null; })()}
+                      {chipEl(roleChip(b.section, b.owner))}
                       <span style={{ flex: 1 }} />
                       <span style={{ fontSize: 11, color: "#9ca3af", fontFamily: "ui-monospace,monospace" }}>{b.date}</span>
                       <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb" }}>

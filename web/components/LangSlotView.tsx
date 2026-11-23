@@ -26,7 +26,7 @@ export default function LangSlotView({ embedded }: { embedded?: boolean }) {
 
       {/* 그룹 필터 */}
       <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-        {([["all", "전체"] as const, ...groups.map((g) => [g.id, g.label] as const)]).map(([v, lab], i) => {
+        {([["all", "전체"] as const, ...groups.map((g) => [g.id, `${g.label} · O${g.base}`] as const)]).map(([v, lab], i) => {
           const on = filter === v;
           const c = v === "all" ? "#374151" : COLORS[(i - 1) % COLORS.length];
           return (
@@ -50,9 +50,9 @@ function GroupSection({ g, color }: { g: LangGroup; color: string }) {
   return (
     <div style={{ ...S.card, padding: 16, marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        <span style={{ background: color, color: "#fff", fontWeight: 700, borderRadius: 6, padding: "3px 10px", fontSize: 12.5 }}>{g.label}</span>
+        <span style={{ background: color, color: "#fff", fontWeight: 700, borderRadius: 6, padding: "3px 10px", fontSize: 12.5 }}>{g.label} · 기본 O{g.base}</span>
         <b style={{ fontSize: 14 }}>확장 언어 슬롯</b>
-        <span style={{ color: "#6b7280", fontSize: 12 }}>{g.kind} · Section {g.section ?? "미정"} · 기본 {g.base != null ? `O${g.base}` : "미정"} · 확장 {extTxt} · 필요 언어 {g.langCount}개 · 오너당 4슬롯</span>
+        <span style={{ color: "#6b7280", fontSize: 12 }}>{g.kind ? `${g.kind} · ` : ""}Section {g.section ?? "미정"} · 기본 {g.base != null ? `O${g.base}` : "미정"} · 확장 {extTxt} · 필요 언어 {g.langCount}개 · 오너당 4슬롯</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))", gap: 8 }}>
         {/* 필요한 Owner 수만큼 — 아직 할당 전인 자리도 카드로(고객사 관리에서 미리 넣은 언어) `PC-334` */}

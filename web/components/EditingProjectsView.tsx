@@ -15,8 +15,8 @@ import { Sc } from "./sobp";
 import { WS_CARD, WS_HEAD_BTN, WsCoHead, WsCoGroup, WsCoItem, WsFillScroll } from "./KeyWorkspaceUI";
 import { allEditBooks, ownerOfBook } from "@/lib/bookOwnership";
 import { allServiceTickets, hydrateServiceTickets, useServiceTickets } from "@/lib/serviceTicketStore";
-import { isCommonCodeCompany } from "@/lib/commonCodes";
-import { groupOfCompany, groupOfOwner, groupOwners, hydrateLangGroups, useLangGroups, isLangSlotCompany } from "@/lib/langGroups";
+import { isCommonCodeCompany, withOwner } from "@/lib/commonCodes";
+import { groupOfOwner, hydrateLangGroups, useLangGroups, isLangSlotCompany } from "@/lib/langGroups";
 
 type Sub = { name: string; books: number; need: number };   // 하위 고객사 · 교재 수 · 그중 티켓 필요 수
 
@@ -162,6 +162,14 @@ export default function EditingProjectsView() {
   }, { books: 0, pages: 0, symbols: 0, sizeMB: 0, listed: 0, cost: 0 }), [list, statOf]);
   const isFiltered = pds !== "ALL" || !!q;
   const selCust = allRaw.find((c) => uidOf(c) === sel) ?? allRaw.find((c) => c.owner === sel);
+  // 확장 언어 슬롯 고객사는 왼쪽 목록에 두지 않고 **오른쪽** 그룹 고객사 상세의 탭으로 본다 `PC-362`
+  //   (슬롯 고객사로 바로 들어온 경우에도 그룹 고객사 상세 + 그 슬롯 탭으로 연다)
+  const [slotSel, setSlotSel] = useState("");
+  const selIsSlot = !!selCust && slotParent.has(uidOf(selCust));
+  const baseCust = selIsSlot ? (all.find((c) => c.customer === slotParent.get(uidOf(selCust!))) ?? selCust) : selCust;
+  const baseSlots = baseCust ? (slotsOf.get(baseCust.customer) ?? []) : [];
+  const activeSlot = selIsSlot ? selCust : baseSlots.find((x) => uidOf(x) === slotSel);
+  const viewCust = activeSlot ?? baseCust;
 
   const openAdd = () => setAddForm({ companyId: 0, owner: "", kind: "N" });
   // 편집 대상 고객사 = **고객사 관리에 등록된 고객사 전부** `PC-187`
@@ -178,13 +186,11 @@ export default function EditingProjectsView() {
       p.issued.forEach((b) => m.set(`${b.kind ?? "N"}/${b.section}/${b.owner}`,
         { owner: b.owner, kind: (b.kind ?? "N") as "N" | "G", section: b.section })));
     const all2 = [...m.values()].sort((a, b) => a.section - b.section || a.owner - b.owner);
-    // 확장 언어 그룹 고객사는 **기본 코드만** — 확장 · 역할 미지정 코드는 교재가 아니라 언어 슬롯이다 `PC-349`
+    // 확장 언어 그룹의 **확장 코드는 뺀다** — 교재가 아니라 언어 슬롯이다 `PC-349`
+    //   기본 코드마다 그룹이 따로 있으므로 그룹마다 기본 코드가 나오고, 그룹 밖 코드는 일반 전용 코드로 나온다 `PC-357`
     hydrateLangGroups();
-    const lg2 = groupOfCompany(companyId);
-    return lg2 ? all2.filter((o) => o.owner === lg2.base && (lg2.section == null || lg2.section === o.section)) : all2;
+    return all2.filter((o) => groupOfOwner(o.section, o.owner)?.role !== "ext");
   };
-  // 그룹 고객사인데 기본 코드를 아직 정하지 않았는가(안내용)
-  const baseMissing = (companyId: number) => { const lg2 = groupOfCompany(companyId); return !!lg2 && lg2.base == null; };
   const onPickCompany = (companyId: number) => {
     const opts = ownerOptsOf(companyId);
     setAddForm({ companyId, owner: opts.length === 1 ? String(opts[0].owner) : "", kind: opts[0]?.kind ?? "N" });
@@ -296,26 +302,20 @@ export default function EditingProjectsView() {
                   const parentHit = !q || (c.customer + c.owner).toLowerCase().includes(ql);
                   const subs = parentHit ? subsAll : subsAll.filter((x) => x.name.toLowerCase().includes(ql));
                   const stc = statOf(c);
-                  const slots = slotsOf.get(c.customer) ?? [];   // 확장 언어 슬롯 고객사 `PC-344`
-                  const slotOn = slots.some((x) => uidOf(x) === sel);
                   const kindTags = kindsOfCust(c as never).map((k) => (
                     <span key={k} style={{ ...S.tag, fontSize: 9.5, padding: "0 5px", background: kindMeta(k).bg, color: kindMeta(k).color, fontWeight: 700 }}>{kindMeta(k).short}</span>
                   ));
                   return (
                     <div key={id} style={{ position: "relative" }}>
-                      <WsCoGroup n={subsAll.length + slots.length} autoOpen={(!!q && !parentHit && (subs.length > 0 || slots.length > 0)) || (id === sel && !!sub) || slotOn}
+                      <WsCoGroup n={subsAll.length} autoOpen={(!!q && !parentHit && subs.length > 0) || (id === sel && !!sub)}
                         head={(fold) => (
-                          <WsCoItem label={c.customer} n={stc.books} on={id === sel && !sub} sub={false} fold={fold}
+                          // 고객사 표기 = 「고객사-owner」 `PC-362` · 확장 언어 슬롯 고객사는 오른쪽 상세의 탭으로 옮겼다(왼쪽 🌐 줄 없음)
+                          <WsCoItem label={withOwner(c.customer, c.owner)} n={stc.books} on={!!baseCust && id === uidOf(baseCust) && !sub} sub={false} fold={fold}
                             title={`${pds === "ALL" ? "교재" : kindMeta(pds).short} ${stc.books.toLocaleString()}권`}
-                            onClick={() => { setSel(id); setSub(""); }}
+                            onClick={() => { setSel(id); setSub(""); setSlotSel(""); }}
                             tags={isCustom ? <span style={{ ...S.tag, fontSize: 9.5, padding: "0 5px", background: "#ecfdf5", color: "#047857" }}>신규</span> : undefined}
                             meta={kindTags.length ? <>{kindTags}</> : undefined} />   /* 심볼 수는 목록에 두지 않는다 — 고르면 오른쪽 집계에 나온다 `PC-294` */
                         )}>
-                        {slots.map((x) => (
-                          <WsCoItem key={uidOf(x)} label={`🌐 O${x.owner} · ${x.customer}`} n={statOf(x).books} on={uidOf(x) === sel} sub
-                            title={`확장 언어 슬롯 O${x.owner} — 따로 등록된 교재 ${statOf(x).books}권`}
-                            onClick={() => { setSel(uidOf(x)); setSub(""); }} />
-                        ))}
                         {subs.map((x) => (
                           <WsCoItem key={x.name} label={x.name} n={x.books} on={id === sel && sub === x.name} sub
                             title={x.need ? `${x.name} — 교재 ${x.books}권 중 ${x.need}권은 서비스 티켓이 없습니다` : `${x.name} — 교재 ${x.books}권`}
@@ -340,19 +340,36 @@ export default function EditingProjectsView() {
         {/* 우: 상세 */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ ...S.card, padding: 16 }}>
-            {selCust
+            {baseCust && viewCust
               ? (
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-                    <button onClick={() => { setSel(""); setSub(""); }} style={{ ...S.linkBtn, padding: 0 }}>← 전체 고객사</button>
+                    <button onClick={() => { setSel(""); setSub(""); setSlotSel(""); }} style={{ ...S.linkBtn, padding: 0 }}>← 전체 고객사</button>
                     {/* 하위 고객사로 들어오면 「상위 ▸ 하위」 — 상위 이름을 누르면 거르기를 푼다 `PC-293` */}
                     {sub && (
                       <span style={{ fontSize: 12, color: "#6b7280" }}>
-                        · <button onClick={() => setSub("")} style={{ ...S.linkBtn, padding: 0 }}>{selCust.customer}</button> ▸ <b style={{ color: "#7e22ce" }}>{sub}</b>
+                        · <button onClick={() => setSub("")} style={{ ...S.linkBtn, padding: 0 }}>{withOwner(baseCust.customer, baseCust.owner)}</button> ▸ <b style={{ color: "#7e22ce" }}>{sub}</b>
                       </span>
                     )}
                   </div>
-                  <EditingDetailView key={`${sel}|${sub}`} owner={selCust.owner} custName={selCust.customer} embedded pdsLock={pds === "ALL" ? "" : pds} seedCustomer={customOwners.has(selCust.owner) ? (selCust as never) : undefined} initCu={sub || undefined} />
+                  {/* 확장 언어 슬롯 — 그룹 고객사 교재 + 확장 슬롯에 따로 등록된 교재를 탭으로 `PC-362` (옛 왼쪽 🌐 줄 `PC-344`) */}
+                  {baseSlots.length > 0 && (
+                    <div role="tablist" aria-label="확장 언어 슬롯 교재" style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
+                      {[baseCust, ...baseSlots].map((x, i) => {
+                        const on = uidOf(x) === uidOf(viewCust);
+                        return (
+                          <button key={uidOf(x)} type="button" role="tab" aria-selected={on}
+                            onClick={() => { if (i === 0) { setSel(uidOf(baseCust)); setSlotSel(""); } else { setSel(uidOf(baseCust)); setSlotSel(uidOf(x)); setSub(""); } }}
+                            title={i === 0 ? "그룹 고객사 교재" : `확장 언어 슬롯 O${x.owner} 에 따로 등록된 교재 ${statOf(x).books}권`}
+                            style={{ fontSize: 12, padding: "4px 10px", borderRadius: 7, cursor: "pointer", fontWeight: on ? 700 : 400,
+                              border: on ? "1px solid #93c5fd" : "1px solid #e5e7eb", background: on ? "#eef6ff" : "#fff", color: on ? "#2563eb" : i === 0 ? "#374151" : "#0e7490" }}>
+                            {i === 0 ? `${withOwner(x.customer, x.owner)} 교재` : `🌐 확장 O${x.owner}`} · {statOf(x).books}권
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <EditingDetailView key={`${uidOf(viewCust)}|${sub}`} owner={viewCust.owner} custName={viewCust.customer} embedded pdsLock={pds === "ALL" ? "" : pds} seedCustomer={customOwners.has(viewCust.owner) ? (viewCust as never) : undefined} initCu={viewCust === baseCust ? sub || undefined : undefined} />
                 </>
               )
               : (
@@ -375,15 +392,12 @@ export default function EditingProjectsView() {
       {addForm && (() => {
         const opts = addForm.companyId ? ownerOptsOf(addForm.companyId) : [];
         const co = st.companies.find((c) => c.id === addForm.companyId);
-        // 확장 언어 그룹 고객사면 코드마다 기본 / 확장 언어 칩 — 역할은 고객사 관리에서 정한 값 `PC-343`
+        // 확장 언어 그룹의 기본 코드면 [기본] 칩 — 그룹은 고객사 관리에서 기본 코드마다 만든다 `PC-343` `PC-357`
         hydrateLangGroups();
-        const lg = co ? groupOfCompany(co.id) : undefined;
         const roleOf = (o: { owner: number; section: number }) => {
-          if (!lg || (lg.section != null && lg.section !== o.section) || !groupOwners(lg).includes(o.owner)) return null;
-          if (lg.base === o.owner) return { t: "기본", bg: "#dbeafe", fg: "#1d4ed8", tip: "기본 Owner · 슬롯 1~4" };
-          const n = lg.ext.indexOf(o.owner) + 1;
-          if (n > 0) return { t: "확장 언어", bg: "#cffafe", fg: "#0e7490", tip: `확장 ${n} · 슬롯 ${n * 4 + 1}~${n * 4 + 4}` };
-          return null;   // 역할을 아직 안 정한 코드는 칩 없음 — 기본 · 확장 언어만 보인다 `PC-346`
+          const r = groupOfOwner(o.section, o.owner);
+          if (!r || r.role !== "base") return null;
+          return { t: "기본", bg: "#dbeafe", fg: "#1d4ed8", tip: `확장 언어 그룹 기본 코드 · 슬롯 1~4 · 확장 ${r.g.ext.map((x) => `O${x}`).join(" · ") || "없음"}` };
         };
         return (
           <Modal onClose={() => setAddForm(null)} title="편집 고객사 추가">
@@ -433,13 +447,6 @@ export default function EditingProjectsView() {
                 </div>
               ) : (
                 // 코드 할당은 **SOBP 맵에서만** 한다 — 여기서 Owner/코드 종류를 직접 입력하지 않는다 `PC-045`
-                baseMissing(addForm.companyId) ? (
-                  <div style={{ marginTop: 12, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 9, padding: "11px 13px", fontSize: 12.5, color: "#92400e", lineHeight: 1.7 }}>
-                    <b>{co?.name}</b> 는 확장 언어 그룹 고객사입니다. <b>기본 코드</b>를 아직 정하지 않았습니다.
-                    <div style={{ marginTop: 4 }}>고객사 관리 ▸ 공통코드 · 확장 언어 에서 코드 하나를 <b>기본</b>으로 정하고 저장한 뒤 다시 추가하세요.</div>
-                    <a href={`/companies/${addForm.companyId}`} style={{ display: "inline-block", marginTop: 8, fontSize: 12, fontWeight: 700, color: "#b45309" }}>고객사 관리로 이동 →</a>
-                  </div>
-                ) :
                 <div style={{ marginTop: 12 }}>
                   <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: "11px 13px", fontSize: 12.5, color: "#991b1b", lineHeight: 1.7 }}>
                     🚫 <b>{co?.name}</b> 는 아직 <b>할당된 코드가 없습니다.</b>

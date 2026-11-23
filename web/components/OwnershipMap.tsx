@@ -13,7 +13,7 @@ import { isExcluded, type Pds } from "@/lib/sobpRecommend";
 import { hydrateShared, markShared, useSharedOwners, customShared, BUILT_IN } from "@/lib/sharedOwners";
 import { commonCodeOf } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
-import { groupOfCompany, groupOfOwner, needExtOwners, extLangs, useLangGroups, groupOwners, addPendingOwners } from "@/lib/langGroups";
+import { groupsOfCompany, groupOfOwner, needExtOwners, extLangs, useLangGroups, groupOwners, addExtOwners } from "@/lib/langGroups";
 import { hydrateOverrides, overrideOf, useBookOverrides } from "@/lib/editOverrides";
 import { Sc, SobpChips, KindChip, PenChip } from "./sobp";
 import { allocSpan, codeKind, CODE_KINDS, kindMeta, type CodeKind } from "@/lib/codeKind";
@@ -173,7 +173,7 @@ export default function OwnershipMap() {
   const recoTarget = kind === "PDS3" || kind === "PDS2" || kind === "ALL";
   // 사용 서비스는 **고객사 속성**이라 이 창에서 다루지 않는다 `PC-076`
   const [alloc, setAlloc] = useState<{ company: string; newCompany: string; bookStart: number; books: number; pages: number; mode: "코드발급" | "편집"; shared: boolean;
-    more?: number; dir?: 1 | -1; from?: number; manual?: boolean } | null>(null);   // 확장 언어 그룹 — 확장 Owner 개수 · 방향 · 범위 시작 · 직접 입력 `PC-330` `PC-335` `PC-337`
+    more?: number; dir?: 1 | -1; from?: number; manual?: boolean; grp?: number | null } | null>(null);   // 확장 언어 그룹 — 확장 Owner 개수 · 방향 · 범위 시작 · 직접 입력 `PC-330` `PC-335` `PC-337`
   const lgv = useLangGroups();   // 확장 언어 그룹 — OWNER 카드 🌐 · 할당 창 그룹 연결 `PC-330`
   const [selS, setSelS] = useState(0);
   const [selO, setSelO] = useState(1);
@@ -637,12 +637,13 @@ export default function OwnershipMap() {
             bs: b.bookStart, be: b.bookEnd, ps: b.pageStart, pe: b.pageEnd, codes: b.codes })))
           .sort((a, b) => a.s - b.s || a.o - b.o);
 
-        // 확장 언어 그룹 — 선택 고객사에 그룹이 있고 같은 Section 이면 **영역만** 할당한다 `PC-330` `PC-335`
-        //   역할(기본 · 확장 슬롯)은 여기서 정하지 않는다 — 할당한 Owner 는 그룹에 「역할 미지정」으로 들어가고,
-        //   역할과 언어는 고객사 관리 ▸ 공통코드 · 확장 언어 에서 정한다(고치는 곳 한 곳).
-        //   [Owner 함께 할당] — 이 S/O 다음 번호부터(방향 선택) n개를 같은 고객사에 함께 할당한다.
-        const grp = myCo ? groupOfCompany(myCo.id) : undefined;
-        const grpOn = !!grp && (grp.section == null || grp.section === curS) && !isKey;   // Section 미정 그룹은 처음 연결하는 Section 으로 정해진다 `PC-333`
+        // 확장 언어 그룹 — 고객사에는 **기본 코드마다** 그룹이 있다 `PC-357`. 같은 Section 의 그룹 중 하나를 고르면
+        //   이 S/O 와 [확장 Owner] 로 함께 할당하는 Owner 가 그 그룹의 **다음 확장 순서**로 들어간다(연결 안 함이면 일반 전용 코드).
+        //   순서 바꾸기 · 언어는 고객사 관리 ▸ 공통코드 · 확장 언어 에서 정한다.
+        const grps = myCo && !isKey ? groupsOfCompany(myCo.id).filter((g) => g.section === curS) : [];
+        const grpOfCur = grps.find((g) => groupOwners(g).includes(curO));
+        const grp = alloc.grp === undefined ? grpOfCur : grps.find((g) => g.id === alloc.grp);
+        const grpOn = !!grp && !isKey;
         // 이 S/O 가 이미 어느 그룹의 기본 · 확장 Owner 인가(보유 고객사와 상관없이)
         const inGrp = isKey ? undefined : groupOfOwner(curS, curO, kind === "ALL" ? undefined : kind);
         const grpAll = grp ? groupOwners(grp) : [];
@@ -692,8 +693,8 @@ export default function OwnershipMap() {
             });
           }
           const add = [...(alreadyIn ? [] : [curO]), ...extras.map((e) => e.o)];
-          addPendingOwners(grp!.id, curS, add);
-          logActivity("alloc", `${myCo.name} · 확장 언어 그룹에 넣기(역할 미지정) · S${curS} · ${add.map((o) => `O${o}`).join("·")}`, me?.name);
+          addExtOwners(grp!.id, add);
+          logActivity("alloc", `${myCo.name} · 확장 언어 그룹(기본 O${grp!.base})에 확장으로 넣기 · S${curS} · ${add.map((o) => `O${o}`).join("·")}`, me?.name);
           setAlloc(null);
         };
         // 좌표 상태 한 줄 — 셀렉트 없이 상태만 보여 준다 `PC-046`
@@ -747,7 +748,7 @@ export default function OwnershipMap() {
           // 저장 실패(용량 초과 등) 시 사라진 것처럼 보이지 않도록 즉시 경고
           if (persistError()) { alert(`⚠ 할당이 저장되지 않았습니다.\n${persistError()}`); return; }
           logActivity("alloc", `${co.name} · S${curS}/O${curO} · SO 점유(코드 종류 미정) · 사용 서비스 ${companyServiceText(co)}`, me?.name);
-          // 확장 언어 그룹 — 함께 할당할 Owner 를 같은 고객사에 할당하고, 이 S/O 와 함께 그룹에 「역할 미지정」으로 넣는다 `PC-335`
+          // 확장 언어 그룹 — 함께 할당할 Owner 를 같은 고객사에 할당하고, 이 S/O 와 함께 고른 그룹의 확장으로 넣는다 `PC-357`
           if (grpOn) {
             for (const e of extras) {
               if (e.mine) continue;   // 이미 이 고객사가 가진 Owner 는 연결만
@@ -758,8 +759,8 @@ export default function OwnershipMap() {
               });
             }
             const add = [curO, ...extras.map((e) => e.o)];
-            addPendingOwners(grp!.id, curS, add);
-            logActivity("alloc", `${co.name} · 확장 언어 그룹에 넣기(역할 미지정) · S${curS} · ${add.map((o) => `O${o}`).join("·")}`, me?.name);
+            addExtOwners(grp!.id, add);
+            logActivity("alloc", `${co.name} · 확장 언어 그룹(기본 O${grp!.base})에 확장으로 넣기 · S${curS} · ${add.map((o) => `O${o}`).join("·")}`, me?.name);
           }
           setSelB(0); setAlloc(null);
         };
@@ -828,29 +829,33 @@ export default function OwnershipMap() {
             {/* 이미 어느 그룹에 들어 있는 Owner(예전 슬롯 고객사가 가진 좌표 포함) — 소속만 보여준다 */}
             {!isKey && inGrp && !grpOn && (
               <div style={{ marginTop: 10, fontSize: 12, color: "#0e7490", background: "#f0fdff", border: "1px solid #a5f3fc", borderRadius: 8, padding: "7px 10px" }}>
-                🌐 확장 언어 그룹 <b>{inGrp.g.label}</b> · {inGrp.role === "base" ? "기본 Owner" : inGrp.role === "ext" ? "확장 슬롯" : "역할 미지정"} · {inGrp.role === "pending" ? "역할 · 언어는 고객사 관리에서 정합니다" : extLangs(inGrp.g, curO).filter((l) => l.trim()).join(" · ") || "지정된 언어 없음"}
+                🌐 확장 언어 그룹 <b>{inGrp.g.label} · 기본 O{inGrp.g.base}</b> · {inGrp.role === "base" ? "기본 Owner" : `확장 ${inGrp.g.ext.indexOf(curO) + 1}`} · {extLangs(inGrp.g, curO).filter((l) => l.trim()).join(" · ") || "지정된 언어 없음"}
               </div>
             )}
-            {myCo && !isKey && !inGrp && (!grp || (grp.section != null && grp.section !== curS)) && (
+            {myCo && !isKey && !inGrp && grps.length === 0 && (
               <div style={{ marginTop: 10, fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span>🌐 확장 언어 그룹 {grp ? `· S${grp.section} 그룹이라 이 Section(S${curS})에서는 연결하지 않습니다` : "없음"}</span>
-                {!grp && <Link href={`/companies/${myCo.id}`} style={{ color: "#2563eb", textDecoration: "none" }}>언어 확장이 필요하면 고객사 관리 ▸ 공통코드 · 확장 언어 에서 먼저 켜세요 →</Link>}
+                <span>🌐 확장 언어 그룹 없음</span>
+                <Link href={`/companies/${myCo.id}`} style={{ color: "#2563eb", textDecoration: "none" }}>언어 확장이 필요하면 기본 코드를 할당한 뒤 고객사 관리 ▸ 공통코드 · 확장 언어 에서 그룹을 만드세요 →</Link>
               </div>
             )}
-            {grpOn && (!usedSO || holders.length === 1) && (
-              <div style={{ marginTop: 10, border: "1px solid #a5f3fc", background: "#f0fdff", borderRadius: 10, padding: "11px 13px" }}>
-                {/* ① 그룹 안내 — 고객사 · 코드 종류 · 언어 수 · 필요한 Owner 수 `PC-336` */}
+            {grps.length > 0 && (!usedSO || holders.length === 1) && !(inGrp && !grpOn) && (
+              <div style={{ marginTop: 10, border: `1px solid ${grpOn ? "#a5f3fc" : "#e5e7eb"}`, background: grpOn ? "#f0fdff" : "#fafbfc", borderRadius: 10, padding: "11px 13px" }}>
+                {/* ① 연결할 그룹 — 같은 Section 의 그룹(기본 코드) 중 하나 · 연결 안 함이면 일반 전용 코드 `PC-357` */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12 }}>
                   <b style={{ color: "#0e7490" }}>🌐 확장 언어 그룹</b>
-                  <span style={{ color: "#111827", fontWeight: 700 }}>{grp!.company}</span>
-                  <span style={{ color: "#374151" }}>{grp!.kind} · 언어 {grp!.langCount}개 · <b>Owner {needTotal}개 이상 필요</b></span>
-                  {grpAll.length > 0 && <span style={{ color: "#6b7280" }}>· 그룹 Owner {grpAll.length}개{(grp!.pending ?? []).length ? ` (역할 미지정 ${(grp!.pending ?? []).length})` : ""}</span>}
+                  <select value={grp ? String(grp.id) : ""} aria-label="연결할 확장 언어 그룹" disabled={!!grpOfCur}
+                    onChange={(e) => setAlloc({ ...alloc, grp: e.target.value === "" ? null : +e.target.value, more: undefined, from: undefined, manual: false })}
+                    style={{ ...S.input, width: "auto", padding: "4px 8px", fontSize: 12 }}>
+                    <option value="">연결 안 함 (전용 코드)</option>
+                    {grps.map((g) => <option key={g.id} value={String(g.id)}>기본 S{g.section}/O{g.base} 그룹 · 확장 {g.ext.length}개</option>)}
+                  </select>
+                  {grpOn && <span style={{ color: "#374151" }}>언어 {grp!.langCount}개 · <b>Owner {needTotal}개 이상 필요</b> · 그룹 Owner {grpAll.length}개</span>}
                   <span style={{ flex: 1 }} />
-                  <Link href={`/companies/${grp!.companyId}`} style={{ fontSize: 11.5, color: "#2563eb", textDecoration: "none" }}
-                    title="기본 · 확장 슬롯 역할과 언어는 고객사 관리 ▸ 공통코드 · 확장 언어 에서 정합니다">역할 · 언어는 고객사 관리에서 →</Link>
+                  {grpOn && <Link href={`/companies/${grp!.companyId}`} style={{ fontSize: 11.5, color: "#2563eb", textDecoration: "none" }}
+                    title="확장 순서와 언어는 고객사 관리 ▸ 공통코드 · 확장 언어 에서 정합니다">순서 · 언어는 고객사 관리에서 →</Link>}
                 </div>
                 {/* ② 확장 Owner — 개수 · 방향 · 범위(빈 연속 범위를 가까운 순으로 · 직접 입력) `PC-336` `PC-337` */}
-                {(
+                {grpOn && (
                   <div style={{ marginTop: 9 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 12 }}>
                       <span style={{ color: "#6b7280", fontWeight: 700 }}>확장 Owner</span>
@@ -884,7 +889,7 @@ export default function OwnershipMap() {
                       )}
                       <InfoTip title="확장 Owner 범위" width={340}>
                         확장 Owner 는 O{curO} 와 붙어 있지 않아도 됩니다. 개수와 방향(O{curO} 이전 / 이후)을 고르면 그 방향에서 비어 있는 <b>연속 범위</b>를 가까운 순으로 보여 줍니다.
-                        목록에 없으면 [직접 입력] 으로 시작 번호를 넣으세요. 필요한 수보다 많이 할당해도 됩니다. 역할(기본 · 확장)은 고객사 관리에서 정합니다.
+                        목록에 없으면 [직접 입력] 으로 시작 번호를 넣으세요. 필요한 수보다 많이 할당해도 됩니다. 할당한 Owner 는 고른 그룹의 다음 확장 순서로 들어갑니다.
                       </InfoTip>
                     </div>
                     {(extras.length > 0 || !alreadyIn) && (

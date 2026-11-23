@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import { isLangSlotCompany, useLangGroups, groupOfCompany } from "@/lib/langGroups";
+import { isLangSlotCompany, useLangGroups, groupsOfCompany } from "@/lib/langGroups";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { useCaster, accountScope } from "@/lib/accountStore";
 import { useOnboarding } from "@/lib/onboardingStore";
@@ -89,12 +89,13 @@ export function CompaniesWorkspace({ companyId = 0, isNew = false, prefillEmail 
     if (!mounted) return undefined;
     const holder = isCommonCodeCompany(name);
     const subN = holder && !fold ? holderSubs(name) : 0;   // 묶음(▶)이 있으면 WsCoItem 이 이미 「하위 n」을 보인다
-    const lg = groupOfCompany(id);
+    const lgs = groupsOfCompany(id);   // 기본 코드마다 그룹 `PC-357`
+    const lg = lgs.length > 0;
     if (!holder && !lg) return undefined;
     return (
       <>
         {holder && !fold && <span style={{ ...tagSt, background: "#ecfdf5", color: "#047857" }} title="공통코드 사용 고객사(하위) 수">하위 {subN}</span>}
-        {lg && <span style={{ ...tagSt, background: "#ecfeff", color: "#0e7490" }} title={`확장 언어 그룹 · 언어 ${lg.langCount}개`}>확장 언어</span>}
+        {lg && <span style={{ ...tagSt, background: "#ecfeff", color: "#0e7490" }} title={`확장 언어 그룹 ${lgs.length}개 · ${lgs.map((g) => `기본 O${g.base}`).join(" · ")}`}>확장 언어</span>}
       </>
     );
   };

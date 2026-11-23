@@ -13,9 +13,9 @@ import { logActivity } from "@/lib/activityStore";
 import { Company, CompanyDoc, WorkKind, WorkLog, nextId,
          SERVICE, companyServices } from "@/lib/customerData";
 import { SOUND_ITEMS, PEN_ITEMS, rateMapOf, customRateCount, type RateItem } from "@/lib/pricing";
-import { COMMON_CODES, codeKey, codesOfCompany, isCommonCodeCompany, type CommonCode } from "@/lib/commonCodes";
+import { COMMON_CODES, codeKey, codesOfCompany, isCommonCodeCompany, withOwner, type CommonCode } from "@/lib/commonCodes";
 import { codesOfMember, addMember, removeMember, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
-import { langGroupOf, extSlotLangs, extLangText, groupOfCompany, useLangGroups } from "@/lib/langGroups";
+import { langGroupOf, extSlotLangs, extLangText, groupsOfCompany, useLangGroups } from "@/lib/langGroups";
 import { useCommonCodes, hydrateCommonCodes } from "@/lib/commonCodes";
 import { CompanyCodesSection } from "./CompanyCodesSection";
 import { caster, useCaster, accountScope, isActive, dupAccountMsg, type CasterAccount } from "@/lib/accountStore";
@@ -493,10 +493,10 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "",
     { v: "rate", label: "편집 단가", badge: nRate ? `전용 ${nRate}` : undefined },
     { v: "docs", label: "관련 서류", badge: form.docs.length ? String(form.docs.length) : undefined },
     // 공통코드(상위 고객사) 지정 · 확장 언어 그룹 — 할당받은 코드가 있어야 하므로 등록된 고객사에만 `PC-330`
-    { v: "codes", label: "공통코드 · 확장 언어", badge: mounted && company ? [isHolderCo(company.name) ? "상위" : "", groupOfCompany(company.id) ? "🌐" : ""].filter(Boolean).join(" ") || undefined : undefined },
-    // 서비스 티켓 — 고객사별 지정이라 **고객사 정보** 묶음 끝(서비스 계정 위)에 둔다 `PC-173` `PC-180`
-    { v: "ticket", label: "서비스 티켓", badge: isNew || !company ? undefined : String(nTickets) },
+    { v: "codes", label: "공통코드 · 확장 언어", badge: mounted && company ? [isHolderCo(company.name) ? "상위" : "", groupsOfCompany(company.id).length ? "🌐" : ""].filter(Boolean).join(" ") || undefined : undefined },
     { v: "acc", label: "서비스 계정", badge: `${svcList.length ? svcList.map((x) => (x === "CASTERN" ? "casterN" : "폼솔루션")).join("·") + " · " : ""}${svcAccounts.length}`, grp: "운영" },
+    // 서비스 티켓 — **운영** 묶음(서비스 계정 아래)으로 옮겼다 `PC-358` (옛 자리: 고객사 정보 끝 `PC-173` `PC-180`)
+    { v: "ticket", label: "서비스 티켓", badge: isNew || !company ? undefined : String(nTickets) },
     { v: "memo", label: "업무 메모", badge: isNew ? undefined : String(companyLogs.length) },
   ];
   const cls = isHolderCo(form.name) ? ["상위 고객사", "#ecfdf5", "#047857"] : isMemberCo(form.name) ? ["하위 고객사", "#f3e8ff", "#7e22ce"] : ["단독", "#f3f4f6", "#9ca3af"];
@@ -644,7 +644,8 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "",
                                     <input type="checkbox" checked={cOn && !own} disabled={own} style={{ marginTop: 2 }}
                                       onChange={(e) => setMemberCodes((prev) => { const n = new Set(prev); if (e.target.checked) n.add(key); else n.delete(key); return n; })} />
                                     <span style={{ fontSize: 12.5 }}>
-                                      <b style={{ color: own ? "#9ca3af" : cOn ? "#1e3a8a" : "#374151" }}>{c.name}</b>
+                                      {/* 상위 고객사 표기 = 「고객사-owner」 `PC-362` */}
+                                      <b style={{ color: own ? "#9ca3af" : cOn ? "#1e3a8a" : "#374151" }}>{withOwner(c.company, c.o)}</b>
                                       {own && <span style={{ ...S.tag, marginLeft: 6, fontSize: 9.5, background: "#e5e7eb", color: "#6b7280", fontWeight: 700 }}>대표(자기) 코드</span>}
                                       <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>{c.label}</div>
                                       {/* 이 공통코드에 그룹으로 묶인 확장 언어 슬롯 — 범위만 보인다(사용 슬롯 나열은 하지 않는다) `PC-329`

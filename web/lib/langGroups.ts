@@ -1,9 +1,11 @@
 "use client";
 
-// 확장 언어 슬롯 그룹 — 고객사에 속한 그룹 `PC-327` `PC-330`
-// - **그룹 먼저(B안)**: 고객사 관리 ▸ 공통코드 · 확장 언어 에서 그룹을 켜고(코드 종류 · 필요 언어 수),
-//   SOBP 맵 할당 창에서는 **영역(Owner)만** 할당한다 — 할당한 Owner 는 그룹에 「역할 미지정」으로 들어간다.
-//   기본 · 확장 슬롯 역할과 언어는 고객사 관리에서만 정한다(고치는 곳 한 곳) `PC-335`
+// 확장 언어 슬롯 그룹 — 고객사에 속한 그룹 `PC-327` `PC-330` `PC-357`
+// - **기본 코드마다 한 그룹**: 고객사 한 곳이 그룹을 여러 개 가질 수 있다(예: O4 그룹 = O5 · O6 / O20 그룹 = O7) `PC-357`
+//   그룹은 고객사 관리 ▸ 공통코드 · 확장 언어 에서 **할당받은 코드 중 기본 코드를 골라** 만든다.
+//   코드 종류는 따로 고르지 않는다 — 기본 코드의 할당 종류를 따른다(할당 종류가 미정이면 종류를 따지지 않는다).
+// - 어느 그룹에도 들지 않은 코드는 **일반 전용 코드**다(「역할 미지정」 대기 없음 `PC-357` — `PC-335` 를 바꿈).
+//   확장 역할과 언어는 고객사 관리에서만 정한다(고치는 곳 한 곳).
 // - Owner 하나 = 언어 슬롯 4개. 기본 Owner 가 슬롯 1~4, 확장 Owner 는 연결한 순서대로 5~8 · 9~12 …
 //   언어에는 정해진 순서가 없다 — 펌웨어팀과 정한 대로 슬롯마다 언어를 넣는다(빈 칸 허용).
 // - 교재 등록(확장 언어 슬롯 고르기) · SOBP 맵 OWNER 카드 · 코드 관리 정보 「확장 언어 슬롯」 이 이 그룹을 읽는다.
@@ -15,12 +17,12 @@ export type LangGroup = {
   id: number;
   companyId: number; company: string;   // 그룹을 가진 고객사(고객사 관리)
   label: string;                        // 화면 표시 이름(= 고객사명)
-  kind: CodeKind;                       // 코드 종류(PDS2 · PDS3) — 교재 등록에서 이 종류의 기본 코드일 때만 슬롯을 고른다
-  section: number | null;               // 아직 할당 전이면 null — SOBP 할당 창에서 처음 연결한 Owner 의 Section 으로 정해진다 `PC-333`
-  base: number | null;                  // 기본 Owner — 아직 할당 전이면 null(SOBP 할당 때 정한다)
+  kind?: CodeKind;                      // 코드 종류 — 기본 코드의 할당 종류(없으면 미정 = 종류를 따지지 않는다) `PC-357`
+  section: number | null;               // 기본 코드의 Section
+  base: number | null;                  // 기본 Owner — 그룹을 만들 때 고른다 `PC-357`
   langCount: number;                    // 필요 언어 수 — 필요 확장 Owner 수 안내용
   ext: number[];                        // 확장 슬롯 Owner — 연결한 순서 = 슬롯 번호 순서
-  pending?: number[];                   // 역할 미지정 — SOBP 맵에서 이 그룹 고객사에 할당했지만 기본/확장을 아직 안 정한 Owner `PC-335`
+  pending?: number[];                   // (폐지) 역할 미지정 — 그룹 밖 코드는 일반 전용 코드 `PC-357`. 옛 저장값 읽기용
   langs: Record<string, string[]>;      // Owner → 슬롯 4칸 언어("" = 비어 있음)
 };
 
@@ -49,36 +51,47 @@ export function hydrateLangGroups() {
   if (hydrated || typeof window === "undefined") return;
   hydrated = true;
   try { const raw = localStorage.getItem(KEY); if (raw) list = JSON.parse(raw) as LangGroup[]; } catch { /* 기본값 유지 */ }
-  // 연결된 Owner 가 하나도 없는 그룹은 Section 미정 — 예전에 기본값(3)으로 채워 저장된 값을 비운다 `PC-333`
-  list = list.map((g) => (g.base == null && g.ext.length === 0 && !(g.pending ?? []).length && g.section != null ? { ...g, section: null } : g));
+  // 옛 저장값 정리 `PC-357` — 「역할 미지정」은 버린다(그룹 밖 = 전용 코드) · 기본 코드가 없는 그룹은 첫 확장 Owner 를 기본으로, 그것도 없으면 지운다
+  list = list.flatMap((g) => {
+    const { pending: _p, ...rest } = g;
+    if (rest.base != null) return [rest];
+    if (!rest.ext.length) return [];
+    const [b, ...ext] = rest.ext;
+    return [{ ...rest, base: b, ext }];
+  });
   queueMicrotask(notify);   // 렌더 중에 처음 읽혀도 다른 컴포넌트를 그 자리에서 갱신하지 않게 — 알림은 렌더 뒤에
 }
 export const allLangGroups = () => { hydrateLangGroups(); return list; };
 export const useLangGroups = () =>
   useSyncExternalStore((f) => { subs.add(f); return () => { subs.delete(f); }; }, () => version, () => 0);
 
-export const groupOfCompany = (companyId: number) => allLangGroups().find((g) => g.companyId === companyId);
-/** Owner 가 어느 그룹의 기본 / 확장 슬롯인지 — kind 를 주면 그 종류의 그룹만 */
-export function groupOfOwner(section: number, owner: number, kind?: CodeKind): { g: LangGroup; role: "base" | "ext" | "pending" } | undefined {
+/** 고객사의 그룹 전부 — 기본 코드 순(Section · Owner) `PC-357` */
+export const groupsOfCompany = (companyId: number) =>
+  allLangGroups().filter((g) => g.companyId === companyId).sort((a, b) => (a.section ?? 0) - (b.section ?? 0) || (a.base ?? 0) - (b.base ?? 0));
+/** 그룹 이름 — 「{고객사} · S{s}/O{기본}」 */
+export const groupName = (g: Pick<LangGroup, "company" | "section" | "base">) => `${g.company} · S${g.section ?? "?"}/O${g.base ?? "?"}`;
+/** Owner 가 어느 그룹의 기본 / 확장 슬롯인지 — kind 를 주면 그 종류의 그룹만(그룹 종류가 미정이면 따지지 않는다) */
+export function groupOfOwner(section: number, owner: number, kind?: CodeKind): { g: LangGroup; role: "base" | "ext" } | undefined {
   for (const g of allLangGroups()) {
-    if (g.section !== section || (kind && kind !== g.kind)) continue;
+    if (g.section !== section || (kind && g.kind && kind !== g.kind)) continue;
     if (g.base === owner) return { g, role: "base" };
     if (g.ext.includes(owner)) return { g, role: "ext" };
-    if ((g.pending ?? []).includes(owner)) return { g, role: "pending" };
   }
   return undefined;
 }
-/** 그룹에 든 Owner 전부 — 기본 · 확장 · 역할 미지정 */
-export const groupOwners = (g: Pick<LangGroup, "base" | "ext" | "pending">) => [...(g.base != null ? [g.base] : []), ...g.ext, ...(g.pending ?? [])];
-/** SOBP 할당 창 — 할당한 Owner 를 그룹에 「역할 미지정」으로 넣는다(역할은 고객사 관리에서) `PC-335` */
-export function addPendingOwners(id: number, section: number, owners: number[]) {
+/** 그룹에 든 Owner 전부 — 기본 · 확장 */
+export const groupOwners = (g: Pick<LangGroup, "base" | "ext">) => [...(g.base != null ? [g.base] : []), ...g.ext];
+/** SOBP 할당 창 — 할당한 Owner 를 그룹의 다음 확장 순서로 넣는다(다른 그룹에 든 Owner 는 건너뛴다) `PC-357` */
+export function addExtOwners(id: number, owners: number[]) {
   hydrateLangGroups();
+  const g0 = list.find((g) => g.id === id);
+  if (!g0) return;
+  const taken = new Set(list.filter((g) => g.section === g0.section).flatMap((g) => groupOwners(g)));
   list = list.map((g) => {
     if (g.id !== id) return g;
-    const have = new Set(groupOwners(g));
-    const pending = [...(g.pending ?? [])];
-    for (const o of owners) if (!have.has(o)) { pending.push(o); have.add(o); }
-    return { ...g, section: g.section ?? section, pending };
+    const ext = [...g.ext];
+    for (const o of owners) if (!taken.has(o)) { ext.push(o); taken.add(o); }
+    return settleLangs({ ...g, ext });
   });
   persist(); notify();
 }
@@ -152,7 +165,7 @@ export const slotStart = (g: LangGroup, owner: number) => {
 
 /** 이 교재 코드가 확장 언어 슬롯을 쓸 수 있는 기본 코드인가 */
 export const langGroupOf = (k: string, s: number, o: number): LangGroup | undefined =>
-  allLangGroups().find((g) => g.section === s && g.base === o && codeKind(k, s) === g.kind);
+  allLangGroups().find((g) => g.section === s && g.base === o && (!g.kind || codeKind(k, s) === g.kind));
 
 /** Owner 의 슬롯 · 언어(언어가 있는 칸만) */
 export const extSlotLangs = (g: LangGroup, owner: number): { slot: number; lang: string }[] => {
@@ -172,8 +185,9 @@ export const ownerSlots = (g: LangGroup, owner: number) => {
   return four(g.langs[owner]).map((lang, i) => ({ slot: start + i, lang }));
 };
 
-/** 교재에 붙는 확장 슬롯 기록 — 슬롯 Owner */
-export type ExtSlot = { o: number };
+/** 교재에 붙는 확장 코드 기록 — 확장 Owner + 그 코드의 casterN 연동 값(자동) `PC-359`
+ *  pj = .nproj 파일명 · f = ncp2 파일명 · bytes = ncp2 크기 · nmod = ncp2 최종수정 · src = 편집 유형 · d = 최초 등록일 */
+export type ExtSlot = { o: number; pj?: string; f?: string; bytes?: number; nmod?: string; src?: string; d?: string; man?: ("pj" | "f" | "bytes" | "nmod" | "src" | "d")[] };   // man = 직접 입력한 칸 `PC-361`
 
 /** 옛 방식으로 슬롯 Owner 를 따로 받은 고객사인가 — 할당받은 S/O 가 **모두** 다른 고객사 그룹의 확장 슬롯이면 그렇다 `PC-330`
  *  (예: 「Common 추가 언어 슬롯-964」 · 「Cake-1003」). 고객사 관리 목록에서는 숨기고, 그 Owner 는 그룹 고객사 아래에서 보인다.
