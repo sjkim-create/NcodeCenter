@@ -541,7 +541,7 @@ export default function OwnershipMap() {
                 {noBookRecs.slice(0, 12).map((r, i) => (
                   <div key={i} style={{ fontSize: 10.5, color: "#374151", padding: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.title}>· {r.title || "(제목 없음)"}</div>
                 ))}
-                {noBookRecs.length > 12 && <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>… 외 {noBookRecs.length - 12}건 — 코드 관리 정보 ▸ OID 관리대장</div>}
+                {noBookRecs.length > 12 && <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>… 외 {noBookRecs.length - 12}건</div>}{/* 옛 「코드 관리 정보 ▸ OID 관리대장」 안내는 탭 폐지로 뺐다 `PC-325` */}
               </div>
             )}
           <div onScroll={onScrollMore(setBLimit)} style={{ maxHeight: "calc(100vh - 282px)", overflowY: "auto" }}>
