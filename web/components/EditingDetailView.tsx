@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { S, Field, AutoTextarea } from "./ui";
 import { InfoTip } from "./KeyWorkspaceUI";
-import { langGroupOf, groupOfOwner, extLangText, type ExtSlot } from "@/lib/langGroups";
+import { langGroupOf, groupOfOwner, extLangText, ownerSlots, type ExtSlot } from "@/lib/langGroups";
 import { CN_FIELDS, CN_SOURCES, setManual, type CnKey } from "@/lib/casterLink";
 import { allEditBooks, alignLegacyServiceTickets } from "@/lib/bookOwnership";
 import { codeKind, codeTypeRangeErr, kindMeta, type CodeKind } from "@/lib/codeKind";
@@ -41,9 +41,9 @@ type BR = {
   //   rs = 항목별 단가맵 · rsAt = 적용 시점(YYYY-MM-DD). 없는(구) 교재는 현재 고객사 단가로 계산.
   rs?: RateMap; rsAt?: string;
   cu?: string;   // 사용 고객사 — 공유 OWNER(레퍼런스 코드)일 때만 사용
-  // 확장 언어 코드 — 그룹 기본 코드 교재면 그룹의 확장 코드가 **모두 자동으로** 같은 Book 으로 붙는다(코드마다 casterN 연동 값) `PC-327` `PC-359`
+  // 확장 언어 코드 — 그룹 기본 코드 교재면 **고른** 확장 코드가 같은 Book 으로 붙는다 `PC-366`(코드마다 casterN 연동 값) `PC-327` `PC-359`
   ext?: ExtSlot[];
-  // Compound 9언어 이상 심볼 수량 — cx[i] = (9 + i)언어 · 그룹 코드 수 × 4 언어까지 `PC-359`
+  // Compound 9언어 이상 심볼 수량 — cx[i] = (9 + i)언어 · (기본 + 고른 확장 코드 수) × 4 언어까지 `PC-367`
   cx?: number[];
   _cust?: string;   // 전체 고객사 보기에서만 채워지는 보유 고객사명 `PC-040`
   nhist?: { date: string; movedAt: string; by: string }[];   // 완료→진행중 전환 시 보관하는 ncp2 최종수정 이력
@@ -272,13 +272,24 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   // 같은 사용 고객사가 따로 등록한 슬롯 교재
   const extLegacy = (k: string, s2: number, o: number, b: number, cu = "") =>
     slotBooks(k, s2, o, b).filter((x) => (x.cu ?? "") === cu);
-  // 그룹 기본 코드 교재의 확장 코드 — 고객사 관리 그룹 설정을 따라 **모두 자동**(이미 받은 casterN 연동 값은 그대로) `PC-359`
+  // 그룹 기본 코드 교재의 확장 코드 — 교재마다 **고른 것만**(그룹 확장 순서대로 · 받은 casterN 연동 값은 그대로) `PC-366`
+  //   (옛: 그룹의 확장 코드를 모두 자동으로 `PC-359`)
   const extOf = (r: BR): ExtSlot[] => {
     const g = langGroupOf(r.k, r.s, r.o);
-    return g ? g.ext.map((o) => (r.ext ?? []).find((e) => e.o === o) ?? { o }) : [];
+    if (!g) return [];
+    const mine = r.ext ?? [];
+    return g.ext.flatMap((o) => mine.filter((e) => e.o === o).slice(0, 1));
   };
-  // Compound 언어 수 상한 — 그룹 기본 코드 교재면 그룹 코드 수 × 4(기본 4 · 확장 하나마다 4), 아니면 단가표 그대로(8) `PC-359`
-  const cmpMax = (r: BR) => { const g = langGroupOf(r.k, r.s, r.o); return g ? 4 * (1 + g.ext.length) : 8; };
+  // 확장 언어 코드 고르기 · 빼기 `PC-366` — 뺄 때 그 코드의 casterN 연동 값이 있으면 확인
+  const addExt = (os: number[]) => setEditing((ed) => (ed ? { ...ed, row: { ...ed.row, ext: [...(ed.row.ext ?? []), ...os.filter((o) => !(ed.row.ext ?? []).some((e) => e.o === o)).map((o) => ({ o }))] } } : ed));
+  const rmExt = (o: number) => {
+    const e0 = (editing?.row.ext ?? []).find((e) => e.o === o);
+    if (e0 && (e0.pj || e0.f || e0.nmod || e0.bytes) && !confirm(`O${o} 의 casterN 연동 값(프로젝트명 · ncp2)이 함께 지워집니다. 빼시겠습니까?`)) return;
+    setEditing((ed) => (ed ? { ...ed, row: { ...ed.row, ext: (ed.row.ext ?? []).filter((e) => e.o !== o) } } : ed));
+  };
+  // Compound 언어 수 상한 — 그룹 기본 코드 교재면 (기본 + **고른** 확장 코드 수) × 4, 아니면 단가표 그대로(8) `PC-367`
+  //   (옛: 그룹 설정의 코드 수 × 4 `PC-359`)
+  const cmpMax = (r: BR) => (langGroupOf(r.k, r.s, r.o) ? 4 * (1 + extOf(r).length) : 8);
 
   // 고객사(owner) 전환 시 해당 고객사 데이터로 재로드 (localStorage 우선, 없으면 시드)
   useEffect(() => {
@@ -539,7 +550,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   const changeState = (next: string) => {
     if (!editing) return;
     const cur = stateOf(editing.row.use);
-    // 그룹 기본 코드 교재는 **모든 코드 탭**(기본 + 확장)에 ncp2 최종수정이 있어야 완료 `PC-359`
+    // 그룹 기본 코드 교재는 **모든 코드 탭**(기본 + 고른 확장 `PC-366`)에 ncp2 최종수정이 있어야 완료 `PC-359`
     const extNow = extOf(editing.row);
     if (next === "완료" && extNow.length) {
       const miss = [...(!(editing.row.nmod ?? "").trim() ? [`O${editing.row.o}(기본)`] : []), ...extNow.filter((e) => !(e.nmod ?? "").trim()).map((e) => `O${e.o}`)];
@@ -575,8 +586,8 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
       if (ctErr) { alert(ctErr); return; }
     }
     // 공유 코드의 사용 고객사 필수 검사는 없앴다 — 사용 고객사는 서비스 티켓에서 자동으로 정해진다 `PC-289`
-    // 확장 언어 코드 — 그룹 기본 코드 교재면 그룹의 확장 코드를 **모두** 붙인다(고르지 않는다) `PC-359`
-    //   같은 Book 을 다른 고객사 교재가 쓰는 확장 코드가 있으면 막는다 · 기본 코드가 아니면 버린다
+    // 확장 언어 코드 — 그룹 기본 코드 교재면 **고른** 확장 코드만 붙인다 `PC-366`
+    //   고른 코드 중 같은 Book 을 다른 고객사 교재가 쓰는 것이 있으면 막는다 · 기본 코드가 아니면 버린다
     let extRow = editing.row;
     if (!langGroupOf(editing.row.k, editing.row.s, editing.row.o)) {
       if ((editing.row.ext ?? []).length) extRow = { ...editing.row, ext: undefined };
@@ -585,7 +596,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
       const cu0 = (editing.row.cu ?? "").trim();
       const bad = ext.find((e) => extTakenBy(editing.row.k, editing.row.s, e.o, editing.row.b, cu0));
       if (bad) {
-        alert(`S${editing.row.s}/O${bad.o}/B${editing.row.b} 은 이미 다른 고객사 교재가 쓰고 있습니다 — ${extTakenBy(editing.row.k, editing.row.s, bad.o, editing.row.b, cu0)}. 확장 언어 코드는 그룹 설정대로 모두 붙으므로 다른 Book 을 고르세요.`);
+        alert(`S${editing.row.s}/O${bad.o}/B${editing.row.b} 은 이미 다른 고객사 교재가 쓰고 있습니다 — ${extTakenBy(editing.row.k, editing.row.s, bad.o, editing.row.b, cu0)}. 확장 언어 코드에서 O${bad.o} 를 빼거나 다른 Book 을 고르세요.`);
         return;
       }
       extRow = { ...editing.row, ext };
@@ -1114,25 +1125,42 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                       </Field>
                     );
                   })()}
-                  {/* 확장 언어 코드 — 고르지 않는다. 고객사 관리 그룹 설정대로 **모두 자동**으로 같은 Book 을 쓴다 `PC-359`
-                      (옛 [+ 슬롯] 고르기 `PC-327` 폐지) · 다른 고객사 교재가 그 Book 을 쓰면 빨간 「사용 중」 — 저장이 막힌다 */}
+                  {/* 확장 언어 코드 — 셀렉트로 **여러 개 고른다**(고른 칩 ✕ 로 빼기) `PC-366` (옛: 그룹 설정대로 모두 자동 `PC-359`)
+                      · 항목마다 그 코드에 할당된 언어 슬롯이 보인다 · 고른 코드만 casterN 연동 탭이 생긴다
+                      · 다른 고객사 교재가 그 Book 을 쓰는 코드는 고를 수 없다(「사용 중」) */}
                   {(() => {
                     const g = langGroupOf(editing.row.k, editing.row.s, editing.row.o);
                     if (!g) return null;
                     const cu0 = (editing.row.cu ?? "").trim();
+                    const sel = extOf(editing.row).map((e) => e.o);
+                    const takenOf = (o: number) => extTakenBy(editing.row.k, editing.row.s, o, editing.row.b, cu0);
+                    const left = g.ext.filter((o) => !sel.includes(o));
+                    const leftFree = left.filter((o) => !takenOf(o));
                     return (
-                      <Field label={`확장 언어 코드 (자동 · ${g.ext.length}개)`}>
-                        <div style={{ ...S.input, background: "#f9fafb", display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", minHeight: 34, padding: "3px 6px", maxHeight: 96, overflowY: "auto" }}>
-                          {g.ext.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>확장 코드 없음</span>}
-                          {g.ext.map((o, i) => {
-                            const taken = extTakenBy(editing.row.k, editing.row.s, o, editing.row.b, cu0);
-                            return (
-                              <span key={o} title={`확장 ${i + 1} · S${editing.row.s}/O${o}/B${editing.row.b} — ${extLangText(g, o)}${taken ? `\n다른 고객사가 사용 중 — ${taken}` : ""}`}
-                                style={{ ...S.tag, fontSize: 11, background: taken ? "#fef2f2" : "#ecfeff", color: taken ? "#b91c1c" : "#0e7490", fontWeight: 700 }}>
-                                🌐 O{o}{taken ? " 사용 중" : ""}
-                              </span>
-                            );
-                          })}
+                      <Field label={`확장 언어 코드 · 복수 선택 (${sel.length} / ${g.ext.length}개)`}>
+                        <div style={SUB5}>
+                          <select style={{ ...S.input, ...SEL_2 }} value="" aria-label="확장 언어 코드 추가" disabled={locked || left.length === 0}
+                            onChange={(e) => { const v = e.target.value; if (v) addExt(v === "*" ? leftFree : [Number(v)]); }}>
+                            <option value="">{left.length ? "＋ 확장 언어 코드 추가…" : "확장 언어 코드를 모두 골랐습니다"}</option>
+                            {leftFree.length > 1 && <option value="*">모두 추가 ({leftFree.length}개)</option>}
+                            {left.map((o) => {
+                              const tk = takenOf(o);
+                              return <option key={o} value={o} disabled={!!tk}>O{o} · 확장 {g.ext.indexOf(o) + 1} — {extLangText(g, o)}{tk ? " (사용 중)" : ""}</option>;
+                            })}
+                          </select>
+                          <div style={CHIPS_3}>
+                            {sel.length === 0 && <span style={{ fontSize: 12, color: "#9ca3af" }}>{g.ext.length ? "선택한 확장 언어 코드 없음" : "확장 코드 없음"}</span>}
+                            {sel.map((o) => {
+                              const tk = takenOf(o);
+                              return (
+                                <span key={o} title={`확장 ${g.ext.indexOf(o) + 1} · S${editing.row.s}/O${o}/B${editing.row.b} — ${extLangText(g, o)}${tk ? `\n다른 고객사가 사용 중 — ${tk}` : ""}`}
+                                  style={{ ...S.tag, fontSize: 11, background: tk ? "#fef2f2" : "#ecfeff", color: tk ? "#b91c1c" : "#0e7490", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                  🌐 O{o}{tk ? " 사용 중" : ""}
+                                  {!locked && <button type="button" aria-label={`O${o} 빼기`} onClick={() => rmExt(o)} style={{ border: 0, background: "none", color: "#dc2626", cursor: "pointer", padding: 0 }}>✕</button>}
+                                </span>
+                              );
+                            })}
+                          </div>
                         </div>
                       </Field>
                     );
@@ -1147,6 +1175,29 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                     </Field>
                   )}
                 </div>
+                {/* 고른 확장 언어 코드의 언어 슬롯 — 기본 코드(슬롯 1~4)와 함께 코드마다 한 줄 `PC-366` */}
+                {(() => {
+                  const g = langGroupOf(editing.row.k, editing.row.s, editing.row.o);
+                  const sel = extOf(editing.row).map((e) => e.o);
+                  if (!g || !sel.length) return null;
+                  const line = (o: number, label: string, base: boolean) => (
+                    <div key={o} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 12 }}>
+                      <span style={{ minWidth: 96, fontWeight: 700, color: base ? "#1d4ed8" : "#0e7490" }}>{label} · O{o}</span>
+                      {ownerSlots(g, o).map((x) => (
+                        <span key={x.slot} style={{ ...S.tag, fontSize: 11, background: x.lang ? "#fff" : "#f9fafb", color: x.lang ? "#374151" : "#c0c6cf", border: "1px solid #eef0f4" }}>
+                          {x.slot} {x.lang || "비어 있음"}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                  return (
+                    <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 8, border: "1px solid #a5f3fc", background: "#f0fdff", display: "flex", flexDirection: "column", gap: 5 }}>
+                      <div style={{ fontSize: 11.5, fontWeight: 700, color: "#0e7490" }}>언어 슬롯 · 코드 {1 + sel.length}개</div>
+                      {line(editing.row.o, "기본", true)}
+                      {sel.map((o) => line(o, `확장 ${g.ext.indexOf(o) + 1}`, false))}
+                    </div>
+                  );
+                })()}
                 <div style={{ fontSize: 11.5, marginTop: 8, color: sh ? "#6b21a8" : "#6b7280" }}>
                   {sh
                     ? <>
@@ -1270,11 +1321,12 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               · 직접 넣은 칸은 「직접」 표시 · casterN 에서 자동 값이 들어오면 **자동 값이 우선**(덮어쓴다 — lib/casterLink applyAutoLink)
               · 같은 코드 + 같은 ncp2 파일명으로 다시 들어오면 이 교재를 최신 값으로 갱신
               · 편집 유형 = 유입 경로 · 최초 등록일 = 첫 생성 요청 날짜(옛 발급일자)
-              · 그룹 기본 코드 교재는 **코드마다 탭**(기본 + 확장 k) `PC-359` */}
+              · 그룹 기본 코드 교재는 **코드마다 탭**(기본 + 위에서 고른 확장 코드만 `PC-366`) `PC-359` */}
           {(() => {
             const exts = extOf(editing.row);
+            const gx = langGroupOf(editing.row.k, editing.row.s, editing.row.o);
             const tabs: { label: string; o: number }[] = exts.length
-              ? [{ label: "기본", o: editing.row.o }, ...exts.map((e, i) => ({ label: `확장 ${i + 1}`, o: e.o }))]
+              ? [{ label: "기본", o: editing.row.o }, ...exts.map((e) => ({ label: `확장 ${(gx?.ext.indexOf(e.o) ?? 0) + 1}`, o: e.o }))]
               : [];
             const t = tabs.length ? Math.min(cnTab, tabs.length - 1) : 0;
             const valOf = (i: number) => (i === 0 ? editing.row : exts[i - 1]);
@@ -1359,11 +1411,11 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               <div style={rowHead}>소리펜 심볼 입력{lock(!penOn)}
                 {langGroupOf(editing.row.k, editing.row.s, editing.row.o) && (
                   <span style={{ fontSize: 11.5, color: "#0e7490", fontWeight: 400, marginLeft: 8 }}
-                    title="확장 언어 그룹 — 기본 코드 4언어 + 확장 코드 하나마다 4언어(고객사 관리 그룹 설정)">🌐 Compound {cmpMax(editing.row)}언어까지</span>
+                    title="확장 언어 그룹 — 기본 코드 4언어 + 고른 확장 언어 코드 하나마다 4언어">🌐 Compound {cmpMax(editing.row)}언어까지</span>
                 )}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                {/* Compound 항목은 **그룹 코드 수 × 4 언어까지** — 기본 코드만이면 4언어, 확장 1 이면 8언어, 확장 2 면 12언어 `PC-359`
+                {/* Compound 항목은 **(기본 + 고른 확장 코드 수) × 4 언어까지** — 고른 확장이 없으면 4언어, 1개면 8언어, 2개면 12언어 `PC-367` `PC-359`
                     (상한보다 큰 항목은 감춘다 · 이미 값이 있으면 그대로 보인다) · 9언어 이상은 8언어 뒤에 이어 붙인다 */}
                 {SOUND_LABELS.flatMap((lab, i) => {
                   const key = SOUND_QTY[i].key, mx = cmpMax(editing.row);
