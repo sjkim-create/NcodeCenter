@@ -15,7 +15,8 @@ import { Sc } from "./sobp";
 import { WS_CARD, WS_HEAD_BTN, WsCoHead, WsCoGroup, WsCoItem, WsFillScroll } from "./KeyWorkspaceUI";
 import { allEditBooks, ownerOfBook } from "@/lib/bookOwnership";
 import { allServiceTickets, hydrateServiceTickets, useServiceTickets } from "@/lib/serviceTicketStore";
-import { isCommonCodeCompany, withOwner } from "@/lib/commonCodes";
+import { COMMON_CODES, hydrateCommonCodes, isCommonCodeCompany, useCommonCodes, withOwner } from "@/lib/commonCodes";
+import { hydrateMembers, membersOf, useCommonMembers } from "@/lib/commonMembers";
 import { groupOfOwner, hydrateLangGroups, useLangGroups, isLangSlotCompany } from "@/lib/langGroups";
 
 type Sub = { name: string; books: number; need: number };   // 하위 고객사 · 교재 수 · 그중 티켓 필요 수
@@ -54,8 +55,10 @@ export default function EditingProjectsView() {
   const [sub, setSub] = useState("");                     // 고른 하위 고객사 — 상위 고객사 교재를 그 사용 고객사로 거른다 `PC-293`
   const [mounted, setMounted] = useState(false);          // 티켓 · 교재 저장분은 브라우저에만 있다 — 마운트 뒤에 계산(하이드레이션 불일치 방지)
   const tv = useServiceTickets();
+  const cmv = useCommonMembers();   // 하위 등록 변경 시 하위 목록 갱신 `PC-365`
+  const ccv = useCommonCodes();     // 공통코드 지정 변경 시
 
-  useEffect(() => { setCustom(loadCustomCustomers()); hydrateServiceTickets(); setMounted(true); }, []);
+  useEffect(() => { setCustom(loadCustomCustomers()); hydrateServiceTickets(); hydrateCommonCodes(); hydrateMembers(); setMounted(true); }, []);
 
   // 상위 고객사(공용 코드 보유) → 하위 고객사별 교재 수 `PC-293`
   //   하위 = 그 Book 에 서비스 티켓을 받은 고객사(소유 `PC-291`) · 티켓이 없으면 등록된 사용 고객사(티켓 필요 `PC-290`)
@@ -76,9 +79,24 @@ export default function EditingProjectsView() {
       x.books++; if (o.by !== "ticket" && codeKind(bk.k, bk.s) !== "OID") x.need++;   // OID 는 서비스 티켓 대상이 아니다
       g.set(name, x); acc.set(bk.cust, g);
     }
+    // 고객사 관리 ▸ 공통코드 사용 고객사(하위 등록)도 하위로 넣는다 — 교재가 아직 없어도 0권으로 보인다 `PC-365`
+    //   (중앙 멤버십 = 히스토리 시드 + 화면 등록분 · 이름은 공백 · 대소문자를 무시하고 교재 쪽 이름과 합친다)
+    const nz = (x: string) => x.replace(/\s+/g, "").toLowerCase();
+    for (const cc of COMMON_CODES) {
+      if (cc.historyOnly) continue;
+      if (pds !== "ALL" && codeKind(cc.k, cc.s) !== pds) continue;
+      const g = acc.get(cc.company) ?? new Map<string, Sub>();
+      const have = new Set([...g.keys()].map(nz));
+      for (const mb of membersOf(cc.k, cc.s, cc.o)) {
+        if (nz(mb.name) === nz(cc.company) || have.has(nz(mb.name))) continue;
+        have.add(nz(mb.name));
+        g.set(mb.name, { name: mb.name, books: 0, need: 0 });
+      }
+      if (g.size) acc.set(cc.company, g);
+    }
     acc.forEach((g, cust) => m.set(cust, [...g.values()].sort((a, b) => a.name.localeCompare(b.name, "ko"))));
     return m;
-  }, [mounted, tv, pds]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mounted, tv, pds, cmv, ccv]);   // eslint-disable-line react-hooks/exhaustive-deps
   const isParent = (name: string) => isCommonCodeCompany(name);
   const subCount = useMemo(() => [...subsOf.values()].reduce((a, s) => a + s.length, 0), [subsOf]);
 
