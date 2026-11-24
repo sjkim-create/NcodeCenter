@@ -169,9 +169,20 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   // 고객사 식별자 — owner 번호는 여러 고객사가 공유할 수 있어(예: 커먼 코드) **고객사명**을 함께 넘긴다 `PC-045`
   const custKey = custName || (sp.get("c") ?? "");
   const bookMode = bookIdx != null;
-  const q$ = custKey ? `?c=${encodeURIComponent(custKey)}` : "";
-  const listHref = `/projects/editing/${encodeURIComponent(owner)}${q$}`;
-  const bookHref = (i: number | "new") => `/projects/editing/${encodeURIComponent(owner)}/book/${i}${q$}`;
+  // 하위 고객사로 들어온 경우 — 교재 추가 · 수정 · 목록 사이에서 ?cu={하위 고객사} 로 이어 가고 머리에 「상위 ▸ 하위」 `PC-368`
+  const cuParam = sp.get("cu") ?? "";
+  const qs = (cu: string, extra?: Record<string, string>) => {
+    const p = new URLSearchParams();
+    if (custKey) p.set("c", custKey);
+    if (cu) p.set("cu", cu);
+    for (const [k, v] of Object.entries(extra ?? {})) p.set(k, v);
+    const t = p.toString();
+    return t ? `?${t}` : "";
+  };
+  const listHref = `/projects/editing/${encodeURIComponent(owner)}${qs(cuParam)}`;
+  // 목록에서 하위 고객사(사용 고객사 필터 = 그 고객사)로 보고 있을 때만 넘긴다 — 필터를 바꿨으면 넘기지 않는다
+  const subNow = () => { const v = initCu || cuParam; return v && fCu === v ? v : ""; };
+  const bookHref = (i: number | "new", extra?: Record<string, string>) => `/projects/editing/${encodeURIComponent(owner)}/book/${i}${qs(subNow(), extra)}`;
   // 편집 프로젝트에서 사용자가 추가한 고객사(시드에 없는) — 교재 페이지에서도 같은 고객사를 찾기 위해 함께 본다
   const [customCusts, setCustomCusts] = useState<{ customer: string; owner: string; codeKinds: string[] }[]>([]);
   useEffect(() => { setCustomCusts(loadCustomCustomers()); }, []);
@@ -293,7 +304,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
 
   // 고객사(owner) 전환 시 해당 고객사 데이터로 재로드 (localStorage 우선, 없으면 시드)
   useEffect(() => {
-    setEditing(null); setQ(""); setPage(1); setFS(null); setFO(null); setFB(null); setFK(""); setFSt(""); setFCu(initCu ?? ""); setFOwnerCust(""); setSort({ key: null, dir: 1 });
+    setEditing(null); setQ(""); setPage(1); setFS(null); setFO(null); setFB(null); setFK(""); setFSt(""); setFCu(initCu ?? cuParam); setFOwnerCust(""); setSort({ key: null, dir: 1 });
     setLoadedKey(null);
     if (allCustomers) { setRows(base); setLoadedKey(key); return; }   // 전체 보기는 캐시를 쓰지 않는다
     try { const raw = localStorage.getItem(key); setRows(raw ? norm(JSON.parse(raw)) : base); }
@@ -503,7 +514,7 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
   // 교재 편집은 별도 페이지 — 목록에서는 이동만 하고, 편집 상태는 그 페이지에서 만든다.
   const openAdd = () => router.push(bookHref("new"));
   // [복제] — 같은 코드(S/O/B)에 작업물을 하나 더 만든다. 코드는 고정, 기본 정보·심볼은 초기화 `PC-112`
-  const openDup = (idx: number) => router.push(`${bookHref("new")}${q$ ? "&" : "?"}dup=${idx}`);
+  const openDup = (idx: number) => router.push(bookHref("new", { dup: String(idx) }));
   const openEdit = (idx: number) => router.push(bookHref(idx));
 
   // 편집 페이지 진입 시 대상 교재를 폼에 올린다 (rows 가 localStorage 로 채워진 뒤)
@@ -655,6 +666,12 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
           </Link>
         )}
         <div style={{ fontSize: 18, fontWeight: 700 }}>{cust.customer}</div>
+        {/* 하위 고객사로 들어온 교재 추가 · 수정 · 목록 — 「상위 ▸ 하위」 `PC-368` */}
+        {!embedded && cuParam && (bookMode || fCu === cuParam) && (
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#7e22ce" }} title={`하위 고객사 — ${cust.customer} 코드를 쓰는 ${cuParam}`}>
+            <span style={{ color: "#9ca3af", fontWeight: 400, marginRight: 6 }}>▸</span>{cuParam}
+          </div>
+        )}
         <span style={{ ...S.tag, fontFamily: "ui-monospace,monospace" }}>owner {cust.owners && cust.owners.length ? cust.owners.join("·") : owner}</span>
         {[...new Set((cust.bookRows ?? []).map((r) => codeKind(r.k, r.s)))].map((k) => <span key={k} style={{ ...S.tag, background: kindMeta(k).bg, color: kindMeta(k).color, fontWeight: 700 }}>{kindMeta(k).short}</span>)}
         {/* 확장 언어 그룹 고객사 — [전체] [🌐 확장 언어 n] 로 확장 언어 교재만 거른다 `PC-344` */}
