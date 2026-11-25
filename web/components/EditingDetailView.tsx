@@ -811,9 +811,9 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
       <div style={{ ...S.card, padding: 0, overflow: "auto" }}>
         <table style={{ ...S.table, textAlign: "center", minWidth: 1120 }}>
           <thead>
-            {/* 열 순서 `PC-369` — No · 코드 · S/O/B · 교재명 · NCP2명 · 페이지 · 심볼 개수 · (고객사) · (사용 고객사) · 최초 등록일 · ncp2 최종수정 · 메모 · 정산 · (복제)
+            {/* 열 순서 `PC-369` `PC-370` — No · (고객사) · (사용 고객사) · 코드 · S/O/B · 교재명 · NCP2명 · 페이지 · 심볼 개수 · 최초 등록일 · ncp2 최종수정 · 메모 · 정산 · (복제)
                  프로젝트명 · 상태 열은 없앴다 */}
-            <tr>{["No", "코드", "S/O/B", "교재명", "NCP2명", "페이지", "심볼 개수", ...(readOnly ? ["고객사"] : []), ...(cuMode ? ["사용 고객사"] : []), "최초 등록일", "ncp2 최종수정", "메모", "정산 (청구액)", ...(readOnly ? [] : ["복제"])].map((h) => {
+            <tr>{["No", ...(readOnly ? ["고객사"] : []), ...(cuMode ? ["사용 고객사"] : []), "코드", "S/O/B", "교재명", "NCP2명", "페이지", "심볼 개수", "최초 등록일", "ncp2 최종수정", "메모", "정산 (청구액)", ...(readOnly ? [] : ["복제"])].map((h) => {
               const k = h === "교재명" ? "t" : h === "NCP2명" ? "p" : h === "최초 등록일" ? "d" : null;   // 정렬 가능한 항목 — 옛 발급일 `PC-284` · p = NCP2명(옛 프로젝트명 `PC-369`)
               return (
                 <th key={h} style={{ ...S.th, textAlign: h === "S/O/B" ? "left" : "center", cursor: k ? "pointer" : "default", userSelect: "none" }}
@@ -825,6 +825,25 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
             {/* 항목명 아래 필터 — S 선택 → O 목록, O 선택 → B 목록이 종속되어 좁혀짐 */}
             <tr>
               <th style={filterTh} />
+              {/* 고객사 (전체 보기) */}
+              {readOnly && (
+                <th style={filterTh}>
+                  <select value={fOwnerCust} onChange={(e) => { setFOwnerCust(e.target.value); setPage(1); }} style={{ ...fSel, maxWidth: 130 }} title="고객사">
+                    <option value="">고객사 전체</option>
+                    {ownerCustOpts.map((v) => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </th>
+              )}
+              {/* 사용 고객사 — 비어 있는 교재만 따로 볼 수 있다 `PC-109` */}
+              {cuMode && (
+                <th style={filterTh}>
+                  <select value={fCu} onChange={(e) => setFCu(e.target.value)} style={{ ...fSel, maxWidth: 120 }} title="사용 고객사">
+                    <option value="">전체</option>
+                    <option value={CU_NONE}>(티켓 없음)</option>
+                    {custOpts.map((v) => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </th>
+              )}
               {/* 코드(PDS) */}
               <th style={filterTh}>
                 <select value={pdsLock || fK} onChange={(e) => setFK(e.target.value)} disabled={!!pdsLock} style={{ ...fSel, minWidth: 58, ...(pdsLock ? { background: "#f3f4f6", color: "#6b7280" } : {}) }} title={pdsLock ? "목록의 PDS 필터로 고정됨" : "코드 종류"}>
@@ -862,25 +881,6 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
               <th style={filterTh} />
               {/* 페이지 · 합계 */}
               {Array.from({ length: 2 }, (_, i) => <th key={i} style={filterTh} />)}
-              {/* 고객사 (전체 보기) */}
-              {readOnly && (
-                <th style={filterTh}>
-                  <select value={fOwnerCust} onChange={(e) => { setFOwnerCust(e.target.value); setPage(1); }} style={{ ...fSel, maxWidth: 130 }} title="고객사">
-                    <option value="">고객사 전체</option>
-                    {ownerCustOpts.map((v) => <option key={v} value={v}>{v}</option>)}
-                  </select>
-                </th>
-              )}
-              {/* 사용 고객사 — 비어 있는 교재만 따로 볼 수 있다 `PC-109` */}
-              {cuMode && (
-                <th style={filterTh}>
-                  <select value={fCu} onChange={(e) => setFCu(e.target.value)} style={{ ...fSel, maxWidth: 120 }} title="사용 고객사">
-                    <option value="">전체</option>
-                    <option value={CU_NONE}>(티켓 없음)</option>
-                    {custOpts.map((v) => <option key={v} value={v}>{v}</option>)}
-                  </select>
-                </th>
-              )}
               {/* 최초 등록일 · ncp2 최종수정 · 메모 · 정산 (· 복제) */}
               {Array.from({ length: readOnly ? 4 : 5 }, (_, i) => <th key={`t${i}`} style={filterTh} />)}
             </tr>
@@ -889,6 +889,13 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
             {pageRows.map(([r, idx]) => (
               <tr key={idx} onClick={() => { if (!readOnly) openEdit(idx); }} title={readOnly ? "전체 보기는 조회 전용 — 왼쪽에서 고객사를 고르면 수정할 수 있습니다" : "클릭하면 수정"} style={{ borderTop: "1px solid #eef0f4", cursor: readOnly ? "default" : "pointer" }}>
                 <td style={{ ...S.td, color: "#9ca3af", fontFamily: "ui-monospace,monospace" }}>{idx + 1}</td>
+                {readOnly && <td style={{ ...S.td, fontSize: 11.5, textAlign: "left", maxWidth: 140, fontWeight: 600 }}>{r._cust ?? "-"}</td>}
+                {cuMode && (
+                  <td style={{ ...S.td, fontSize: 11.5, textAlign: "left", maxWidth: 130 }}>
+                    {/* 서비스 티켓의 고객사(자동) · 없으면 **티켓 없음** `PC-289` */}
+                    {cuBadge(r)}
+                  </td>
+                )}
                 <td style={S.td}><span style={{ ...S.tag, background: kindMeta(codeKind(r.k, r.s)).bg, color: kindMeta(codeKind(r.k, r.s)).color, fontWeight: 700 }}>{kindMeta(codeKind(r.k, r.s)).short}</span></td>
                 <td style={{ ...S.td, textAlign: "left" }}>
                   {/* S · O · B 칩 옆에 확장 언어 슬롯 칩 [확장] {o} — 같은 칩 모양으로 **한 줄에**(아래로 내리지 않는다) `PC-327`
@@ -935,13 +942,6 @@ export default function EditingDetailView({ owner: ownerProp, custName, embedded
                 <td style={{ ...S.td, fontWeight: 700, whiteSpace: "nowrap" }}>
                   {tSum(r).toLocaleString()}
                 </td>
-                {readOnly && <td style={{ ...S.td, fontSize: 11.5, textAlign: "left", maxWidth: 140, fontWeight: 600 }}>{r._cust ?? "-"}</td>}
-                {cuMode && (
-                  <td style={{ ...S.td, fontSize: 11.5, textAlign: "left", maxWidth: 130 }}>
-                    {/* 서비스 티켓의 고객사(자동) · 없으면 **티켓 없음** `PC-289` */}
-                    {cuBadge(r)}
-                  </td>
-                )}
                 <td style={{ ...S.td, fontSize: 11, color: "#6b7280" }}>{r.d || "-"}</td>
                 <td style={{ ...S.td, fontSize: 11, color: r.nmod ? "#374151" : "#d1d5db" }}>{r.nmod || "-"}</td>
                 <td style={S.td}>{(r.logs?.length ?? 0) > 0 ? <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb" }}>{r.logs!.length}</span> : <span style={{ color: "#d1d5db" }}>0</span>}</td>
