@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """MEM-02 고객사 등록·수정 — 고객사 관리 3단 「고객사 | 섹션 메뉴 | 본문」 `PC-136`~`PC-144` `PC-204`.
 
-등록(/companies/new) · 상세(/companies/{id}) 같은 구조. 섹션 = 기본 정보 · 편집 단가 · 관련 서류 · 공통코드 · 확장 언어 · 서비스 티켓 / 서비스 계정 · 업무 메모.
-공통코드 · 확장 언어(S27~S29) = 상위 고객사(공통코드) 카드 + 확장 언어 그룹 카드 `PC-330` (web/components/CompanyCodesSection.tsx).
+등록(/companies/new) · 상세(/companies/{id}) 같은 구조. 섹션 = 고객사 정보(기본 정보 · 편집 단가 · 관련 서류 · 공통코드 · 확장 언어) / 운영(서비스 계정 · 서비스 티켓 · 업무 메모) `PC-358`.
+공통코드 · 확장 언어(S27~S30) = 탭 [상위 고객사 (공통코드)] [확장 언어 그룹] `PC-362` — 확장 언어 그룹은 기본 코드마다 한 그룹 `PC-357`,
+할당 코드를 모두 펼친 「코드 지정」 `PC-364` · 모두 지정해야 저장 `PC-363` (web/components/CompanyCodesSection.tsx).
 진행 상태는 머리말 오른쪽 진행중/사업 종료, 서비스 계정은 「카드 목록 | 상세」 + 서비스 권한 탭.
 등록과 저장 순서는 PRD §4.8.
 """
@@ -223,7 +224,7 @@ def header(new=False, closed=False, popover=False, name=CO, n_acc=3, n_on=2, svc
 
 NAVS = (('base', '기본 정보', '', '고객사 정보'), ('rate', '편집 단가', '전용 2', ''), ('docs', '관련 서류', '3', ''),
         ('codes', '공통코드 · 확장 언어', '', ''),   # 관련 서류 아래 · 배지 상위 / 🌐 · 등록 화면에서는 잠김 `PC-330`
-        ('ticket', '서비스 티켓', '2', ''), ('acc', '서비스 계정', 'casterN · 3', '운영'), ('memo', '업무 메모', '5', ''))   # 서비스 티켓 = 고객사 정보 묶음 `PC-180`
+        ('acc', '서비스 계정', 'casterN · 3', '운영'), ('ticket', '서비스 티켓', '2', ''), ('memo', '업무 메모', '5', ''))   # 서비스 티켓 = 운영 묶음(서비스 계정 아래) `PC-358`
 
 
 def nav(active='base', new=False, locked=False, dirty=(), codes=''):
@@ -308,7 +309,8 @@ def sec_card(title, desc, inner, new=False, dirty=False):
 def common_block(parent=False, empty=False):
     items = [('Common-21', 'PDS2 · S3/O21', False, False), ('네오노트-0-27', 'PDS3 · S0/O27', False, False),
              ('네오노트-3-27', 'PDS3 · S3/O27', True, False), ('네오노트-1012', 'PDS3 · S3/O1012', False, False),
-             ('스마트클래스키트-1013', 'PDS3 · S3/O1013', False, False)]
+             ('스마트클래스키트-1013', 'PDS3 · S3/O1013', False, False),
+             ('시원스쿨-4', 'PDS3 · S0/O4', False, False)]   # 화면에서 지정한 공통코드(S27) — 이름 = 「고객사-owner」 `PC-362`
     if empty:
         items = [(n, l, False, d) for n, l, _c, d in items]
     if parent:
@@ -617,12 +619,13 @@ def ticket_form(err='', open_=False, start='451'):
                f('Valid Until Time (사용기간 끝) *', '2027-10-19'), expiry_note(open_), e))
 
 
-# ── 공통코드 · 확장 언어 `PC-330` ── ① 상위 고객사(공통코드) 카드 + ② 확장 언어 그룹 카드 (web/components/CompanyCodesSection.tsx)
+# ── 공통코드 · 확장 언어 `PC-330` ── 탭 [상위 고객사 (공통코드)] [확장 언어 그룹] `PC-362` (web/components/CompanyCodesSection.tsx)
+# 확장 언어 그룹 = 기본 코드마다 한 그룹 `PC-357` · 할당 코드를 모두 펼친 「코드 지정」 `PC-364` · 모두 지정해야 저장 `PC-363`
 CC = CARD + ';margin-bottom:12px'
 CHD = 'padding:13px 18px;border-bottom:1px solid #eef0f4;display:flex;align-items:center;gap:8px'
-CFT = 'padding:11px 18px;border-top:1px solid #eef0f4;display:flex;align-items:center;gap:8px'
+CFT = 'padding:11px 18px;border-top:1px solid #eef0f4;display:flex;align-items:center;gap:8px;flex-wrap:wrap'
 BREAK = '<div style="flex-basis:100%;height:0"></div>'
-LG = '시원스쿨'   # 확장 언어 그룹 예시 고객사 (S28 · S29)
+LG = '시원스쿨'   # 공통코드 · 확장 언어 예시 고객사 (S27~S30) — 할당 S0 · O4 · O5 · O6 · O7 · O20
 
 
 def ii():
@@ -631,7 +634,7 @@ def ii():
 
 
 def dd(v, w=None, tone=None, ph=False, dis=False, flex=False):
-    """셀렉트 모양 — v ▾"""
+    """셀렉트 모양 — v ▾ · tone = (배경, 글자, 테두리)"""
     st = 'display:inline-flex;align-items:center;justify-content:space-between;gap:6px;padding:4px 8px;font-size:12px;'
     if w:
         st += 'width:%dpx;' % w
@@ -645,8 +648,30 @@ def dd(v, w=None, tone=None, ph=False, dis=False, flex=False):
             % (' ph' if ph else '', st, v))
 
 
+def drop(options, cur=0):
+    """펼친 셀렉트 목록 — options 중 cur 번째가 지금 값"""
+    return ('<div style="position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:5;min-width:170px;background:#fff;border:1px solid #e5e7eb;'
+            'border-radius:8px;box-shadow:0 10px 24px rgba(15,23,42,.14);padding:4px;font-size:12px;font-weight:400;color:#374151">'
+            + ''.join('<div style="padding:5px 8px;border-radius:6px;white-space:nowrap;%s">%s</div>'
+                      % ('background:#eef6ff;color:#1d4ed8;font-weight:700' if i == cur else '', t) for i, t in enumerate(options))
+            + '</div>')
+
+
+def codes_tabs(active='holder', n_holder=1, n_lang=2):
+    """섹션 위 탭 — 상위 고객사(공통코드) 지정과 확장 언어 그룹은 다른 일 `PC-362` · n = 공통코드 수 · 그룹 수"""
+    out = ''
+    for v, lb, n in (('holder', '상위 고객사 (공통코드)', n_holder), ('lang', '확장 언어 그룹', n_lang)):
+        on = v == active
+        out += ('<span style="padding:8px 14px;margin-bottom:-1px;font-size:13px;border-bottom:2px solid %s;color:%s;font-weight:%s">%s'
+                '<span style="font-size:10.5px;border-radius:5px;padding:0 6px;margin-left:6px;font-weight:700;background:%s;color:%s">%d</span></span>'
+                % ('#2563eb' if on else 'transparent', '#2563eb' if on else '#4b5563', '700' if on else '400', lb,
+                   '#eef6ff' if on else '#f3f4f6', '#2563eb' if on else '#6b7280', n))
+    return '<div style="display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid #e5e7eb">' + out + '</div>'
+
+
 def so_card(s, o, common=None, members=0, custom=True):
-    """할당받은 S/O 하나 — 공통코드면 「공통코드 · PDS」 · 하위 n곳 · [지정 해제]/기본 등록, 아니면 전용 코드 · 종류 · [공통코드로 지정] `PC-333`"""
+    """할당받은 S/O 하나 — 공통코드면 「공통코드 · PDS」 · 하위 n곳 · [지정 해제]/기본 등록, 아니면 전용 코드 · [공통코드로 지정] `PC-333`
+    전용 코드의 코드 종류(PDS3 / PDS2) 셀렉트는 없앴다 — 할당 기록의 종류를 따르고 미정이면 PDS3 `PC-358`"""
     if common:
         inner = (sobp_chips((s, o)) + tg('공통코드 · ' + common, '#ecfdf5', '#047857') + BREAK +
                  '<span style="font-size:11.5px;color:#6b7280">하위 고객사 %d곳</span><span style="flex:1"></span>' % members +
@@ -654,7 +679,7 @@ def so_card(s, o, common=None, members=0, custom=True):
                   else '<span style="font-size:11px;color:#9ca3af">기본 등록</span>'))
         bd, bg = '#a7f3d0', '#f0fdf8'
     else:
-        inner = (sobp_chips((s, o)) + '<span style="font-size:11px;color:#9ca3af">전용 코드</span>' + BREAK + dd('PDS3') +
+        inner = (sobp_chips((s, o)) + '<span style="font-size:11px;color:#9ca3af">전용 코드</span>' + BREAK +
                  '<span class="btn pri" style="padding:4px 10px;font-size:12px;margin-left:auto">공통코드로 지정</span>')
         bd, bg = '#eef0f4', '#fafbfc'
     return ('<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;border-radius:9px;padding:9px 11px;'
@@ -662,7 +687,7 @@ def so_card(s, o, common=None, members=0, custom=True):
 
 
 def holder_card(cards):
-    """① 상위 고객사 (공통코드) — cards: (s, o, common, members, custom)"""
+    """① 상위 고객사 (공통코드) 탭 — cards: (s, o, common, members, custom)"""
     n = sum(1 for c in cards if c[2])
     st = ('<span style="font-size:11.5px;color:#047857;font-weight:700">상위 고객사 · 공통코드 %d건</span>' % n if n
           else '<span style="font-size:11.5px;color:#9ca3af">공통코드 없음</span>')
@@ -672,80 +697,99 @@ def holder_card(cards):
             + grid + '</div></div></div>')
 
 
-ROLE_T = {'기본': ('#eef6ff', '#2563eb', '#bfdbfe'), 'ext': ('#ecfeff', '#0e7490', '#a5f3fc'), 'none': ('#fffbeb', '#b45309', '#fde68a')}
 LCOLS = 'display:grid;grid-template-columns:190px repeat(4,minmax(64px,1fr))'
+BASE_T = ('#eef6ff', '#2563eb', '#bfdbfe')
+EXT_T = ('#ecfeff', '#0e7490', '#a5f3fc')
 
 
-def lang_row(s, o, role, langs, start):
-    """표 한 줄 = 코드 하나 — 「S · O · [역할 ▾]」 + 언어 4칸 · 코드 없이 언어만 든 자리는 「[코드 선택 ▾] [역할]」 `PC-346` `PC-347`"""
-    tone = ROLE_T['기본' if role == '기본' else ('ext' if role.startswith('확장') else 'none')]
-    if o is not None:
-        head = sobp_chips((s, o)) + dd(role, tone=tone, flex=True)
-    else:
-        head = (dd('코드 선택', tone=('#fff', '#b45309', '#fde68a'), flex=True) +
-                '<span style="font-size:9.5px;border-radius:5px;padding:2px 6px;font-weight:700;background:%s;color:%s">%s</span>'
-                % (tone[0], tone[1], role))
+def assign_grid(cells, open_=None):
+    """코드 지정 — 할당된 코드를 모두 펼쳐 놓고 코드마다 셀렉트로 바로 고른다 `PC-364`
+    cells: (s, o, 값) — 값: '' 지정 안 함 · '기본' · '확장 · 기본 O{n}' · 'grp:{고객사}'(다른 고객사 그룹에 든 코드 — 바꿀 수 없음)
+    open_: (o, options, cur) — 그 코드의 셀렉트를 펼친 그림"""
+    grouped = any(v == '기본' for _s, _o, v in cells)
+    out = ''
+    for s, o, v in cells:
+        if v.startswith('grp:'):
+            bd, bg, fg = '#e5e7eb', '#f9fafb', '#6b7280'
+            right = '<span style="font-size:11px;color:%s;margin-left:auto">%s 그룹</span>' % (fg, v[4:])
+        else:
+            if v == '기본':
+                bd, bg, fg = '#bfdbfe', '#f5f9ff', '#1d4ed8'
+            elif v:
+                bd, bg, fg = '#a5f3fc', '#f0fdff', '#0e7490'
+            else:   # 지정 안 함 — 그룹이 있으면 노랑
+                bd, bg, fg = ('#fcd34d', '#fffbeb', '#b45309') if grouped else ('#eef0f4', '#fafbfc', '#b45309')
+            dl = drop(open_[1], open_[2]) if (open_ and open_[0] == o) else ''
+            right = ('<span style="position:relative;display:flex;flex:1;min-width:0">' + dd(v or '지정 안 함', tone=('#fff', fg, '#e5e7eb'), flex=True)
+                     + dl + '</span>')
+        out += ('<div style="display:flex;align-items:center;gap:6px;border-radius:9px;padding:7px 10px;border:1px solid %s;background:%s">%s%s</div>'
+                % (bd, bg, sobp_chips((s, o)), right))
+    return ('<div><div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">코드 지정 '
+            '<span style="font-weight:400;color:#9ca3af">· %d개</span></div>'
+            '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">%s</div></div>' % (len(cells), out))
+
+
+def lang_chips(items, need):
+    """등록한 언어 n / m — 슬롯 번호 순 칩 `PC-334`"""
+    ch = ''.join('<span style="font-size:11px;border-radius:5px;padding:2px 8px;background:%s;color:%s">'
+                 '<span style="font-family:ui-monospace,monospace;opacity:.7;margin-right:3px">%d</span>%s</span>'
+                 % ((('#ecfeff', '#0e7490') if own else ('#f3f4f6', '#6b7280')) + (slot, lang)) for slot, lang, own in items)
+    return ('<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:12px">'
+            '<b style="color:#374151;margin-right:2px">등록한 언어 %d / %d</b>%s</div>'
+            % (len(items), need, ch or '<span style="color:#9ca3af">아직 없음</span>'))
+
+
+def lang_row(s, o, label, tone, langs, start, dl=''):
+    """표 한 줄 = 코드 하나 — 「S · O · [역할 ▾]」 + 언어 4칸 `PC-346` `PC-347`"""
+    head = sobp_chips((s, o)) + '<span style="position:relative;display:flex;flex:1;min-width:0">' + dd(label, tone=tone, flex=True) + dl + '</span>'
     cells = ''
     for i, v in enumerate(langs):
         cells += ('<div style="padding:5px 6px;display:flex;align-items:center;gap:4px">'
                   '<span style="font-size:10.5px;color:#9ca3af;font-family:ui-monospace,monospace;min-width:16px;text-align:right">%d</span>'
                   '<div class="inp%s" style="padding:5px 7px;font-size:12px;flex:1;min-width:0;white-space:nowrap;overflow:hidden">%s</div></div>'
                   % (start + i, '' if v else ' ph', v or '지정된 언어 없음'))
-    return ('<div style="' + LCOLS + ';align-items:center;border-top:1px solid #eef0f4%s">' % (';background:#fffdf5' if o is None else '') +
+    return ('<div style="' + LCOLS + ';align-items:center;border-top:1px solid #eef0f4">'
             '<div style="padding:6px 8px;display:flex;align-items:center;gap:4px;min-width:0">' + head + '</div>' + cells + '</div>')
 
 
-def lang_chips(items, need):
-    """등록한 언어 n / m — 슬롯 번호 순 칩(할당 전 자리 언어는 흐리게) `PC-334`"""
-    ch = ''.join('<span style="font-size:11px;border-radius:5px;padding:2px 8px;background:%s;color:%s">'
-                 '<span style="font-family:ui-monospace,monospace;opacity:.7;margin-right:3px">%d</span>%s</span>'
-                 % ((('#ecfeff', '#0e7490') if own else ('#f3f4f6', '#6b7280')) + (slot, lang)) for slot, lang, own in items)
-    return ('<div style="margin-top:10px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:12px">'
-            '<b style="color:#374151;margin-right:2px">등록한 언어 %d / %d</b>%s</div>'
-            % (len(items), need, ch or '<span style="color:#9ca3af">아직 없음</span>'))
-
-
-def add_lang_row(code='코드 선택', role='역할', open_=()):
-    """＋ 언어 등록 [코드 ▾] [역할 ▾] [추가] ⓘ — open_ 이면 코드 셀렉트를 펼친 그림 `PC-338` `PC-347`"""
-    ready = code != '코드 선택' and role != '역할'
-    drop = ''
-    if open_:
-        drop = ('<div style="position:absolute;top:calc(100% + 4px);left:0;z-index:5;min-width:150px;background:#fff;border:1px solid #e5e7eb;'
-                'border-radius:8px;box-shadow:0 10px 24px rgba(15,23,42,.14);padding:4px;font-size:12px">'
-                + '<div style="padding:5px 8px;color:#9ca3af">코드 선택</div>'
-                + ''.join('<div style="padding:5px 8px;border-radius:6px;%s">%s</div>' % ('background:#eef6ff;color:#1d4ed8;font-weight:700' if i == 0 else '', t)
-                          for i, t in enumerate(open_)) + '</div>')
-    return ('<div style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px">'
-            '<b style="color:#374151">＋ 언어 등록</b><span style="position:relative;display:inline-flex">' + dd(code, ph=code == '코드 선택') + drop + '</span>'
-            + dd(role, dis=code == '코드 선택', ph=role == '역할') +
-            '<span class="btn pri" style="padding:4px 12px;font-size:12px%s">추가</span>' % ('' if ready else ';opacity:.5') + ii() + '</div>')
-
-
-def lang_card(state='none', status='', section='S0', need=8, pending=0, chips=(), rows=(), add='', dirty=False):
-    """② 확장 언어 그룹 — state: none(사용 안 함) · on(그룹 있음)"""
-    if state == 'none':
-        return ('<div style="' + CC + '"><div style="' + CHD + '"><b style="font-size:14px">확장 언어 그룹</b>'
-                '<span style="font-size:11.5px;color:#9ca3af">사용 안 함</span>' + ii() + '<span style="flex:1"></span>'
-                '<span class="btn pri" style="padding:5px 12px;font-size:12px">＋ 확장 언어 그룹 만들기</span></div></div>')
-    flds = ('<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:start">'
-            '<div class="fld"><span class="lbl">코드 종류</span>' + dd('PDS3') + '</div>'
-            '<div class="fld"><span class="lbl">Section</span><div class="inp ro">%s</div></div>'
-            '<div class="fld"><span class="lbl">필요 언어 수</span><div class="inp">%d</div></div></div>' % (section, need))
-    stl = ('<div style="margin-top:10px;font-size:12px;display:flex;align-items:center;gap:8px">%s<span style="flex:1"></span>'
-           '<span style="color:#2563eb">SOBP 맵에서 영역 할당 →</span></div>'
-           % (('<span style="color:#b45309">역할 미지정 %d개</span>' % pending) if pending else ''))
+def group_block(s, base, ext, need, langs, new=False, base_open=None):
+    """그룹 칸 하나 — 머리 🌐 기본 S · O · 확장 O… · 필요 언어 수 / 등록한 언어 칩 / 코드 · 역할 · 언어 표 `PC-357` `PC-364`
+    [그룹 삭제] · [＋ 언어 등록] 없음 — 넣고 빼기는 위 코드 지정에서. base_open = 첫 줄 [기본 ▾] 을 펼친 그림의 항목 `PC-362`"""
+    owners = [base] + list(ext)
+    four = lambda o: (tuple(langs.get(o, ())) + ('', '', '', ''))[:4]
+    chips = [(p * 4 + 1 + i, l, True) for p, o in enumerate(owners) for i, l in enumerate(four(o)) if l]
+    head = ('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;background:#f0fdff;border-bottom:1px solid #cffafe">'
+            '<b style="font-size:12.5px;color:#0e7490">🌐 기본</b>' + sobp_chips((s, base)) +
+            (tg('새 그룹', '#fef3c7', '#b45309') if new else '') +
+            '<span style="font-size:11.5px;color:#6b7280">확장 %s</span><span style="flex:1"></span>'
+            '<span style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151">필요 언어 수'
+            '<span class="inp" style="width:70px;padding:4px 8px">%d</span></span></div>'
+            % (' · '.join('O' + x for x in ext) if ext else '없음', need))
     th = ('<div style="' + LCOLS + ';background:#fafbfc;font-size:11.5px;color:#6b7280;font-weight:600">'
           '<div style="padding:7px 10px;display:flex;align-items:center;gap:4px">코드 · 역할' + ii() + '</div>'
           + ''.join('<div style="padding:7px 6px">슬롯 %d</div>' % i for i in range(1, 5)) + '</div>')
-    table = ('<div style="margin-top:12px;border:1px solid #eef0f4;border-radius:10px;overflow:visible">' + th
-             + ''.join(lang_row(*r) for r in rows) + '</div>')
-    ft = (('<span style="font-size:12px;color:#b45309">● 저장하지 않은 변경이 있습니다</span>' if dirty else '') +
-          '<span style="flex:1"></span><span class="btn gho" style="color:#dc2626">그룹 삭제</span>'
-          '<span class="btn gho"%s>취소</span><span class="btn pri">저장</span>' % ('' if dirty else ' style="opacity:.5"'))
-    return ('<div style="' + CC + '"><div style="' + CHD + '"><b style="font-size:14px">확장 언어 그룹</b>'
-            '<span style="font-size:11.5px;color:#0e7490;font-weight:700">' + status + '</span>' + ii() + '</div>'
-            '<div style="padding:14px 18px">' + flds + stl + lang_chips(chips, need) + table + add + '</div>'
-            '<div style="' + CFT + '">' + ft + '</div></div>')
+    rows = lang_row(s, base, '기본', BASE_T, four(base), 1, drop(base_open) if base_open else '')
+    for k, o in enumerate(ext, 1):
+        rows += lang_row(s, o, '확장 %d' % k, EXT_T, four(o), k * 4 + 1)
+    return ('<div style="border:1px solid %s;border-radius:10px;overflow:visible">' % ('#67e8f9' if new else '#a5f3fc') + head +
+            '<div style="padding:10px 12px">' + lang_chips(chips, need) +
+            '<div style="margin-top:10px;border:1px solid #eef0f4;border-radius:10px;overflow:visible">' + th + rows + '</div></div></div>')
+
+
+def lang_tab(cells, groups='', status='', n_free=0, dirty=False, err='', open_=None):
+    """② 확장 언어 그룹 탭 — 머리 · 코드 지정 · 그룹 칸들 · 카드 아래 [취소] [저장](그룹 칸들을 한 번에 `PC-363`)"""
+    st = (('<span style="font-size:11.5px;color:#0e7490;font-weight:700">%s</span>' % status) if status
+          else '<span style="font-size:11.5px;color:#9ca3af">사용 안 함</span>')
+    if status and n_free:
+        st += '<span style="font-size:11.5px;color:#b45309;font-weight:700">· 지정 안 함 %d개</span>' % n_free
+    ft = ''
+    if groups:
+        left = (('<span style="font-size:12px;color:#dc2626;font-weight:700;flex-basis:100%%">⚠ %s</span>' % err) if err
+                else ('<span style="font-size:12px;color:#b45309">● 저장하지 않은 변경이 있습니다</span>' if dirty else ''))
+        ft = ('<div style="' + CFT + '">' + left + '<span style="flex:1"></span>'
+              '<span class="btn gho"%s>취소</span><span class="btn pri">저장</span></div>' % ('' if (dirty or err) else ' style="opacity:.5"'))
+    return ('<div style="' + CC + '"><div style="' + CHD + '"><b style="font-size:14px">확장 언어 그룹</b>' + st + ii() + '</div>'
+            '<div style="padding:12px 18px;display:flex;flex-direction:column;gap:12px">' + assign_grid(cells, open_) + groups + '</div>' + ft + '</div>')
 
 
 FR = '고객사 상세 · 수정'
@@ -792,8 +836,9 @@ def build():
               '<code>MEM-01</code> 행 클릭으로 진입. 기본 정보 섹션에 업체 정보와 <b>공통코드 사용 고객사</b>가 있고, 아래 [저장]은 <b>이 섹션만</b> 저장한다 '
               '<code>PC-136</code>. 머리말 오른쪽에서 진행중/사업 종료를 바꾼다(S9).',
               frame('MEM-01', FR, layout(H, nav('base'), base_section()), height=1200),
-              [('섹션 메뉴', '클릭', '그 섹션 본문', '고객사 정보(기본 정보 · 편집 단가 · 관련 서류 · 공통코드 · 확장 언어 · 서비스 티켓) / 운영(서비스 계정 · 업무 메모)'),
+              [('섹션 메뉴', '클릭', '그 섹션 본문', '고객사 정보(기본 정보 · 편집 단가 · 관련 서류 · 공통코드 · 확장 언어) / 운영(서비스 계정 · <b>서비스 티켓</b> · 업무 메모) — 서비스 티켓은 운영 묶음 서비스 계정 아래 <code>PC-358</code>'),
                ('공통코드 체크', '체크', '하위 고객사 등록', '기본 정보 [저장] 때 함께 반영 · 코드 할당 없음'),
+               ('공통코드 카드 이름', '—', '「고객사-owner」', '상위 고객사 이름을 <b>{고객사}-{owner}</b> 로 — 예: 화면에서 지정한 시원스쿨 S0/O4 → <b>시원스쿨-4</b>(S27) · 이름이 이미 「-owner」 로 끝나면 그대로(Common-21 · 네오노트-0-27) <code>PC-362</code>'),
                ('Common-21 카드 셋째 줄', '마우스 올림', '툴팁', '<b>🌐 확장 언어 슬롯 S3/O964~983</b> — 범위만(사용 슬롯 나열 없음) · 툴팁에 언어가 지정된 슬롯 <b>S3/O964 — 5 베트남어 · 6 러시아어 …</b> <code>PC-329</code>'),
                ('왼쪽 목록 이름 옆 배지', '—', '하위 n · 확장 언어', '상위 고객사면 <b>하위 {n}</b>(▶ 묶음이 있으면 그 「하위 n」 하나만) · 확장 언어 그룹이 있으면 <b>확장 언어</b>(툴팁 <b>확장 언어 그룹 · 언어 {n}개</b>) — 예: Common-21 「하위 50」「확장 언어」 · 네오노트-3-27 「하위 149」 <code>PC-342</code>'),
                ('[저장]', '클릭', '기본 정보만 저장', '<b>저장됨 · 기본 정보</b> · <code>LOG-01</code>'),
@@ -955,69 +1000,102 @@ def build():
                ('[정산 저장]', '클릭', '저장', '<b>정산 정보가 저장되었습니다.</b> · 금액 0 이면 <b>유료는 금액을 입력해야 합니다.</b> · <code>LOG-01</code>'),
                ('[티켓 정보] 탭', '클릭', 'S23', '')]))
 
-    # ── 공통코드 · 확장 언어 `PC-330` ──
-    B.append(('S27', '공통코드 · 확장 언어 — 그룹 없음', '빈 상태',
-              '<b>등록된 고객사</b>의 메뉴 <b>[공통코드 · 확장 언어]</b>(관련 서류 아래). 위 카드 <b>① 상위 고객사 (공통코드)</b> 는 이 고객사가 '
-              '<b>SOBP 맵에서 할당받은 S/O</b> 를 하나씩 작은 카드로 보이고, 전용 코드는 여기서 <b>[공통코드로 지정]</b> 한다 <code>PC-333</code>. '
-              '아래 카드 <b>② 확장 언어 그룹</b> 은 아직 없어 「사용 안 함」 과 <b>[＋ 확장 언어 그룹 만들기]</b> 만 보인다(고객사당 한 그룹 · 그룹 먼저) <code>PC-330</code>.',
-              frame('MEM-01', FR, layout(H, nav('codes'), holder_card([('3', '17', None, 0, True)]) + lang_card('none')), height=900),
-              [('섹션 메뉴', '클릭', '이 섹션', '<b>공통코드 · 확장 언어</b> — 관련 서류 아래 · 배지: 상위 고객사면 <b>상위</b>, 확장 언어 그룹이 있으면 <b>🌐</b> · 등록 화면에서는 잠김(S1) <code>PC-330</code>'),
-               ('전용 코드 카드', '—', 'S · O 칩 · 「전용 코드」 · 코드 종류 셀렉트', 'PDS3 / PDS2 — 할당 기록에 종류가 있으면 그 값 <code>PC-333</code>'),
-               ('[공통코드로 지정]', '클릭', '「공통코드 · PDS3」 · 하위 고객사 0곳 · [지정 해제]', '이 고객사가 <b>상위 고객사</b>가 된다(머리말 분류 · 목록 구분) · 모든 고객사의 <b>공통코드 사용 고객사(하위 등록)</b>(S4)에 이 코드가 나타난다 · <code>LOG-01</code>'),
-               ('[지정 해제]', '클릭', '전용 코드로', '화면에서 지정한 공통코드만 · 하위가 있으면 확인창 <b>하위 고객사 {n}곳이 이 공통코드를 쓰고 있습니다. 지정을 해제할까요?</b> · 처음부터 등록된 공통코드는 <b>기본 등록</b>(해제 없음)'),
-               ('할당 코드 없음', '—', '안내', '<b>할당받은 코드가 없습니다. SOBP 맵에서 먼저 할당하세요.</b>'),
-               ('[＋ 확장 언어 그룹 만들기]', '클릭', '새 그룹(S28 꼴)', '머리 「새 그룹」 · 코드 종류 PDS2 · Section <b>SOBP 할당 때 정함</b>(직접 입력 없음) · 필요 언어 수 4 · 아래 [만들기 취소] [취소] [저장]'),
-               ('ⓘ', '클릭', '말풍선', '<b>Owner 하나에 언어 슬롯 4개입니다. 기본 Owner 가 슬롯 1~4, 확장 Owner 는 순서대로 5~8 · 9~12 … 입니다. …</b>'),
-               ('옛 슬롯 고객사', '—', '<b>왼쪽 목록에서 숨김</b>', '「Common 추가 언어 슬롯-964~983」 · 「Cake-984~1003」 처럼 할당받은 S/O 가 모두 다른 고객사 그룹의 확장 슬롯인 고객사 — 그 Owner 는 그룹 고객사(Common-21 · Cake-1009) 아래에서 보인다 · 할당 · 편집 데이터는 그대로 <code>PC-330</code> <code>PC-340</code>')]))
-    lg_rows = [('0', '4', '기본', ('한국어', '영어', '중국어', '일본어'), 1),
-               ('0', '5', '확장 1', ('베트남어', '태국어', '', ''), 5)]
-    lg_chips = [(1, '한국어', True), (2, '영어', True), (3, '중국어', True), (4, '일본어', True), (5, '베트남어', True), (6, '태국어', True)]
+    # ── 공통코드 · 확장 언어 `PC-330` — 탭 `PC-362` · 기본 코드마다 그룹 `PC-357` · 코드 지정 `PC-364` · 모두 지정 `PC-363` ──
+    lg_holder = [('0', '4', 'PDS3', 3, True), ('0', '5', None, 0, True), ('0', '6', None, 0, True),
+                 ('0', '7', None, 0, True), ('0', '20', None, 0, True)]
     lg_tags = {LG: (('하위 3',) + SUB_T, ('확장 언어',) + LANG_T)}
-    B.append(('S28', '공통코드 · 확장 언어 — 코드 · 역할 · 언어', '기본',
-              '그룹이 있으면 머리에 <b>사용 · 언어 {n}개 · Owner {n}개 지정</b>(역할 미지정이 있으면 덧붙임). 코드 종류 · Section(읽기 전용) · 필요 언어 수 아래에 '
-              '<b>역할 미지정 {n}개</b> 와 <b>SOBP 맵에서 영역 할당 →</b>, 그 아래 <b>등록한 언어 {n} / {필요}</b> 칩(슬롯 번호 순). '
-              '표는 <b>한 표</b> — 줄 = 코드 하나로 <b>S · O · [역할 ▾]</b> 와 언어 4칸을 함께 정한다(코드 기준 표기) <code>PC-346</code> <code>PC-347</code>. '
-              '남은 코드는 표 아래 <b>＋ 언어 등록</b> 에서 꺼낸다(S29). 메뉴 배지는 <b>상위 🌐</b>, 왼쪽 목록 이름 옆은 「하위 3」「확장 언어」 <code>PC-342</code>.',
-              frame('MEM-01', FR, layout(header(name=LG, kind='상위 고객사', n_acc=1, n_on=1), nav('codes', codes='상위 🌐'),
-                                          holder_card([('0', '4', 'PDS3', 3, True), ('0', '5', None, 0, True), ('0', '6', None, 0, True)]) +
-                                          lang_card('on', status='사용 · 언어 8개 · Owner 2개 지정 · 역할 미지정 1개', section='S0', need=8, pending=1,
-                                                    chips=lg_chips, rows=lg_rows, add=add_lang_row()),
-                                   sel=LG, tags=lg_tags), height=1080),
-              [('코드 종류', '선택', 'PDS2 / PDS3', '교재 등록에서 이 종류의 <b>기본 코드</b>일 때 확장 슬롯을 고른다(<code>PRJ-04</code>)'),
-               ('Section', '—', '읽기 전용', '처음엔 <b>SOBP 할당 때 정함</b> → 처음 할당한(또는 표에서 처음 고른) Owner 의 Section · 그 뒤로 바뀌지 않는다 <code>PC-333</code>'),
-               ('필요 언어 수', '입력', '1 이상', '필요 확장 Owner = ⌈언어 수 ÷ 4⌉ − 1 · 1 미만이면 저장 차단 <b>필요 언어 수는 1 이상이어야 합니다.</b>'),
-               ('역할 미지정 {n}개', '—', '표시', 'SOBP 맵에서 영역(Owner)만 할당하면 이 그룹에 역할 미지정으로 들어온다 · 필요한 Owner 수 · 역할 지정 수는 보이지 않는다 <code>PC-335</code> <code>PC-339</code>'),
-               ('SOBP 맵에서 영역 할당 →', '클릭', '<code>SOB-01</code>', '영역 할당은 SOBP 맵 할당 창에서만(<code>SOB-02</code>)'),
-               ('등록한 언어 {n} / {필요}', '—', '슬롯 번호 순 칩', '할당 전 자리 언어는 흐리게 · 툴팁 <b>O{n} · 슬롯 {s}</b> / <b>할당 전 · 슬롯 {s}</b> · 없으면 <b>아직 없음</b> <code>PC-334</code>'),
-               ('코드 · 역할 ⓘ', '클릭', '말풍선', '<b>SOBP 맵에서 이 고객사에 할당된 코드마다 역할(기본 = 슬롯 1~4 · 확장 1 = 5~8 · 확장 2 = 9~12 …)을 고르고 언어를 넣습니다. …</b>'),
-               ('역할 ▾', '선택', '역할 바뀜', '기본 · 확장 1 · 2 … · 확장 {마지막+1} · <b>— 빼기</b>(기본과 마지막 확장만) · 다른 코드가 있는 역할이면 <b>맞바뀐다</b> · <b>언어는 코드를 따라간다</b>(슬롯 번호만 바뀜) <code>PC-343</code> <code>PC-346</code>'),
-               ('언어 칸', '입력', '슬롯 1~4(기본) · 5~8(확장 1)', '빈 칸 = 지정된 언어 없음 · 언어 순서는 없다(펌웨어팀과 정한 슬롯)'),
-               ('✕ (역할 미지정 줄)', '클릭', '그룹에서 뺌', 'SOBP 할당은 그대로'),
-               ('표가 빔', '—', '안내', '<b>등록한 언어가 없습니다. 아래 [＋ 언어 등록] 에서 코드를 골라 역할과 언어를 넣으세요.</b>'),
-               ('[저장]', '클릭', '그룹 저장', '저장 전 변경은 <b>● 저장하지 않은 변경이 있습니다</b> · <code>LOG-01</code>'),
-               ('[취소]', '클릭', '되돌림', '마지막 저장값'),
-               ('[그룹 삭제]', '클릭', '확인창', '<b>확장 언어 그룹을 지울까요? SOBP 할당은 그대로 남고, 그룹 연결 · 슬롯 언어만 지워집니다.</b> · <code>LOG-01</code>')]))
-    pre_rows = [(None, None, '기본', ('한국어', '영어', '중국어', '일본어'), 1)]
-    pre_chips = [(1, '한국어', False), (2, '영어', False), (3, '중국어', False), (4, '일본어', False)]
-    B.append(('S29', '＋ 언어 등록 — 코드와 역할 고르기', '분기',
-              '그룹을 만들고 <b>할당 전에 기본 자리에 언어를 넣어 둔 뒤</b> SOBP 맵에서 O4 · O5 를 할당한 때. 코드 없이 언어만 든 자리는 줄 머리가 '
-              '<b>[코드 선택 ▾] [기본]</b> 이고, 표에 없는 코드는 표 아래 <b>＋ 언어 등록 [코드 ▾] [역할 ▾] [추가]</b> 로 꺼낸다(그림 = 코드 셀렉트를 펼친 상태) '
-              '<code>PC-338</code> <code>PC-347</code>.',
-              frame('MEM-01', FR, layout(header(name=LG, kind='단독', n_acc=1, n_on=1), nav('codes', dirty=('codes',), codes='🌐'),
-                                          holder_card([('0', '4', None, 0, True), ('0', '5', None, 0, True)]) +
-                                          lang_card('on', status='사용 · 언어 8개 · Owner 0개 지정 · 역할 미지정 2개', section='S0', need=8, pending=2,
-                                                    chips=pre_chips, rows=pre_rows, add=add_lang_row(open_=('S0 · O4', 'S0 · O5')), dirty=True),
-                                   sel=LG, tags={LG: (('확장 언어',) + LANG_T,)}), height=1000),
-              [('할당 전 자리 줄', '—', '[코드 선택 ▾] [기본] + 언어 4칸', '코드 없이 언어만 넣어 둔 자리 · 코드를 고르면 그 코드가 이 역할이 되고 언어가 그 코드로 옮겨진다(그 코드에 언어가 없을 때) <code>PC-347</code>'),
-               ('＋ 언어 등록 [코드 ▾]', '선택', '표에 없는 코드', '<b>S{s} · O{n}</b>(코드만 — 역할은 옆 셀렉트에 미리 채워진다 <code>PC-355</code>) · 역할 기본값이 채워진다 — 이미 역할이 있으면 그 역할, 없으면 기본이 비었으면 기본, 아니면 다음 확장 k'),
-               ('[역할 ▾]', '선택', '기본 · 확장 1 … · 확장 {마지막+1}', '코드를 고르기 전에는 비활성'),
-               ('[추가]', '클릭', '표에 줄을 꺼낸다', '코드 · 역할이 모두 있어야 눌린다 · 이미 다른 코드가 있는 역할이면 <b>맞바뀐다</b> · 넣은 뒤 언어를 채우고 [저장]'),
-               ('ⓘ', '클릭', '말풍선', '<b>표에는 언어를 등록한 코드만 보입니다. 남은 코드는 여기서 코드(S · O)와 역할(기본 · 확장 k)을 골라 [추가] 한 뒤 언어를 넣고 저장하세요.</b>'),
-               ('남은 코드 없음', '—', '줄 없음', '＋ 언어 등록 줄 자체가 보이지 않는다 <code>PC-338</code>'),
-               ('메뉴 ●', '표시', '저장 안 한 섹션', '아래 <b>● 저장하지 않은 변경이 있습니다</b> · [취소] 활성')]))
+    lg_head = header(name=LG, kind='상위 고객사', n_acc=1, n_on=1)
+    g4_langs = {'4': ('한국어', '영어', '중국어', '일본어'), '5': ('베트남어', '태국어'), '6': ('러시아어',)}
+    g20_langs = {'20': ('한국어', '영어'), '7': ('스페인어',)}
+    B.append(('S27', '공통코드 · 확장 언어 — 상위 고객사 탭', '기본',
+              '<b>등록된 고객사</b>의 메뉴 <b>[공통코드 · 확장 언어]</b>(관련 서류 아래). 상위 고객사(공통코드) 지정과 확장 언어 그룹은 <b>다른 일</b>이라 '
+              '섹션 위 <b>탭 [상위 고객사 (공통코드) {n}] [확장 언어 그룹 {n}]</b> 으로 나눈다(처음엔 상위 고객사 탭) <code>PC-362</code>. '
+              '이 탭은 이 고객사가 <b>SOBP 맵에서 할당받은 S/O</b> 를 하나씩 작은 카드로 보이고, 전용 코드는 <b>[공통코드로 지정]</b> 만 누른다 — '
+              '코드 종류(PDS3 / PDS2) 셀렉트는 없다(할당 기록의 종류를 따르고 미정이면 PDS3) <code>PC-333</code> <code>PC-358</code>.',
+              frame('MEM-01', FR, layout(lg_head, nav('codes', codes='상위 🌐'), codes_tabs('holder', 1, 2) + holder_card(lg_holder),
+                                         sel=LG, tags=lg_tags), height=900),
+              [('섹션 메뉴', '클릭', '이 섹션', '<b>공통코드 · 확장 언어</b> — 관련 서류 아래 · 배지: 상위 고객사면 <b>상위</b>, 확장 언어 그룹이 있으면 <b>🌐</b> · 등록 화면에서는 잠김(S1) <code>PC-330</code>'),
+               ('탭', '클릭', '상위 고객사 (공통코드) / 확장 언어 그룹(S28)', '탭 옆 숫자 = 이 고객사의 공통코드 수 · 저장된 확장 언어 그룹 수 · 처음엔 상위 고객사 탭 <code>PC-362</code>'),
+               ('전용 코드 카드', '—', 'S · O 칩 · 「전용 코드」 · [공통코드로 지정]', '코드 종류 셀렉트 없음 <code>PC-358</code>'),
+               ('[공통코드로 지정]', '클릭', '「공통코드 · {PDS2/PDS3}」 · 하위 고객사 0곳 · [지정 해제]', '종류 = 할당 기록의 종류(미정이면 PDS3) <code>PC-358</code> · 이 고객사가 <b>상위 고객사</b>가 된다(머리말 분류 · 목록 구분) · 모든 고객사의 <b>공통코드 사용 고객사(하위 등록)</b>(S4)에 「고객사-owner」(예: <b>시원스쿨-4</b>)로 나타난다 <code>PC-362</code> · <code>LOG-01</code>'),
+               ('[지정 해제]', '클릭', '전용 코드로', '화면에서 지정한 공통코드만 · 하위가 있으면 확인창 <b>하위 고객사 {n}곳이 이 공통코드를 쓰고 있습니다. 지정을 해제할까요?</b> · 처음부터 등록된 공통코드는 <b>기본 등록</b>(해제 없음)'),
+               ('할당 코드 없음', '—', '안내', '<b>할당받은 코드가 없습니다. SOBP 맵에서 먼저 할당하세요.</b>(SOBP 맵 링크) — 확장 언어 그룹 탭도 같다'),
+               ('ⓘ', '클릭', '말풍선', '<b>할당받은 S/O 를 공통코드로 지정하면 이 고객사가 상위 고객사가 되고, 모든 고객사의 공통코드 사용 고객사(하위 등록) 목록에 나타납니다. 하위 고객사는 그 코드의 Book 을 나눠 씁니다.</b>'),
+               ('옛 슬롯 고객사', '—', '<b>왼쪽 목록에서 숨김</b>', '「Common 추가 언어 슬롯-964~983」 · 「Cake-984~1003」 처럼 할당받은 S/O 가 모두 다른 고객사 그룹의 확장 슬롯인 고객사 — 그 Owner 는 그룹 고객사(Common-21 · Cake-1009) 아래에서 보인다 · 할당 · 편집 데이터는 그대로 <code>PC-330</code> <code>PC-340</code>')]))
+    B.append(('S28', '확장 언어 그룹 — 코드 지정 · 그룹 칸', '기본',
+              '[확장 언어 그룹] 탭. 위 <b>코드 지정</b> 에 할당된 코드를 <b>모두 펼쳐</b> 놓고 코드마다 셀렉트(<b>지정 안 함 / 기본 / 확장 · 기본 O{n}</b>)로 바로 고른다 — '
+              '만들기 · 언어 등록 버튼은 없다 <code>PC-364</code>. 아래에 <b>기본 코드마다 그룹 칸</b>이 하나씩 — 예: O4 그룹 = 확장 O5 · O6 / O20 그룹 = 확장 O7 <code>PC-357</code>. '
+              '그룹 칸은 머리(🌐 기본 S · O · 확장 · 필요 언어 수)와 등록한 언어 칩 · 코드 · 역할 · 언어 한 표뿐이고, 「코드 종류」 칸은 없다(Section · 종류는 기본 코드를 따름). '
+              '기본은 늘 1개 — 표 첫 줄 <b>[기본 ▾]</b> 에서 다른 코드로 바꾼다(그림 = 펼친 상태) <code>PC-362</code>. 저장은 카드 아래 [취소] [저장] 한 번 <code>PC-363</code>.',
+              frame('MEM-01', FR, layout(lg_head, nav('codes', codes='상위 🌐'),
+                                         codes_tabs('lang', 1, 2) +
+                                         lang_tab([('0', '4', '기본'), ('0', '5', '확장 · 기본 O4'), ('0', '6', '확장 · 기본 O4'),
+                                                   ('0', '7', '확장 · 기본 O20'), ('0', '20', '기본')],
+                                                  group_block('0', '4', ['5', '6'], 12, g4_langs,
+                                                              base_open=['기본', '기본 ← O5 (확장 1)', '기본 ← O6 (확장 2)']) +
+                                                  group_block('0', '20', ['7'], 8, g20_langs),
+                                                  status='그룹 2개 · 등록한 언어 10개'),
+                                         sel=LG, tags=lg_tags), height=1250),
+              [('머리', '—', '그룹 {n}개 · 등록한 언어 {n}개', '그룹이 없으면 <b>사용 안 함</b> · 그룹이 있고 지정 안 한 코드가 있으면 <b>· 지정 안 함 {n}개</b>(S29) <code>PC-364</code>'),
+               ('코드 지정 · {n}개', '—', '할당 코드마다 칸', 'S · O + 셀렉트 · 칸 색 기본 파랑 · 확장 청록 · 지정 안 함(그룹이 있으면 노랑) <code>PC-364</code>'),
+               ('코드 셀렉트', '선택', 'S29', '<b>지정 안 함 / 기본 / 확장 · 기본 O{n}</b>(같은 Section 의 기본 코드마다) · 한 코드는 한 그룹에만 <code>PC-357</code> <code>PC-364</code>'),
+               ('다른 고객사 그룹에 든 코드', '—', '셀렉트 대신 「{그룹 고객사} 그룹」', '회색 · 바꿀 수 없음 · 저장 검사에서 지정된 것으로 본다 <code>PC-363</code>'),
+               ('그룹 칸 머리', '—', '🌐 기본 S · O · 확장 O{n} · O{n}(없으면 없음)', '기본 코드 순 · [그룹 삭제] · [＋ 언어 등록] 없음 — 그룹을 지우려면 코드 지정에서 기본 코드를 <b>지정 안 함</b>으로(저장 때 반영) <code>PC-364</code> · 「코드 종류」 칸 없음 <code>PC-357</code>'),
+               ('필요 언어 수', '입력', '1 이상', '필요 확장 Owner = ⌈언어 수 ÷ 4⌉ − 1(자리 수 계산에만) · 0 이면 저장 차단 <b>S{s}/O{n} 그룹 — 필요 언어 수는 1 이상이어야 합니다.</b>'),
+               ('등록한 언어 {n} / {필요}', '—', '슬롯 번호 순 칩', '툴팁 <b>O{n} · 슬롯 {s}</b> / <b>할당 전 · 슬롯 {s}</b> · 없으면 <b>아직 없음</b> <code>PC-334</code>'),
+               ('[기본 ▾] (표 첫 줄)', '선택', '기본 코드 바꿈', '<b>기본 ← O{n} (확장 k)</b> = 자리 맞바꿈 · <b>기본 ← O{n}</b>(그룹 밖 같은 Section 할당 코드) = 지금 기본이 마지막 확장 · 언어는 코드를 따라간다 · 코드 종류는 새 기본 코드의 할당 종류 · 저장해야 반영 <code>PC-362</code>'),
+               ('[확장 k ▾]', '선택', '확장 코드끼리 맞바꿈', '확장 1 … 확장 {n} · 마지막 확장에만 <b>— 빼기</b> — 뺀 코드는 언어가 지워지고 코드 지정에서 <b>지정 안 함</b>(다시 지정해야 저장) <code>PC-346</code> <code>PC-363</code>'),
+               ('코드 없이 언어만 든 자리', '—', '[코드 선택 ▾] [확장 k] 줄', '그 자리에 언어가 있을 때만 보인다 · 코드를 고르면 그 자리의 확장 코드가 된다 <code>PC-347</code>'),
+               ('언어 칸', '입력', '슬롯 1~4(기본) · 5~8(확장 1) …', '빈 칸 = 지정된 언어 없음 · 언어 순서는 없다(펌웨어팀과 정한 슬롯)'),
+               ('코드 · 역할 ⓘ', '클릭', '말풍선', '<b>기본 코드는 1개로 슬롯 1~4, 나머지는 확장 — 확장 1 = 5~8 · 확장 2 = 9~12 … 입니다. 기본도 다른 코드로 바꿀 수 있습니다(나머지는 확장). …</b>'),
+               ('머리 ⓘ', '클릭', '말풍선', '<b>할당된 코드마다 기본 또는 확장 · 기본 O{n} 을 고릅니다. 기본으로 고른 코드마다 그룹이 하나씩 생깁니다(예: O4 기본 = O5 · O6 확장, O20 기본 = O7 확장). …</b>'),
+               ('카드 아래 [저장]', '클릭', '그룹 칸들을 한 번에 저장', '모든 코드 지정 검사(S30) · <code>LOG-01</code> <b>확장 언어 그룹 등록/수정 · {고객사} · 기본 S{s}/O{n} · 언어 {n}개 · 확장 O{n}·O{n}</b> <code>PC-363</code>'),
+               ('카드 아래 [취소]', '클릭', '되돌림', '마지막 저장값 · 변경이 없으면 비활성')]))
+    B.append(('S29', '확장 언어 그룹 — 기본을 고르면 그룹 칸', '분기',
+              'O4 그룹이 저장된 상태에서 코드 지정의 O20 을 <b>기본</b>으로 고르면 아래에 O20 그룹 칸이 <b>「새 그룹」</b> 으로 생긴다(필요 언어 수 4). '
+              '아직 어느 그룹에도 넣지 않은 O7 은 <b>노란 칸 · 지정 안 함</b> 이고 머리에 <b>· 지정 안 함 1개</b> — O7 셀렉트를 펼치면 '
+              '<b>지정 안 함 / 기본 / 확장 · 기본 O4 / 확장 · 기본 O20</b> (그림 = 펼친 상태) <code>PC-357</code> <code>PC-364</code>.',
+              frame('MEM-01', FR, layout(lg_head, nav('codes', dirty=('codes',), codes='상위 🌐'),
+                                         codes_tabs('lang', 1, 1) +
+                                         lang_tab([('0', '4', '기본'), ('0', '5', '확장 · 기본 O4'), ('0', '6', '확장 · 기본 O4'),
+                                                   ('0', '7', ''), ('0', '20', '기본')],
+                                                  group_block('0', '4', ['5', '6'], 12, g4_langs) +
+                                                  group_block('0', '20', [], 4, {}, new=True),
+                                                  status='그룹 2개 · 등록한 언어 7개', n_free=1, dirty=True,
+                                                  open_=('7', ['지정 안 함', '기본', '확장 · 기본 O4', '확장 · 기본 O20'], 0)),
+                                         sel=LG, tags=lg_tags), height=1250),
+              [('[기본]', '선택', '그 코드로 그룹 칸 생김', '머리 <b>새 그룹</b> · 필요 언어 수 4 · 기본 코드 순으로 놓인다 · 그 코드에 언어가 있으면 따라온다 <code>PC-364</code>'),
+               ('[확장 · 기본 O{n}]', '선택', '그 그룹의 마지막 확장', '그룹 칸 머리 「확장 …」 과 표에 줄이 붙는다 · 언어는 코드를 따라간다'),
+               ('[지정 안 함]', '선택', '그룹에서 뺌', '기본 코드를 지정 안 함(또는 확장)으로 바꾸면 <b>그 그룹이 풀리고</b> 확장 코드들은 지정 안 함으로 돌아간다 — 그룹 지우기는 이렇게(저장 때 반영)'),
+               ('지정 안 한 코드', '—', '노란 칸 · 머리 「· 지정 안 함 {n}개」', '그룹이 하나라도 있을 때만 노랑 · 이대로 [저장]하면 S30 <code>PC-363</code>'),
+               ('그룹이 하나도 없음', '—', '머리 「사용 안 함」', '코드 칸이 모두 지정 안 함(회색) · 저장된 그룹도 없으면 카드 아래 버튼 없음'),
+               ('탭 숫자', '—', '저장된 그룹 수', '새 그룹은 저장해야 탭 숫자 · 메뉴 🌐 에 반영'),
+               ('메뉴 ●', '표시', '저장 안 한 섹션', '카드 아래 <b>● 저장하지 않은 변경이 있습니다</b> · [취소] 활성')]))
+    save_dlg = ('<div class="ovl"><div class="mdl">'
+                '<div style="font-size:13px;color:#374151;line-height:1.7">할당된 코드를 모두 기본 또는 확장 언어로 지정해야 저장할 수 있습니다 — '
+                '지정되지 않은 코드: S0/O7<br><br>위 코드 지정에서 「지정 안 함」인 코드를 기본 또는 확장으로 고르세요.</div>'
+                '<div class="mf"><div class="btn pri">확인</div></div></div></div>')
+    B.append(('S30', '확장 언어 그룹 — 지정 안 한 코드 저장', '오류',
+              '그룹을 쓰는 고객사는 <b>할당된 코드가 모두</b> 어느 그룹의 기본 또는 확장이어야 저장된다. O7 을 지정 안 함으로 둔 채 [저장]하면 '
+              '<b>저장되지 않고</b> 확인창이 뜨며, 닫은 뒤에도 카드 아래 빨간 줄이 남는다(코드를 고치면 사라짐) <code>PC-363</code>.',
+              frame('MEM-01', FR, layout(lg_head, nav('codes', dirty=('codes',), codes='상위 🌐'),
+                                         codes_tabs('lang', 1, 1) +
+                                         lang_tab([('0', '4', '기본'), ('0', '5', '확장 · 기본 O4'), ('0', '6', '확장 · 기본 O4'),
+                                                   ('0', '7', ''), ('0', '20', '기본')],
+                                                  group_block('0', '4', ['5', '6'], 12, g4_langs) +
+                                                  group_block('0', '20', [], 4, {}, new=True),
+                                                  status='그룹 2개 · 등록한 언어 7개', n_free=1, dirty=True,
+                                                  err='할당된 코드를 모두 기본 또는 확장 언어로 지정해야 저장할 수 있습니다 — 지정되지 않은 코드: S0/O7'),
+                                         sel=LG, tags=lg_tags), overlay=save_dlg, height=1250),
+              [('[저장]', '클릭', '<b>저장 안 됨</b> · 확인창', '그룹이 하나라도 있으면 이 고객사의 할당 코드가 모두 기본 · 확장인지 본다 · 확인창 <b>할당된 코드를 모두 기본 또는 확장 언어로 지정해야 저장할 수 있습니다 — 지정되지 않은 코드: S{s}/O{n} · …</b>(10개 넘으면 <b>외 n개</b>) + <b>위 코드 지정에서 「지정 안 함」인 코드를 기본 또는 확장으로 고르세요.</b>'),
+               ('확인창 [확인]', '클릭', '닫힘', '카드 아래 빨간 줄 <b>⚠ 할당된 코드를 모두 … 지정되지 않은 코드: …</b> 이 남는다 · 코드 지정을 고치면 사라진다'),
+               ('다른 고객사 그룹에 든 코드', '—', '지정된 것으로 봄', '옛 슬롯 코드(「{그룹 고객사} 그룹」 칸)'),
+               ('그룹을 모두 지우는 저장', '[저장]', '저장됨', '모든 기본 코드를 지정 안 함으로 → 검사 없음'),
+               ('그룹을 쓰지 않는 고객사', '—', '검사 없음', '그룹 밖 코드는 일반 전용 코드 <code>PC-357</code> · SOBP 맵에서 「연결 안 함」으로 새로 할당한 코드는 그룹을 쓰는 고객사면 다음 저장 때 지정해야 한다')]))
 
     intro = ('고객사를 <b>등록</b>하고 <b>상세·수정</b>하는 화면이다. 「<b>머리말 + 섹션 메뉴 | 본문</b>」 구조이며 '
-             '섹션은 고객사 정보(기본 정보 · 편집 단가 · 관련 서류 · <b>공통코드 · 확장 언어</b> · <b>서비스 티켓</b>)와 운영(서비스 계정 · 업무 메모)이다 <code>PC-136</code> <code>PC-173</code> <code>PC-330</code>. '
+             '섹션은 고객사 정보(기본 정보 · 편집 단가 · 관련 서류 · <b>공통코드 · 확장 언어</b>)와 운영(서비스 계정 · <b>서비스 티켓</b> · 업무 메모)이다 <code>PC-136</code> <code>PC-173</code> <code>PC-330</code> <code>PC-358</code>. '
+             '공통코드 · 확장 언어는 탭 [상위 고객사 (공통코드)] [확장 언어 그룹] 이고, 확장 언어 그룹은 <b>기본 코드마다 한 그룹</b> — 할당 코드를 모두 펼친 코드 지정에서 바로 고르고 모두 지정해야 저장된다 <code>PC-357</code> <code>PC-362</code> <code>PC-363</code> <code>PC-364</code>. '
              '<b>등록</b>은 한 번 — 섹션 아래 [등록] 또는 서비스 계정 [계정 추가](고객사 함께 등록). 그 뒤는 <b>섹션·계정 단위로 저장</b>한다(PRD §4.8). '
              '진행 상태는 머리말 오른쪽 진행중/사업 종료 <code>PC-139</code>, 사용 서비스는 <b>서비스 계정의 서비스</b> <code>PC-138</code>, '
              '서비스 계정은 「카드 목록 | 상세」와 서비스 권한 탭 <code>PC-140</code> — <b>선택</b>이고, 비밀번호는 받지 않으며 <b>OWNER 는 1명</b> <code>PC-159</code>.')

@@ -2,6 +2,7 @@
 """PRJ-02 편집 프로젝트 목록 + PRJ-03 편집 프로젝트 상세 (공용 화면 조립)"""
 from shell import page, frame
 from shell import sel, field
+from p_prj05 import modal as p05_modal, owner_block as p05_owner_block   # PRJ-05 그림 그대로 `PC-357`
 
 CODE2, NAME2 = 'PRJ-02', '편집 프로젝트 목록'
 PRD2 = 'docs/prd/PRJ-02_편집 프로젝트 목록.md'
@@ -9,13 +10,22 @@ CODE3, NAME3 = 'PRJ-03', '편집 프로젝트 상세'
 PRD3 = 'docs/prd/PRJ-03_편집 프로젝트 상세.md'
 
 # 고객사, 권수, 코드종류, 심볼, 사용자추가  — 고객사명 가나다순(영문 먼저)
-EDIT_CUSTS = (('NeoLAB', 447, 'G', 60112, False), ('가쿠쇼', 73, 'N', 8460, False),
-              ('구몬학습', 744, 'G', 118240, False), ('대교', 355, 'G', 52310, False),
-              ('시원스쿨', 22, 'N', 2140, True), ('웅진씽크빅', 114, 'G', 18482, False),
-              ('잉글리시에그', 115, 'G', 15870, False), ('케이크', 69, 'N', 7920, False),
-              ('트윈클', 91, 'G', 11205, False), ('한솔교육', 156, 'G', 21044, False),
-              ('헤르만헤세', 83, 'G', 9940, False))
+#   줄 이름 = 「고객사-owner」(이미 -owner 로 끝나면 그대로) `PC-362`
+EDIT_CUSTS = (('Cake-1009', 52, 'N', 7920, False), ('NeoLAB POD-100', 11, 'G', 1520, False),
+              ('가쿠쇼-1022', 73, 'N', 8460, False), ('교원구몬-10', 298, 'G', 118240, False),
+              ('대교-31', 355, 'G', 52310, False), ('시원스쿨-306', 22, 'N', 2140, True),
+              ('웅진씽크빅-17', 114, 'G', 18482, False), ('잉글리시에그-18', 115, 'G', 15870, False),
+              ('트윈클-34', 91, 'G', 11205, False), ('한솔교육-25', 155, 'G', 21044, False),
+              ('헤르만헤세-15', 83, 'G', 9940, False))
 MAXSYM = 118240
+
+
+def cust_of(name):
+    """「웅진씽크빅」 처럼 owner 없이 불러도 「웅진씽크빅-17」 줄을 찾는다."""
+    for r in EDIT_CUSTS:
+        if name and (r[0] == name or r[0].startswith(name + '-') or r[0].startswith(name + ' ')):
+            return r
+    return None
 
 # No, 상태, 사용고객사, 교재명, 파일명, 코드, 타입, S/O/B, 페이지, 심볼,
 # 편집방식, 발급일, 수정일, 원장건수, bytes, 청구액, 기준가·할인율
@@ -60,8 +70,9 @@ STATE_C = {'완료': ('#dcfce7', '#166534'), '진행중': ('#eef6ff', '#2563eb')
 
 
 
-def top(kind='전체', search=''):
-    """상단 전체 요약 한 줄 — 목록 기준으로 다시 계산된다."""
+def top(kind='전체', search='', cnt=None):
+    """상단 전체 요약 한 줄 — 목록 기준으로 다시 계산된다.
+    cnt — (편집 고객사, 상위, 하위) 를 직접 줄 때(줄 목록 Common-21 예시: 69곳 · 하위 51 `PC-365`)"""
     if kind == 'PDS3(Ncode)':
         n, bk, sym, gb = 3, 164, 18520, 0.9
         cost, listed = '\u20a921,600,000', '\u20a922,300,000'
@@ -84,7 +95,10 @@ def top(kind='전체', search=''):
             '<span>청구액 <b style="color:#2563eb">%s</b>%s'
             '<span style="color:#9ca3af;margin-left:5px" title="기본 단가 적용 120 / 편집 85 · '
             '고객사 단가는 고객사 관리에서 지정">· 고객사 단가 기준</span></span>%s</div>'
-            % (it('편집 고객사', n).replace('</b></span>', '</b><span style="margin-left:5px">(상위 %d · 하위 0)</span></span>' % (2 if n > 3 else 0)), it('편집 북코드', '{:,}'.format(bk)),
+            % (it('편집 고객사', cnt[0] if cnt else n).replace(
+                   '</b></span>', '</b><span style="margin-left:5px">(상위 %d · 하위 %d)</span></span>'
+                   % ((cnt[1], cnt[2]) if cnt else ((2 if n > 3 else 0), 0))),
+               it('편집 북코드', '{:,}'.format(bk)),
                it('총 심볼', '{:,}'.format(sym), '#2563eb'), it('리소스', '%.1fGB' % gb),
                cost, dc, scope))
 
@@ -116,7 +130,8 @@ def left(sel_cust='웅진씽크빅', kind='전체', search='', empty=False):
     if not rows:
         body = '<div style="font-size:12px;color:#9ca3af;padding:14px 6px;text-align:center">검색 결과가 없습니다.</div>'
     else:
-        body = ''.join(co_item(nm, bk, on=(nm == sel_cust), kinds=('PDS3' if k == 'N' else 'PDS2',),
+        selr = cust_of(sel_cust)
+        body = ''.join(co_item(nm, bk, on=(selr is not None and nm == selr[0]), kinds=('PDS3' if k == 'N' else 'PDS2',),
                                tags=('<span style="font-size:9.5px;background:#ecfdf5;color:#047857;border-radius:5px;padding:0 5px">신규</span>'
                                      '<span style="font-size:11px;color:#dc2626;margin-left:4px">삭제</span>') if add else '')
                        for nm, bk, k, _sym, add in rows)
@@ -293,7 +308,7 @@ def summary(filtered=False, base_price=False, discount=True, basis=False,
           % (280 if share else 240, search)) if search else \
          ('<div class="inp ph" style="width:%dpx">%s</div>'
           % (280 if share else 240,
-             '교재명·프로젝트명·사용고객사 검색' if share else '교재명·프로젝트명 검색'))   # `PC-282`
+             '교재명·NCP2명·사용고객사 검색' if share else '교재명·NCP2명 검색'))   # `PC-369` (옛 프로젝트명 `PC-282`)
     tags += ('<div style="position:relative;margin-left:%s">%s</div>'
              % ('8px' if unfilter else 'auto', sv))
 
@@ -303,26 +318,26 @@ def summary(filtered=False, base_price=False, discount=True, basis=False,
             % (edit, pay, tags))
 
 
-# 타입 · 편집방식 · ncp2 크기 열 삭제 · 프로젝트명 열을 교재명 왼쪽에 추가 `PC-282`
-HEAD3 = ('No', '상태', '프로젝트명', '교재명', '코드', 'S/O/B', '페이지', '심볼 개수',
-         '최초 등록일', 'ncp2 최종수정', '메모', '정산 (청구액)')   # 옛 발급일 `PC-284`
-
-
-def proj_of(fn):
-    # 프로젝트명 = casterN 에 저장한 .nproj 파일명(자동) — 그림용 예시는 ncp2 파일명에서 만든다 `PC-282`
-    #   ncp2 가 없는 교재(—)와 보류 예시(kinder_h1)는 아직 casterN 과 연결 전 → 「미연동」
-    if not fn or fn == '—' or fn.startswith('kinder'):
-        return None
-    return fn[:-5] + '.nproj' if fn.endswith('.ncp2') else fn + '.nproj'
+# 열 순서 `PC-369` `PC-370` — No · (사용 고객사) · 코드 · S/O/B · 교재명 · NCP2명 · 페이지 · 심볼 개수 ·
+#   최초 등록일 · ncp2 최종수정 · 메모 · 정산 (청구액) · 복제
+#   상태 열 · 프로젝트명 열 삭제(ncp2 파일명은 NCP2명 열) `PC-369` · 고객사 열은 전체 고객사 보기와 함께 삭제 `PC-371`
+#   (옛: 타입 · 편집방식 · ncp2 크기 열 삭제 · 프로젝트명 열 `PC-282` · 옛 발급일 → 최초 등록일 `PC-284`)
+HEAD3 = ('No', '코드', 'S/O/B', '교재명', 'NCP2명', '페이지', '심볼 개수',
+         '최초 등록일', 'ncp2 최종수정', '메모', '정산 (청구액)')
 
 
 def sob(s, o, b, ext=None):
-    # ext = (실선 슬롯들, 점선 슬롯들) — S · O · B 칩 옆에 같은 칩 모양 [확장] {o} 를 **한 줄에** `PC-327`
-    #   실선 = 이 교재에 고른 확장 언어 슬롯 · 점선 = 같은 사용 고객사가 그 슬롯 Book 을 따로 등록한 교재(옛 방식)
+    # ext = (실선 코드들, 점선 코드들) — S · O · B 칩 옆에 같은 칩 모양 [확장] {o} 를 **한 줄에** `PC-327`
+    #   실선 = 이 교재에서 고른 확장 언어 코드(`PRJ-04` `PC-366`) — **둘까지**, 나머지는 +{n} `PC-359`
+    #   점선 = 같은 사용 고객사가 그 슬롯 Book 을 따로 등록한 교재(옛 방식)
     chips = [('S', s, '#5f8ff0', False), ('O', o, '#14b8a6', False), ('B', b, '#8b5cf6', False)]
+    more = ''
     if ext:
-        chips += [('확장', x, '#0891b2', False) for x in ext[0]]
-        chips += [('확장', x, '#0891b2', True) for x in ext[1]]
+        chips += [('확장', x, '#0891b2', False) for x in ext[0][:2]]
+        if len(ext[0]) > 2:
+            more = ('<span title="%s" style="font-size:10.5px;color:#0891b2;font-weight:700;'
+                    'margin-right:2px">+%d</span>'
+                    % (' · '.join('O%d' % x for x in ext[0][2:]), len(ext[0]) - 2))
     out = ''
     for k, v, c, dash in chips:
         out += ('<span style="display:inline-flex;align-items:center;gap:3px;'
@@ -333,24 +348,33 @@ def sob(s, o, b, ext=None):
                 '<span style="font-family:ui-monospace,monospace">%s</span></span>'
                 % ('dashed' if dash else 'solid', '#67e8f9' if dash else '#e5e7eb',
                    '#a5d8e2' if dash else c, k, v))
+    out += more
+    if ext:
+        for x in ext[1]:
+            out += ('<span style="display:inline-flex;align-items:center;gap:3px;'
+                    'border:1px dashed #67e8f9;border-radius:6px;padding:1px 5px 1px 1px;'
+                    'background:#fff;font-size:10.5px;margin-right:2px">'
+                    '<span style="background:#a5d8e2;color:#fff;font-weight:700;font-size:9px;'
+                    'border-radius:4px;padding:1px 4px">확장</span>'
+                    '<span style="font-family:ui-monospace,monospace">%s</span></span>' % x)
     return ('<span style="display:inline-flex;align-items:center;white-space:nowrap">%s</span>'
             % out)
 
 
 def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
-              hf=False, page=True, dup=False, work=None, extmap=None, total=114, allc=None):
-    # dup — 행 맨 끝 [복제] 열(조회 전용에는 없다) · work — {No: (n, N)} 「작업 n/N」 배지 `PC-112`
-    # extmap — {No: (실선 슬롯, 점선 슬롯)} S/O/B 칸의 [확장] 칩 `PC-327` · total — 페이지네이션 전체 건수
+              hf=False, page=True, dup=False, work=None, extmap=None, total=114,
+              klock=None, cu_f=None):
+    # dup — 행 맨 끝 [복제] 열 `PC-112` · work — {No: (n, N)} 「작업 n/N」 배지 `PC-112`
+    # extmap — {No: (실선 코드, 점선 코드)} S/O/B 칸의 [확장] 칩 `PC-327` `PC-359` · total — 페이지네이션 전체 건수
+    # klock — PRJ-02 코드 종류 필터로 잠긴 코드 필터 값 · cu_f — 사용 고객사 필터에 걸린 값(하위 고객사 진입)
     cols = list(HEAD3)
     if share:
-        cols.insert(2, '사용 고객사')
-    if allc:
-        cols.insert(2, '고객사')
+        cols.insert(1, '사용 고객사')       # 코드 왼쪽 `PC-370`
     if dup:
         cols.append('복제')
     th = ''
     for h in cols:
-        k = {'교재명': 't', '프로젝트명': 'p', '최초 등록일': 'd'}.get(h)
+        k = {'교재명': 't', 'NCP2명': 'p', '최초 등록일': 'd'}.get(h)   # 정렬 — 프로젝트명 → NCP2명 `PC-369`
         mark = ''
         if k:
             if sort and sort[0] == k:
@@ -358,44 +382,43 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                         % ('▲' if sort[1] == 1 else '▼'))
             else:
                 mark = '<span style="margin-left:3px;color:#d1d5db">↕</span>'
-        th += ('<th style="text-align:center;%s">%s%s</th>'
-               % ('cursor:pointer' if k else '', h, mark))
+        th += ('<th style="text-align:%s;%s">%s%s</th>'
+               % ('left' if h == 'S/O/B' else 'center', 'cursor:pointer' if k else '', h, mark))
     fr = ''
     if hf:
-        def fsel(v, w=62, lock=False):
+        def fsel(v, w=62, lock=False, on=False):
             return ('<th style="padding:4px 6px;background:#fafbfc;'
                     'border-bottom:1px solid #eef0f4"><div class="inp" '
                     'style="min-width:%dpx;font-size:11px;padding:3px 6px;%s'
                     'display:flex;align-items:center;justify-content:space-between">%s'
                     '<span style="color:#9ca3af;font-size:9px">▾</span></div></th>'
-                    % (w, 'background:#f3f4f6;color:#6b7280;' if lock else '', v))
+                    % (w, 'background:#f3f4f6;color:#6b7280;' if lock else
+                       ('border-color:#93c5fd;color:#1d4ed8;font-weight:700;' if on else ''), v))
         blank = ('<th style="padding:4px 6px;background:#fafbfc;'
                  'border-bottom:1px solid #eef0f4"></th>')
-        fr = '<tr>' + blank + fsel('전체')
-        if allc:
-            fr += fsel('고객사 전체', 110)
+        # 머리글 아래 필터 — 열 순서와 같다 `PC-370` · 상태 필터는 상태 열과 함께 삭제 `PC-369`
+        fr = '<tr>' + blank
         if share:
-            fr += fsel('전체', 100)
+            fr += fsel(cu_f or '전체', 100, on=bool(cu_f))
+        fr += fsel(klock, 58, True) if klock else fsel('전체', 58)
         # S/O/B 열에는 **Book 필터 콤보박스** 가 붙는다 `PC-052` `PC-057`
-        bcombo = ('<th style="padding:4px 6px;background:#fafbfc;'
-                  'border-bottom:1px solid #eef0f4"><div class="inp" '
-                  'style="min-width:96px;font-size:11px;padding:3px 6px;'
-                  'display:flex;align-items:center;justify-content:space-between">'
-                  '<span style="color:#9ca3af">B 전체</span>'
-                  '<span style="color:#9ca3af;font-size:9px">&#9662;</span></div></th>')
-        # 프로젝트명 · 교재명 다음 코드 · Book — 타입 · 편집방식 필터는 없앴다 `PC-282`
-        fr += blank * 2 + fsel('PDS2', 58, True) + bcombo + blank * 2
-        fr += blank * (5 if dup else 4) + '</tr>'
+        fr += ('<th style="padding:4px 6px;background:#fafbfc;'
+               'border-bottom:1px solid #eef0f4;text-align:left"><div class="inp" '
+               'style="min-width:96px;font-size:11px;padding:3px 6px;'
+               'display:flex;align-items:center;justify-content:space-between">'
+               '<span style="color:#9ca3af">B 전체</span>'
+               '<span style="color:#9ca3af;font-size:9px">&#9662;</span></div></th>')
+        # 교재명 · NCP2명 · 페이지 · 심볼 개수 / 최초 등록일 · ncp2 최종수정 · 메모 · 정산 (· 복제)
+        fr += blank * 4 + blank * (5 if dup else 4) + '</tr>'
 
     body = ''
     if empty:
         body = ('<tr><td colspan="%d" style="padding:24px;text-align:center;color:#9ca3af">'
                 '결과 없음</td></tr>' % len(cols))
     else:
-        for i_r, (no, st, cu, t, fn, k, ty, (s, o, b), prange, pg, sym, mth, d, nmod,
-             logs, by, amt, dc) in enumerate(rows or BOOKS):
-            bgc, fgc = STATE_C[st]
-            cell_cu = ('<td style="font-size:11.5px;text-align:left;font-weight:600">%s</td>' % allc[i_r % len(allc)]) if allc else ''
+        for (no, _st, cu, t, fn, k, ty, (s, o, b), prange, pg, sym, mth, d, nmod,
+             logs, by, amt, dc) in (rows or BOOKS):
+            cell_cu = ''
             if share:
                 if cu:
                     v = ('<span style="font-size:11px;background:#f3e8ff;color:#7e22ce;'
@@ -403,8 +426,8 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                 else:
                     v = ('<span style="color:#9ca3af" title="S%s/O%s/B%s 를 덮는 '
                          '서비스 티켓이 없습니다">티켓 없음</span>' % (s, o, b))   # `PC-289`
-                cell_cu += ('<td style="font-size:11.5px;text-align:left;max-width:130px">%s</td>'
-                            % v)
+                cell_cu = ('<td style="font-size:11.5px;text-align:left;max-width:130px">%s</td>'
+                           % v)
             # 같은 코드(S/O/B)에 작업물이 여럿이면 교재명 옆에 「작업 n/N」 `PC-110` `PC-112`
             wbadge = ''
             if work and no in work:
@@ -422,33 +445,29 @@ def book_list(rows=None, share=False, filtered=False, empty=False, sort=None,
                 dcv = ('<div style="font-size:10px;color:#9ca3af;font-weight:400">'
                        '<s>₩%s</s> <span style="color:#dc2626;font-weight:700">−%d%%</span>'
                        '</div>' % (dc[0], dc[1]))
+            # NCP2명 — casterN 에서 내보낸 ncp2 파일명(자동 · 직접 등록 가능) · 없으면 미연동 `PC-369`
+            ncp2 = (('<span style="color:#374151">%s</span>' % fn) if fn and fn != '—' else
+                    '<span style="color:#d1d5db" title="casterN 에서 ncp2 를 내보내면 채워집니다">미연동</span>')
             body += ('<tr>'
-                     '<td style="color:#9ca3af;font-family:ui-monospace,monospace">%d</td>'
-                     '<td><span style="font-size:10px;background:%s;color:%s;border-radius:5px;'
-                     'padding:2px 7px;font-weight:700;white-space:nowrap">%s</span></td>%s'
-                     '<td style="text-align:left;max-width:200px;font-size:11.5px">%s%s</td>'
-                     '<td style="font-weight:600;text-align:left;max-width:200px">%s%s</td>'
+                     '<td style="color:#9ca3af;font-family:ui-monospace,monospace">%d</td>%s'
                      '<td><span style="font-size:11px;background:%s;color:%s;border-radius:5px;'
-                     'padding:2px 7px">%s</span></td>'
+                     'padding:2px 7px;font-weight:700">%s</span></td>'
                      '<td style="text-align:left">%s</td>'
+                     '<td style="font-weight:600;text-align:left;max-width:200px">%s%s</td>'
+                     '<td style="text-align:left;max-width:220px;font-size:11px;'
+                     'font-family:ui-monospace,monospace;word-break:break-all">%s</td>'
                      '<td>%s<div style="font-size:10px;color:#9ca3af">%dp</div></td>'
                      '<td style="font-weight:700;white-space:nowrap">%s</td>'
-                     '<td style="font-size:11;color:#6b7280">%s</td>'
+                     '<td style="font-size:11px;color:#6b7280">%s</td>'
                      '<td style="font-size:11px;color:%s">%s</td>'
                      '<td>%s</td>'
                      '<td style="color:#2563eb;font-weight:600;white-space:nowrap">₩%s%s</td>'
                      '%s</tr>'
-                     % (no, bgc, fgc, st, cell_cu,
-                        # 프로젝트명(.nproj · 자동) — 교재명 왼쪽 · 아래 줄 ncp2 파일명 · 연결 전이면 미연동 `PC-282`
-                        ('<span style="font-weight:600;color:#374151">%s</span>' % proj_of(fn))
-                        if proj_of(fn) else '<span style="color:#d1d5db">미연동</span>',
-                        ('<div style="color:#9ca3af;font-size:10.5px;'
-                         'font-family:ui-monospace,monospace">%s</div>' % fn)
-                        if fn and fn != '—' else '',
-                        t, wbadge,
+                     % (no, cell_cu,
                         '#eef6ff' if k == 'N' else '#fef3c7',
                         '#2563eb' if k == 'N' else '#92400e', 'PDS3' if k == 'N' else 'PDS2',
                         sob(s, o, b, (extmap or {}).get(no)),
+                        t, wbadge, ncp2,
                         prange, pg, '{:,}'.format(sym), d,
                         '#374151' if nmod != '—' else '#d1d5db', nmod,
                         ('<span style="font-size:11px;background:#eef6ff;color:#2563eb;'
@@ -503,94 +522,102 @@ def ext_chips(on=False, n=16):
             % (chip('전체', not on, False), chip('🌐 확장 언어 %d' % n, on, True)))
 
 
-def detail(empty=False, share=False, filtered=False, base_price=False, discount=True,
+KIND_C2 = {'PDS3': ('#eef6ff', '#2563eb'), 'PDS2': ('#fef3c7', '#d97706'),
+           'PDS4': ('#f3e8ff', '#7c3aed'), 'OID': ('#ccfbf1', '#0f766e')}
+
+
+def guide():
+    """고객사를 고르지 않은 첫 화면 오른쪽 — 안내만(전체 고객사 목록 없음) `PC-371` (옛 `PC-038` `PC-040`)"""
+    return ('<div class="card" style="padding:16px"><div style="padding:48px 0;text-align:center;'
+            'color:#9ca3af;font-size:12.5px">왼쪽에서 고객사를 고르거나 '
+            '<span class="lnk" style="color:#2563eb">[＋ 고객사]</span>를 누르세요.</div></div>')
+
+
+def crumb(sub):
+    """하위 고객사로 들어오면 상세 위 「{상위} ▸ {하위}」 — [← 전체 고객사] 는 없앴다 `PC-293` `PC-371`"""
+    return ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px">'
+            '<span style="color:#6b7280"><span class="lnk">%s</span> ▸ '
+            '<b style="color:#7e22ce">%s</b></span></div>' % sub)
+
+
+def slot_tabs(tabs):
+    """확장 언어 그룹 고객사 상세 위 탭 — [{고객사-owner} 교재 · n권] [🌐 확장 O{n} · n권] … `PC-362`
+    tabs = ((라벨, 권수, 고른 탭), …) · 첫 칸 = 그룹 고객사 교재"""
+    out = ''
+    for i, (lab, n, on) in enumerate(tabs):
+        if on:
+            bd, bg, fg = '#93c5fd', '#eef6ff', '#2563eb'
+        else:
+            bd, bg, fg = '#e5e7eb', '#fff', ('#374151' if i == 0 else '#0e7490')
+        out += ('<span style="font-size:12px;padding:4px 10px;border-radius:7px;border:1px solid %s;'
+                'background:%s;color:%s;font-weight:%s;white-space:nowrap">%s · %d권</span>'
+                % (bd, bg, fg, '700' if on else '400', lab, n))
+    return ('<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">%s</div>' % out)
+
+
+def detail(sel_cust='웅진씽크빅', share=False, filtered=False, base_price=False, discount=True,
            list_empty=False, basis=False, unfilter=False, search='', sort=None,
            hf=False, toast3='', dup=True, work=None, rows=None, who=None, ext=None,
-           nums=None, extmap=None, total=114, sub=None):
+           nums=None, extmap=None, total=114, sub=None, tabs=None, klock=None,
+           standalone=False):
     # who — (고객사, owner, (코드 종류 …)) · ext — None / 'all' / 'ext' (확장 언어 칩) `PC-344`
-    if empty:
-        return ('<div class="card"><div class="bd"><div class="empty" style="padding:90px 10px">'
-                '<span class="em">✏️</span>좌측에서 고객사를 선택하세요.</div></div></div>')
+    # sub — (상위, 하위) 하위 고객사로 들어옴 `PC-293` · tabs — 확장 언어 슬롯 탭 `PC-362`
+    # standalone — 교재 화면에서 [목록] 으로 돌아온 교재 목록(왼쪽 목록 없는 별도 화면) `PC-368`
     if who:
         name, own, kinds = who
-        ktags = ''.join('<span style="font-size:11px;background:%s;color:%s;border-radius:5px;'
-                        'padding:2px 7px;font-weight:700">%s</span>'
-                        % (KIND_C2[k][0], KIND_C2[k][1], k) for k in kinds)
     else:
-        name, own = '웅진씽크빅', 17
-        ktags = ('<span style="font-size:11px;background:%s;color:%s;border-radius:5px;'
-                 'padding:2px 7px">%s</span>'
-                 % ('#eef6ff' if share else '#fef3c7', '#2563eb' if share else '#92400e',
-                    'PDS3' if share else 'PDS2'))
+        r = cust_of(sel_cust) or EDIT_CUSTS[6]
+        name, own = r[0], r[0].rsplit('-', 1)[-1]
+        kinds = ('PDS3' if r[2] == 'N' else 'PDS2',)
+    ktags = ''.join('<span style="font-size:11px;background:%s;color:%s;border-radius:5px;'
+                    'padding:2px 7px;font-weight:700">%s</span>'
+                    % (KIND_C2[k][0], KIND_C2[k][1], k) for k in kinds)
+    back = ('<span class="btn gho" style="padding:6px 12px">편집 프로젝트</span>'
+            if standalone else '')
+    # 교재에서 [목록] 으로 돌아오면 머리에도 「▸ {하위}」 `PC-368`
+    subh = ('<div style="font-size:18px;font-weight:700;color:#7e22ce">'
+            '<span style="color:#9ca3af;font-weight:400;margin-right:6px">▸</span>%s</div>'
+            % sub[1]) if (standalone and sub) else ''
     head = ('<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">'
-            '<div style="font-size:18px;font-weight:700">%s</div>'
+            '%s<div style="font-size:18px;font-weight:700">%s</div>%s'
             '<span style="font-size:11px;background:#eef2f7;color:#475569;border-radius:5px;'
             'padding:2px 7px;font-family:ui-monospace,monospace">owner %s</span>%s%s'
             '<div style="flex:1"></div>'
             '<span class="btn gho" style="margin-right:8px">초기화</span>'
             '<span class="btn pri">＋ 교재(책) 추가</span></div>'
-            % (name, own, ktags, ext_chips(ext == 'ext') if ext else ''))
+            % (back, name, subh, own, ktags, ext_chips(ext == 'ext') if ext else ''))
     ts = ('<div class="toast" style="margin-bottom:10px">%s</div>' % toast3) if toast3 else ''
-    back = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px">'
-            '<span class="lnk" style="font-size:12.5px">← 전체 고객사</span>%s</div>'
-            % (('<span style="color:#6b7280">· <span class="lnk">%s</span> ▸ <b style="color:#7e22ce">%s</b></span>' % sub) if sub else ''))
+    top_ = ''
+    if not standalone:
+        top_ = (crumb(sub) if sub else '') + (slot_tabs(tabs) if tabs else '')
     return ('<div>%s%s%s%s%s</div>'
-            % (back, head, ts, summary(filtered, base_price, discount, basis, unfilter,
-                                 search, share, nums),
+            % (top_, head, ts, summary(filtered, base_price, discount, basis, unfilter,
+                                       search, share, nums),
                book_list(rows=rows, share=share, filtered=filtered, empty=list_empty,
                          sort=sort, hf=hf, page=not list_empty, dup=dup, work=work,
-                         extmap=extmap, total=total)))
+                         extmap=extmap, total=total, klock=klock,
+                         cu_f=sub[1] if sub else None)))
 
 
-# 첫 화면 — 특정 고객사가 아니라 전체 고객사 요약 표 (PC-038)
-ALL_ROWS = (('가쿠쇼-1022', ('PDS3',), '73', '0', '0.0GB', '₩0'),
-            ('교원구몬-10', ('PDS2', 'PDS3'), '186', '292,674', '22.5GB', '₩313,383,500'),
-            ('교원도요새베트남-4', ('PDS3',), '290', '16,065', '0.0GB', '₩18,337,000'),
-            ('한솔교육-25', ('PDS2', 'OID'), '147', '0', '18.2GB', '₩0'),
-            ('웅진씽크빅-17', ('PDS2', 'OID'), '1,014', '412,905', '61.3GB', '₩512,004,000'))
-KIND_C2 = {'PDS3': ('#eef6ff', '#2563eb'), 'PDS2': ('#fef3c7', '#d97706'),
-           'PDS4': ('#f3e8ff', '#7c3aed'), 'OID': ('#ccfbf1', '#0f766e')}
-
-
-ALL_NUMS = dict(bk='2,269', pg='325,410', s='310,120', p='15,603', sym='325,723',
-                apply='₩162,705,000', symamt='₩325,723,000', cost='₩488,428,000')
-ALL_CU = ('웅진씽크빅', '웅진씽크빅', '웅진씽크빅', '대교', '구몬학습')
-
-
-def all_customers(kind='전체', n=11):
-    """전체 고객사 — 고객사를 고르지 않은 처음 화면. EditingDetailView(allCustomers) 와 같은 화면:
-    머리 줄 + 편집량 · 정산 집계 + 교재 표(「고객사」 열 · 「고객사 전체」 필터 · 복제 열 없음) · 조회 전용 `PC-040`"""
-    chips = ''
-    if kind != '전체':
-        kk = 'PDS3' if kind.startswith('PDS3') else 'PDS2'
-        bg, fg = KIND_C2.get(kk, ('#eef6ff', '#2563eb'))
-        chips = ('<span style="font-size:11px;background:%s;color:%s;font-weight:700;'
-                 'border-radius:5px;padding:2px 7px">%s 보유</span>' % (bg, fg, kk))
-    head = ('<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;'
-            'flex-wrap:wrap"><b style="font-size:14px">전체 고객사</b>'
-            '<span style="font-size:11px;background:#eef6ff;color:#2563eb;font-weight:700;'
-            'border-radius:5px;padding:2px 7px">%d곳</span>%s'
-            '<span style="font-size:11.5px;color:#6b7280">모든 고객사의 교재를 한 목록으로 봅니다 · 조회 전용(수정은 고객사 선택 후)</span></div>'
-            % (n, chips))
-    return ('<div>' + head +
-            summary(base_price=True, discount=False, nums=ALL_NUMS) +
-            book_list(hf=True, allc=ALL_CU, share=True, total=2269) + '</div>')
-
-
-# ── 확장 언어 그룹 고객사(Common-21) 예시 — `PC-344` `PC-327` ─────────────────────
-#   옛 슬롯 고객사 「Common 추가 언어 슬롯-964」(16권) · 「-965」(12권) 는 목록에 따로 나오지 않고
-#   Common-21 ▶ 아래 🌐 줄로 들어간다. 하위 고객사 50곳 + 슬롯 2줄 = 「하위 52」.
-#   (편집 데이터 기준: Common-21 396권 · 확장 언어 교재 16권)
+# ── 확장 언어 그룹 고객사(Common-21) 예시 — `PC-344` `PC-362` `PC-327` ─────────────
+#   옛 슬롯 고객사 「Common 추가 언어 슬롯-964」(16권) · 「-965」(12권) 는 왼쪽 목록에 나오지 않고
+#   Common-21 을 고르면 오른쪽 상세 위 탭 [🌐 확장 O964] [🌐 확장 O965] 로 본다 `PC-362` (옛 ▶ 안 🌐 줄 `PC-344`)
+#   하위 고객사 50곳 + 하위 등록만 한 고객사 1곳(0권 `PC-365`) = 「하위 51」 — 슬롯은 세지 않는다
+#   (편집 데이터 기준: Common-21 396권 · 확장 언어 교재 16권 · 전북교육청 9권 · 슬롯-964 16권)
 COMMON_WHO = ('Common-21', 21, ('PDS2', 'OID'))
 COMMON_ALL = dict(bk='396', pg='71,124', s='413,595', p='0', sym='413,595',
                   apply='₩35,562,000', symamt='₩413,595,000', cost='₩449,157,000')
 COMMON_EXT = dict(bk='16', pg='2,003', s='33,946', p='0', sym='33,946',
                   apply='₩1,001,500', symamt='₩33,946,000', cost='₩34,947,500')
+COMMON_SUB = dict(bk='9', pg='976', s='16,089', p='0', sym='16,089',
+                  apply='₩488,000', symamt='₩16,089,000', cost='₩16,577,000')
+SLOT964 = dict(bk='16', pg='2,003', s='27,819', p='0', sym='27,819',
+               apply='₩1,001,500', symamt='₩27,819,000', cost='₩28,820,500')
 
 
-def _cb(no, cu, t, fn, b, pg, sym, d, nmod, logs=0):
+def _cb(no, cu, t, fn, b, pg, sym, d, nmod, logs=0, o=21):
     amt = '{:,}'.format(pg * 500 + sym * 1000)
-    return (no, '완료', cu, t, fn, 'G', '소리펜', (3, 21, b), '1~%d' % pg, pg, sym, '기본',
+    return (no, '완료', cu, t, fn, 'G', '소리펜', (3, o, b), '1~%d' % pg, pg, sym, '기본',
             d, nmod, logs, 0, amt, None)
 
 
@@ -600,11 +627,15 @@ CB = {
     14: _cb(14, '방교영 교수', '병원에서 통하는 러시아어 의료회화 데모',
             'Russian_medical_conversation_1', 27, 8, 214, '2026-02-10', '2026-02-13'),
     102: _cb(102, '전북교육청', '톡톡 누르면 배움이 쏙쏙 1', 'TOKTOK_Korean_Book_1-1', 262,
-             106, 2310, '2025-04-30', '2025-07-22'),
+             106, 2125, '2025-04-30', '2025-07-22'),
     103: _cb(103, '전북교육청', '톡톡 누르면 배움이 쏙쏙 2', 'TOKTOK_Korean_Book_2-1', 263,
-             98, 2118, '2025-04-30', '2025-07-22'),
+             98, 1438, '2025-04-30', '2025-07-22'),
+    104: _cb(104, '전북교육청', '톡톡 누르면 배움이 쏙쏙 3', 'TOKTOK_Korean_Book_3-1', 264,
+             120, 1803, '2025-04-30', '2025-07-22'),
     105: _cb(105, '전북교육청', '톡톡 누르면 배움이 쏙쏙 4', 'TOKTOK_Korean_Book_4-1', 265,
-             132, 2846, '2025-04-30', '2025-07-22', 2),
+             132, 1940, '2025-04-30', '2025-07-22', 2),
+    106: _cb(106, '전북교육청', '톡톡 누르면 배움이 쏙쏙 5', 'TOKTOK_Korean_Book_5-1', 266,
+             112, 1758, '2025-04-30', '2025-07-22'),
     115: _cb(115, '에듀윈드', '영재쌤과 함께하는 쉬운 한국어_학교생활편', 'yjkor01_1', 275,
              113, 1902, '2025-08-12', '2025-09-25'),
     160: _cb(160, '현대미포조선', '외국인근로자용 한국어 안전교육교재', 'HD_SafetytrainingBook', 511,
@@ -616,23 +647,43 @@ CB = {
 COMMON_ROWS_ALL = (CB[1], CB[14], CB[102], CB[105])
 # 확장 언어만 — 16권 중 일부
 COMMON_ROWS_EXT = (CB[14], CB[102], CB[103], CB[105], CB[115], CB[160], CB[170])
-# No → (실선 = 교재에 고른 슬롯, 점선 = 같은 사용 고객사가 슬롯 Book 을 따로 등록) `PC-327`
-#   B265 는 교재 편집(PRJ-04)에서 O964 · O965 를 골라 묶은 예 · 나머지는 옛 방식(따로 등록)
+# 하위 고객사 전북교육청으로 들어옴 — 9권 중 일부 `PC-293` `PC-368`
+COMMON_ROWS_SUB = (CB[102], CB[103], CB[104], CB[105], CB[106])
+# No → (실선 = 교재에서 고른 확장 언어 코드, 점선 = 같은 사용 고객사가 슬롯 Book 을 따로 등록) `PC-327`
+#   B265 는 교재 편집(PRJ-04)에서 O964 · O965 · O966 · O967 을 고른 예 — 칩은 둘까지 + 2 `PC-366` `PC-359`
+#   나머지는 옛 방식(따로 등록)
 COMMON_EXTMAP = {14: ((), (964,)), 102: ((), (964, 965)), 103: ((), (964, 965)),
-                 105: ((964, 965), ()), 115: ((), (964, 965)), 160: ((), (964, 965)),
+                 104: ((), (964, 965)), 105: ((964, 965, 966, 967), ()),
+                 106: ((), (964, 965)), 115: ((), (964, 965)), 160: ((), (964, 965)),
                  170: ((), (964,))}
+# 확장 슬롯 탭 [🌐 확장 O964] 를 고른 화면 — 슬롯 고객사 「Common 추가 언어 슬롯-964」 교재(편집 데이터 그대로)
+SLOT_WHO = ('Common 추가 언어 슬롯-964', 964, ('PDS2',))
+SLOT_ROWS = (_cb(1, '방교영 교수', '병원에서 통하는 러시아어 의료회화 데모', 'Russian medical conversation 2',
+                 27, 8, 97, '2026-02-10', '2026-02-13', o=964),
+             _cb(2, '전북교육청', '톡톡 누르면 배움이 쏙쏙 1', 'TOKTOK_Korean_Book_1-2', 262, 106, 1844,
+                 '2025-04-30', '2025-07-22', o=964),
+             _cb(3, '전북교육청', '톡톡 누르면 배움이 쏙쏙 2', 'TOKTOK_Korean_Book_2-2', 263, 98, 1186,
+                 '2025-04-30', '2025-07-22', o=964),
+             _cb(4, '전북교육청', '톡톡 누르면 배움이 쏙쏙 3', 'TOKTOK_Korean_Book_3-2', 264, 120, 1537,
+                 '2025-04-30', '2025-07-22', o=964),
+             _cb(5, '전북교육청', '톡톡 누르면 배움이 쏙쏙 4', 'TOKTOK_Korean_Book_4-2', 265, 132, 1660,
+                 '2025-04-30', '2025-07-22', o=964))
 
-# 줄 목록 — (고객사, 권수, 코드 종류, 하위 수) · 가나다순(영문 먼저) · 슬롯 고객사 3곳은 빠진다
-TOP_ROWS = (('Cake-1009', 52, ('PDS3',), 1), ('Common-21', 396, ('PDS2', 'OID'), 52),
-            ('가쿠쇼-1022', 73, ('PDS3',), 0), ('교원구몬-10', 186, ('PDS2', 'PDS3'), 0),
-            ('웅진씽크빅-17', 1014, ('PDS2', 'OID'), 0))
-COMMON_SLOTS = (('🌐 O964 · Common 추가 언어 슬롯-964', 16),
-                ('🌐 O965 · Common 추가 언어 슬롯-965', 12))
-COMMON_SUBS = (('EBS', 1), ('LG U+', 50), ('NeoLAB', 49), ('The M', 1), ('Tranwisdom', 1),
-               ('YBM', 6))
+
+def common_tabs(i=0):
+    return (('Common-21 교재', 396, i == 0), ('🌐 확장 O964', 16, i == 1), ('🌐 확장 O965', 12, i == 2))
 
 
-def co_item(label, n, on=False, sub=False, fold=None, sub_n=0, kinds=(), slot=False, tags=''):
+# 줄 목록 — (고객사, 권수, 코드 종류, 하위 수) · 가나다순(영문 먼저) · 슬롯 고객사 3곳은 빠진다 `PC-362`
+TOP_ROWS = (('Cake-1009', 52, ('PDS3',), 0), ('Common-21', 396, ('PDS2', 'OID'), 51),
+            ('가쿠쇼-1022', 73, ('PDS3',), 0), ('교원구몬-10', 298, ('PDS2', 'PDS3'), 0),
+            ('웅진씽크빅-17', 114, ('PDS2', 'OID'), 0))
+# 하위 고객사 — 교재 소유 고객사 + 하위 등록만 한 고객사(교재 없으면 0권) `PC-365`
+COMMON_SUBS = (('ABC 어학원', 0), ('EBS', 1), ('LG U+', 50), ('NeoLAB', 49), ('The M', 1),
+               ('Tranwisdom', 1), ('YBM', 6))
+
+
+def co_item(label, n, on=False, sub=False, fold=None, sub_n=0, kinds=(), tags='', tip=''):
     """고객사 관리 · App Key 관리와 같은 줄 — ▶ · 이름 · 하위 n · 권수 배지 / 둘째 줄 코드 종류 `PC-294`"""
     arrow = ('<span style="width:12px;color:#6b7280;font-size:10px">%s</span>' % fold) if fold else \
         ('' if sub else '<span style="width:12px"></span>')
@@ -649,16 +700,16 @@ def co_item(label, n, on=False, sub=False, fold=None, sub_n=0, kinds=(), slot=Fa
             '<span style="font-size:10.5px;background:%s;color:%s;border-radius:999px;'
             'padding:1px 7px;font-family:ui-monospace,monospace">%s</span></div>%s</div>'
             % ('5px 8px' if sub else '7px 8px', '#eef6ff' if on else 'transparent',
-               (' title="확장 언어 슬롯 O%s — 따로 등록된 교재 %d권"'
-                % (label.split(' · ')[0].replace('🌐 O', ''), n)) if slot else '',
+               (' title="%s"' % tip) if tip else '',
                arrow, '12px' if sub else '13px', '700' if (on or not sub) else '400',
-               '#1d4ed8' if on else ('#0e7490' if slot else '#111827'), label, subb + tags,
+               '#1d4ed8' if on else '#111827', label, subb + tags,
                '#dbeafe' if on else '#f3f4f6', '#1d4ed8' if on else '#6b7280',
                '{:,}'.format(n), line2))
 
 
-def left_rows(search='', open_common=True, sel='Common-21'):
-    """줄 목록 왼쪽 — 확장 언어 슬롯 고객사는 그룹 고객사 ▶ 아래 🌐 줄(하위 고객사 줄보다 위) `PC-344`"""
+def left_rows(search='', open_common=True, sel='Common-21', sub_sel=None):
+    """줄 목록 왼쪽 — 확장 언어 슬롯 고객사는 왼쪽에 두지 않는다(오른쪽 탭) `PC-362`
+    sub_sel — 고른 하위 고객사(전북교육청 등) `PC-293`"""
     sv = ('<div class="inp" style="padding-right:28px">%s'
           '<span style="position:absolute;right:6px;top:50%%;transform:translateY(-50%%);'
           'color:#9ca3af;font-size:16px">×</span></div>' % search) if search else \
@@ -666,16 +717,22 @@ def left_rows(search='', open_common=True, sel='Common-21'):
     rows = TOP_ROWS
     if search:
         rows = tuple(r for r in rows if search.lower() in r[0].lower())
+    more = ('<div style="font-size:11px;color:#9ca3af;padding:3px 8px">%s</div>')
     body = ''
     for nm, bk, kinds, subn in rows:
         opened = open_common and nm == 'Common-21'
-        body += co_item(nm, bk, on=(nm == sel), fold=('▼' if opened else '▶') if subn else None,
+        body += co_item(nm, bk, on=(nm == sel and not sub_sel),
+                        fold=('▼' if opened else '▶') if subn else None,
                         sub_n=subn, kinds=kinds)
         if opened:
-            kids = ''.join(co_item(l, n, sub=True, slot=True) for l, n in COMMON_SLOTS)
-            kids += ''.join(co_item(l, n, sub=True) for l, n in COMMON_SUBS)
-            kids += ('<div style="font-size:11px;color:#9ca3af;padding:3px 8px">'
-                     '⋯ 하위 고객사 44곳 더 (가나다순)</div>')
+            kids = ''.join(co_item(l, n, sub=True,
+                                   tip=('%s — 교재 %d권' % (l, n))) for l, n in COMMON_SUBS)
+            if sub_sel:
+                kids += more % '⋯ 하위 고객사 40곳 (가나다순)'
+                kids += co_item(sub_sel[0], sub_sel[1], on=True, sub=True)
+                kids += more % '⋯ 하위 고객사 3곳 더'
+            else:
+                kids += more % '⋯ 하위 고객사 44곳 더 (가나다순)'
             body += ('<div style="margin:0 0 4px 14px;border-left:2px solid #e5e7eb;'
                      'padding-left:6px">%s</div>' % kids)
     n = len(rows) if search else 69
@@ -688,34 +745,64 @@ def left_rows(search='', open_common=True, sel='Common-21'):
             '</div></div>' % (co_head(n), sv, n, body))
 
 
-def common_view(ext='all', search='', left_open=True):
-    """Common-21 을 고른 화면 — ext: 'all' [전체] / 'ext' [🌐 확장 언어 16] `PC-344`"""
+def common_view(ext='all', search='', left_open=True, tab=0, sub=None):
+    """Common-21 을 고른 화면 `PC-344` `PC-362`
+    ext — 'all' [전체] / 'ext' [🌐 확장 언어 16] · tab — 0 그룹 고객사 교재 / 1 🌐 확장 O964
+    sub — 하위 고객사 이름(전북교육청)으로 들어옴 `PC-293`"""
+    # 상단 요약 — 줄 목록 69곳(슬롯 고객사 제외) · 하위 51(하위 등록 0권 포함 `PC-365` · 슬롯 제외 `PC-362`)
+    cnt = (1, 1, 51) if search else (69, 2, 51)
+    if tab == 1:
+        # 확장 슬롯 탭 — 슬롯 고객사 교재(확장 언어 칩 · [확장] 칩 없음 — 그룹 기본 코드 교재가 아니다)
+        return content(left_html=left_rows(search, left_open), search=search, cnt=cnt, who=SLOT_WHO, share=True,
+                       base_price=True, discount=False, nums=SLOT964, rows=SLOT_ROWS,
+                       total=16, tabs=common_tabs(1))
+    if sub:
+        return content(left_html=left_rows(search, True, sub_sel=(sub, 9)), search=search, cnt=cnt,
+                       who=COMMON_WHO,
+                       ext='all', share=True, base_price=True, discount=False, filtered=True,
+                       unfilter='필터 해제 (9/396)', nums=COMMON_SUB, rows=COMMON_ROWS_SUB,
+                       extmap=COMMON_EXTMAP, total=9, hf=True, sub=('Common-21', sub),
+                       tabs=common_tabs(0))
     on = (ext == 'ext')
-    return content(left_html=left_rows(search, left_open), who=COMMON_WHO, ext=ext,
+    return content(left_html=left_rows(search, left_open), search=search, cnt=cnt, who=COMMON_WHO, ext=ext,
                    share=True, base_price=True, discount=False, filtered=on,
                    unfilter='필터 해제 (16/396)' if on else False,
                    nums=COMMON_EXT if on else COMMON_ALL,
                    rows=COMMON_ROWS_EXT if on else COMMON_ROWS_ALL,
-                   extmap=COMMON_EXTMAP, total=16 if on else 396)
+                   extmap=COMMON_EXTMAP, total=16 if on else 396, tabs=common_tabs(0))
 
 
-def content(sel_cust='웅진씽크빅', kind='전체', search='', left_empty=False, all_view=False,
-            empty_detail=False, share=False, filtered=False, base_price=False,
+def standalone_sub(sub='전북교육청'):
+    """교재 화면에서 [목록] 으로 돌아온 교재 목록 — 왼쪽 목록 없이 머리 「Common-21 ▸ {하위}」 `PC-368`"""
+    return detail(who=COMMON_WHO, ext='all', share=True, base_price=True, discount=False,
+                  filtered=True, unfilter='필터 해제 (9/396)', nums=COMMON_SUB,
+                  rows=COMMON_ROWS_SUB, extmap=COMMON_EXTMAP, total=9, hf=True,
+                  sub=('Common-21', sub), standalone=True)
+
+
+def content(sel_cust='웅진씽크빅', kind='전체', search='', left_empty=False, nosel=False,
+            share=False, filtered=False, base_price=False,
             discount=True, list_empty=False, toast='', top_row=True,
             basis=False, unfilter=False, bsearch='', sort=None, hf=False, toast3='',
             dup=True, work=None, rows=None, left_html=None, who=None, ext=None,
-            nums=None, extmap=None, total=114):
-    # left_html — 줄 목록(상위 ▶ 하위 · 🌐 확장 언어 슬롯)으로 그린 왼쪽 `PC-294` `PC-344`
-    head = top(kind, search) if top_row else ''
+            nums=None, extmap=None, total=114, sub=None, tabs=None, cnt=None):
+    # left_html — 줄 목록(상위 ▶ 하위)으로 그린 왼쪽 `PC-294` `PC-362`
+    # nosel — 고객사를 고르지 않은 첫 화면: 오른쪽은 안내만 `PC-371`
+    head = top(kind, search, cnt) if top_row else ''
+    klock = None
+    if kind != '전체':
+        klock = 'PDS3' if kind.startswith('PDS3') else 'PDS2'
     return (toast + head
             + '<div style="display:flex;gap:16px;align-items:flex-start">'
               '<div style="width:280px;flex-shrink:0">%s</div>'
               '<div style="flex:1;min-width:0">%s</div></div>'
-            % (left_html or left('' if all_view else sel_cust, kind, search, left_empty),
-               all_customers(kind) if all_view else
-               detail(empty_detail, share, filtered, base_price, discount, list_empty,
-                      basis, unfilter, bsearch, sort, hf, toast3, dup, work, rows,
-                      who, ext, nums, extmap, total)))
+            % (left_html or left('' if nosel else sel_cust, kind, search, left_empty),
+               guide() if nosel else
+               detail(sel_cust=sel_cust, share=share, filtered=filtered, base_price=base_price,
+                      discount=discount, list_empty=list_empty, basis=basis, unfilter=unfilter,
+                      search=bsearch, sort=sort, hf=hf, toast3=toast3, dup=dup, work=work,
+                      rows=rows, who=who, ext=ext, nums=nums, extmap=extmap, total=total,
+                      sub=sub, tabs=tabs, klock=klock)))
 
 
 OWNER_OPTS = (('N', 3, 306), ('N', 3, 307), ('G', 0, 88))
@@ -724,8 +811,6 @@ OWNER_OPTS = (('N', 3, 306), ('N', 3, 307), ('G', 0, 88))
 def prj05(step='cust', picked=0, direct=False):
     """편집 고객사 추가 모달 — step: cust(미선택) / owner(칩 선택) / none(할당 코드 없음)"""
     co = '- 고객사 선택 (536곳) -' if step == 'cust' else ('시원스쿨' if direct else '대교')
-    if step == 'base':
-        co = '언어테스트사(예시)'
     body = field('고객사 * (고객사 관리 등록 고객사)', sel(co, ph=(step == 'cust')))
     if step == 'owner':
         chips = ''
@@ -754,13 +839,7 @@ def prj05(step='cust', picked=0, direct=False):
                  '<div style="margin-top:4px;color:#7f1d1d">코드 할당은 <b>[SOBP 맵]</b> 에서만 합니다. '
                  '먼저 SOBP 맵에서 이 고객사에 코드를 할당한 뒤 다시 추가하세요.</div>'
                  '<div style="margin-top:8px;font-size:12px;font-weight:700;color:#b91c1c">SOBP 맵으로 이동 →</div></div>')
-    elif step == 'base':
-        # 확장 언어 그룹 고객사인데 기본 코드를 아직 정하지 않음 `PC-349`
-        body += ('<div style="margin-top:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;'
-                 'padding:11px 13px;font-size:12.5px;color:#92400e;line-height:1.7">'
-                 '<b>%s</b> 는 확장 언어 그룹 고객사입니다. <b>기본 코드</b>를 아직 정하지 않았습니다.'
-                 '<div style="margin-top:4px">고객사 관리 ▸ 공통코드 · 확장 언어 에서 코드 하나를 <b>기본</b>으로 정하고 저장한 뒤 다시 추가하세요.</div>'
-                 '<div style="margin-top:8px;font-size:12px;font-weight:700;color:#b45309">고객사 관리로 이동 →</div></div>' % co)
+    # 옛 'base'(기본 코드 미정 안내 `PC-349`)는 없앴다 `PC-357`
     ok = (step == 'owner')
     return ('<div class="ovl"><div class="mdl">'
             '<div class="mh"><div class="mt">편집 고객사 추가 '
@@ -808,30 +887,26 @@ def build2():
     B = []
 
     B.append((
-        'S1', '첫 화면 — 전체 고객사', '기본',
-        '좌 고객사 <b>줄 목록</b>(고객사 관리 · App Key 관리와 같은 줄 — 이름 · 하위 n · 권수 배지 / 둘째 줄 코드 종류, 심볼 막대 없음 <code>PC-294</code>) + '
-        '우 <b>전체 고객사 교재 목록</b>이 함께 있다 — 머리 <b>전체 고객사 [n곳] 모든 고객사의 교재를 한 목록으로 봅니다 · 조회 전용(수정은 고객사 선택 후)</b>, 아래는 고객사 상세와 같은 편집량 · 정산 집계와 교재 표. '
-        '<b>특정 고객사를 미리 고르지 않는다</b> <code>PC-038</code> — 표·항목 셀렉트 필터·'
-        '페이지네이션은 <b>고객사 상세(<code>PRJ-03</code>)와 같은 것</b>을 쓰고 '
-        '앞에 <b>고객사</b> 열이 붙는다 <code>PC-040</code>. 전체 보기는 <b>조회 전용</b>이며, '
-        '왼쪽에서 고객사를 고르면 수정할 수 있는 상세로 들어간다. '
+        'S1', '첫 화면 — 고객사 선택 안내', '기본',
+        '좌 고객사 <b>줄 목록</b>(고객사 관리 · App Key 관리와 같은 줄 — 이름 <b>「고객사-owner」</b> <code>PC-362</code> · 하위 n · 권수 배지 / 둘째 줄 코드 종류, 심볼 막대 없음 <code>PC-294</code>) + '
+        '우 <b>안내만</b> — <b>왼쪽에서 고객사를 고르거나 [＋ 고객사]를 누르세요.</b> <code>PC-371</code>. '
+        '<b>특정 고객사를 미리 고르지 않는다</b>. 옛 <b>전체 고객사 교재 목록</b>(모든 고객사 교재를 합친 조회 전용 표 · 고객사 열 · 고객사 필터 '
+        '<code>PC-038</code> <code>PC-040</code>)과 상세 위 <b>[← 전체 고객사]</b> 는 없앴다 — 교재는 고객사를 골라서만 본다. '
         '상단 한 줄은 <b>지금 목록 기준</b> 집계이며 청구액은 <b>고객사 단가</b>로 계산한다 '
         '<code>P-16</code>.',
-        frame('PRJ-02', '편집 프로젝트', content(all_view=True), height=H2),
-        [('전체 고객사 표', '표시', '—',
-          '상세와 같은 교재 표 + <b>고객사</b> 열 · 상단 집계는 전체 기준'),
-         ('항목 셀렉트 필터', '선택', '목록 필터',
-          '<b>상태 · 고객사 · 사용 고객사 · 코드(PDS2·PDS3·PDS4·OID)</b> — 타입 · 편집방식 필터는 열과 함께 없앴다 <code>PC-282</code>'),
-         ('페이지네이션', '클릭', '페이지 이동',
-          '<b>25 / 50 / 100 / 200 / 500 / 전체 보기</b> · <b>전체 {n}건 중 {a}~{b} 표시</b>'),
-         ('전체 보기 편집', '—', '조회 전용',
-          '교재 추가·수정·초기화 버튼이 나오지 않는다 — 고객사를 골라야 수정 가능'),
-         ('좌측 고객사 줄', '클릭', 'S2 상세', '그 고객사의 교재별 상세로 들어간다 · 상세 위에 <b>[← 전체 고객사]</b> · 하위 고객사로 들어오면 <b>· 상위 ▸ 하위</b>'),
-         ('[← 전체 고객사]', '클릭', 'S1', '상세에서 전체 화면으로 되돌아온다'),
+        frame('PRJ-02', '편집 프로젝트', content(nosel=True), height=H2 - 500),
+        [('안내', '표시', '—',
+          '<b>왼쪽에서 고객사를 고르거나 [＋ 고객사]를 누르세요.</b> — 전체 고객사 목록 없음 <code>PC-371</code>'),
+         ('안내 안 [＋ 고객사]', '클릭', 'S7 <code>PRJ-05</code>', '왼쪽 머리의 [＋ 고객사] 와 같다'),
+         ('좌측 고객사 줄', '클릭', '<code>PRJ-03</code> S1', '그 고객사의 교재별 상세로 들어간다(수정 가능) · 상세 위 [← 전체 고객사] 없음 <code>PC-371</code>'),
+         ('좌측 하위 고객사 줄', '클릭', '<code>PRJ-03</code> S16',
+          '상위 고객사 상세를 그 사용 고객사로 걸러 연다 · 상세 위 <b>{상위} ▸ {하위}</b> 만 <code>PC-293</code> <code>PC-371</code>'),
+         ('고객사 이름', '표시', '—',
+          '<b>「고객사-owner」</b> — 이미 「-owner」 로 끝나면 그대로(예: Common-21) <code>PC-362</code>'),
          ('URL ?owner={n}', '진입', '해당 고객사 상세',
           '<code>SOB-01</code> [✏️ 편집으로 이동 →] 은 그 고객사로 바로 연다'),
          ('상단 요약', '표시', '—',
-          '편집 고객사 {n} <b>(상위 {n} · 하위 {n})</b> · 편집 북코드 · 총 심볼 · 리소스 · <b>청구액</b>(할인 있으면 기준가·할인 표기) <code>PC-293</code>'),
+          '편집 고객사 {n} <b>(상위 {n} · 하위 {n})</b> · 편집 북코드 · 총 심볼 · 리소스 · <b>청구액</b>(할인 있으면 기준가·할인 표기) <code>PC-293</code> — 하위에는 하위 등록만 한 고객사도 센다 <code>PC-365</code>'),
          ('범위 안내', '표시', '—', '<b>· 편집현황 장부에 있는 업체만 표시</b>'),
          ('[＋ 고객사]', '클릭', 'S7 <code>PRJ-05</code>', '왼쪽 칸 머리 「고객사 {n}곳」 오른쪽 파란 버튼'),
          ('고객사 줄', '클릭', '우측 상세 교체', '오른쪽 배지 = 교재(권) 수 · 심볼 수는 목록에 두지 않는다(고르면 오른쪽 집계) <code>PC-294</code>'),
@@ -888,15 +963,19 @@ def build2():
          ('장부 항목', '—', '<b>삭제 없음</b>', '삭제 표시 자체가 나오지 않는다')] + NAV2))
 
     B.append((
-        'S6', 'PRJ-05 · 확장 언어 그룹 — 기본 코드 미정', '모달',
-        '<code>PC-349</code> — 확장 언어 그룹 고객사는 <b>기본 코드만</b> 고를 수 있다. 고객사 관리에서 기본 코드를 아직 정하지 않았으면 '
-        'Owner 칩 대신 노란 안내와 <b>[고객사 관리로 이동 →]</b> 이 나오고 [추가] 가 눌리지 않는다. '
-        '(옛 「고객사 미선택」 상태는 없앴다 — 고객사를 고르지 않으면 늘 전체 고객사 보기 S1 이다)',
-        frame('PRJ-02', '편집 프로젝트', content(), overlay=prj05('base', direct=True), height=H2),
-        [('안내', '표시', '—', '<b>{고객사} 는 확장 언어 그룹 고객사입니다. 기본 코드를 아직 정하지 않았습니다.</b> · '
-          '<b>고객사 관리 ▸ 공통코드 · 확장 언어 에서 코드 하나를 기본으로 정하고 저장한 뒤 다시 추가하세요.</b>'),
-         ('[고객사 관리로 이동 →]', '클릭', '<code>MEM-02</code>', '그 고객사 상세'),
-         ('[추가]', '—', '비활성', '')]))
+        'S6', 'PRJ-05 · 확장 언어 그룹 고객사 — 확장 코드만 뺀다', '모달',
+        '<code>PC-349</code> <code>PC-357</code> — 확장 언어 그룹은 <b>기본 코드마다 하나</b>다. 그룹 고객사를 고르면 '
+        '<b>확장 코드만</b> 버튼에서 빠지고, 그룹마다 <b>기본 코드</b>가 버튼으로 나오며 끝에 <b>[기본]</b> 칩이 붙는다. '
+        '그룹 밖 코드는 칩 없이 그대로 나온다. 옛 「기본 코드 미정」 안내는 없앴다 — 그룹은 고객사 관리에서 기본 코드를 골라 만든다. '
+        '자세한 규칙은 <code>PRJ-05</code> S5.',
+        frame('PRJ-02', '편집 프로젝트', content(),
+              overlay=p05_modal('(유한)언어테스트', p05_owner_block(picked=4, opts=(('N', 0, 4, (5, 6)), ('N', 0, 20, (7,)))), ok=True),
+              height=H2),
+        [('Owner 코드 버튼', '표시', '<b>확장 코드만 뺀다</b>',
+          '예: <b>N(PDS3) S0 O4 [기본]</b> · <b>N(PDS3) S0 O20 [기본]</b> — 확장 O5 · O6 · O7 은 나오지 않는다 <code>PC-357</code>'),
+         ('[기본]', 'hover', '툴팁', '<b>확장 언어 그룹 기본 코드 · 슬롯 1~4 · 확장 O{n} · O{n}</b>'),
+         ('기본 코드 미정 안내', '—', '<b>없음</b>', '그룹은 기본 코드를 골라 만들므로 기본 코드가 없는 그룹이 없다 <code>PC-357</code>'),
+         ('[추가]', '클릭', 'S1 목록', '고른 기본 코드로 그룹 고객사가 목록에 올라간다')]))
 
     B.append((
         'S7', 'PRJ-05 · 편집 고객사 추가 — 고객사 선택', '모달',
@@ -970,34 +1049,39 @@ def build2():
          ('장부 데이터', '—', '<b>삭제 불가</b>', '이 화면에서 추가한 항목만 지울 수 있다')]))
 
     B.append((
-        'S12', '확장 언어 슬롯 고객사 — 그룹 고객사 ▶ 아래 🌐 줄', '분기',
-        '<code>PC-344</code> — 교재가 <b>모두</b> 다른 고객사 확장 언어 그룹의 확장 Owner 에 있는 '
+        'S12', '확장 언어 슬롯 고객사 — 오른쪽 상세 위 탭 [🌐 확장 O{n}]', '분기',
+        '<code>PC-362</code> — 교재가 <b>모두</b> 다른 고객사 확장 언어 그룹의 확장 Owner 에 있는 '
         '<b>옛 슬롯 고객사</b>(「Common 추가 언어 슬롯-964」 16권 · 「-965」 12권 · 「Cake-1003」)는 '
-        '목록 맨 위 줄로 <b>따로 나오지 않는다</b>. 그룹 고객사(Common-21 · Cake-1009)의 <b>▶</b> 를 펼치면 '
-        '<b>하위 고객사 줄보다 위</b>에 <b>🌐 O{n} · {고객사}</b> 줄과 권수 배지로 들어간다. '
-        '묶음의 <b>「하위 52」</b> 는 하위 고객사 50곳 + 슬롯 2줄이다. '
-        '왼쪽 목록은 고객사 관리 · App Key 관리와 같은 <b>줄 목록</b>이다 <code>PC-294</code>.',
-        frame('PRJ-02', '편집 프로젝트', common_view('all'), height=H2 + 40),
-        [('🌐 O{n} · {고객사}', '표시', '—',
-          '그룹 고객사 ▶ 안 · <b>하위 고객사 줄보다 위</b> · 오른쪽 권수 배지 <code>PC-344</code>'),
-         ('🌐 줄', 'hover', '툴팁', '<b>확장 언어 슬롯 O{n} — 따로 등록된 교재 {n}권</b>'),
-         ('🌐 줄', '클릭', '그 슬롯 고객사 교재', '편집 데이터는 그대로 — 옛 방식으로 따로 등록된 교재를 본다'),
-         ('하위 {n}', '표시', '—', '하위 고객사 수 + <b>🌐 슬롯 줄 수</b>를 함께 센다(예: 50 + 2 = <b>하위 52</b>)'),
-         ('▶ / ▼', '클릭', '접기 · 펴기', '슬롯 줄을 고른 상태면 저절로 펼친다'),
-         ('{n}곳 표시', '자동', '—', '슬롯 고객사는 세지 않는다'),
-         ('우측 상세', '자동', '<code>PRJ-03</code> S14',
-          '그룹 고객사 머리에 <b>[전체] [🌐 확장 언어 16]</b> 칩')] + NAV2))
+        '<b>왼쪽 목록에 나오지 않는다</b> — 그룹 고객사(Common-21 · Cake-1009)만 보인다. '
+        '그룹 고객사를 고르면 <b>오른쪽 상세 위 탭</b> <b>[Common-21 교재 · 396권] [🌐 확장 O964 · 16권] [🌐 확장 O965 · 12권]</b> 이 붙고, '
+        '확장 탭을 누르면 그 슬롯에 따로 등록된 교재를 본다(편집 데이터 그대로). 그림은 <b>[🌐 확장 O964]</b> 를 고른 상태. '
+        '(옛 그룹 고객사 ▶ 안 🌐 줄 <code>PC-344</code> 은 없앴다) '
+        '▶ 를 펼친 하위 고객사에는 <b>고객사 관리에서 하위 등록만 한 고객사도 0권</b>으로 들어온다(예: ABC 어학원) <code>PC-365</code> — '
+        '묶음의 <b>「하위 51」</b> 은 하위 고객사 50곳 + 하위 등록 1곳이고 슬롯은 세지 않는다.',
+        frame('PRJ-02', '편집 프로젝트', common_view(tab=1), height=H2 + 40),
+        [('[{고객사-owner} 교재 · {n}권]', '클릭', '<code>PRJ-03</code> S14',
+          '그룹 고객사 자기 교재 · 툴팁 <b>그룹 고객사 교재</b> <code>PC-362</code>'),
+         ('[🌐 확장 O{n} · {n}권]', '클릭', '그 슬롯 고객사 교재',
+          '툴팁 <b>확장 언어 슬롯 O{n} 에 따로 등록된 교재 {n}권</b> · 고른 하위 고객사는 풀린다 · 머리는 슬롯 고객사(owner {n})'),
+         ('탭 줄', '표시', '—', '확장 슬롯 고객사가 있는 그룹 고객사만 · owner 오름차순'),
+         ('왼쪽 고른 줄', '표시', '—', '확장 탭을 골라도 <b>그룹 고객사 줄</b>이 고른 상태'),
+         ('슬롯 고객사로 바로 진입', '자동', '그룹 고객사 + 그 확장 탭', 'URL 등으로 슬롯 고객사가 들어오면 그룹 고객사 상세 + 그 탭으로 연다'),
+         ('하위 {n}', '표시', '—', '하위 고객사 수 — <b>슬롯은 세지 않는다</b> · 하위 등록만 한 고객사는 센다 <code>PC-365</code>'),
+         ('하위 고객사 0권', '표시', '—',
+          '고객사 관리 ▸ 공통코드 사용 고객사(하위 등록) 명단 · 교재가 없으면 <b>0</b> · 이름은 띄어쓰기 · 대소문자 무시로 교재 쪽과 합침 · 코드 종류 필터 따라감 · 이력전용 공통코드 제외 <code>PC-365</code>'),
+         ('하위 고객사 0권', '클릭', '빈 목록', '사용 고객사 = 그 고객사로 거른 <code>PRJ-03</code> — 교재 0건'),
+         ('{n}곳 표시', '자동', '—', '슬롯 고객사는 세지 않는다')] + NAV2))
 
     B.append((
         'S13', '검색 「common」 — 그룹 고객사만', '필터',
-        '<code>PC-344</code> — 검색은 <b>그룹 고객사 이름</b>으로 찾는다. 「common」 을 치면 '
+        '<code>PC-344</code> <code>PC-362</code> — 검색은 <b>그룹 고객사 이름</b>으로 찾는다. 「common」 을 치면 '
         '<b>Common-21 한 줄만</b> 남고 「Common 추가 언어 슬롯-…」 은 따로 걸리지 않는다. '
-        '슬롯 고객사 이름 · owner(예: 964)로 찾으면 <b>그룹 고객사가 남고 펼쳐진다</b>.',
+        '슬롯 고객사 이름 · owner(예: 964)로 찾으면 <b>그룹 고객사가 남는다</b> — 슬롯 교재는 고른 뒤 오른쪽 탭으로 본다.',
         frame('PRJ-02', '편집 프로젝트', common_view('all', search='common', left_open=False),
               height=H2 - 120),
-        [('검색 「common」', '입력', '<b>Common-21 만</b>', '<b>1곳 표시</b> · 슬롯 고객사는 맨 위 줄로 나오지 않는다'),
-         ('검색 「964」 · 슬롯 이름', '입력', '그룹 고객사 펼침',
-          'Common-21 이 남고 ▶ 가 저절로 펼쳐져 <b>🌐 O964</b> 줄이 보인다'),
+        [('검색 「common」', '입력', '<b>Common-21 만</b>', '<b>1곳 표시</b> · 슬롯 고객사는 왼쪽에 나오지 않는다'),
+         ('검색 「964」 · 슬롯 이름', '입력', '그룹 고객사 남음',
+          'Common-21 이 남는다 — 고르면 오른쪽 상세 위 <b>[🌐 확장 O964]</b> 탭으로 본다(S12)'),
          ('하위 고객사 이름', '입력', '그룹 고객사 펼침', '맞는 하위 고객사만 펼쳐진다 <code>PC-293</code>'),
          ('×', '클릭', '검색 해제', 'S12 로 복귀')] + NAV2))
 
@@ -1005,6 +1089,7 @@ def build2():
              '그 고객사의 편집 내역·정산(<code>PRJ-03</code>)을 본다. '
              '<b>사용 서비스 = casterN</b> 으로 할당된 코드가 이 화면의 관리 대상이다 '
              '<code>P-14</code>.<br>'
+             '고르기 전 오른쪽은 <b>고객사 선택 안내</b>만 나온다 — 전체 고객사 목록은 없다 <code>PC-371</code>. '
              '상단 한 줄 요약과 카드 수치는 모두 <b>지금 목록 기준</b>으로 다시 계산된다. '
              'S7~S10 은 <code>PRJ-05</code> 편집 고객사 추가 모달이다.')
     return page(CODE2, NAME2, PRD2, intro, B)
@@ -1027,7 +1112,9 @@ def build3():
         '재무팀의 정산 근거 화면</b>이다. 지표는 <b>편집량</b>(수량)과 <b>정산</b>(금액) '
         '두 묶음으로 나뉜다. 청구액 = <b>적용비([Ncode 적용] 수량 × 적용단가) + 편집·기능비 − 할인</b> '
         '<code>PC-085</code> — <b>Total Page 로 계산하지 않는다</b> <code>PC-089</code>. '
-        '<code>P-16</code>.',
+        '<code>P-16</code>. '
+        '목록 열은 <b>No · (사용 고객사) · 코드 · S/O/B · 교재명 · NCP2명 · 페이지 · 심볼 개수</b> · 최초 등록일 · ncp2 최종수정 · 메모 · 정산 (청구액) · 복제 '
+        '<code>PC-369</code> <code>PC-370</code> — 상태 · 프로젝트명 열은 없앴다.',
         frame('PRJ-02', '편집 프로젝트', content(), height=H3),
         [('헤더', '표시', '—', '고객사명 · <b>owner {번호}</b> · 코드 종류 배지'),
          ('[초기화]', '클릭', 'S12 확인창', '엑셀 시드로 되돌린다'),
@@ -1035,11 +1122,14 @@ def build3():
           '아래에 <b>{타입} {n}p × 단가</b> — 타입이 정하는 <b>활성 펜</b>의 [Ncode 적용] 기준 <code>PC-091</code>'),
          ('편집·기능비', '표시', '—', '아래에 <b>심볼·기능 {n} (항목별 단가)</b>'),
          ('청구액', '표시', '—', '아래에 <b>할인 −{n}</b> 또는 <b>할인 없음</b>'),
-         ('교재명 열', '표시', '—', '담당자가 <b>직접 입력한 교재명</b> <code>PC-282</code>'),
-         ('프로젝트명 열', '표시', '—',
-          '<b>교재명 왼쪽</b> · casterN 에 저장한 <b>.nproj 파일명</b>(자동) + 아래 줄 <b>ncp2 파일명</b>. '
-          '연결 전이면 <b>미연동</b> <code>PC-282</code>'),
-         ('미연동', 'hover', '툴팁', '<b>casterN 에서 프로젝트를 저장하면 채워집니다</b>'),
+         ('열 순서', '표시', '—',
+          '<b>No · (사용 고객사) · 코드 · S/O/B · 교재명 · NCP2명 · 페이지 · 심볼 개수</b> · 최초 등록일 · ncp2 최종수정 · 메모 · 정산 (청구액) · 복제 '
+          '<code>PC-369</code> <code>PC-370</code> — <b>상태 열</b>은 없앴다(진행 상태는 교재 편집 <code>PRJ-04</code> 에서) · 고객사 열은 전체 고객사 보기와 함께 없앴다 <code>PC-371</code>'),
+         ('교재명 열', '표시', '—', 'NPROJ 타이틀(없으면 파일명)로 채워지고 교재 편집에서 고친 값 <code>PC-284</code>'),
+         ('NCP2명 열', '표시', '—',
+          '<b>교재명 오른쪽</b> · casterN 에서 내보낸 <b>ncp2 파일명</b>(자동 · 직접 등록 포함). '
+          '없으면 <b>미연동</b> <code>PC-369</code> — 옛 프로젝트명(.nproj) 열 <code>PC-282</code> 폐지'),
+         ('미연동', 'hover', '툴팁', '<b>casterN 에서 ncp2 를 내보내면 채워집니다</b>'),
          ('ncp2 최종수정 열', '표시', '—', 'casterN 에서 ncp2 를 마지막으로 고친 날짜(자동)'),
          ('페이지 열', '표시', '—', '<b>{시작}~{끝}</b> + 아래 <b>{n}p</b>'),
          ('메모 열', '표시', '—', '⚠ 메모 글이 아니라 <b>업무 원장(요청·처리·메모) 건수</b>')]
@@ -1102,11 +1192,12 @@ def build3():
     B.append((
         'S5', '사용 고객사 열 — 서비스 티켓의 고객사', '분기',
         '<code>P-12</code> — 공유(커먼) 코드를 쓰는 Owner 거나, <b>서비스 티켓 고객사가 하나라도 잡히는 고객사</b>면 '
-        '<b>교재명 왼쪽에 「사용 고객사」 열</b>이 추가되고 그 열의 필터도 함께 나타난다 <code>PC-109</code>. '
+        '<b>No 다음(코드 왼쪽)에 「사용 고객사」 열</b>이 추가되고 그 열의 필터도 함께 나타난다 <code>PC-109</code> <code>PC-370</code>. '
         '값은 직접 넣지 않는다 — <b>그 교재의 S/O/B 를 덮는 서비스 티켓의 고객사명</b>이 자동으로 뜬다 <code>PC-289</code>. '
         '서비스 티켓끼리는 겹칠 수 없어(상위 · 하위 포함 <code>PC-291</code>) 한 장만 잡히고, 그 고객사가 교재 <b>소유 고객사</b>다. '
         '덮는 티켓이 없으면 <b>티켓 없음</b>(회색)이고, 필터의 <b>(티켓 없음)</b> 으로 그런 교재만 골라 볼 수 있다. '
-        '검색창도 <b>교재명·프로젝트명·사용고객사 검색</b> 으로 바뀐다.',
+        '검색창도 <b>교재명·NCP2명·사용고객사 검색</b> 으로 바뀐다 <code>PC-369</code>. '
+        '하위 고객사로 들어오면 이 필터가 그 고객사로 걸린 채 열린다(S16).',
         frame('PRJ-02', '편집 프로젝트',
               content(share=True, sel_cust='NeoLAB'), height=H3),
         [('사용 고객사 열', '표시', '—', '서비스 티켓의 고객사명 · 보라 배지 · 만료 · 대기 티켓이면 이름 뒤에 상태 <code>PC-289</code>'),
@@ -1117,19 +1208,19 @@ def build3():
          ('티켓 없음', 'hover', '툴팁', '등록된 이름도 없을 때 — <b>S{s}/O{o}/B{b} 를 덮는 서비스 티켓이 없습니다</b>'),
          ('사용 고객사 필터', '선택', '행 필터', '그 열 아래 드롭다운 — <b>전체 · (티켓 없음) · 고객사명</b> <code>PC-109</code>'),
          ('(티켓 없음)', '선택', '티켓 없는 교재만', '서비스 티켓이 덮지 않는 교재만 남는다(「티켓 필요」 포함)'),
-         ('검색', '입력', '교재명 + 프로젝트명 + 사용 고객사', '검색창이 넓어진다')]
+         ('검색', '입력', '교재명 + NCP2명 + 사용 고객사', '검색창이 넓어진다 <code>PC-369</code>')]
         + NAV3))
 
     B.append((
         'S6', '머리글 필터 · 코드 필터 잠금', '필터',
-        '머리글 <b>아래 줄</b>에 필터가 붙는다 — <b>상태 · (사용 고객사) · 코드</b> · Book. '
-        '타입 · 편집방식 필터는 열과 함께 없앴다 <code>PC-282</code>. '
+        '머리글 <b>아래 줄</b>에 필터가 붙는다 — <b>(사용 고객사) · 코드 · Book</b>(열 순서와 같다 <code>PC-370</code>). '
+        '<b>상태 필터</b>는 상태 열과 함께 없앴다 <code>PC-369</code> · 타입 · 편집방식 필터는 열과 함께 없앴다 <code>PC-282</code>. '
         '<code>PRJ-02</code> 에서 코드 종류를 고르면 이 화면의 '
         '<b>코드 필터가 그 값으로 고정·잠긴다</b>(회색).',
         frame('PRJ-02', '편집 프로젝트',
               content(kind='PDS2(Gcode)', filtered=True, hf=True, unfilter=True),
               height=H3),
-        [('상태', '선택', '행 필터', '진행중 / 완료 / 보류'),
+        [('(사용 고객사)', '선택', '행 필터', '사용 고객사 열이 있을 때만 — <b>전체 · (티켓 없음) · 고객사명</b> (S5)'),
          ('코드', '—', '<b>잠금</b>',
           '<code>PRJ-02</code> 필터가 걸리면 회색으로 고정 — <b>목록의 PDS 필터로 고정됨</b>'),
          ('S/O/B 의 B 필터', '입력 또는 선택', '행 필터 · 정렬',
@@ -1139,31 +1230,32 @@ def build3():
          ('지표', '자동', '재계산', '교재 지표가 <b>교재(책)·필터</b> 로 바뀐다')] + NAV3))
 
     B.append((
-        'S7', '정렬 — 교재명 · 프로젝트명 · 최초 등록일', '분기',
-        '정렬 가능한 열은 <b>교재명 · 프로젝트명 · 최초 등록일</b> 셋이다 <code>PC-282</code> <code>PC-284</code>. 머리글을 누르면 '
+        'S7', '정렬 — 교재명 · NCP2명 · 최초 등록일', '분기',
+        '정렬 가능한 열은 <b>교재명 · NCP2명 · 최초 등록일</b> 셋이다 <code>PC-369</code>(옛 프로젝트명 <code>PC-282</code>) <code>PC-284</code>. 머리글을 누르면 '
         '<b>오름 → 내림 → 해제</b> 3단으로 돈다. 정렬 중이면 <b>▲▼</b>(파랑), '
         '아니면 <b>↕</b>(회색).',
         frame('PRJ-02', '편집 프로젝트', content(sort=('t', 1)), height=H3),
         [('교재명', '클릭', '오름 → 내림 → 해제', '3번 누르면 원래 순서로'),
-         ('프로젝트명', '클릭', '오름 → 내림 → 해제', '미연동 행은 뒤로'),
+         ('NCP2명', '클릭', '오름 → 내림 → 해제', 'ncp2 파일명 · 미연동 행은 뒤로 <code>PC-369</code>'),
          ('최초 등록일', '클릭', '오름 → 내림 → 해제', '옛 발급일 — 교재 생성 요청이 처음 들어온 날짜'),
          ('그 외 열', '클릭', '<b>동작 없음</b>', '정렬 대상이 아니다'),
          ('기본', '—', '정렬 없음', '엑셀 시드 순서 그대로')] + NAV3))
 
     B.append((
-        'S8', '교재명·프로젝트명 검색', '필터',
-        '교재명 · 프로젝트명 · ncp2 파일명으로 거른다 <code>PC-282</code>. 공유 코드 Owner 면 <b>사용 고객사까지</b> 함께 찾는다. '
+        'S8', '교재명·NCP2명 검색', '필터',
+        '교재명 · NCP2명(ncp2 파일명)으로 거른다 <code>PC-369</code> — 프로젝트명(.nproj)으로는 찾지 않는다. 공유 코드 Owner 면 <b>사용 고객사까지</b> 함께 찾는다. '
         '입력하면 <b>×</b> 가 나타난다.',
         frame('PRJ-02', '편집 프로젝트',
               content(bsearch='범블비', filtered=True, unfilter=True), height=H3),
         [('검색', '입력', '행 필터 · 1페이지로', '입력할 때마다 페이지가 1로 돌아간다'),
          ('×', '클릭', '검색 해제', ''),
-         ('공유 코드', '참고', '—', '<b>교재명·프로젝트명·사용고객사 검색</b> 으로 바뀐다')] + NAV3))
+         ('자리표시', '표시', '—', '<b>교재명·NCP2명 검색</b>'),
+         ('공유 코드', '참고', '—', '<b>교재명·NCP2명·사용고객사 검색</b> 으로 바뀐다')] + NAV3))
 
     B.append((
         'S9', '필터 해제', '필터',
         '필터가 하나라도 걸리면 단가 줄 오른쪽에 <b>필터 해제 ({보이는}/{전체})</b> 버튼이 '
-        '나타난다. 누르면 <b>상태·사용 고객사·코드·Book·검색</b>이 한 번에 풀린다.',
+        '나타난다. 누르면 <b>사용 고객사·코드·Book·검색</b>(확장 언어 그룹이면 확장 언어 칩까지)이 한 번에 풀린다.',
         frame('PRJ-02', '편집 프로젝트',
               content(filtered=True, unfilter=True, hf=True), height=H3),
         [('[필터 해제]', '표시', '—', '괄호 안은 <b>보이는 건수 / 전체 건수</b>'),
@@ -1177,7 +1269,7 @@ def build3():
         '교재가 많으면 나눠서 본다. 왼쪽에 <b>전체 {n}건 중 {a}~{b} 표시</b> 와 '
         '<b>건수 선택</b>(25 / 50 / 100 / 200 / 500 / 전체 보기), 오른쪽에 페이지 이동이 있다.',
         frame('PRJ-02', '편집 프로젝트', content(), height=H3),
-        [('건수 선택', '선택', '1페이지로', '50 / 100 / 200 / 500 / <b>전체 보기</b>'),
+        [('건수 선택', '선택', '1페이지로', '25 / 50 / 100 / 200 / 500 / <b>전체 보기</b>'),
          ('« ‹ › »', '클릭', '페이지 이동', '처음 · 이전 · 다음 · 끝'),
          ('숫자', '클릭', '그 페이지로', '현재 페이지는 파랑'),
          ('{현재}/{전체}', '표시', '—', '오른쪽 끝'),
@@ -1215,7 +1307,7 @@ def build3():
         '같은 코드에 작업물을 하나 더 만든다 <code>PC-112</code>. '
         '교재 추가([＋ 교재(책) 추가])의 Book 목록에는 <b>이미 쓴 Book 이 나오지 않으므로</b> '
         '같은 S/O/B 교재는 <b>[복제]로만</b> 만들어진다. '
-        '<b>전체 고객사 보기(조회 전용)에는 [복제] 열이 없다</b>.',
+        '(옛 조회 전용 전체 고객사 보기는 <code>PC-371</code> 로 없앴다 — [복제] 열은 모든 목록에 있다)',
         frame('PRJ-02', '편집 프로젝트',
               content(sel_cust='교원구몬', dup=True, work=WORK_DUP, rows=BOOKS_DUP),
               height=H3),
@@ -1228,26 +1320,32 @@ def build3():
           '코드(종류·S/O/B)는 <b>원본에 고정(수정 불가)</b> · 교재명만 물려받고 '
           '<b>기본 정보·심볼 입력·산출물은 초기화</b>'),
          ('[복제] 행 클릭', '참고', '—', '버튼만 복제로 동작 — 행 자체를 누르면 수정으로 들어간다'),
-         ('프로젝트 · ncp2', '규칙', '자동',
-          '복제본의 프로젝트명 · ncp2 는 비어 있다가 casterN 에서 새 작업을 저장하면 채워진다 '
-          '<code>PC-282</code> (저장 때 ncp2 파일명 중복 검사는 폐지)'),
-         ('전체 보기', '참고', '조회 전용', '[복제] 열이 없다 <code>PC-040</code>')] + NAV3))
+         ('NCP2명', '규칙', '자동',
+          '복제본의 NCP2명은 비어 있다가(<b>미연동</b>) casterN 에서 새 작업을 내보내면 채워진다 '
+          '<code>PC-282</code> <code>PC-369</code> (저장 때 ncp2 파일명 중복 검사는 폐지)')] + NAV3))
 
     B.append((
-        'S14', '확장 언어 그룹 고객사 — [전체] [🌐 확장 언어 16] · S/O/B 확장 칩', '분기',
+        'S14', '확장 언어 그룹 고객사 — 슬롯 탭 · [전체] [🌐 확장 언어 16] · S/O/B 확장 칩', '분기',
         '<code>PC-344</code> — 교재 코드가 확장 언어 그룹의 기본 코드인 고객사(Common-21 · Cake-1009)면 '
         '머리의 코드 종류 배지(PDS2 · OID) 뒤에 <b>[전체] [🌐 확장 언어 {n}]</b> 칩이 붙는다. '
-        '{n} = 확장 언어 교재 수 — 확장 언어 슬롯을 붙인 교재(<code>PRJ-04</code> §4.2.1) + '
+        '{n} = 확장 언어 교재 수 — 확장 언어 코드를 고른 교재(<code>PRJ-04</code> §4.2.1) + '
         '같은 사용 고객사가 그 슬롯 Book 을 따로 등록해 둔 교재(옛 방식). '
+        '상세 위에는 확장 슬롯 고객사를 보는 탭 <b>[Common-21 교재 · 396권] [🌐 확장 O964 · 16권] [🌐 확장 O965 · 12권]</b> 이 있다 '
+        '<code>PC-362</code>(<code>PRJ-02</code> S12). '
         '목록의 <b>S/O/B 칸</b>에는 S · O · B 칩 옆에 같은 칩 모양 <b>[확장] {o}</b> 가 한 줄로 붙는다 '
-        '<code>PC-327</code> — <b>실선</b> = 교재에 고른 슬롯, <b>점선</b> = 따로 등록된 슬롯.',
+        '<code>PC-327</code> — <b>실선</b> = 교재에서 고른 확장 언어 코드 <code>PC-366</code>, <b>점선</b> = 따로 등록된 슬롯. '
+        '실선 칩은 <b>둘까지</b> 보이고 나머지는 <b>+{n}</b> <code>PC-359</code>(그림: No 105 = O964 · O965 + 2).',
         frame('PRJ-02', '편집 프로젝트', common_view('all'), height=H3 + 60),
-        [('[전체] [🌐 확장 언어 {n}]', '표시', '—',
-          '코드 종류 배지 뒤 · 확장 언어 그룹 고객사만 · 교재 편집 화면 · 전체 고객사 보기에는 없다'),
+        [('[{고객사-owner} 교재] [🌐 확장 O{n}] …', '클릭', '<code>PRJ-02</code> S12',
+          '확장 슬롯 고객사가 있는 그룹 고객사만 · 탭마다 권수 <code>PC-362</code>'),
+         ('[전체] [🌐 확장 언어 {n}]', '표시', '—',
+          '코드 종류 배지 뒤 · 확장 언어 그룹 고객사만 · 교재 편집 화면에는 없다'),
          ('[🌐 확장 언어 {n}]', 'hover', '툴팁', '<b>확장 언어 슬롯을 붙인 교재 · 슬롯 Book 을 따로 등록해 둔 교재만</b>'),
          ('[🌐 확장 언어 {n}]', '클릭', 'S15', '확장 언어 교재만 남는다'),
          ('[확장] {o} 실선', '표시', '—',
-          '교재에 고른 확장 언어 슬롯 · 툴팁 <b>확장 언어 슬롯 S{s}/O{o}/B{b} — 5 베트남어 · …</b>'),
+          '교재에서 고른 확장 언어 코드(<code>PRJ-04</code> <code>PC-366</code>) · 툴팁 <b>확장 언어 코드 S{s}/O{o}/B{b} — 5 베트남어 · …</b>'),
+         ('+{n}', '표시', '—',
+          '실선 칩은 <b>앞 둘만</b> · 나머지 수 · 툴팁에 나머지 코드(<b>O966 · O967</b>) <code>PC-359</code>'),
          ('[확장] {o} 점선', '표시', '—',
           '같은 사용 고객사가 그 슬롯 Book 을 따로 등록한 교재 · 툴팁 <b>같은 Book 이 확장 슬롯에 따로 등록돼 있습니다 — '
           'S{s}/O{o}/B{b} ({언어}) / 교재를 열어 확장 언어 슬롯을 고르면 이 교재에 묶여 보입니다(따로 등록된 교재는 그대로)</b>'),
@@ -1264,10 +1362,41 @@ def build3():
          ('지표', '자동', '걸러진 16권 기준', '<b>교재(책)·필터</b> · TOTAL PAGE · 심볼 · 적용비 · 편집·기능비 · 청구액'),
          ('[필터 해제 (16/396)]', '클릭', 'S14', '확장 언어 칩을 포함해 모든 필터가 풀린다'),
          ('[전체]', '클릭', 'S14', '확장 언어 필터만 푼다'),
-         ('다른 필터', '참고', '함께 걸림', '상태 · 사용 고객사 · Book · 검색과 겹쳐 걸 수 있다')] + NAV3))
+         ('다른 필터', '참고', '함께 걸림', '사용 고객사 · Book · 검색과 겹쳐 걸 수 있다')] + NAV3))
+
+    B.append((
+        'S16', '하위 고객사로 진입 — 「상위 ▸ 하위」', '분기',
+        '<code>PC-293</code> — <code>PRJ-02</code> 왼쪽에서 <b>하위 고객사</b>(예: Common-21 ▶ 안 전북교육청)를 고르면 '
+        '<b>상위 고객사의 상세</b>가 열리고 <b>사용 고객사 필터가 그 하위 고객사로</b> 걸린다. '
+        '상세 위에는 <b>{상위} ▸ {하위}</b> 만 나온다 — 옛 [← 전체 고객사] 는 없앴다 <code>PC-371</code>. '
+        '{상위} 는 <b>「고객사-owner」</b> 표기 <code>PC-362</code>. '
+        '이 상태에서 [＋ 교재(책) 추가] · 교재 행 · [복제] 로 들어가면 교재 화면 머리말이 <b>{상위} ▸ {하위}</b> 이고, '
+        '[목록] 으로 돌아와도 그 하위 고객사로 걸려 있다(S17) <code>PC-368</code>.',
+        frame('PRJ-02', '편집 프로젝트', common_view(sub='전북교육청'), height=H3 + 80),
+        [('{상위} ▸ {하위}', '표시', '—', '상세 위 · 하위 고객사로 들어왔을 때만 <code>PC-293</code>'),
+         ('{상위}', '클릭', 'S14', '하위 고객사 거르기를 푼다(상위 고객사 전체 교재)'),
+         ('사용 고객사 필터', '자동', '<b>{하위}</b>', '그 하위 고객사 교재만 · 지표도 그 기준(교재(책)·필터)'),
+         ('왼쪽 하위 고객사 줄', '표시', '고른 상태', '상위 줄이 저절로 펼쳐지고 하위 줄이 고른 상태'),
+         ('[＋ 교재(책) 추가] · 교재 행 · [복제]', '클릭', '<code>PRJ-04</code>',
+          '교재 화면 머리말 <b>{상위} ▸ {하위}</b> — 하위 고객사를 이어 간다 <code>PC-368</code>'),
+         ('사용 고객사 필터 변경', '선택', '—', '필터를 바꾸면 교재 화면에 하위 고객사를 붙이지 않는다 <code>PC-368</code>'),
+         ('🌐 확장 탭', '클릭', '<code>PRJ-02</code> S12', '확장 슬롯 교재로 바꾸면 고른 하위 고객사는 풀린다')] + NAV3))
+
+    B.append((
+        'S17', '교재에서 [목록] 으로 돌아옴 — 머리 「상위 ▸ 하위」', '분기',
+        '<code>PC-368</code> — 하위 고객사로 들어와(S16) 교재 추가 · 수정 · 복제를 한 뒤 <b>[목록]</b> 이나 저장으로 돌아오면 '
+        '그 고객사 교재 목록이 <b>별도 화면</b>(왼쪽 고객사 목록 없음)으로 열리고, 머리에 <b>{상위} ▸ {하위}</b> 가 붙으며 '
+        '<b>사용 고객사 필터가 그 하위 고객사로</b> 걸려 있다. 필터를 바꾸면 머리의 <b>▸ {하위}</b> 도 사라진다.',
+        frame('PRJ-02', '편집 프로젝트', standalone_sub('전북교육청'), height=H3),
+        [('[편집 프로젝트]', '클릭', '<code>PRJ-02</code>', '편집 프로젝트 목록 화면으로'),
+         ('머리 ▸ {하위}', '표시', '—',
+          '고객사명 오른쪽 · 툴팁 <b>하위 고객사 — {상위} 코드를 쓰는 {하위}</b> · 사용 고객사 필터가 그 하위 고객사일 때만'),
+         ('사용 고객사 필터', '자동', '<b>{하위}</b>', '돌아와도 그 하위 고객사로 걸려 있다'),
+         ('사용 고객사 필터 변경', '선택', '—', '머리의 ▸ {하위} 가 사라지고, 이후 교재 화면에도 붙이지 않는다'),
+         ('[필터 해제 (9/396)]', '클릭', 'S14 와 같은 목록', '하위 고객사 거르기도 함께 풀린다')] + NAV3))
 
     intro = ('한 고객사의 <b>편집 내역과 정산</b>을 보는 화면. '
-             '<code>PRJ-02</code> 목록에서 고객사를 고르면 <b>같은 화면 오른쪽</b>에 열린다.<br>'
+             '<code>PRJ-02</code> 목록에서 고객사를 고르면 <b>같은 화면 오른쪽</b>에 열린다(고르기 전에는 안내만 — 전체 고객사 목록 없음 <code>PC-371</code>).<br>'
              '편집량(페이지·심볼)이 곧 청구 근거라, <b>편집팀의 작업 관리</b>이자 '
              '<b>재무팀의 정산 근거</b>가 되는 화면이다. '
              '단가는 <b>기본 → 고객사 → 프로젝트</b> 3단으로 적용되고, '
