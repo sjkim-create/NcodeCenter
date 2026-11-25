@@ -43,7 +43,7 @@ const kindsOfCust = (c: { bookRows?: { k?: string; s?: number }[]; codeKinds?: s
 export default function EditingProjectsView() {
   const sp = useSearchParams();
   const spOwner = sp.get("owner") ?? "";
-  // 첫 화면은 특정 고객사를 고르지 않고 **전체 고객사** 를 보여준다 `PC-038`
+  // 첫 화면은 고객사를 고르지 않은 상태 — 오른쪽은 「고객사를 고르세요」 안내만(전체 고객사 목록 없음) `PC-371` (옛 `PC-038`)
   //   (URL 에 owner 가 있으면 그 고객사로 바로 연다 — SOBP 맵 [✏️ 편집으로 이동 →])
   const initCust = D.customers.find((c) => c.owner === spOwner);
   const [sel, setSel] = useState<string>(initCust ? uidOf(initCust) : "");
@@ -361,15 +361,15 @@ export default function EditingProjectsView() {
             {baseCust && viewCust
               ? (
                 <>
+                  {/* [← 전체 고객사] 는 없앴다 — 전체 목록 화면이 없다 `PC-371` */}
+                  {/* 하위 고객사로 들어오면 「상위 ▸ 하위」 — 상위 이름을 누르면 거르기를 푼다 `PC-293` */}
+                  {sub && (
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-                    <button onClick={() => { setSel(""); setSub(""); setSlotSel(""); }} style={{ ...S.linkBtn, padding: 0 }}>← 전체 고객사</button>
-                    {/* 하위 고객사로 들어오면 「상위 ▸ 하위」 — 상위 이름을 누르면 거르기를 푼다 `PC-293` */}
-                    {sub && (
                       <span style={{ fontSize: 12, color: "#6b7280" }}>
-                        · <button onClick={() => setSub("")} style={{ ...S.linkBtn, padding: 0 }}>{withOwner(baseCust.customer, baseCust.owner)}</button> ▸ <b style={{ color: "#7e22ce" }}>{sub}</b>
+                        <button onClick={() => setSub("")} style={{ ...S.linkBtn, padding: 0 }}>{withOwner(baseCust.customer, baseCust.owner)}</button> ▸ <b style={{ color: "#7e22ce" }}>{sub}</b>
                       </span>
-                    )}
                   </div>
+                  )}
                   {/* 확장 언어 슬롯 — 그룹 고객사 교재 + 확장 슬롯에 따로 등록된 교재를 탭으로 `PC-362` (옛 왼쪽 🌐 줄 `PC-344`) */}
                   {baseSlots.length > 0 && (
                     <div role="tablist" aria-label="확장 언어 슬롯 교재" style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
@@ -391,16 +391,10 @@ export default function EditingProjectsView() {
                 </>
               )
               : (
-                <>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                    <b style={{ fontSize: 14 }}>전체 고객사</b>
-                    <span style={{ ...S.tag, background: "#eef6ff", color: "#2563eb", fontWeight: 700 }}>{list.length}곳</span>
-                    {pds !== "ALL" && <span style={{ ...S.tag, background: kindMeta(pds).bg, color: kindMeta(pds).color, fontWeight: 700 }}>{kindMeta(pds).short} 보유</span>}
-                    <span style={{ fontSize: 11.5, color: "#6b7280" }}>모든 고객사의 교재를 한 목록으로 봅니다 · 조회 전용(수정은 고객사 선택 후)</span>
-                  </div>
-                  {/* 고객사 상세와 같은 표 — 항목 셀렉트 필터 + 페이지네이션 `PC-040` */}
-                  <EditingDetailView allCustomers embedded pdsLock={pds === "ALL" ? "" : pds} />
-                </>
+                // 전체 고객사 목록은 두지 않는다 — 고객사를 고르기 전엔 안내만 `PC-371` (옛 전체 고객사 보기 `PC-038` `PC-040`)
+                <div style={{ padding: "48px 0", textAlign: "center", color: "#9ca3af", fontSize: 12.5 }}>
+                  왼쪽에서 고객사를 고르거나 <button type="button" onClick={openAdd} style={{ ...S.linkBtn, padding: 0, fontSize: 12.5, color: "#2563eb" }}>[＋ 고객사]</button>를 누르세요.
+                </div>
               )}
           </div>
         </div>
