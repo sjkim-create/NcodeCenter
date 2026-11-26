@@ -11,7 +11,7 @@ import { EDIT_BOOKS, projectBooks, rangesFor, ownersFor, usedBookMap, canAllocat
 // 자동 추천(SOBP 추천)은 폐기 `PC-028` — 추천 제외 섹션 표시에만 쓴다
 import { isExcluded, type Pds } from "@/lib/sobpRecommend";
 import { hydrateShared, markShared, useSharedOwners, customShared, BUILT_IN } from "@/lib/sharedOwners";
-import { commonCodeOf } from "@/lib/commonCodes";
+import { commonCodeOf, isCommonSO, COMMON_EXT_MSG } from "@/lib/commonCodes";
 import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { groupsOfCompany, groupOfOwner, needExtOwners, extLangs, useLangGroups, groupOwners, addExtOwners } from "@/lib/langGroups";
 import { hydrateOverrides, overrideOf, useBookOverrides } from "@/lib/editOverrides";
@@ -653,10 +653,13 @@ export default function OwnershipMap() {
         //   개수 n · 방향(이 O 이전 / 이후) → 그 방향에서 **빈 연속 범위(n개)** 를 가까운 순으로 보여 주고 고른다. 직접 입력(시작 O)도 된다.
         const moreN = Math.max(0, alloc.more ?? Math.max(0, needTotal - grpAll.length - (alreadyIn ? 0 : 1)));
         const dirN: 1 | -1 = alloc.dir ?? (grp && grp.ext.length >= 2 && grp.ext[1] < grp.ext[0] ? -1 : 1);
+        // 공용 코드는 확장 언어 그룹에서 **기본으로만** — 확장으로 넣지 않는다 `PC-374`
+        const curCommonExt = grpOn && !alreadyIn && isCommonSO(curS, curO);
         const ownerOf = (o2: number) => {
           const hs = ownerHolders(pds, curS, o2, allocBooks);
           const oth = hs.filter((h) => nzn(h) !== nzn(coName));
-          return { o: o2, ok: oth.length === 0 && o2 !== curO && !grpAll.includes(o2), mine: hs.length > 0 && oth.length === 0, who: oth.join(", ") || (o2 === curO ? "이 좌표" : grpAll.includes(o2) ? "이미 그룹" : "") };
+          const cm = isCommonSO(curS, o2);
+          return { o: o2, ok: oth.length === 0 && o2 !== curO && !grpAll.includes(o2) && !cm, mine: hs.length > 0 && oth.length === 0, who: oth.join(", ") || (o2 === curO ? "이 좌표" : grpAll.includes(o2) ? "이미 그룹" : cm ? "공용 코드 — 기본으로만" : "") };
         };
         const blockAt = (start: number) => Array.from({ length: moreN }, (_, i) => start + dirN * i);
         // 그 방향의 빈 연속 범위 — 가까운 것부터 최대 8개(겹치지 않게)
@@ -682,6 +685,7 @@ export default function OwnershipMap() {
         const extraBlock = extras.find((e) => !e.ok);
         const linkOnly = () => {
           if (!grpOn || !myCo) return;
+          if (curCommonExt) { alert(COMMON_EXT_MSG(curS, curO)); return; }
           if (extraBlock) { alert(`확장 Owner O${extraBlock.o} 는 쓸 수 없습니다(${extraBlock.who}) — 범위를 바꾸세요.`); return; }
           for (const e of extras) {
             if (e.mine) continue;
@@ -706,12 +710,14 @@ export default function OwnershipMap() {
         const stFg = locked ? "#991b1b" : shared ? "#6b21a8" : soKinds.length ? "#0f766e" : "#2563eb";
         const blockMsg = locked ? `“${others.join(", ")}” 전용으로 추가 발급이 불가`
           : commonBlock ? `${name} 는 공유 코드 ${cCode!.name} 의 사용 고객사가 아닙니다 — [고객사 관리] 에서 하위 등록하세요.`
+          : curCommonExt ? COMMON_EXT_MSG(curS, curO)
           : extraBlock ? `확장 Owner O${extraBlock.o} 는 쓸 수 없습니다(${extraBlock.who}) — 범위를 바꾸세요.`
           : "";
         const save = () => {
           if (!name) { alert("고객사를 선택하세요. (신규 고객사는 고객사 관리에서 등록)"); return; }
           if (locked) { alert(blockMsg); return; }
           if (commonBlock) { alert(blockMsg); return; }
+          if (curCommonExt) { alert(blockMsg); return; }
           if (extraBlock) { alert(blockMsg); return; }
           // 할당 범위 = 코드 타입 중 넓은 쪽(Book · Page 전체) — 타입은 편집 · 키 발급에서 정한다 `PC-279`
           const span = allocSpan(curS, curO) ?? { bookEnd: scale.b - 1, pageEnd: scale.p - 1 };
@@ -941,12 +947,12 @@ export default function OwnershipMap() {
               <button onClick={() => setAlloc(null)} style={S.ghost}>취소</button>
               {/* 이미 쓰는 좌표는 **조회 전용** — 서비스도 코드 종류도 이 창에서 바꾸지 않는다 `PC-076` */}
               {usedSO && grpOn && (!alreadyIn || extras.length > 0) && (
-                <button onClick={linkOnly} disabled={!!extraBlock}
-                  style={{ ...S.primary, ...(extraBlock ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>그룹에 넣기</button>
+                <button onClick={linkOnly} disabled={!!extraBlock || curCommonExt}
+                  style={{ ...S.primary, ...(extraBlock || curCommonExt ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>그룹에 넣기</button>
               )}
               {!usedSO && (
-                <button onClick={save} disabled={locked || !name || commonBlock}
-                  style={{ ...S.primary, ...(locked || !name || commonBlock ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>할당</button>
+                <button onClick={save} disabled={locked || !name || commonBlock || curCommonExt}
+                  style={{ ...S.primary, ...(locked || !name || commonBlock || curCommonExt ? { opacity: 0.5, cursor: "not-allowed" } : {}) }}>할당</button>
               )}
             </div>
           </Modal>

@@ -34,6 +34,13 @@ export const codeKey = (c: { k: string; s: number; o: number }) => `${c.k}:${c.s
 export const commonCodeOf = (k: string, s: number, o: number): CommonCode | undefined =>
   COMMON_CODES.find((c) => c.k === k && c.s === s && c.o === o);
 
+/** 이 S/O 가 공용(공통)코드인가 — 코드 종류와 상관없이(이력 전용 제외)
+ *  공용 코드는 확장 언어 그룹에서 **기본으로만** 설정할 수 있고 확장으로는 넣지 않는다 `PC-374` */
+export const isCommonSO = (s: number | null | undefined, o: number): boolean =>
+  s != null && COMMON_CODES.some((c) => c.s === s && c.o === o && !c.historyOnly);
+export const COMMON_EXT_MSG = (s: number | null | undefined, o: number) =>
+  `S${s ?? "-"}/O${o} 는 공용 코드라 확장 언어 그룹에서 기본으로만 설정할 수 있습니다 — 확장으로는 넣을 수 없습니다.`;
+
 // 이 고객사(대장 회사)가 보유한 공통코드들 — 티켓/검색 진입점
 export const codesOfCompany = (companyName: string): CommonCode[] =>
   COMMON_CODES.filter((c) => c.company === companyName);

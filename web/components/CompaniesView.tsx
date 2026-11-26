@@ -17,7 +17,7 @@ import { COMMON_CODES, codeKey, codesOfCompany, isCommonCodeCompany, withOwner, 
 import { codesOfMember, addMember, removeMember, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import { langGroupOf, extSlotLangs, extLangText, groupsOfCompany, useLangGroups } from "@/lib/langGroups";
 import { useCommonCodes, hydrateCommonCodes } from "@/lib/commonCodes";
-import { CompanyCodesSection } from "./CompanyCodesSection";
+import { CompanyCodesSection, inheritedLangGroups } from "./CompanyCodesSection";
 import { caster, useCaster, accountScope, isActive, dupAccountMsg, type CasterAccount } from "@/lib/accountStore";
 import { CompanyAccountsPanel, type AccountOps } from "./CompanyAccountsPanel";
 import { CompanyServiceTickets } from "./CompanyServiceTickets";
@@ -493,7 +493,7 @@ export function CompanyFormView({ companyId, prefillEmail = "", initialSec = "",
     { v: "rate", label: "편집 단가", badge: nRate ? `전용 ${nRate}` : undefined },
     { v: "docs", label: "관련 서류", badge: form.docs.length ? String(form.docs.length) : undefined },
     // 공통코드(상위 고객사) 지정 · 확장 언어 그룹 — 할당받은 코드가 있어야 하므로 등록된 고객사에만 `PC-330`
-    { v: "codes", label: "공통코드 · 확장 언어", badge: mounted && company ? [isHolderCo(company.name) ? "상위" : "", groupsOfCompany(company.id).length ? "🌐" : ""].filter(Boolean).join(" ") || undefined : undefined },
+    { v: "codes", label: "공통코드 · 확장 언어", badge: mounted && company ? [isHolderCo(company.name) ? "상위" : "", (groupsOfCompany(company.id).length || inheritedLangGroups(company.name).length) ? "🌐" : ""].filter(Boolean).join(" ") || undefined : undefined },
     { v: "acc", label: "서비스 계정", badge: `${svcList.length ? svcList.map((x) => (x === "CASTERN" ? "casterN" : "폼솔루션")).join("·") + " · " : ""}${svcAccounts.length}`, grp: "운영" },
     // 서비스 티켓 — **운영** 묶음(서비스 계정 아래)으로 옮겼다 `PC-358` (옛 자리: 고객사 정보 끝 `PC-173` `PC-180`)
     { v: "ticket", label: "서비스 티켓", badge: isNew || !company ? undefined : String(nTickets) },

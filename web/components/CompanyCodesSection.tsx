@@ -3,7 +3,7 @@
 // 고객사 관리 ▸ 공통코드 · 확장 언어 `PC-330`
 // ① 상위 고객사(공통코드) 지정 — 이 고객사가 SOBP 맵에서 할당받은 S/O 를 [공통코드로 지정] 하면
 //    모든 고객사의 「공통코드 사용 고객사(하위 등록)」 목록에 상위 고객사로 나타난다.
-// ② 확장 언어 그룹 — **기본 코드마다 한 그룹** `PC-357`. 할당받은 코드 중 기본 코드를 골라 그룹을 만들고,
+// ② 확장 언어 그룹 — **고객사당 기본 1개** `PC-373`(옛 기본 코드마다 `PC-357`). 할당받은 코드 중 기본 코드를 골라 그룹을 만들고,
 //    같은 Section 의 다른 할당 코드를 확장 코드로 넣는다. 슬롯별 언어도 여기서 넣고 고친다(Owner 당 4칸 · 순서 자유 · 빈 칸 허용).
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -12,11 +12,11 @@ import { Sc } from "./sobp";
 import { InfoTip } from "./KeyWorkspaceUI";
 import { useStore } from "@/lib/store";
 import type { Company } from "@/lib/customerData";
-import { COMMON_CODES, addCommonCode, removeCommonCode, isCustomCommonCode, hydrateCommonCodes, useCommonCodes } from "@/lib/commonCodes";
-import { membersOf, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
+import { COMMON_CODES, addCommonCode, removeCommonCode, isCustomCommonCode, hydrateCommonCodes, useCommonCodes, commonCodeOf, withOwner, isCommonSO, COMMON_EXT_MSG } from "@/lib/commonCodes";
+import { membersOf, codesOfMember, hydrateMembers, useCommonMembers } from "@/lib/commonMembers";
 import {
   groupsOfCompany, allLangGroups, groupOwners, saveLangGroup, deleteLangGroup, hydrateLangGroups, useLangGroups,
-  langRows, type LangGroup,
+  langRows, langGroupOf, extLangText, groupOfOwner, type LangGroup,
 } from "@/lib/langGroups";
 import { codeKind } from "@/lib/codeKind";
 import { logActivity } from "@/lib/activityStore";
@@ -44,7 +44,8 @@ export function CompanyCodesSection({ company }: { company: Company }) {
 
   // 상위 고객사(공통코드) 지정과 확장 언어 그룹은 **다른 일**이라 위아래가 아니라 **탭**으로 나눈다 `PC-362`
   const nHeld = COMMON_CODES.filter((c) => c.company === company.name && !c.historyOnly && allocated.some((a) => a.s === c.s && a.o === c.o)).length;
-  const nGroups = groupsOfCompany(company.id).length;
+  const inherited = inheritedLangGroups(company.name);   // 하위 고객사 — 상위 고객사 그룹을 그대로 승계 `PC-373`
+  const nGroups = groupsOfCompany(company.id).length + inherited.length;
   const [tab, setTab] = useState<"holder" | "lang">("holder");
   const TABS: { v: "holder" | "lang"; label: string; n: number }[] = [
     { v: "holder", label: "상위 고객사 (공통코드)", n: nHeld },
@@ -67,7 +68,59 @@ export function CompanyCodesSection({ company }: { company: Company }) {
       </div>
       {tab === "holder"
         ? <HolderCard company={company} allocated={allocated} me={me?.name ?? ""} />
-        : <LangGroupCard key={company.id} company={company} allocated={allocated} me={me?.name ?? ""} />}
+        : (
+          <>
+            {inherited.map((x) => <InheritedGroupCard key={x.g.id} code={x.code} g={x.g} />)}
+            {/* 하위 고객사는 할당받은 코드가 없으면 자기 그룹 칸을 두지 않는다 — 상위 그룹 승계만 */}
+            {(allocated.length > 0 || inherited.length === 0) && <LangGroupCard key={company.id} company={company} allocated={allocated} me={me?.name ?? ""} />}
+          </>
+        )}
+    </div>
+  );
+}
+
+/** 하위 고객사가 승계하는 상위 고객사의 확장 언어 그룹 `PC-373`
+ *  — 이 고객사가 공통코드 사용 고객사(하위)로 등록된 코드 중, 그 코드가 확장 언어 그룹의 기본 코드인 것 */
+export function inheritedLangGroups(name: string): { code: (typeof COMMON_CODES)[number]; g: LangGroup }[] {
+  const out: { code: (typeof COMMON_CODES)[number]; g: LangGroup }[] = [];
+  for (const key of codesOfMember(name)) {
+    const [k, s, o] = key.split(":");
+    const code = commonCodeOf(k, +s, +o);
+    if (!code || code.historyOnly || code.company === name) continue;
+    const g = langGroupOf(code.k, code.s, code.o);
+    if (g && !out.some((x) => x.g.id === g.id)) out.push({ code, g });
+  }
+  return out;
+}
+
+/* ── 승계한 확장 언어 그룹(읽기 전용) ─────────────────────── */
+function InheritedGroupCard({ code, g }: { code: (typeof COMMON_CODES)[number]; g: LangGroup }) {
+  const owners = groupOwners(g);
+  return (
+    <div style={card}>
+      <div style={{ ...hd, flexWrap: "wrap" }}>
+        <b style={{ fontSize: 14, whiteSpace: "nowrap" }}>🌐 확장 언어 그룹</b>
+        <span style={{ ...S.tag, fontSize: 10.5, background: "#f3e8ff", color: "#7e22ce", fontWeight: 700, whiteSpace: "nowrap" }}>승계 · {withOwner(code.company, code.o)}</span>
+        <span style={{ fontSize: 11.5, color: "#6b7280" }}>기본 S{g.section ?? "-"}/O{g.base} · 확장 {g.ext.length}개</span>
+        <InfoTip title="확장 언어 그룹 승계" width={340}>
+          이 고객사는 <b>{withOwner(code.company, code.o)}</b> 공통코드의 <b>하위 고객사</b>라서 상위 고객사의 확장 언어 그룹을 <b>그대로 씁니다</b>.
+          기본 · 확장 코드와 언어는 상위 고객사에서 고치고, 여기서는 보기만 합니다.
+        </InfoTip>
+      </div>
+      <div style={{ padding: "12px 18px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 8 }}>
+          {owners.map((o, i) => (
+            <div key={o} style={{ display: "flex", alignItems: "flex-start", gap: 6, borderRadius: 9, padding: "7px 10px",
+              border: `1px solid ${i === 0 ? "#bfdbfe" : "#a5f3fc"}`, background: i === 0 ? "#f5f9ff" : "#f0fdff" }}>
+              <Sc k="S" v={g.section ?? 0} small /><Sc k="O" v={o} small />
+              <span style={{ fontSize: 11.5, lineHeight: 1.5 }}>
+                <b style={{ color: i === 0 ? "#1d4ed8" : "#0e7490" }}>{i === 0 ? "기본" : `확장 ${i}`}</b>
+                <span style={{ color: "#6b7280" }}> · {extLangText(g, o)}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -124,9 +177,18 @@ function HolderCard({ company, allocated, me }: { company: Company; allocated: {
                   <span style={{ fontSize: 11, color: "#9ca3af" }}>전용 코드</span>
                   <div style={{ flexBasis: "100%", height: 0 }} />
                   {/* 코드 종류(PDS2 / PDS3) 셀렉트는 없앴다 — 할당 종류를 따른다(미정이면 PDS3) `PC-358` */}
-                  <button type="button" onClick={() => {
-                    if (addCommonCode(company.name, k, a.s, a.o)) logActivity("company", `공통코드 지정 · ${company.name} · ${k === "G" ? "PDS2" : "PDS3"} S${a.s}/O${a.o}`, me);
-                  }} style={{ ...S.primary, padding: "4px 10px", fontSize: 12, marginLeft: "auto" }}>공통코드로 지정</button>
+                  {(() => {
+                    // 확장 언어 그룹의 **확장** 코드는 공용 코드로 지정하지 않는다 — 공용 코드는 그룹에서 기본으로만 `PC-374`
+                    const asExt = groupOfOwner(a.s, a.o)?.role === "ext";
+                    return (
+                      <button type="button" disabled={asExt}
+                        title={asExt ? "확장 언어 그룹의 확장 코드입니다 — 공용 코드는 확장 언어 그룹에서 기본으로만 설정할 수 있어 지정할 수 없습니다" : undefined}
+                        onClick={() => {
+                          if (asExt) return;
+                          if (addCommonCode(company.name, k, a.s, a.o)) logActivity("company", `공통코드 지정 · ${company.name} · ${k === "G" ? "PDS2" : "PDS3"} S${a.s}/O${a.o}`, me);
+                        }} style={{ ...S.primary, padding: "4px 10px", fontSize: 12, marginLeft: "auto", ...(asExt ? { opacity: 0.45, cursor: "not-allowed" } : {}) }}>공통코드로 지정</button>
+                    );
+                  })()}
                 </>
               )}
             </div>
@@ -139,12 +201,14 @@ function HolderCard({ company, allocated, me }: { company: Company; allocated: {
 }
 
 /* ── ② 확장 언어 그룹 ───────────────────────────────────── */
-// **기본 코드마다 한 그룹** `PC-357` — 할당받은 코드 중 기본 코드를 골라 그룹을 만들고, 그 그룹의 확장 코드 · 언어를 정한다.
-//   예: S0/O4 그룹 = 확장 O5 · O6 / S0/O20 그룹 = 확장 O7. 공통코드 지정(①)과는 별개다.
+// 할당받은 코드 중 기본 코드 1개를 골라 그룹을 만들고, 그 그룹의 확장 코드 · 언어를 정한다 `PC-373`.
+//   예: S0/O4 기본 = 확장 O5 · O6, O7 · O20 은 단독. 공통코드 지정(①)과는 별개다.
 //   코드 종류는 고르지 않는다 — 기본 코드의 할당 종류를 따른다.
-// **할당된 코드는 모두 기본 또는 확장으로 지정**해야 저장된다 `PC-363` — 그래서 그룹 칸들을 **한 번에** 저장한다
-//   (그룹마다 따로 저장하면 아직 만들지 않은 다른 그룹의 코드 때문에 먼저 저장하는 그룹이 막힌다).
+// **고객사당 기본 1개 · 그룹 1개** `PC-373` — 기본 코드 1개 + 지정한 Owner 만 확장, 지정하지 않은 코드는 **단독(전용) 코드**로 그대로 둔다
+//   (옛 「할당된 코드는 모두 기본 또는 확장이어야 저장」 `PC-363` · 「기본 코드마다 그룹 여러 개」 `PC-357` 를 바꿈).
+//   옛 규칙으로 그룹이 둘 이상 저장된 고객사는 데이터를 건드리지 않고, 하나만 남길 때까지 저장을 막는다.
 type Alloc = { s: number; o: number; k?: string };
+const TOO_MANY = (bases: string) => `기본 코드는 고객사당 1개입니다 — 지금 기본 ${bases}. 하나만 기본으로 두고 나머지는 확장 또는 단독으로 바꾸세요.`;
 type DG = Draft & { _k: string; _new?: boolean };
 const kindOfAlloc = (a?: Alloc) => (a?.k ? codeKind(a.k, a.s) : undefined);
 const soKey = (s: number | null, o: number) => `${s ?? 0}/${o}`;
@@ -167,8 +231,8 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
   const upd = (k: string) => (f: (x: DG) => DG) => { setErr(""); setDrafts((ds) => ds.map((x) => (x._k === k ? f(x) : x))); };
 
   // 코드 지정 — 모든 할당 코드를 펼쳐 놓고 코드마다 바로 고른다 `PC-364`
-  //   "" = 지정 안 함 · "base" = 기본(그 코드로 그룹이 생긴다) · "ext:{그룹}" = 그 기본 코드 그룹의 확장
-  //   기본 코드를 다른 역할로 바꾸면 그 그룹이 풀리고 확장 코드들은 「지정 안 함」으로 돌아간다(언어는 코드를 따라간다)
+  //   "" = 단독(전용 코드) · "base" = 기본(그 코드로 그룹이 생긴다) · "ext:{그룹}" = 그 기본 코드 그룹의 확장
+  //   기본 코드를 다른 역할로 바꾸면 그 그룹이 풀리고 확장 코드들은 단독 코드로 돌아간다(언어는 코드를 따라간다)
   const roleOf = (a: Alloc): string => {
     for (const g of drafts) {
       if (g.section !== a.s) continue;
@@ -205,15 +269,16 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
   const save = () => {
     const low = drafts.find((g) => g.langCount < 1);
     if (low) { alert(`S${low.section}/O${low.base} 그룹 — 필요 언어 수는 1 이상이어야 합니다.`); return; }
-    // 그룹을 쓰면 할당된 코드는 **모두** 기본 또는 확장이어야 한다 `PC-363` (그룹을 모두 지우는 저장은 된다)
-    const missing = drafts.length ? free : [];
-    if (missing.length) {
-      const list = missing.slice(0, 10).map((a) => `S${a.s}/O${a.o}`).join(" · ") + (missing.length > 10 ? ` 외 ${missing.length - 10}개` : "");
-      const msg = `할당된 코드를 모두 기본 또는 확장 언어로 지정해야 저장할 수 있습니다 — 지정되지 않은 코드: ${list}`;
+    // 기본은 고객사당 1개 `PC-373` — 지정하지 않은 코드는 단독 코드로 저장된다(막지 않는다 · 옛 `PC-363`)
+    if (drafts.length > 1) {
+      const msg = TOO_MANY(drafts.map((g) => `O${g.base}`).join(" · "));
       setErr(msg);
-      alert(`${msg}\n\n위 코드 지정에서 「지정 안 함」인 코드를 기본 또는 확장으로 고르세요.`);
+      alert(msg);
       return;
     }
+    // 공용 코드는 기본으로만 — 확장에 든 공용 코드가 있으면(옛 저장값) 저장하지 않는다 `PC-374`
+    const badExt = drafts.flatMap((g) => g.ext.filter((o) => isCommonSO(g.section, o)).map((o) => ({ s: g.section, o })))[0];
+    if (badExt) { const msg = COMMON_EXT_MSG(badExt.s, badExt.o) + " 기본 또는 단독으로 바꾸세요."; setErr(msg); alert(msg); return; }
     const keepIds = new Set(drafts.filter((g) => g.id != null).map((g) => g.id));
     for (const g of saved) if (!keepIds.has(g.id)) {
       deleteLangGroup(g.id);
@@ -236,11 +301,12 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
         {drafts.length
           ? <span style={{ fontSize: 11.5, color: "#0e7490", fontWeight: 700 }}>그룹 {drafts.length}개 · 등록한 언어 {totalLangs}개</span>
           : <span style={{ fontSize: 11.5, color: "#9ca3af" }}>사용 안 함</span>}
-        {drafts.length > 0 && nFree > 0 && <span style={{ fontSize: 11.5, color: "#b45309", fontWeight: 700 }}>· 지정 안 함 {nFree}개</span>}
+        {drafts.length > 0 && nFree > 0 && <span style={{ fontSize: 11.5, color: "#6b7280" }}>· 단독 {nFree}개</span>}
         <InfoTip title="확장 언어 그룹" width={380}>
-          할당된 코드마다 <b>기본</b> 또는 <b>확장 · 기본 O{"{n}"}</b> 을 고릅니다. 기본으로 고른 코드마다 그룹이 하나씩 생깁니다(예: O4 기본 = O5 · O6 확장, O20 기본 = O7 확장).
+          할당된 코드 중 <b>기본 1개</b>를 고르고, 확장 언어로 쓸 Owner 만 <b>확장</b>으로 고릅니다. 지정하지 않은 코드는 <b>단독(전용) 코드</b>로 그대로 남습니다.
+          <b>공용 코드</b>는 기본으로만 설정할 수 있고 확장으로는 넣을 수 없습니다.
           Owner 하나에 언어 슬롯 4개 — 기본 코드가 슬롯 1~4, 확장 코드는 순서대로 5~8 · 9~12 … 입니다.
-          그룹을 쓰면 <b>할당된 코드를 모두</b> 지정해야 저장됩니다. 공통코드 지정과는 별개입니다.
+          공통코드 지정과는 별개이고, 이 고객사의 하위 고객사는 이 그룹을 그대로 승계합니다.
         </InfoTip>
       </div>
       <div style={{ padding: "12px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
@@ -250,6 +316,10 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
           </div>
         ) : (
           <>
+            {/* 옛 규칙(기본 코드마다 그룹 `PC-357`)으로 그룹이 둘 이상인 고객사 — 데이터는 그대로 두고 알린다 `PC-373` */}
+            {drafts.length > 1 && (
+              <div role="alert" style={{ fontSize: 12, color: "#dc2626", fontWeight: 700 }}>⚠ {TOO_MANY(drafts.map((g) => `O${g.base}`).join(" · "))}</div>
+            )}
             {/* 코드 지정 — 모든 할당 코드를 펼쳐 놓는다(만들기 버튼 없이 바로 고른다) `PC-364` */}
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 6 }}>코드 지정 <span style={{ fontWeight: 400, color: "#9ca3af" }}>· {allocated.length}개</span></div>
@@ -260,19 +330,25 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
                   const tone = ext ? { bd: "#e5e7eb", bg: "#f9fafb", fg: "#6b7280" }
                     : v === "base" ? { bd: "#bfdbfe", bg: "#f5f9ff", fg: "#1d4ed8" }
                     : v ? { bd: "#a5f3fc", bg: "#f0fdff", fg: "#0e7490" }
-                    : { bd: drafts.length ? "#fcd34d" : "#eef0f4", bg: drafts.length ? "#fffbeb" : "#fafbfc", fg: "#b45309" };
+                    : { bd: "#eef0f4", bg: "#fafbfc", fg: "#6b7280" };   // 단독 — 경고색 아님 `PC-373`
                   const bases = drafts.filter((g) => g.section === a.s && g.base !== a.o);
+                  // 기본은 고객사당 1개 — 기본이 이미 있으면 다른 코드에는 「기본」 을 내지 않는다(기본 바꾸기는 그룹 칸의 [기본 ▾]) `PC-373`
+                  const canBase = v === "base" || drafts.length === 0;
+                  // 공용 코드는 **기본으로만** — 확장 항목을 내지 않는다 `PC-374`
+                  const common = isCommonSO(a.s, a.o);
                   return (
                     <div key={soKey(a.s, a.o)} style={{ display: "flex", alignItems: "center", gap: 6, borderRadius: 9, padding: "7px 10px", border: `1px solid ${tone.bd}`, background: tone.bg }}>
                       <Sc k="S" v={a.s} small /><Sc k="O" v={a.o} small />
+                      {common && <span title="공용 코드 — 확장 언어 그룹에서는 기본으로만 설정할 수 있습니다" style={{ ...S.tag, fontSize: 9.5, padding: "0 5px", background: "#ecfdf5", color: "#047857", fontWeight: 700, flexShrink: 0 }}>공용</span>}
                       {ext ? (
                         <span style={{ fontSize: 11, color: tone.fg, marginLeft: "auto" }} title={`${ext.company} 그룹(기본 O${ext.base})에 든 코드`}>{ext.company} 그룹</span>
                       ) : (
                         <select aria-label={`S${a.s}/O${a.o} 지정`} value={v} onChange={(e) => setRole(a, e.target.value)}
                           style={{ ...S.input, width: "auto", flex: 1, minWidth: 0, padding: "3px 6px", fontSize: 12, fontWeight: 700, color: tone.fg, background: "#fff" }}>
-                          <option value="">지정 안 함</option>
-                          <option value="base">기본</option>
-                          {bases.map((g) => <option key={g._k} value={`ext:${g._k}`}>확장 · 기본 O{g.base}</option>)}
+                          <option value="">단독 (전용 코드)</option>
+                          {canBase && <option value="base">기본</option>}
+                          {/* 옛 저장값으로 이미 확장에 든 공용 코드는 그 항목만 남겨 보인다(저장 때 막힘) */}
+                          {(common ? bases.filter((g) => v === `ext:${g._k}`) : bases).map((g) => <option key={g._k} value={`ext:${g._k}`}>확장 · 기본 O{g.base}</option>)}
                         </select>
                       )}
                     </div>
@@ -323,7 +399,7 @@ function GroupBlock({ d, setD, cands, allocated }: {
     ext[k - 1] = o; ext[p] = q;
     return { ...x, ext };
   });
-  // 마지막 확장 코드 빼기 — 중간을 비우면 뒤 슬롯 번호가 당겨지므로 마지막만(뺀 코드는 지정 안 된 코드가 된다 — 다른 그룹에 넣어야 저장된다)
+  // 마지막 확장 코드 빼기 — 중간을 비우면 뒤 슬롯 번호가 당겨지므로 마지막만(뺀 코드는 단독(전용) 코드가 된다 `PC-373`)
   const dropLast = () => setD((x) => {
     const o = x.ext[x.ext.length - 1]; const langs = { ...x.langs };
     if (o != null) delete langs[String(o)];
@@ -383,7 +459,7 @@ function GroupBlock({ d, setD, cands, allocated }: {
               <InfoTip title="코드 · 역할 · 언어" width={360}>
                 기본 코드는 <b>1개</b>로 슬롯 1~4, 나머지는 확장 — 확장 1 = 5~8 · 확장 2 = 9~12 … 입니다. 기본도 다른 코드로 바꿀 수 있습니다(나머지는 확장).
                 확장 코드끼리 순서를 바꾸면 <b>언어는 코드를 따라갑니다</b>.
-                코드를 넣고 빼는 것은 위 <b>코드 지정</b>에서 합니다. 여기서는 마지막 확장만 뺄 수 있습니다(뒤 번호가 당겨지지 않게) — 뺀 코드는 「지정 안 함」이 됩니다.
+                코드를 넣고 빼는 것은 위 <b>코드 지정</b>에서 합니다. 여기서는 마지막 확장만 뺄 수 있습니다(뒤 번호가 당겨지지 않게) — 뺀 코드는 단독(전용) 코드가 됩니다.
               </InfoTip>
             </div>
             {[1, 2, 3, 4].map((i) => <div key={i} style={{ padding: "7px 6px" }}>슬롯 {i}</div>)}
@@ -400,12 +476,13 @@ function GroupBlock({ d, setD, cands, allocated }: {
                       <Sc k="S" v={sec} small /><Sc k="O" v={o} small />
                       {r.pos === 0 ? (
                         // 기본 — 다른 코드로 바꿀 수 있다(확장 코드 · 그룹 밖 코드) · 기본은 1개 `PC-362`
+                        //   지금 기본이 **공용 코드**면 바꾸지 않는다 — 바꾸면 공용 코드가 확장이 되므로 `PC-374`
                         <select aria-label={`S${sec}/O${o} 기본 코드 바꾸기`} value={String(o)} onChange={(e) => setBase(+e.target.value)}
-                          title="다른 코드를 기본으로 — 확장 코드면 자리를 맞바꾸고, 그룹 밖 코드면 지금 기본이 마지막 확장이 됩니다"
+                          title={isCommonSO(sec, o) ? "공용 코드는 기본으로만 설정할 수 있어 다른 코드로 바꾸지 않습니다(바꾸면 이 코드가 확장이 됩니다)" : "다른 코드를 기본으로 — 확장 코드면 자리를 맞바꾸고, 단독 코드면 지금 기본이 마지막 확장이 됩니다"}
                           style={{ ...S.input, padding: "3px 6px", fontSize: 12, minWidth: 0, flex: 1, background: tone.bg, color: tone.fg, fontWeight: 700 }}>
-                          <option value={String(o)}>기본</option>
-                          {d.ext.map((x, i) => <option key={x} value={String(x)}>기본 ← O{x} (확장 {i + 1})</option>)}
-                          {cands.map((a) => <option key={a.o} value={String(a.o)}>기본 ← O{a.o}</option>)}
+                          <option value={String(o)}>기본{isCommonSO(sec, o) ? " · 공용" : ""}</option>
+                          {!isCommonSO(sec, o) && d.ext.map((x, i) => <option key={x} value={String(x)}>기본 ← O{x} (확장 {i + 1})</option>)}
+                          {!isCommonSO(sec, o) && cands.map((a) => <option key={a.o} value={String(a.o)}>기본 ← O{a.o}</option>)}
                         </select>
                       ) : (
                         <select aria-label={`S${sec}/O${o} 역할`} value={String(r.pos)}
@@ -423,7 +500,8 @@ function GroupBlock({ d, setD, cands, allocated }: {
                         onChange={(e) => { if (e.target.value) putExt(+e.target.value, Math.min(r.pos, nextK)); }}
                         style={{ ...S.input, padding: "3px 6px", fontSize: 12, minWidth: 0, flex: 1, color: "#b45309", borderColor: "#fde68a" }}>
                         <option value="">코드 선택</option>
-                        {cands.map((a) => <option key={a.o} value={String(a.o)}>S{a.s} · O{a.o}</option>)}
+                        {/* 확장 자리에는 공용 코드를 넣지 않는다 `PC-374` */}
+                        {cands.filter((a) => !isCommonSO(a.s, a.o)).map((a) => <option key={a.o} value={String(a.o)}>S{a.s} · O{a.o}</option>)}
                       </select>
                       <span style={{ ...S.tag, fontSize: 9.5, background: tone.bg, color: tone.fg, fontWeight: 700, flexShrink: 0 }}>확장 {r.pos}</span>
                     </>
