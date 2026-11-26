@@ -208,10 +208,51 @@ function HolderCard({ company, allocated, me }: { company: Company; allocated: {
 //   (옛 「할당된 코드는 모두 기본 또는 확장이어야 저장」 `PC-363` · 「기본 코드마다 그룹 여러 개」 `PC-357` 를 바꿈).
 //   옛 규칙으로 그룹이 둘 이상 저장된 고객사는 데이터를 건드리지 않고, 하나만 남길 때까지 저장을 막는다.
 type Alloc = { s: number; o: number; k?: string };
-const TOO_MANY = (bases: string) => `기본 코드는 고객사당 1개입니다 — 지금 기본 ${bases}. 하나만 기본으로 두고 나머지는 확장 또는 단독으로 바꾸세요.`;
+const TOO_MANY = (bases: string) => `기본 코드는 고객사당 1개입니다 — 지금 기본 ${bases}. 하나만 남기고 나머지 그룹은 코드 지정에서 그 기본 코드를 단독으로 바꿔 지우세요.`;
 type DG = Draft & { _k: string; _new?: boolean };
 const kindOfAlloc = (a?: Alloc) => (a?.k ? codeKind(a.k, a.s) : undefined);
 const soKey = (s: number | null, o: number) => `${s ?? 0}/${o}`;
+
+/** 언어 값 정리 — 공백뿐이거나 글자 · 숫자가 하나도 없는 값(기호만)은 **없는 것**으로 본다 `PC-375` */
+const normLang = (v?: string) => { const t = (v ?? "").trim(); return /[\p{L}\p{N}]/u.test(t) ? t : ""; };
+/** 슬롯 번호 → 언어(언어가 있는 칸만) — 기본 1~4 · 확장 k {4k+1}~{4k+4} · 코드 없는 자리(#pos) 포함 */
+function slotLangs(g: Pick<LangGroup, "base" | "ext" | "langs">): Map<number, string> {
+  const m = new Map<number, string>();
+  const owners = [g.base, ...g.ext];
+  owners.forEach((o, pos) => {
+    if (o == null) return;
+    four(g.langs[String(o)]).forEach((v, i) => { const n = normLang(v); if (n) m.set(pos * 4 + 1 + i, n); });
+  });
+  for (const [k, v] of Object.entries(g.langs)) {
+    if (!k.startsWith("#")) continue;
+    const pos = +k.slice(1);
+    if (pos < owners.length && owners[pos] != null) continue;
+    four(v).forEach((x, i) => { const n = normLang(x); if (n && !m.has(pos * 4 + 1 + i)) m.set(pos * 4 + 1 + i, n); });
+  }
+  return m;
+}
+/** 저장된 그룹이 그대로인가 → 어긋난 첫 곳(없으면 null)
+ *  ① **저장된 코드(기본 · 확장)는 빼거나 자리를 바꾸지 못한다** — 언어 확장 코드는 기획 때 펌웨어와 정한 것이라
+ *     언어가 없어도 잠근다 `PC-376`(옛 「언어 없는 확장은 빼기」 `PC-375` 를 바꿈). 새 코드는 뒤에 덧붙일 수 있다.
+ *  ② **저장된 언어는 고치거나 지우지 못한다**(슬롯 번호도 그대로) `PC-375`
+ *  옛 규칙으로 그룹이 둘 이상 저장된 고객사는 그룹을 통째로 지우는 것만 허용한다(하나만 남기기 `PC-373`). */
+type Broken = { kind: "code"; g: LangGroup; o: number } | { kind: "lang"; g: LangGroup; slot: number; lang: string };
+function brokenLang(saved: LangGroup[], ds: { id?: number; section?: number | null; base: number | null; ext: number[]; langs: Record<string, string[]> }[]): Broken | null {
+  for (const sg of saved) {
+    const dg = ds.find((d) => d.id === sg.id);
+    // 옛 규칙으로 그룹이 둘 이상이면 나머지 그룹은 통째로 지울 수 있다 — 단 **하나는 남긴다** `PC-373` `PC-376`
+    if (!dg) { if (saved.length > 1 && ds.some((d) => saved.some((x) => x.id === d.id))) continue; return { kind: "code", g: sg, o: sg.base ?? 0 }; }
+    // 옛 저장값으로 확장에 든 공용 코드(`PC-374` 이전)는 빼서 정리할 수 있게 비교에서 뺀다 — 저장된 언어 확인(②)은 그대로
+    const so = [sg.base, ...sg.ext.filter((o) => !isCommonSO(sg.section, o))]; const dO = [dg.base, ...dg.ext.filter((o) => !isCommonSO(dg.section ?? sg.section, o))];
+    for (let p = 0; p < so.length; p++) if (so[p] != null && so[p] !== dO[p]) return { kind: "code", g: sg, o: so[p]! };
+    const dm = slotLangs(dg);
+    for (const [slot, lang] of slotLangs(sg)) if (dm.get(slot) !== lang) return { kind: "lang", g: sg, slot, lang };
+  }
+  return null;
+}
+const LOCK_MSG = (b: Broken) => b.kind === "code"
+  ? `확장 언어 그룹에 저장된 코드는 빼거나 바꿀 수 없습니다 — O${b.o} (기본 S${b.g.section ?? "-"}/O${b.g.base} 그룹). 새로 넣은 코드만 저장 전에 뺄 수 있습니다.`
+  : `저장된 언어는 고치거나 지울 수 없습니다 — 슬롯 ${b.slot} ${b.lang} (기본 S${b.g.section ?? "-"}/O${b.g.base} 그룹).`;
 
 function LangGroupCard({ company, allocated, me }: { company: Company; allocated: Alloc[]; me: string }) {
   useLangGroups();
@@ -227,8 +268,10 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
   const codesOf = (x: DG[]) => new Set(x.flatMap((g) => groupOwners(g).map((o) => soKey(g.section, o))));
   const inDrafts = codesOf(drafts);
   const free = allocated.filter((a) => !inDrafts.has(soKey(a.s, a.o)) && !otherCo.has(soKey(a.s, a.o)));
-  const totalLangs = drafts.reduce((n, g) => n + Object.values(g.langs).reduce((m, v) => m + four(v).filter((x) => x.trim()).length, 0), 0);
+  const totalLangs = drafts.reduce((n, g) => n + slotLangs(g).size, 0);
   const upd = (k: string) => (f: (x: DG) => DG) => { setErr(""); setDrafts((ds) => ds.map((x) => (x._k === k ? f(x) : x))); };
+  // 이 바꿈이 저장된 언어를 건드리지 않는가 — 건드리면 그 항목을 내지 않는다 `PC-375`
+  const keepsLangs = (next: DG[]) => !brokenLang(saved, next);
 
   // 코드 지정 — 모든 할당 코드를 펼쳐 놓고 코드마다 바로 고른다 `PC-364`
   //   "" = 단독(전용 코드) · "base" = 기본(그 코드로 그룹이 생긴다) · "ext:{그룹}" = 그 기본 코드 그룹의 확장
@@ -241,30 +284,28 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
     }
     return "";
   };
-  const setRole = (a: Alloc, v: string) => {
-    setErr("");
-    setDrafts((ds0) => {
-      let ds = ds0.map((g) => ({ ...g, ext: [...g.ext], langs: { ...g.langs } }));
-      let carry: string[] | undefined;
-      // 1) 지금 자리에서 뺀다
-      const asBase = ds.find((g) => g.section === a.s && g.base === a.o);
-      if (asBase) { carry = asBase.langs[String(a.o)]; ds = ds.filter((g) => g !== asBase); }
-      for (const g of ds) {
-        if (g.section !== a.s) continue;
-        const p = g.ext.indexOf(a.o);
-        if (p >= 0) { carry = g.langs[String(a.o)]; g.ext.splice(p, 1); delete g.langs[String(a.o)]; }
-      }
-      // 2) 새 자리에 넣는다
-      if (v === "base") {
-        ds.push({ companyId: company.id, company: company.name, kind: kindOfAlloc(a), section: a.s, base: a.o, langCount: 4, ext: [],
-          langs: carry ? { [String(a.o)]: carry } : {}, _k: `n${Date.now()}${a.o}`, _new: true });
-      } else if (v.startsWith("ext:")) {
-        const g = ds.find((x) => x._k === v.slice(4));
-        if (g) { g.ext.push(a.o); if (carry) g.langs[String(a.o)] = carry; }
-      }
-      return ds.sort((x, y) => (x.section ?? 0) - (y.section ?? 0) || (x.base ?? 0) - (y.base ?? 0));
-    });
+  const applyRole = (ds0: DG[], a: Alloc, v: string): DG[] => {
+    let ds = ds0.map((g) => ({ ...g, ext: [...g.ext], langs: { ...g.langs } }));
+    let carry: string[] | undefined;
+    // 1) 지금 자리에서 뺀다
+    const asBase = ds.find((g) => g.section === a.s && g.base === a.o);
+    if (asBase) { carry = asBase.langs[String(a.o)]; ds = ds.filter((g) => g !== asBase); }
+    for (const g of ds) {
+      if (g.section !== a.s) continue;
+      const p = g.ext.indexOf(a.o);
+      if (p >= 0) { carry = g.langs[String(a.o)]; g.ext.splice(p, 1); delete g.langs[String(a.o)]; }
+    }
+    // 2) 새 자리에 넣는다
+    if (v === "base") {
+      ds.push({ companyId: company.id, company: company.name, kind: kindOfAlloc(a), section: a.s, base: a.o, langCount: 4, ext: [],
+        langs: carry ? { [String(a.o)]: carry } : {}, _k: `n${a.s}_${a.o}`, _new: true });
+    } else if (v.startsWith("ext:")) {
+      const g = ds.find((x) => x._k === v.slice(4));
+      if (g) { g.ext.push(a.o); if (carry) g.langs[String(a.o)] = carry; }
+    }
+    return ds.sort((x, y) => (x.section ?? 0) - (y.section ?? 0) || (x.base ?? 0) - (y.base ?? 0));
   };
+  const setRole = (a: Alloc, v: string) => { setErr(""); setDrafts((ds) => applyRole(ds, a, v)); };
   const cancel = () => { setDrafts(fromStore()); setErr(""); };
   const save = () => {
     const low = drafts.find((g) => g.langCount < 1);
@@ -279,12 +320,17 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
     // 공용 코드는 기본으로만 — 확장에 든 공용 코드가 있으면(옛 저장값) 저장하지 않는다 `PC-374`
     const badExt = drafts.flatMap((g) => g.ext.filter((o) => isCommonSO(g.section, o)).map((o) => ({ s: g.section, o })))[0];
     if (badExt) { const msg = COMMON_EXT_MSG(badExt.s, badExt.o) + " 기본 또는 단독으로 바꾸세요."; setErr(msg); alert(msg); return; }
-    const keepIds = new Set(drafts.filter((g) => g.id != null).map((g) => g.id));
+    // 공백뿐 · 기호만인 언어는 무시하고(빈 칸으로) 저장한다 `PC-375`
+    const clean = drafts.map((g) => ({ ...g, langs: Object.fromEntries(Object.entries(g.langs).map(([k, v]) => [k, four(v).map(normLang)])) }));
+    // 저장된 언어는 고치거나 지우지 못한다 — 화면에서 막지만 저장 때 한 번 더 본다 `PC-375`
+    const broken = brokenLang(saved, clean);
+    if (broken) { const msg = LOCK_MSG(broken); setErr(msg); alert(msg); return; }
+    const keepIds = new Set(clean.filter((g) => g.id != null).map((g) => g.id));
     for (const g of saved) if (!keepIds.has(g.id)) {
       deleteLangGroup(g.id);
       logActivity("company", `확장 언어 그룹 삭제 · ${company.name} · 기본 S${g.section}/O${g.base}`, me);
     }
-    for (const { _k, _new, ...g } of drafts) {   // eslint-disable-line @typescript-eslint/no-unused-vars
+    for (const { _k, _new, ...g } of clean) {   // eslint-disable-line @typescript-eslint/no-unused-vars
       const keep = new Set(groupOwners(g).map(String));
       const langs = Object.fromEntries(Object.entries(g.langs).filter(([k]) => k.startsWith("#") || keep.has(k)));
       const rec = saveLangGroup({ ...g, langs, company: company.name });
@@ -336,6 +382,13 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
                   const canBase = v === "base" || drafts.length === 0;
                   // 공용 코드는 **기본으로만** — 확장 항목을 내지 않는다 `PC-374`
                   const common = isCommonSO(a.s, a.o);
+                  // 저장된 그룹의 코드 · 언어를 건드리는 항목은 내지 않는다 — 저장한 기본 · 확장 코드는 단독 · 다른 역할로 못 바꾼다 `PC-375` `PC-376`
+                  const opts = [
+                    { v: "", label: "단독 (전용 코드)" },
+                    ...(canBase ? [{ v: "base", label: "기본" }] : []),
+                    ...(common ? bases.filter((g) => v === `ext:${g._k}`) : bases).map((g) => ({ v: `ext:${g._k}`, label: `확장 · 기본 O${g.base}` })),
+                  ].filter((x) => x.v === v || keepsLangs(applyRole(drafts, a, x.v)));
+                  const fixed = opts.length === 1 && saved.length > 0 && !!v;
                   return (
                     <div key={soKey(a.s, a.o)} style={{ display: "flex", alignItems: "center", gap: 6, borderRadius: 9, padding: "7px 10px", border: `1px solid ${tone.bd}`, background: tone.bg }}>
                       <Sc k="S" v={a.s} small /><Sc k="O" v={a.o} small />
@@ -344,11 +397,10 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
                         <span style={{ fontSize: 11, color: tone.fg, marginLeft: "auto" }} title={`${ext.company} 그룹(기본 O${ext.base})에 든 코드`}>{ext.company} 그룹</span>
                       ) : (
                         <select aria-label={`S${a.s}/O${a.o} 지정`} value={v} onChange={(e) => setRole(a, e.target.value)}
-                          style={{ ...S.input, width: "auto", flex: 1, minWidth: 0, padding: "3px 6px", fontSize: 12, fontWeight: 700, color: tone.fg, background: "#fff" }}>
-                          <option value="">단독 (전용 코드)</option>
-                          {canBase && <option value="base">기본</option>}
-                          {/* 옛 저장값으로 이미 확장에 든 공용 코드는 그 항목만 남겨 보인다(저장 때 막힘) */}
-                          {(common ? bases.filter((g) => v === `ext:${g._k}`) : bases).map((g) => <option key={g._k} value={`ext:${g._k}`}>확장 · 기본 O{g.base}</option>)}
+                          title={fixed ? "확장 언어 그룹에 저장된 코드라 바꿀 수 없습니다" : undefined}
+                          style={{ ...S.input, width: "auto", flex: 1, minWidth: 0, padding: "3px 6px", fontSize: 12, fontWeight: 700, color: tone.fg, background: fixed ? "#f3f4f6" : "#fff" }}>
+                          {/* 옛 저장값으로 이미 확장에 든 공용 코드는 그 항목만 남겨 보인다(저장 때 막힘) `PC-374` */}
+                          {opts.map((x) => <option key={x.v} value={x.v}>{x.label}{fixed ? " 🔒" : ""}</option>)}
                         </select>
                       )}
                     </div>
@@ -360,7 +412,9 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
             {drafts.map((g) => {
               const others = codesOf(drafts.filter((x) => x._k !== g._k));
               const cands = allocated.filter((a) => a.s === (g.section ?? 0) && !others.has(soKey(a.s, a.o)) && !otherCo.has(soKey(a.s, a.o)) && !groupOwners(g).includes(a.o));
-              return <GroupBlock key={g._k} d={g} setD={upd(g._k)} cands={cands} allocated={allocated} />;
+              const sg = saved.find((x) => x.id === g.id);
+              return <GroupBlock key={g._k} d={g} setD={upd(g._k)} cands={cands} allocated={allocated}
+                savedSlots={sg ? slotLangs(sg) : new Map()} keeps={(next) => keepsLangs(drafts.map((x) => (x._k === g._k ? next : x)))} />;
             })}
           </>
         )}
@@ -380,39 +434,44 @@ function LangGroupCard({ company, allocated, me }: { company: Company; allocated
 }
 
 // 그룹 하나 — 기본 코드 · 필요 언어 수 · 코드 · 역할 · 언어 표 (코드 넣고 빼기는 위 「코드 지정」에서 `PC-364` · 저장은 카드 아래 한 번에 `PC-363`)
-function GroupBlock({ d, setD, cands, allocated }: {
+function GroupBlock({ d, setD, cands, allocated, savedSlots, keeps }: {
   d: DG; setD: (f: (x: DG) => DG) => void; cands: Alloc[]; allocated: Alloc[];
+  savedSlots: Map<number, string>;    // 저장된 언어(슬롯 번호 → 언어) — 고치거나 지우지 못한다 `PC-375`
+  keeps: (next: DG) => boolean;       // 이 바꿈이 저장된 언어를 그대로 두는가
 }) {
   const sec = d.section ?? 0;
   const rows = langRows(d);   // pos 0 = 기본 · pos k = 확장 k · 코드 없는 자리(#pos)는 언어가 있을 때만 보인다
   const hasLang = (key: string) => four(d.langs[key]).some((x) => x.trim());
   const visible = rows.filter((r) => r.owner != null || hasLang(r.key));
-  const allLangs = rows.flatMap((r) => four(d.langs[r.key]).map((l, i) => ({ slot: r.start + i, lang: l.trim(), owner: r.owner }))).filter((x) => x.lang);
+  const allLangs = rows.flatMap((r) => four(d.langs[r.key]).map((l, i) => ({ slot: r.start + i, lang: normLang(l), owner: r.owner }))).filter((x) => x.lang);
   const setLang = (key: string, i: number, v: string) => setD((x) => {
     const row = four(x.langs[key]); row[i] = v;
     return { ...x, langs: { ...x.langs, [key]: row } };
   });
   // 확장 코드의 순서 바꾸기 — 다른 확장 코드와 맞바꾼다 · 언어는 코드를 따라간다 `PC-346`
-  const swapExt = (o: number, k: number) => setD((x) => {
+  //   언어가 저장된 코드는 슬롯 번호가 바뀌므로 맞바꾸지 않는다(항목을 내지 않는다) `PC-375`
+  const swapF = (x: DG, o: number, k: number): DG => {
     const ext = [...x.ext]; const p = ext.indexOf(o); const q = ext[k - 1];
     if (p < 0 || q == null) return x;
     ext[k - 1] = o; ext[p] = q;
     return { ...x, ext };
-  });
-  // 마지막 확장 코드 빼기 — 중간을 비우면 뒤 슬롯 번호가 당겨지므로 마지막만(뺀 코드는 단독(전용) 코드가 된다 `PC-373`)
-  const dropLast = () => setD((x) => {
-    const o = x.ext[x.ext.length - 1]; const langs = { ...x.langs };
-    if (o != null) delete langs[String(o)];
-    return { ...x, ext: x.ext.slice(0, -1), langs };
-  });
+  };
+  // 확장 코드 빼기 — **저장 전에 새로 넣은 확장 코드**만 뺄 수 있다(저장된 코드는 언어가 없어도 못 뺀다 `PC-376` · 옛 「언어 없는 확장」 `PC-375` · 「마지막만」 `PC-346`)
+  //   뺀 코드는 단독(전용) 코드가 된다 `PC-373`
+  const dropF = (x: DG, o: number): DG => {
+    const langs = { ...x.langs }; delete langs[String(o)];
+    return { ...x, ext: x.ext.filter((v) => v !== o), langs };
+  };
   // 기본 코드 바꾸기 — 그룹의 기본은 늘 **1개**, 나머지는 확장 `PC-362`
   //   확장 코드를 고르면 둘이 자리를 맞바꾸고, 그룹 밖 코드를 고르면 옛 기본은 마지막 확장으로 간다 · 언어는 코드를 따라간다
-  const setBase = (o: number) => setD((x) => {
+  //   저장된 그룹이면 기본 · 확장 자리가 잠겨 있어 바꾸지 않는다 `PC-376`
+  const baseF = (x: DG, o: number): DG => {
     if (o === x.base || x.base == null) return x;
     const old = x.base; const ext = [...x.ext]; const p = ext.indexOf(o);
     if (p >= 0) ext[p] = old; else ext.push(old);
     return { ...x, base: o, ext, kind: kindOfAlloc(allocated.find((a) => a.s === (x.section ?? 0) && a.o === o)) };
-  });
+  };
+  const setBase = (o: number) => setD((x) => baseF(x, o));
   // 확장 k 자리에 코드 넣기 — 빈 다음 자리면 덧붙이고, 이미 코드가 있는 자리면 그 코드를 빼고 바꾼다
   const putExt = (o: number, k: number) => setD((x) => {
     const ext = [...x.ext]; const langs = { ...x.langs };
@@ -457,16 +516,15 @@ function GroupBlock({ d, setD, cands, allocated }: {
             <div style={{ padding: "7px 10px", display: "flex", alignItems: "center", gap: 4 }}>
               코드 · 역할
               <InfoTip title="코드 · 역할 · 언어" width={360}>
-                기본 코드는 <b>1개</b>로 슬롯 1~4, 나머지는 확장 — 확장 1 = 5~8 · 확장 2 = 9~12 … 입니다. 기본도 다른 코드로 바꿀 수 있습니다(나머지는 확장).
-                확장 코드끼리 순서를 바꾸면 <b>언어는 코드를 따라갑니다</b>.
-                코드를 넣고 빼는 것은 위 <b>코드 지정</b>에서 합니다. 여기서는 마지막 확장만 뺄 수 있습니다(뒤 번호가 당겨지지 않게) — 뺀 코드는 단독(전용) 코드가 됩니다.
+                기본 코드는 <b>1개</b>로 슬롯 1~4, 나머지는 확장 — 확장 1 = 5~8 · 확장 2 = 9~12 … 입니다.
+                언어 확장 코드는 펌웨어와 정한 것이라 <b>저장한 코드는 빼거나 순서 · 기본을 바꿀 수 없습니다</b>. 새로 넣은 코드만 저장 전에 뺄 수 있습니다.
+                빈 슬롯에는 언어를 넣고 저장 전까지 고칠 수 있습니다. <b>저장한 언어는 고치거나 지울 수 없습니다</b>(🔒). 공백이나 기호만 넣은 칸은 저장할 때 무시합니다.
               </InfoTip>
             </div>
             {[1, 2, 3, 4].map((i) => <div key={i} style={{ padding: "7px 6px" }}>슬롯 {i}</div>)}
           </div>
           {visible.map((r) => {
             const o = r.owner;
-            const isLast = r.pos >= 1 && r.pos === d.ext.length;
             const tone = r.pos === 0 ? { bg: "#eef6ff", fg: "#2563eb" } : { bg: "#ecfeff", fg: "#0e7490" };
             return (
               <div key={r.key} style={{ display: "grid", gridTemplateColumns: COLS, alignItems: "center", borderTop: "1px solid #eef0f4" }}>
@@ -481,15 +539,16 @@ function GroupBlock({ d, setD, cands, allocated }: {
                           title={isCommonSO(sec, o) ? "공용 코드는 기본으로만 설정할 수 있어 다른 코드로 바꾸지 않습니다(바꾸면 이 코드가 확장이 됩니다)" : "다른 코드를 기본으로 — 확장 코드면 자리를 맞바꾸고, 단독 코드면 지금 기본이 마지막 확장이 됩니다"}
                           style={{ ...S.input, padding: "3px 6px", fontSize: 12, minWidth: 0, flex: 1, background: tone.bg, color: tone.fg, fontWeight: 700 }}>
                           <option value={String(o)}>기본{isCommonSO(sec, o) ? " · 공용" : ""}</option>
-                          {!isCommonSO(sec, o) && d.ext.map((x, i) => <option key={x} value={String(x)}>기본 ← O{x} (확장 {i + 1})</option>)}
-                          {!isCommonSO(sec, o) && cands.map((a) => <option key={a.o} value={String(a.o)}>기본 ← O{a.o}</option>)}
+                          {!isCommonSO(sec, o) && d.ext.filter((x) => keeps(baseF(d, x))).map((x) => <option key={x} value={String(x)}>기본 ← O{x} (확장 {d.ext.indexOf(x) + 1})</option>)}
+                          {!isCommonSO(sec, o) && cands.filter((a) => keeps(baseF(d, a.o))).map((a) => <option key={a.o} value={String(a.o)}>기본 ← O{a.o}</option>)}
                         </select>
                       ) : (
                         <select aria-label={`S${sec}/O${o} 역할`} value={String(r.pos)}
-                          onChange={(e) => (e.target.value === "" ? dropLast() : swapExt(o, +e.target.value))}
+                          onChange={(e) => { const v = e.target.value; setD((x) => (v === "" ? dropF(x, o) : swapF(x, o, +v))); }}
                           style={{ ...S.input, padding: "3px 6px", fontSize: 12, minWidth: 0, flex: 1, background: tone.bg, color: tone.fg, fontWeight: 700 }}>
-                          {d.ext.map((_, i) => <option key={i} value={String(i + 1)}>확장 {i + 1}</option>)}
-                          {isLast && <option value="">— 빼기</option>}
+                          {/* 저장된 언어의 슬롯을 바꾸는 항목은 내지 않는다 `PC-375` */}
+                          {d.ext.map((_, i) => i + 1).filter((k) => k === r.pos || keeps(swapF(d, o, k))).map((k) => <option key={k} value={String(k)}>확장 {k}</option>)}
+                          {keeps(dropF(d, o)) && <option value="">— 빼기</option>}
                         </select>
                       )}
                     </>
@@ -507,13 +566,21 @@ function GroupBlock({ d, setD, cands, allocated }: {
                     </>
                   )}
                 </div>
-                {four(d.langs[r.key]).map((v, i) => (
-                  <div key={i} style={{ padding: "5px 6px", display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ fontSize: 10.5, color: "#9ca3af", fontFamily: "ui-monospace,monospace", minWidth: 16, textAlign: "right" }}>{r.start + i}</span>
-                    <input value={v} placeholder="지정된 언어 없음" aria-label={`${o != null ? `S${sec}/O${o}` : `확장 ${r.pos}`} 슬롯 ${r.start + i} 언어`}
-                      onChange={(e) => setLang(r.key, i, e.target.value)} style={{ ...S.input, padding: "5px 7px", fontSize: 12 }} />
-                  </div>
-                ))}
+                {four(d.langs[r.key]).map((v, i) => {
+                  // 저장된 언어는 잠근다 — 고치거나 지우지 못한다(빈 칸에 새로 넣는 것만) `PC-375`
+                  const locked = savedSlots.has(r.start + i);
+                  return (
+                    <div key={i} style={{ padding: "5px 6px", display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ fontSize: 10.5, color: "#9ca3af", fontFamily: "ui-monospace,monospace", minWidth: 16, textAlign: "right" }}>{r.start + i}</span>
+                      <input value={v} placeholder="지정된 언어 없음" readOnly={locked} aria-readonly={locked}
+                        aria-label={`${o != null ? `S${sec}/O${o}` : `확장 ${r.pos}`} 슬롯 ${r.start + i} 언어${locked ? " (저장됨 · 고칠 수 없음)" : ""}`}
+                        title={locked ? "저장된 언어는 고치거나 지울 수 없습니다" : undefined}
+                        onChange={(e) => { if (!locked) setLang(r.key, i, e.target.value); }}
+                        style={{ ...S.input, padding: "5px 7px", fontSize: 12, ...(locked ? { background: "#f3f4f6", color: "#374151", cursor: "not-allowed" } : {}) }} />
+                      {locked && <span aria-hidden style={{ fontSize: 10, flexShrink: 0 }}>🔒</span>}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
